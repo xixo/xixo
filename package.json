@@ -1,0 +1,11 @@
+{
+  "name": "@xixo/xixo",
+  "version": "1.0.0",
+  "description": "code for everyone",
+  "repository": "https://github.com/xixo/xixo",
+  "license": "GPL-3.0",
+  "dependencies": {
+    "stream-chain": "^2.2.1",
+    "stream-json": "^1.5.0"
+  }
+}
