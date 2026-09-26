@@ -156,15 +156,82 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
     end
   end
 
-  test "a video has a poster, and an audio file does not pretend to" do
+  test "a video has a poster, and an audio file has its waveform" do
     assert Thumbnail.available_for?("video/mp4")
-    assert_not Thumbnail.available_for?("audio/mp4")
+    assert Thumbnail.available_for?("audio/mp4")
 
     Tenant.switch(@tenant) do
-      bytes = Thumbnail.for(reference_at("clip.mp4"), size: "medium")
+      %w[clip.mp4 tone.m4a].each do |key|
+        bytes = Thumbnail.for(reference_at(key), size: "medium")
 
-      assert bytes.bytesize.positive?
-      assert_equal "\xFF\xD8".b, bytes[0, 2].b, "a jpeg, not whatever ffmpeg felt like"
+        assert bytes.bytesize.positive?
+        assert_equal "\xFF\xD8".b, bytes[0, 2].b, "#{key} renders a jpeg, not whatever ffmpeg felt like"
+      end
     end
+  end
+
+  test "a recording is measured for loudness, peak, dynamics and spectrum, and the prompt hears it" do
+    analyze_feed_at "standup.m4a"
+
+    Tenant.switch(@tenant) do
+      signal = steps_at("standup.m4a").dig("signal", "result")
+
+      assert_operator signal["loudness"], :<, 0
+      assert_operator signal["peak"], :<=, 0
+      assert signal["range"].present?
+      assert_operator signal["centroid"], :>, 0
+      assert signal["flatness"].present?
+      assert_not signal["silent_throughout"]
+
+      prompt = Analyzer::Media.new(feed_at("standup.m4a"), analysis: analysis_at("standup.m4a")).summary_prompt
+      assert_match(/Sound: \w+ dynamics, \w+ brightness, \w+ texture\./, prompt)
+      assert_match(/Loudness: -[\d.]+ LUFS, peaking at -?[\d.]+ dBFS/, prompt)
+    end
+  end
+
+  test "a pure tone and speech are told apart by texture" do
+    analyze_feed_at "tone.m4a"
+    analyze_feed_at "standup.m4a"
+
+    Tenant.switch(@tenant) do
+      tone = steps_at("tone.m4a").dig("signal", "result")
+      speech = steps_at("standup.m4a").dig("signal", "result")
+
+      assert_operator tone["flatness"], :<, speech["flatness"]
+    end
+  end
+
+  test "a recording of nothing is heard as silence, and its silent span is found" do
+    silent = Dir.mktmpdir do |dir|
+      path = File.join(dir, "quiet.m4a")
+      system("ffmpeg", "-v", "error", "-f", "lavfi", "-i", "anullsrc=r=16000:cl=mono", "-t", "2", path, exception: true)
+      File.binread(path)
+    end
+    @resource.client.put_object(bucket: @bucket, key: "quiet.m4a", body: silent)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+
+    analyze_feed_at "quiet.m4a"
+
+    Tenant.switch(@tenant) do
+      signal = steps_at("quiet.m4a").dig("signal", "result")
+
+      assert signal["silent_throughout"]
+      assert_in_delta 2.0, signal["silent"], 0.2
+
+      prompt = Analyzer::Media.new(feed_at("quiet.m4a"), analysis: analysis_at("quiet.m4a")).summary_prompt
+      assert_match(/Sound: silent throughout/, prompt)
+    end
+  end
+
+  test "a file with no sound in it is not measured" do
+    @resource.client.put_object(
+      bucket: @bucket, key: "silent.mp4",
+      body: File.binread(Rails.root.join("test/fixtures/files/silent.mp4"))
+    )
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+
+    analyze_feed_at "silent.mp4"
+
+    Tenant.switch(@tenant) { assert_not steps_at("silent.mp4").key?("signal") }
   end
 end

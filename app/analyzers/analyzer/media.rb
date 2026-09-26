@@ -5,6 +5,15 @@ module Analyzer
     DEFAULT_SPAN = 3600
     DEFAULT_BINARY = "whisper-cli".freeze
     STREAMS = 8
+    TAGS = %w[title artist album_artist album date genre composer comment].freeze
+    PROBED_AFTER = Time.utc(2026, 9, 26).freeze
+    SILENCE = "-50dB".freeze
+    SHORTEST_SILENCE = 0.5
+    SILENCES = 20
+    SILENT_FLOOR = -70.0
+    DYNAMICS = [ [ 3, "steady" ], [ 10, "moderate" ], [ Float::INFINITY, "wide" ] ].freeze
+    BRIGHTNESS = [ [ 500, "dark" ], [ 2000, "middle" ], [ Float::INFINITY, "bright" ] ].freeze
+    TEXTURE = [ [ 0.05, "tonal" ], [ 0.5, "mixed" ], [ Float::INFINITY, "noisy" ] ].freeze
 
     def self.handles?(feed)
       MimeType.audio?(feed.mime) || MimeType.video?(feed.mime)
@@ -24,7 +33,9 @@ module Analyzer
 
     def analyze
       with_tempfile do |path|
-        step(:probe) { probe(path) }
+        step(:probe, after: PROBED_AFTER) { probe(path) }
+        attempt { step(:signal) { signal(path) } } if audio?
+
         if self.class.model.blank?
           analysis&.log_skip(log_context, "transcript", "no transcription model is configured")
         else
@@ -34,7 +45,7 @@ module Analyzer
     end
 
     def file_facts
-      [ super, duration_said, streams_said ].compact_blank.join("\n")
+      [ super, duration_said, streams_said, tags_said, sound_said ].compact_blank.join("\n")
     end
 
     def summary_body
@@ -44,8 +55,8 @@ module Analyzer
     SAYS = <<~SAYS.strip.freeze
       two or three sentences on what is said and who says it. Name the people,
           places, products and dates spoken rather than their category. Where nothing
-          was transcribed, say what the recording appears to be from its name and
-          length, and say plainly that nothing was heard.
+          was transcribed, say what the recording is from its name, length, tags and
+          how it sounds, and say plainly that no words were heard.
     SAYS
 
     def summary_noun
@@ -64,13 +75,14 @@ module Analyzer
                       "-show_format", "-show_streams", path)
         )
 
+        tags = parsed.dig("format", "tags").to_h.transform_keys(&:downcase)
+
         {
           "format" => parsed.dig("format", "format_name"),
           "duration" => parsed.dig("format", "duration")&.to_f&.round(2),
           "bit_rate" => parsed.dig("format", "bit_rate")&.to_i,
-          "title" => parsed.dig("format", "tags", "title"),
           "streams" => Array(parsed["streams"]).first(STREAMS).map { |stream| described(stream) }
-        }.compact
+        }.merge(TAGS.to_h { |tag| [ tag, tags[tag].to_s.squish.truncate(200).presence ] }).compact
       rescue JSON::ParserError
         raise Analyzer::Failed, "ffprobe did not describe #{reference.filename}"
       end
@@ -112,6 +124,75 @@ module Analyzer
         end
       end
 
+      def signal(path)
+        Dir.mktmpdir do |dir|
+          spectral = File.join(dir, "spectral.txt")
+          graph = [
+            "ebur128=peak=true:framelog=quiet",
+            "silencedetect=noise=#{SILENCE}:d=#{SHORTEST_SILENCE}",
+            "aformat=channel_layouts=mono",
+            "aspectralstats=measure=centroid+flatness",
+            "ametadata=mode=print:file=#{spectral}"
+          ].join(",")
+
+          _out, err, status = Open3.capture3("ffmpeg", "-hide_banner", "-nostats", "-i", path, "-vn",
+                                             "-t", self.class.span.to_s, "-af", graph, "-f", "null", "-")
+          raise Analyzer::Failed, "ffmpeg could not measure #{reference.filename}" unless status.success?
+
+          measured(err, File.exist?(spectral) ? File.foreach(spectral).to_a : [])
+        end
+      end
+
+      def measured(said, frames)
+        heard = [ duration, self.class.span ].select(&:positive?).min.to_f
+        loudness = number(said[/I:\s+(-?[\d.]+) LUFS/, 1])
+        silences = silences(said, heard)
+        centroids = series(frames, "centroid")
+        flatness = series(frames, "flatness")
+
+        found = {
+          "loudness" => loudness,
+          "range" => number(said[/LRA:\s+([\d.]+) LU/, 1]),
+          "peak" => number(said[/Peak:\s+(-?[\d.]+) dBFS/, 1]),
+          "silent" => silences.sum { |from, to| to - from }.round(2),
+          "silences" => silences.first(SILENCES),
+          "centroid" => middle(centroids)&.round,
+          "flatness" => middle(flatness)&.round(4)
+        }
+
+        found.merge("silent_throughout" => silent_throughout?(found, heard)).compact
+      end
+
+      def silences(said, heard)
+        starts = said.scan(/silence_start: (-?[\d.]+)/).flatten.map(&:to_f)
+        ends = said.scan(/silence_end: ([\d.]+)/).flatten.map(&:to_f)
+
+        starts.each_with_index.map do |from, index|
+          [ [ from, 0.0 ].max.round(2), (ends[index] || heard).round(2) ]
+        end
+      end
+
+      def silent_throughout?(found, heard)
+        return true if found["loudness"].nil? || found["loudness"] <= SILENT_FLOOR
+
+        heard.positive? && found["silent"] >= heard * 0.95
+      end
+
+      def series(frames, measure)
+        frames.filter_map do |line|
+          value = line[/\.#{measure}=(\S+)/, 1]
+          value && Float(value, exception: false)&.then { |number| number.finite? ? number : nil }
+        end
+      end
+
+      def middle(values)
+        values.empty? ? nil : values.sort[values.size / 2]
+      end
+
+      def number(value)
+        value && Float(value, exception: false)
+      end
+
       def spoken(output)
         output.to_s.lines.map(&:strip).reject(&:empty?).join("\n").truncate(MAX_TEXT)
       end
@@ -132,6 +213,37 @@ module Analyzer
         return nil unless duration.positive?
 
         "Length: #{ActiveSupport::Duration.build(duration.round).inspect}"
+      end
+
+      def tags_said
+        held = step_result(:probe).to_h
+        named = TAGS.filter_map { |tag| "#{tag.tr('_', ' ').capitalize}: #{held[tag]}" if held[tag] }
+
+        named.join("\n").presence
+      end
+
+      def sound_said
+        found = step_result(:signal).to_h
+        return nil if found.empty?
+        return "Sound: silent throughout." if found["silent_throughout"]
+
+        described = {
+          "dynamics" => banded(found["range"], DYNAMICS),
+          "brightness" => banded(found["centroid"], BRIGHTNESS),
+          "texture" => banded(found["flatness"], TEXTURE)
+        }.compact.map { |measure, band| "#{band} #{measure}" }
+
+        [
+          ("Sound: #{described.join(', ')}." if described.any?),
+          ("Loudness: #{found['loudness']} LUFS, peaking at #{found['peak']} dBFS." if found["loudness"]),
+          ("Silent for #{found['silent']} s in #{found['silences'].size} spans." if found["silent"].to_f.positive?)
+        ].compact.join("\n")
+      end
+
+      def banded(value, bands)
+        return nil if value.nil?
+
+        bands.find { |limit, _| value < limit }&.last
       end
 
       def streams_said

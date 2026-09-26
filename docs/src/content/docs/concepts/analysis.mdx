@@ -67,13 +67,21 @@ under the step `book`. The `text` step starts with those details and continues w
 text in reading order, one line per paragraph. A chapter listed in `META-INF/encryption.xml` is
 skipped, so a book sold with DRM is cataloged by its details alone.
 
+`Media` claims audio and video. The `probe` step records the length, streams, and tags such as
+title, artist, and album. For anything with a sound track, one `ffmpeg` pass records the `signal`
+step: integrated loudness and loudness range in LUFS, true peak, the silent spans, and the median
+spectral centroid and flatness. The summary prompt describes these as dynamics, brightness, and
+texture, and says when a recording is silent throughout. The `transcript` step runs `whisper-cli`
+over the first hour when `URIS_WHISPER_MODEL` names a model file.
+
 Every analyzer inherits the same sequence from `Analyzer::Base`:
 
 1. **Extract children**, if the analyzer has any and the feed is less than four levels deep. For
    example, an email's attachments become child feeds in the internal `children` store, and each is
    analyzed on its own. The analyzer stops here until every child has been analyzed. When the last
    child finishes, uris analyzes the parent again.
-2. **Derive** a thumbnail and a preview for images, video, PDFs, and pages. They are stored as
+2. **Derive** a thumbnail and a preview for images, video, audio, PDFs, and pages. Audio gets a
+   picture of its waveform. They are stored as
    references in the internal `derived` store, under the step `derived`.
 3. **Analyze** with the analyzer's own steps, such as `text`, `info`, or `listing`.
 4. **Summarize** with the inference [resource](/concepts/resources/) that serves the analyzer's role.

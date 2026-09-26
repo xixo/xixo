@@ -10,13 +10,16 @@ class Thumbnail
   PDF = "application/pdf".freeze
   POSTER_AT = "00:00:01".freeze
   CONTENT_TYPE = "image/jpeg"
+  WAVE = "0xc9a86a".freeze
+  GROUND = "0x1b2024".freeze
+  WAVE_SECONDS = 3600
 
   def self.for(reference, size: DEFAULT_SIZE)
     new(reference, size).bytes
   end
 
   def self.available_for?(mime)
-    MimeType.image?(mime) || MimeType.video?(mime) ||
+    MimeType.image?(mime) || MimeType.video?(mime) || MimeType.audio?(mime) ||
       [ PDF, MimeType::PAGE ].include?(mime.to_s)
   end
 
@@ -57,7 +60,11 @@ class Thumbnail
           case reference.mime
           when MimeType::PAGE then from_page(path, dir)
           when PDF then from_pdf(path, dir)
-          else MimeType.video?(reference.mime) ? from_video(path, dir) : from_image(path, dir)
+          else
+            if MimeType.video?(reference.mime) then from_video(path, dir)
+            elsif MimeType.audio?(reference.mime) then from_audio(path, dir)
+            else from_image(path, dir)
+            end
           end
         end
       end
@@ -101,6 +108,20 @@ class Thumbnail
       raise Unavailable, "ffmpeg rendered no frame of #{reference.filename}" unless File.size?(frame)
 
       run("vipsthumbnail", frame, "--size", "#{width}x>", "-o", "#{out}[Q=80]")
+      File.binread(out)
+    end
+
+    def from_audio(path, dir)
+      out = File.join(dir, "out.jpg")
+      shape = "#{width}x#{width / 3}"
+      graph = "[0:a]aformat=channel_layouts=mono,showwavespic=s=#{shape}:scale=sqrt:colors=#{WAVE}[wave];" \
+              "color=c=#{GROUND}:s=#{shape}[ground];[ground][wave]overlay=format=auto"
+
+      run("ffmpeg", "-v", "error", "-y", "-t", WAVE_SECONDS.to_s, "-i", path,
+          "-filter_complex", graph, "-frames:v", "1", "-q:v", "3", out)
+
+      raise Unavailable, "ffmpeg drew no waveform of #{reference.filename}" unless File.size?(out)
+
       File.binread(out)
     end
 
