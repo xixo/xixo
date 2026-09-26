@@ -16,6 +16,7 @@ x-app: &app
     - "masks.localhost:host-gateway"
     - "demo.masks.localhost:host-gateway"
     - "acme.masks.localhost:host-gateway"
+    - "mcp.localhost:host-gateway"
   volumes:
     - .:/rails
     - ${MASKS_CLIENT_DIR:-../masks/client}:/masks/client
@@ -48,6 +49,7 @@ x-env: &env
   MASKS_ISSUER_TEMPLATE: ${MASKS_ISSUER:-http://masks.localhost:12345}
   OLLAMA_URL: http://host.docker.internal:${URIS_OLLAMA_PORT:-11434}/v1
   URIS_INFERENCE_ORIGINS: http://host.docker.internal:${URIS_OLLAMA_PORT:-11434}
+  URIS_MCP_ORIGINS: http://mcp.localhost:${URIS_MCP_OAUTH_PORT:-8190}
   DEV_ALLOWED_HOSTS: .uris.localhost,uris-vite
   DEV_CLIENT_PORT: ${URIS_VITE_PORT:-8182}
   VITE_RUBY_HOST: uris-vite
@@ -150,6 +152,23 @@ services:
     depends_on:
       uris:
         condition: service_healthy
+
+  mcp-oauth:
+    image: ruby:3.4.7-slim
+    command: ["ruby", "/script/mcp_oauth_server.rb"]
+    environment:
+      MCP_OAUTH_ORIGIN: http://mcp.localhost:${URIS_MCP_OAUTH_PORT:-8190}
+      MCP_OAUTH_PORT: "8190"
+      MCP_OAUTH_LIFETIME: ${URIS_MCP_OAUTH_LIFETIME:-120}
+    ports:
+      - "${URIS_MCP_OAUTH_PORT:-8190}:8190"
+    volumes:
+      - ./script/mcp_oauth_server.rb:/script/mcp_oauth_server.rb:ro
+    healthcheck:
+      test: ["CMD", "ruby", "-rsocket", "-e", "TCPSocket.new('127.0.0.1', 8190).close"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
 
   uris-docs:
     image: node:26.0.0-alpine

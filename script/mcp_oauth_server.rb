@@ -243,9 +243,11 @@ class McpOauthServer
 end
 
 if $PROGRAM_NAME == __FILE__
+  origin = ENV.fetch("MCP_OAUTH_ORIGIN", "http://mcp.localhost:8190")
+
   McpOauthServer.new(
-    origin: ENV.fetch("MCP_OAUTH_ORIGIN", "http://host.docker.internal:8190"),
-    browser: ENV.fetch("MCP_OAUTH_BROWSER_ORIGIN", "http://localhost:8190"),
+    origin: origin,
+    browser: ENV.fetch("MCP_OAUTH_BROWSER_ORIGIN", origin),
     port: ENV.fetch("MCP_OAUTH_PORT", "8190").to_i,
     lifetime: ENV.fetch("MCP_OAUTH_LIFETIME", "120").to_i,
     subject: ENV.fetch("MCP_OAUTH_SUBJECT", "ada")
