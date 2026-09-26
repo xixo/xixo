@@ -1,23 +1,23 @@
 ---
-title: Deploy uris
-description: Run the uris image in production with Postgres, OpenSearch, storage, and a masks issuer.
+title: Self-hosting
+description: Run uris in production with Postgres, OpenSearch, storage, and a masks issuer.
 ---
 
-This guide runs uris from its container image behind a TLS-terminating reverse proxy. You need a
-host with Docker Compose, a Postgres server, a masks deployment to sign in against, and DNS for the
-names uris answers on. Step 7 uses the Ansible role in `deploy/roles/uris`, which writes and starts the
-Compose project.
+uris ships as a container image. Point it at Postgres, OpenSearch, and a masks server, and it
+migrates itself on boot.
 
-## What runs
+```sh
+docker pull ghcr.io/urisrb/uris:latest
+```
+
+## What it runs
 
 | | |
 | --- | --- |
-| Image | `ghcr.io/urisrb/uris`, built for `linux/amd64` |
-| Tags | `latest` and `main` follow the main branch. `sha-<full commit sha>` names one build. |
-| Web process | The default command, `./bin/thrust ./bin/rails server`, listening on port 80 |
+| Web process | The image's default command, `./bin/thrust ./bin/rails server`, listening on port 80 |
 | Worker process | `./bin/jobs`, from the same image |
 | Postgres | Four databases: `uris_production`, `uris_production_cache`, `uris_production_queue`, and `uris_production_cable` |
-| OpenSearch | The search index, at `OPENSEARCH_URL`. The Ansible role runs `opensearchproject/opensearch:2.11.0`. |
+| OpenSearch | The search index, at `OPENSEARCH_URL` |
 | masks | One issuer per tenant, named by `MASKS_ISSUER_TEMPLATE` |
 
 When the container runs the web command, `bin/docker-entrypoint` runs `bin/rails db:prepare`,
@@ -25,7 +25,108 @@ When the container runs the web command, `bin/docker-entrypoint` runs `bin/rails
 or migrate the four databases, create every declared [tenant](/concepts/tenants/), and declare the
 resources in `config/resources.yml` in every tenant. Any other command starts without them.
 
-## 1. Create the Postgres role
+uris stores where each file lives and what its analysis found. The bytes stay in the
+[resources](/concepts/resources/) they came from, or in the storage a file was placed in.
+
+## Image tags
+
+| Tag | Pushed on | Platforms |
+| --- | --- | --- |
+| `:main` | every push to main | amd64 |
+| `:sha-<full commit sha>` | every push to main | amd64 |
+| `:latest` | every push to main | amd64 |
+
+`:latest` follows main. Pin a `sha-` tag or a digest in production, and move it on purpose.
+
+## Example `compose.yml`
+
+```yaml
+x-uris: &uris
+  image: ghcr.io/urisrb/uris:latest
+  environment:
+    POSTGRES_HOST: postgres
+    URIS_DATABASE_PASSWORD: ...
+    OPENSEARCH_URL: http://opensearch:9200
+    SECRET_KEY_BASE: ...
+    ENCRYPTION_PRIMARY_KEY: ...
+    ENCRYPTION_DETERMINISTIC_KEY: ...
+    ENCRYPTION_KEY_DERIVATION_SALT: ...
+    URIS_TENANTS: acme
+    URIS_HOST_SUFFIX: uris.example.com
+    URIS_PUBLIC_ORIGIN: https://%{subdomain}.uris.example.com
+    MASKS_ISSUER_TEMPLATE: https://%{subdomain}.auth.example.com
+    URIS_FILESYSTEM_ROOTS: /data/files
+  volumes:
+    - storage:/rails/storage
+    - files:/data/files
+
+services:
+  uris:
+    <<: *uris
+    depends_on:
+      - postgres
+      - opensearch
+
+  worker:
+    <<: *uris
+    command: ["./bin/jobs"]
+    depends_on:
+      - uris
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: ...
+    volumes:
+      - postgres:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+
+  opensearch:
+    image: opensearchproject/opensearch:2.11.0
+    environment:
+      discovery.type: single-node
+      plugins.security.disabled: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+    volumes:
+      - opensearch:/usr/share/opensearch/data
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      - uris
+
+volumes:
+  storage:
+  files:
+  postgres:
+  opensearch:
+  caddy-data:
+```
+
+`initdb/01-uris.sql` creates the role uris connects as, with the password in
+`URIS_DATABASE_PASSWORD`:
+
+```sql
+CREATE ROLE uris WITH LOGIN PASSWORD '...' CREATEDB;
+```
+
+```
+*.uris.example.com {
+  reverse_proxy uris:80
+}
+```
+
+Keep Postgres and OpenSearch on a network that only uris and the proxy can reach. The OpenSearch
+security plugin is off in this file, so anything that can reach port 9200 can read every tenant's
+index.
+
+## The database role
 
 In production uris always connects as the role `uris`. `POSTGRES_USER` is not read there. The
 password comes from `URIS_DATABASE_PASSWORD`.
@@ -48,10 +149,22 @@ password comes from `URIS_DATABASE_PASSWORD`.
    Both must be `f`. Row-level security keeps each tenant's rows apart, and a role holding either
    attribute is exempt from it. uris refuses to enter any tenant when it connects as such a role.
 
-The development stack does the same thing in `db/docker-entrypoint-initdb.d/01-app-role.sql`, with
-a development password.
+The official Postgres image makes `POSTGRES_USER` a superuser, so uris cannot use it. The
+development stack creates the `uris` role in `db/docker-entrypoint-initdb.d/01-app-role.sql`, with a
+development password.
 
-## 2. Generate the secrets
+## Encryption & secrets
+
+Per tenant, the database holds the masks client's secret and registration token, and every resource's
+credentials. uris encrypts those columns with Active Record Encryption (AES-256-GCM). Reading them
+needs the keys as well as the database.
+
+| Secret | Protects |
+| --- | --- |
+| `SECRET_KEY_BASE` | The session cookie. Anyone holding it can forge one. |
+| `ENCRYPTION_PRIMARY_KEY` | The encrypted columns. |
+| `ENCRYPTION_DETERMINISTIC_KEY` | Columns looked up by value. Rails requires it. |
+| `ENCRYPTION_KEY_DERIVATION_SALT` | The per-column keys derived from the two above. |
 
 1. Generate `SECRET_KEY_BASE` in a uris checkout:
 
@@ -76,14 +189,17 @@ a development password.
    Do not use the `dev_only_` values from `.env.example` or `compose.yml`.
 
 :::caution
-The encryption keys protect each tenant's masks client secret and every resource credential. Store
-them with your other secrets and keep them unchanged for the life of the database. Data encrypted
-under lost keys cannot be read again.
+Keep the encryption keys with your database backups, and unchanged for the life of the database.
+Losing them makes every resource credential and every tenant's masks client secret unreadable,
+permanently.
 :::
 
-## 3. Choose tenants and hosts
+## Tenants and hosts
 
-1. Declare the tenants. Set exactly one of these; setting both stops `uris:tenants` with an error.
+A tenant is a separate catalog with its own resources, feeds, and settings, at its own host. See
+[tenants](/concepts/tenants/) for how they are kept apart.
+
+1. Declare the tenants. Set exactly one of these. Setting both stops `uris:tenants` with an error.
 
    | | |
    | --- | --- |
@@ -106,20 +222,26 @@ under lost keys cannot be read again.
    connected through masks, fails with `URIS_PUBLIC_ORIGIN is not set` without it.
 4. Point DNS for each tenant's host, or a wildcard under the suffix, at the reverse proxy.
 
-## 4. Point uris at masks
+`RAILS_ASSUME_SSL` and `RAILS_FORCE_SSL` default to `true`. The proxy must terminate TLS and pass the
+original `Host` header, because uris resolves the tenant from the host.
+
+## Signing in through masks
 
 1. Set `MASKS_ISSUER_TEMPLATE` to the issuer URL of the masks tenant each uris tenant signs in
    through. `%{subdomain}` works as it does in `URIS_PUBLIC_ORIGIN`:
 
    ```sh
-   MASKS_ISSUER_TEMPLATE=https://%{subdomain}.masks.example.com
+   MASKS_ISSUER_TEMPLATE=https://%{subdomain}.auth.example.com
    ```
 
 2. After uris is running, open each tenant in a browser and choose **Connect a sign-in server**. A
    masks account allowed to approve connections approves it, and uris stores the credentials it
    receives. See [signing in](/concepts/tenants/#signing-in).
 
-## 5. Provide storage
+For MCP clients to register themselves, the masks tenant has to allow dynamic registration. See
+[connecting an agent](/guides/connect-an-agent/#allow-dynamic-registration-in-masks).
+
+## Storage
 
 uris uses storage in two places.
 
@@ -133,25 +255,29 @@ uris uses storage in two places.
   `config/resources.yml` declares a `filesystem` resource named `files` as every tenant's default
   storage. It writes inside `<root>/<tenant>/` for the first directory in `URIS_FILESYSTEM_ROOTS`
   (colon-separated). Without that variable, the `files` resource cannot write. Attach `s3` or
-  `webdav` resources from the app as well; see [attaching a resource](/guides/attach-a-resource/).
+  `webdav` resources from the app as well. See [attaching a resource](/guides/attach-a-resource/).
 
-An `s3` endpoint that resolves to a private address, such as a MinIO container on the same Docker
-network, is refused unless its origin is listed in `URIS_S3_ORIGINS`, for example
-`URIS_S3_ORIGINS=http://minio:9000`. Model backends at private addresses need
-`URIS_INFERENCE_ORIGINS` in the same way, and MCP servers at private addresses need
-`URIS_MCP_ORIGINS`. Each lists origins separated by commas, and a private address whose origin is not
-listed stays refused.
+## Private networks
 
-Transcription needs a whisper.cpp model file, which the image does not include. Download one, such as
-`ggml-base.en.bin` from the `ggerganov/whisper.cpp` repository on Hugging Face, mount it into the
-`uris` and `worker` containers, and set `URIS_WHISPER_MODEL` to its path inside them. The image
-already carries `whisper-cli`. Without a model, audio and video are still analyzed and summarized
-from their sound and tags.
+uris refuses to reach a private, loopback, or link-local address on a resource's behalf. A service
+on the same private network needs its origin listed:
 
-## 6. Set the environment
+| Variable | Lets through |
+| --- | --- |
+| `URIS_S3_ORIGINS` | An `s3` endpoint, such as a MinIO container at `http://minio:9000` |
+| `URIS_MCP_ORIGINS` | An MCP server attached as a resource |
+| `URIS_SEARCH_ORIGINS` | A self-hosted web search backend |
+| `URIS_INFERENCE_ORIGINS` | Every model backend, public or private, such as `https://api.openai.com,http://ollama:11434` |
 
-Every variable uris reads, with its default, is on the [environment reference](/reference/environment/).
-A production deployment sets at least these:
+Each lists origins separated by commas. A private address whose origin is not listed stays refused.
+`URIS_INFERENCE_ORIGINS` names public backends too. A model backend whose origin is not listed is
+unusable.
+See [addresses](/concepts/adding/#addresses) and [security](/concepts/security/).
+
+## Minimum environment
+
+Every variable uris reads, with its default, is on the [ENV vars](/reference/environment/) page. A
+production deployment sets at least these:
 
 | | |
 | --- | --- |
@@ -160,22 +286,87 @@ A production deployment sets at least these:
 | Secrets | `SECRET_KEY_BASE`, `ENCRYPTION_PRIMARY_KEY`, `ENCRYPTION_DETERMINISTIC_KEY`, `ENCRYPTION_KEY_DERIVATION_SALT` |
 | Tenancy | `URIS_TENANT` or `URIS_TENANTS`, `URIS_HOST_SUFFIX`, `URIS_PUBLIC_ORIGIN` |
 | Sign-in | `MASKS_ISSUER_TEMPLATE` |
-| Storage | `URIS_FILESYSTEM_ROOTS`, and `URIS_S3_ORIGINS` for private S3 endpoints |
+| Storage | `URIS_FILESYSTEM_ROOTS` |
 
-`RAILS_ASSUME_SSL` and `RAILS_FORCE_SSL` default to `true`. The proxy must terminate TLS and pass the
-original `Host` header, because uris resolves the tenant from the host.
+## The worker
 
-## 7. Deploy with the Ansible role
+`./bin/jobs` starts Solid Queue, which runs every job and the recurring schedule in
+`config/recurring.yml`. It has two worker pools, set in `config/queue.yml`:
 
-The role in `deploy/roles/uris` templates a Compose project into `uris_deploy_path`, pulls the
-images, runs `docker compose up -d`, and waits until `curl -fsS http://localhost/up` succeeds inside
-the `uris` container, checking every 5 seconds up to 60 times.
+| Queues | Threads | Processes |
+| --- | --- | --- |
+| `sync`, `export`, `default` | 5 | `BULK_CONCURRENCY` (default 1) |
+| `analysis` | `ANALYSIS_THREADS` (default 4) | `ANALYSIS_CONCURRENCY` (default 1) |
+
+The worker shells out to Chromium, LibreOffice, Tesseract, Poppler, FFmpeg, and whisper.cpp, which
+the image includes. The worker runs in its own container so that analysis does not slow down web
+requests, and so the two scale separately. To run jobs inside the web process on a small host, set
+`SOLID_QUEUE_IN_PUMA=1` on the web container and run no worker.
+
+Syncs and exports checkpoint as they go, so a worker restarted during one resumes from its last
+checkpoint. Set `URIS_ITERATORS_DISABLED` to any value to stop every iterating job in every tenant.
+
+Follow job progress in the app under **Runs** in settings, and in the worker's log:
+
+```sh
+docker compose logs -f worker
+```
+
+### Mission Control at /jobs
+
+Mission Control is mounted at `/jobs`, on any tenant's host. Its HTTP basic authentication is on,
+and uris sets no user or password for it, so it answers `401` to every request. The dashboard
+lists the jobs of every tenant, because Solid Queue's tables sit outside row-level security. Leave it
+closed, or block `/jobs` at the proxy.
+
+## System requirements
+
+uris has no fixed CPU or memory floor. The models are the largest cost, and they run wherever the
+inference resource points, outside these containers.
+
+| | |
+| --- | --- |
+| OpenSearch | A 512 MB heap is enough for a personal catalog. Give the container about three times the heap. |
+| Worker | Chromium and LibreOffice each hold a core while they render. Raise `ANALYSIS_CONCURRENCY` when analyses queue. |
+| Web | `RAILS_MAX_THREADS` (default 3) sizes Puma's threads and the connection pool. |
+
+## Health check
+
+`GET /up` answers `200` when the application has booted. It is served outside any tenant, is
+exempt from the host check, and is not logged.
+
+```sh
+docker compose exec -T uris curl -fsS http://localhost/up
+```
+
+## Upgrade
+
+1. Choose the build: a `sha-<full commit sha>` tag or its digest, or `latest` for the newest build
+   of main.
+2. Pull the image and recreate the containers:
+
+   ```sh
+   docker compose pull
+   docker compose up -d
+   ```
+
+3. The web container runs `db:prepare` on start, which applies new migrations to all four
+   databases, then `uris:tenants` and `uris:resources`.
+
+To add a tenant, add it to `URIS_TENANTS` and recreate the web container. It is created on boot with
+the `files` resource, and needs **Connect a sign-in server** once.
+
+## With the Ansible role
+
+The role in `deploy/roles/uris` writes the same Compose project into `uris_deploy_path`, with a
+MinIO beside it, pulls the images, runs `docker compose up -d`, and waits until
+`curl -fsS http://localhost/up` succeeds inside the `uris` container, checking every 5 seconds up to
+60 times.
 
 The project has four services: `uris`, `worker`, `opensearch`, and `minio`. It publishes no ports.
 Every service joins the external Docker network `uris_network`, where the reverse proxy reaches
-`uris` on port 80 and uris reaches Postgres at `uris_postgres_host`. Volumes hold `/rails/storage`,
-the filesystem root, the OpenSearch data, and the MinIO data. The web and worker containers mount
-the same storage and filesystem volumes.
+`uris` on port 80 and uris reaches Postgres at `uris_postgres_host`. The worker starts after the web
+container reports healthy.
 
 1. Create the external network on the host if it does not exist:
 
@@ -245,73 +436,6 @@ tenant. To keep files in it, create a bucket with an S3 client and the MinIO roo
 attach an `s3` resource with endpoint `http://minio:9000`, the bucket's name as its key, and
 **Address the bucket by path** on.
 
-### Without Ansible
-
-Run the same two containers from the image with the environment above. The web container runs the
-image's default command and serves port 80. The worker runs `./bin/jobs` and needs the same
-environment and the same `/rails/storage`. Keep Postgres, OpenSearch, and any MinIO on a network
-that only uris and the proxy can reach.
-
-## The worker
-
-`./bin/jobs` starts Solid Queue, which runs every job and the recurring schedule in
-`config/recurring.yml`. It has two worker pools, set in `config/queue.yml`:
-
-| Queues | Threads | Processes |
-| --- | --- | --- |
-| `sync`, `export`, `default` | 5 | `BULK_CONCURRENCY` (default 1) |
-| `analysis` | `ANALYSIS_THREADS` (default 4) | `ANALYSIS_CONCURRENCY` (default 1) |
-
-The worker shells out to Chromium, LibreOffice, Tesseract, Poppler, and FFmpeg, which the image
-includes. The worker
-runs in its own container so that analysis does not slow down web requests, and so the two scale
-separately. To run jobs inside the web process on a small host, set `SOLID_QUEUE_IN_PUMA=1` on the
-web container and run no worker.
-
-Syncs and exports checkpoint as they go, so a worker restarted during one resumes from its last
-checkpoint. Set `URIS_ITERATORS_DISABLED` to any value to stop every iterating job in every tenant.
-
-Follow job progress in the app under **Runs** in settings, and in the worker's log:
-
-```sh
-docker compose logs -f worker
-```
-
-### Mission Control at /jobs
-
-Mission Control is mounted at `/jobs`, on any tenant's host. Its HTTP basic authentication is on,
-and uris sets no user or password for it, so it answers `401` to every request. The dashboard
-lists the jobs of every tenant, because Solid Queue's tables sit outside row-level security. Leave it
-closed, or block `/jobs` at the proxy.
-
-## Health check
-
-`GET /up` answers `200` when the application has booted. It is served outside any tenant, is
-exempt from the host check, and is not logged. Both the Compose healthcheck and the Ansible role
-call it inside the container:
-
-```sh
-docker compose exec -T uris curl -fsS http://localhost/up
-```
-
-## Upgrade
-
-1. Choose the build. Set `uris_image_tag` to `sha-<full commit sha>` or `uris_image_digest` to its
-   digest, or leave `latest` to take the newest build of main.
-2. Run the playbook again. It pulls the image and recreates the containers. Without Ansible, run:
-
-   ```sh
-   docker compose pull
-   docker compose up -d
-   ```
-
-3. The web container runs `db:prepare` on start, which applies new migrations to all four
-   databases, then `uris:tenants` and `uris:resources`. The worker starts after the web container
-   reports healthy.
-
-To add a tenant, add it to `URIS_TENANTS` and recreate the web container. It is created on boot with
-the `files` resource, and needs **Connect a sign-in server** once.
-
 ## If it doesn't work
 
 - **Every page answers `404 Unknown tenant`**: no tenant variable is set, or the host's first label
@@ -328,3 +452,13 @@ the `files` resource, and needs **Connect a sign-in server** once.
   resource cannot read or write.
 - **An `s3` resource on the private network fails its check**: add its origin to
   `URIS_S3_ORIGINS`.
+
+## Next steps
+
+```sh
+curl https://acme.uris.example.com/.well-known/oauth-protected-resource
+```
+
+The metadata names the tenant's resource URL, its masks issuer, and every `uris:` scope. Then open the
+tenant in a browser, choose **Connect a sign-in server**, and
+[attach a resource](/guides/attach-a-resource/).

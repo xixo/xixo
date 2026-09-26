@@ -346,3 +346,62 @@ ul.top-level > li:nth-of-type(5) summary .large { --tone: var(--k-contact); }
   color: var(--sl-color-gray-3);
 }
 
+
+.panes {
+  display: grid;
+  grid-template-columns: 1fr;
+  margin-block: 0 3rem;
+}
+
+.panes > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0;
+}
+
+.panes > div + div {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-block-start: 1px solid var(--sl-color-hairline);
+}
+
+.panes b {
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.panes b a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.panes b a:hover {
+  text-decoration: underline;
+}
+
+.panes span {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--sl-color-gray-2);
+  text-wrap: balance;
+}
+
+@media (min-width: 50rem) {
+  .panes {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .panes > div {
+    padding-inline-end: 1.75rem;
+  }
+
+  .panes > div + div {
+    margin-top: 0;
+    padding-top: 0;
+    padding-inline-start: 1.75rem;
+    border-block-start: 0;
+    border-inline-start: 1px solid var(--sl-color-hairline);
+  }
+}

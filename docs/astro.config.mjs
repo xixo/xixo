@@ -22,7 +22,7 @@ export default defineConfig({
     starlight({
       title: "uris",
       description:
-        "A data unifier — one searchable index across everything you own, wherever it lives, with a way back out.",
+        "An indexer for personal data. One searchable index across the places your files and records live, with a way back out.",
       favicon: "/icon.svg",
       logo: { src: "./src/assets/mark.svg", alt: "uris" },
       components: { SiteTitle: "./src/components/SiteTitle.astro" },
@@ -35,8 +35,14 @@ export default defineConfig({
         },
       ],
       sidebar: [
-        { label: "Overview", slug: "overview" },
-        { label: "Quickstart", slug: "quickstart" },
+        {
+          label: "Get started",
+          items: [
+            { label: "Overview", slug: "overview" },
+            { label: "Quickstart", slug: "quickstart" },
+            { label: "Self-hosting", slug: "guides/self-hosting" },
+          ],
+        },
         {
           label: "How-to guides",
           items: [
@@ -44,7 +50,6 @@ export default defineConfig({
             { label: "Connect an agent", slug: "guides/connect-an-agent" },
             { label: "Ask the catalog", slug: "guides/ask" },
             { label: "Export your catalog", slug: "guides/export" },
-            { label: "Deploy uris", slug: "guides/deploy" },
           ],
         },
         {
@@ -58,6 +63,7 @@ export default defineConfig({
             { label: "Search", slug: "concepts/search" },
             { label: "Agents and MCP", slug: "concepts/agents" },
             { label: "Tenants", slug: "concepts/tenants" },
+            { label: "Security", slug: "concepts/security" },
           ],
         },
         {
@@ -67,7 +73,7 @@ export default defineConfig({
             { label: "MCP tools", slug: "reference/mcp" },
             { label: "Resource types", slug: "reference/resources" },
             { label: "Scopes", slug: "reference/scopes" },
-            { label: "Environment", slug: "reference/environment" },
+            { label: "ENV vars", slug: "reference/environment" },
           ],
         },
       ],

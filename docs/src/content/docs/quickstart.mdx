@@ -1,10 +1,28 @@
 ---
 title: Quickstart
-description: Run uris locally, connect it to masks, and add the first file to the catalog.
+description: The ways to use uris, and where to go next for each.
 ---
 
-`./dev` runs the whole stack in containers and needs only docker. Rails, vite, the worker, this
-site, and the three backing services all reload when you edit a file.
+uris is an indexer for personal data. You can try it on your own machine with `./dev`, run its
+container image on a server, point an MCP client at it, or build on its GraphQL API. Pick the path
+that fits, and follow its link for the full guide.
+
+## Try it locally
+
+The repository runs the whole stack in containers with `./dev`. It needs Docker with Compose, Ruby,
+and a masks checkout beside it for sign-in.
+
+```sh
+git clone https://github.com/urisrb/uris.git
+git clone https://github.com/masksrb/masks.git
+masks/dev
+uris/dev
+```
+
+Rails, Vite, the worker, this site, and the three backing services all reload when you edit a file.
+uris answers at `http://uris.localhost:8180`, and this documentation at
+`http://uris.localhost:8181`. You do not need to edit `/etc/hosts`, because `*.localhost` already
+resolves.
 
 ```sh
 ./dev          # build and run in the foreground
@@ -20,45 +38,46 @@ The other commands are `logs`, `ps`, `psql`, `console`, `seed`, `corpus`, `refer
 | --- | --- | --- |
 | 8180 | uris, at `http://uris.localhost:8180` | `URIS_PORT` |
 | 8181 | these docs | `URIS_DOCS_PORT` |
-| 8182 | vite | `URIS_VITE_PORT` |
+| 8182 | Vite | `URIS_VITE_PORT` |
 | 5434 | Postgres | `URIS_POSTGRES_PORT` |
 | 9201 | OpenSearch | `URIS_OPENSEARCH_PORT` |
 | 9000, 9001 | MinIO and its console | `URIS_MINIO_PORT`, `URIS_MINIO_CONSOLE_PORT` |
 
-You do not need to edit `/etc/hosts`, because `*.localhost` already resolves. The stack serves one
-tenant, `uris`, on every host. `./dev --multi` declares the tenants `demo` and `acme` instead, at
-`http://demo.uris.localhost:8180` and `http://acme.uris.localhost:8180`. Each one signs in against
-the masks tenant of the same name. See [tenants](/concepts/tenants/).
+The stack serves one tenant, `uris`, on every host. `./dev --multi` declares the tenants `demo` and
+`acme` instead, at `http://demo.uris.localhost:8180` and `http://acme.uris.localhost:8180`. Each one
+signs in against the masks tenant of the same name. See [tenants](/concepts/tenants/).
 
-## Sign in
+### Sign in
 
 uris has no accounts of its own. It signs people in through masks, which has to be running first.
-Run `../masks/dev` from a masks checkout next to this one. `MASKS_ISSUER` names the masks server
-and defaults to `http://masks.localhost:12345`.
+`MASKS_ISSUER` names the masks server and defaults to `http://masks.localhost:12345`. The masks dev
+stack's setup token is `masks-dev`.
 
 1. Open `http://uris.localhost:8180` and click **Connect a sign-in server**.
 2. masks asks you to sign in with an account that is allowed to approve connections, and then to
    approve uris. masks sends the client credentials to uris directly, server to server.
 3. uris then signs you in. On later visits the button reads **Sign in**.
 
-## Resources
+### Resources
 
 The first time the stack starts, `bin/rails db:prepare` creates the database and runs
 `db/seeds.rb`. The seeds attach four resources to the tenant:
 
 | | |
 | --- | --- |
-| **Default storage** (`database`) | storage in Postgres, up to 64 MB per file. It is the default storage, so uploads go here unless the agent picks another place. |
-| **Object storage** (`items-uris`) | a bucket in the stack's MinIO. The seeds create the bucket. |
-| **Snapshots** (`web`) | headless Chrome, which saves web pages as snapshots. |
+| **Default storage** (`database`) | Storage in Postgres, up to 64 MB per file. It is the default storage, so uploads go here unless the agent picks another place. |
+| **Object storage** (`items-uris`) | A bucket in the stack's MinIO. The seeds create the bucket. |
+| **Snapshots** (`web`) | Headless Chrome, which saves web pages as snapshots. |
 | **Local models** (`ollama`) | Ollama on the host at `http://host.docker.internal:11434/v1`, with a model for every role. It is the default inference resource. |
 
 To see them, click your avatar in the header to open **Settings**, then open the **Resources** tab.
 **Attach one** adds another resource, and [attaching a resource](/guides/attach-a-resource/)
 describes each type. `./dev seed` runs the seeds again without deleting anything.
 
-The models run on the host, outside the containers. `brew bundle` installs Ollama. Pull the
-models that the seeds name:
+### Models
+
+The models run on the host, outside the containers. `brew bundle` installs Ollama. Pull the models
+that the seeds name:
 
 ```sh
 ollama pull gemma3:4b
@@ -67,7 +86,7 @@ ollama pull qwen3:8b
 ollama pull nomic-embed-text
 ```
 
-| | |
+| Role | Model |
 | --- | --- |
 | `fast`, `vision` | `gemma3:4b` |
 | `smart` | `llama3.1:8b` |
@@ -85,7 +104,7 @@ Ollama gives each model a 4,096-token context by default. That is too small for 
 loses the start of its prompt. Start Ollama with `OLLAMA_CONTEXT_LENGTH=32768`.
 :::
 
-## The first file
+### The first file
 
 Drop a file anywhere on the catalog. The upload returns as soon as the file is staged, and the
 worker does the rest. It analyzes the file, the [agent](/concepts/agents/) connects it to tags and
@@ -93,10 +112,66 @@ picks a resource that accepts it, and uris writes the bytes there. The file's pa
 analysis as it runs. uris refuses an upload that no active resource can accept, and says why. See
 [adding things](/concepts/adding/) and [analysis](/concepts/analysis/).
 
-## An MCP client
+## Run it with Docker
 
-Point an MCP client that supports OAuth at `http://uris.localhost:8180/mcp`. uris answers the first
-request with `401` and the protected-resource metadata, which names masks. The client registers with
-masks and requests a token itself, so this works only if the masks tenant allows dynamic client
-registration. The tools the client sees depend on the scopes it is granted. See
-[connecting an agent](/guides/connect-an-agent/).
+uris ships as a container image, `ghcr.io/urisrb/uris`. The same image runs the web process and the
+worker. It needs Postgres, OpenSearch, and a masks server to sign in against, and it migrates itself
+on boot.
+
+```sh
+docker pull ghcr.io/urisrb/uris:latest
+```
+
+See [self-hosting](/guides/self-hosting/) for an example `compose.yml`, the secrets, tenants, and
+storage.
+
+## Connect an agent
+
+Point an MCP client that supports OAuth at `/mcp`:
+
+```sh
+claude mcp add --transport http uris http://uris.localhost:8180/mcp
+```
+
+uris answers the first request with `401` and the protected-resource metadata, which names masks.
+The client registers with masks and requests a token itself, so this works only if the masks tenant
+allows dynamic client registration. The tools the client sees depend on the scopes it is granted.
+See [connecting an agent](/guides/connect-an-agent/) and the [MCP reference](/reference/mcp/).
+
+## Build on the API
+
+Everything the browser app does goes through `/graphql`. A page served by uris uses its session
+cookie, and `@uris-to/client` wraps that with typed documents for every operation the app uses:
+
+```sh
+npm install @uris-to/client graphql
+```
+
+```ts
+import { createUris, metaCSRFToken, SearchDocument } from "@uris-to/client";
+
+const client = createUris({ url: "/graphql", csrfToken: metaCSRFToken });
+
+const { data } = await client.query(SearchDocument, { query: "lease" }).toPromise();
+```
+
+Any other client sends a masks access token as `Authorization: Bearer`. The token's audience is the
+tenant's origin followed by `/mcp`, the same token an MCP client holds:
+
+```sh
+curl https://uris.example.com/graphql \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ search(query: \"lease\") { nodes { id title } } }"}'
+```
+
+See the [GraphQL reference](/reference/graphql/) for every field and the scope it needs.
+
+## Read the docs
+
+- [Overview](/overview/) says what uris catalogs and lists the key concepts.
+- [Attach a resource](/guides/attach-a-resource/), [ask the catalog](/guides/ask/), and
+  [export your catalog](/guides/export/) cover what people do in the app.
+- [Security](/concepts/security/) describes what uris protects and how.
+- [Resource types](/reference/resources/) lists every place uris reads from, and
+  [ENV vars](/reference/environment/) every setting a deployment makes.
