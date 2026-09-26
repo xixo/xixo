@@ -1,8 +1,11 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+require "json"
 require "open3"
+require "securerandom"
 require "shellwords"
+require "time"
 
 ROOT = __dir__
 
@@ -23,6 +26,7 @@ USAGE = <<~TEXT
     corpus [group] load the reference corpus and analyse what comes back
     test [suite]   unit, server, client, corpus
     reference      regenerate the reference pages under docs/ from the code
+    delegation     connect an MCP server through masks and put the whole flow through its paces
     fmt [--check]  format everything, or check it
 
   One tenant answers at http://uris.localhost:#{APP_PORT}, its docs at
@@ -94,6 +98,123 @@ def test(names, multi)
   puts "\npassed: #{names.join(' ')}"
 end
 
+MASKS_CONTAINER = ENV.fetch("MASKS_CONTAINER", "masks-masks-1")
+MCP_OAUTH_PORT = ENV.fetch("URIS_MCP_OAUTH_PORT", "8190")
+
+def delegation_env
+  @delegation_env ||= {
+    "DELEGATION_URIS" => "http://uris.localhost:#{APP_PORT}",
+    "DELEGATION_ISSUER" => ENV.fetch("MASKS_ISSUER", "http://masks.localhost:12345"),
+    "DELEGATION_SERVER" => "http://mcp.localhost:#{MCP_OAUTH_PORT}",
+    "DELEGATION_PASSWORD" => SecureRandom.hex(16),
+    "DELEGATION_PEOPLE" => "ada,bob"
+  }
+end
+
+def passes(what, held)
+  die("  ✗ #{what}") unless held
+  puts "  ✓ #{what}"
+end
+
+def in_masks
+  flags = delegation_env.merge("DELEGATION_TENANT" => ENV.fetch("MASKS_TENANT", "masks"))
+                        .flat_map { |name, value| [ "-e", "#{name}=#{value}" ] }
+  script = File.read(File.join(ROOT, "script/delegation/masks.rb"))
+
+  run!("docker", "exec", *flags, MASKS_CONTAINER, "bin/rails", "runner", script)
+end
+
+def in_uris(step)
+  output, status = Open3.capture2(
+    *compose("exec", "-T", "-e", "DELEGATION_STEP=#{step}",
+             "-e", "DELEGATION_TENANT=#{ENV.fetch('URIS_TENANT', 'uris')}",
+             "uris", "bin/rails", "runner", "script/delegation/uris.rb"),
+    chdir: ROOT
+  )
+  die("failed: uris #{step}\n#{output}") unless status.success?
+
+  line = output.lines.last
+  line && line.start_with?("{") ? JSON.parse(line) : {}
+end
+
+def driven(*step)
+  output, status = Open3.capture2(delegation_env, "node", "script/delegation/run.mjs", *step, chdir: ROOT)
+  die("failed: #{step.join(' ')}") unless status.success?
+
+  JSON.parse(output.lines.last)
+end
+
+def settle(seconds)
+  deadline = Time.now + seconds
+
+  loop do
+    found = yield
+    return found if found || Time.now > deadline
+
+    sleep 3
+  end
+end
+
+def until_uris_asks_masks_again
+  stale = Time.at(in_uris("state")["expires_at"].to_i - 60)
+  sleep([ stale - Time.now + 1, 0 ].max)
+end
+
+def delegation
+  run!(*compose("up", "-d", "--wait", "uris", "uris-worker", "mcp-oauth"))
+  run!("npx", "playwright", "install", "chromium")
+
+  puts "\n== masks registers with the stand-in, and ada and bob can sign in\n\n"
+  in_masks
+  in_uris("forget")
+
+  puts "\n== ada attaches the stand-in for herself and connects it through masks\n\n"
+  row = driven("connect")["row"]
+  passes("it comes back reachable and only hers: #{row}", row.include?("reachable") && row.include?("only you"))
+
+  state = in_uris("state")
+  passes("uris holds a delegation and a cached upstream token, and nothing typed in",
+         state["holds"] == %w[delegation upstream])
+
+  puts "\n== over MCP, as ada and then as bob\n\n"
+  ada = driven("mcp", "ada", "65")
+  passes("ada is offered stand-in__whoami", ada["offered"] == [ "stand-in__whoami" ])
+  passes("it answers with her account: #{ada['said']}", ada["said"] == "called by ada")
+  passes("past the upstream token's lifetime it still answers: #{ada['later']}", ada["later"] == "called by ada")
+
+  bob = driven("mcp", "bob")
+  passes("bob is offered none of its tools", bob["offered"].empty?)
+  passes("and calling one by name is refused", bob["said"].start_with?("refused"))
+
+  puts "\n== with nobody signed in, the worker checks it from the kept secret alone\n\n"
+  until_uris_asks_masks_again
+  run!(*compose("restart", "uris-worker"))
+  before = in_uris("state")
+  in_uris("due")
+  after = settle(90) do
+    now = in_uris("state")
+    now if now["checked_at"] != before["checked_at"] && Time.parse(now["checked_at"]) > Time.now - 120
+  end
+  passes("the scheduled check ran", after)
+  passes("masks released a fresh upstream token", after["expires_at"].to_i > before["expires_at"].to_i)
+  passes("and it still counts as connected", !after["needs_connect"])
+
+  puts "\n== ada stops uris using her account from the masks account page\n\n"
+  driven("revoke", "ada")
+  passes("the upstream token uris already holds still answers until it lapses",
+         in_uris("call")["said"] == "called by ada")
+  until_uris_asks_masks_again
+  called = in_uris("call")
+  passes("then the next call is refused: #{called['message']}", called["refused"] == "Resource::Unusable")
+  state = in_uris("state")
+  passes("uris keeps only the delegation, and marks it for reconnecting",
+         state["needs_connect"] && state["holds"] == %w[delegation])
+  row = driven("listed", "ada")["row"]
+  passes("her resource list offers Reconnect: #{row}", row.include?("Reconnect"))
+
+  puts "\npassed: delegation"
+end
+
 def fmt(args)
   usage unless args.empty? || args == [ "--check" ]
   check = args.first == "--check"
@@ -141,6 +262,7 @@ when "test" then test(ARGV, multi)
 when "reference"
   run!(*compose("up", "-d", "--wait", "uris", multi: multi))
   run!(*compose("exec", "-T", *UNPINNED, "uris", "bin/rails", "docs:reference", multi: multi))
+when "delegation" then delegation
 when "fmt" then fmt(ARGV)
 else usage
 end
