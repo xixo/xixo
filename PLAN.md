@@ -50,11 +50,12 @@ access token until it expires, so masks is asked when one runs out rather than p
 - [x] **What the client library is called and shaped like.** `Masks::Client::Delegations`, in
       the masks gem: `start`, `finish` and `token`, `Refused` and `Unavailable` each carrying any
       rotated secret, and `Delegations::Fake`. Decided 2026-09-13.
-- [ ] **Whose personal resources a feed may use.** A feed run in the background has no grant. It
-      needs to know who made it — `Feed` records no `created_by` today — and whether an agent run
-      for that person may reach their personal resources, or only the tenant's.
-      Until it is decided, an agent run's grant speaks for `feed:<key>`, which owns nothing, so it
-      reaches only the tenant's resources.
+- [x] **Whose personal resources a feed may use.** The person who started the run, and nobody
+      else. An analysis records `requested_by` from the grant that started it, and its agent reaches
+      that person's own resources beside the tenant's. A run started by a sync, a schedule, an
+      edge, or another agent reaches only the tenant's. Keyed on the run rather than on who made
+      the feed, because anyone may run or ask again on a feed somebody else made. Decided
+      2026-09-26.
 - [ ] **What re-analysis costs.** Carried from the last plan. An analysis that writes an edge
       re-analyzes the feed on the other side, which cascades without a cooldown. Per-feed cooldown,
       a depth cap, or a cause that refuses to write edges.
