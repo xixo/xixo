@@ -53,13 +53,19 @@ text a feed extracts leaves them out, so the search body does not index a storag
 `Analyzer.for` picks an analyzer by the feed's mime type. It walks `Analyzer.all` in order and takes
 the first analyzer that claims the mime type:
 
-`Pdf`, `Image`, `Media`, `Page`, `Doc`, `Xlsx`, `Calendar`, `Pkpass`, `Email`, `Entry`, `Contact`,
-`Data`, `Text`, `Fallback`
+`Pdf`, `Image`, `Media`, `Page`, `Doc`, `Epub`, `Xlsx`, `Calendar`, `Pkpass`, `Email`, `Entry`,
+`Contact`, `Data`, `Text`, `Fallback`
 
 The order matters. `text/calendar` and `text/csv` are both text types. They reach `Calendar` and
 `Data` only because those come before `Text`. `Fallback` claims everything else. It records the size,
 detects the format from magic bytes, reads the file as text if it looks printable, and lists the
 entries if the file is a zip.
+
+An EPUB is a zip too, and `Epub` claims it first. It follows `META-INF/container.xml` to the package
+document and records the title, creators, publisher, date, language, subjects, and chapter paths
+under the step `book`. The `text` step starts with those details and continues with each chapter's
+text in reading order, one line per paragraph. A chapter listed in `META-INF/encryption.xml` is
+skipped, so a book sold with DRM is cataloged by its details alone.
 
 Every analyzer inherits the same sequence from `Analyzer::Base`:
 
