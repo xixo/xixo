@@ -54,6 +54,17 @@ module PublicAddress
       http.start(&block)
     end
 
+    def origins(listed)
+      listed.to_s.split(",").filter_map { |entry| origin(entry) }.uniq
+    end
+
+    def origin(target)
+      uri = URI.parse(target.to_s.strip)
+      "#{uri.scheme}://#{uri.host}:#{uri.port}" if uri.is_a?(URI::HTTP) && uri.host.present?
+    rescue URI::InvalidURIError
+      nil
+    end
+
     def permitted?(target, allow_private: allowed?)
       permitted!(target, allow_private: allow_private)
       true

@@ -42,24 +42,11 @@ class Resource
     end
 
     def self.permitted_origins
-      ENV.fetch("URIS_SEARCH_ORIGINS", "").split(",").filter_map do |entry|
-        next if entry.strip.blank?
-
-        begin
-          uri = URI.parse(entry.strip)
-          "#{uri.scheme}://#{uri.host}:#{uri.port}" if uri.is_a?(URI::HTTP)
-        rescue URI::InvalidURIError
-          nil
-        end
-      end
+      PublicAddress.origins(ENV.fetch("URIS_SEARCH_ORIGINS", ""))
     end
 
     def self.named?(target)
-      uri = URI.parse(target.to_s)
-
-      permitted_origins.include?("#{uri.scheme}://#{uri.host}:#{uri.port}")
-    rescue URI::InvalidURIError
-      false
+      permitted_origins.include?(PublicAddress.origin(target))
     end
 
     validate :it_names_a_provider_that_answers

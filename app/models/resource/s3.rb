@@ -54,20 +54,11 @@ class Resource
     end
 
     def self.permitted_origins
-      ENV.fetch("URIS_S3_ORIGINS", "").split(",").filter_map do |entry|
-        uri = URI.parse(entry.strip)
-        "#{uri.scheme}://#{uri.host}:#{uri.port}" if uri.is_a?(URI::HTTP) && uri.host.present?
-      rescue URI::InvalidURIError
-        nil
-      end
+      PublicAddress.origins(ENV.fetch("URIS_S3_ORIGINS", ""))
     end
 
-    def self.named?(endpoint)
-      uri = URI.parse(endpoint.to_s)
-
-      permitted_origins.include?("#{uri.scheme}://#{uri.host}:#{uri.port}")
-    rescue URI::InvalidURIError
-      false
+    def self.named?(target)
+      permitted_origins.include?(PublicAddress.origin(target))
     end
 
     def self.command_schema
