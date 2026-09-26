@@ -219,11 +219,13 @@ module Analyzer
 
     public
 
-    def step(name, force: false, after: nil, about: {})
+    def step(name, force: false, after: nil, about: {}, digest: nil)
       name = name.to_s
       stored = analysis ? analysis.step(name) : {}
+      about = about.merge("digest" => digest) if digest
 
-      if stored.key?("result") && !force && fresh?(stored, after) && !superseded?(stored)
+      if stored.key?("result") && !force && fresh?(stored, after) && !superseded?(stored) &&
+         (digest.nil? || stored["digest"] == digest)
         analysis&.log_skip(log_context, name, "cached")
         return stored["result"]
       end
@@ -280,10 +282,12 @@ module Analyzer
         return if prompt.blank?
 
         role = self.class.summary_role
+        model = inference.model_for(role)
 
         step(:summary,
              after: [ self.class.summary_after, inference.updated_at ].max,
-             about: { "resource" => inference.key, "model" => inference.model_for(role), "role" => role.to_s }) do
+             digest: Digest::SHA256.hexdigest([ inference.key, model, prompt ].to_json),
+             about: { "resource" => inference.key, "model" => model, "role" => role.to_s }) do
           shaped(inference.summarize(prompt, role: role, analysis: analysis, images: summary_images))
         end
       rescue Resource::Unusable => e

@@ -152,6 +152,27 @@ class SummaryTest < ActiveSupport::TestCase
     end
   end
 
+  test "text that reads differently is summarized again, and the same text is not" do
+    inference!
+    @server.answer_json({ summary: "first" })
+    analyze "notes.txt"
+
+    Tenant.switch(@tenant) do
+      held = analysis_at("notes.txt").step("text")
+      analysis_at("notes.txt").write_step!("text", held.merge("result" => "#{NOTES} A second reading found more."))
+    end
+
+    @server.answer_json({ summary: "second" })
+    analyze "notes.txt"
+    analyze "notes.txt"
+
+    assert_equal 2, @server.count_for("/v1/chat/completions")
+
+    Tenant.switch(@tenant) do
+      assert_equal "second", steps_at("notes.txt").dig("summary", "result", "summary")
+    end
+  end
+
   test "a health check does not re-summarize the catalog" do
     inference!
     @server.answer_json({ summary: "first" })
