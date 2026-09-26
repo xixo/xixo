@@ -1,69 +1,268 @@
 ---
-title: Environment
-description: Every environment variable uris reads, where it is read, and its default.
+title: ENV vars
+description: Every ENV var uris reads, and where each one applies.
 ---
 
-Every variable the application reads, found by reading the source for them. A default is shown
-where the code names one inline; a variable with none is unset unless the deployment sets it.
-Rails' own variables are listed only where uris reads them itself.
+uris reads its configuration from the environment. This page lists every variable read by the web
+and worker processes, the Rake tasks, and the development tooling. Each section covers one of these
+contexts:
 
-Generated from the code by `./dev reference`. CI fails when this page and the code disagree.
+| Context | Reads |
+| --- | --- |
+| [Server](#server) | The web and worker processes of the `ghcr.io/urisrb/uris` image, and any other way of running uris. Nearly everything on this page. |
+| [Rake task arguments](#rake-task-arguments) | Arguments to `bin/rails inference:corpus`. |
+| [Development](#development) | `./dev`, the compose files, the seeds, and the test suite. A deployed server does not read them. |
 
-| Variable | Default | Read in |
+`./dev reference` fails when the code reads a variable this page does not list, or this page lists
+one the code no longer reads.
+
+## Server
+
+Set these the same on the web and worker containers, and restart both after changing one. Values
+are strings. Where a variable is a switch, its row says which values turn it on.
+
+### Required in production
+
+A production deployment sets all of these. See [self-hosting](/guides/self-hosting/) for how to
+generate them.
+
+| Variable | Default | |
 | --- | --- | --- |
-| `ANALYSIS_CONCURRENCY` | `1` | `config/queue.yml` |
-| `ANALYSIS_PER_TENANT` | `2` | `app/jobs/analyze_feed_job.rb` |
-| `ANALYSIS_THREADS` | `4` | `config/queue.yml` |
-| `ASK_VERIFICATIONS` | `10` | `app/models/verifier.rb` |
-| `BULK_CONCURRENCY` | `1` | `config/queue.yml` |
-| `ENCRYPTION_DETERMINISTIC_KEY` |  | `config/application.rb` |
-| `ENCRYPTION_KEY_DERIVATION_SALT` |  | `config/application.rb` |
-| `ENCRYPTION_PRIMARY_KEY` |  | `config/application.rb` |
-| `MASKS_ISSUER_TEMPLATE` |  | `app/models/tenant.rb` |
-| `ONLY` |  | `lib/tasks/inference.rake` |
-| `OPENSEARCH_URL` | `"http://127.0.0.1:9201"` | `app/models/search_index.rb` |
-| `PG_BIN_PATH` |  | `config/application.rb` |
-| `PIDFILE` |  | `config/puma.rb` |
-| `PORT` | `3000` | `config/puma.rb` |
-| `POSTGRES_HOST` | `"localhost"` | `config/database.yml` |
-| `POSTGRES_PASSWORD` | `"uris"` | `config/database.yml` |
-| `POSTGRES_PORT` | `5432` | `config/database.yml` |
-| `POSTGRES_USER` | `"uris"` | `config/database.yml` |
-| `RAILS_ASSUME_SSL` | `"true"` | `config/environments/production.rb` |
-| `RAILS_FORCE_SSL` | `"true"` | `config/environments/production.rb` |
-| `RAILS_LOG_LEVEL` | `"info"` | `config/environments/production.rb` |
-| `RAILS_MAX_THREADS` | `3` | `config/database.yml` `config/puma.rb` |
-| `SOLID_QUEUE_IN_PUMA` |  | `config/puma.rb` |
-| `TENANT` | `"demo"` | `lib/tasks/inference.rake` |
-| `URIS_ALLOW_PRIVATE_FETCH` |  | `app/models/public_address.rb` |
-| `URIS_AUDIT_RETENTION_DAYS` | `90` | `config/application.rb` |
-| `URIS_CHROME_NO_SANDBOX` |  | `app/models/snapshot.rb` |
-| `URIS_CHROME_PATH` |  | `app/models/snapshot.rb` |
-| `URIS_DATABASE_PASSWORD` |  | `config/database.yml` |
-| `URIS_EMBEDDING_DIMENSIONS` | `768` | `app/models/search_index.rb` |
-| `URIS_FILESYSTEM_ROOTS` | `""` | `app/models/resource/filesystem.rb` |
-| `URIS_GIT_PROTOCOLS` |  | `app/models/resource/git.rb` |
-| `URIS_GIT_ROOT` |  | `app/models/resource/git.rb` |
-| `URIS_HOST_SUFFIX` |  | `app/models/resource/mcp.rb` `config/environments/production.rb` |
-| `URIS_INFERENCE_ORIGINS` | `""` | `app/models/resource/openai_compatible.rb` |
-| `URIS_MCP_LIMIT` | `120` | `config/application.rb` |
-| `URIS_MCP_ORIGINS` | `""` | `app/models/resource/mcp.rb` |
-| `URIS_PUBLIC_ORIGIN` |  | `app/models/tenant.rb` |
-| `URIS_RUN_BUDGET` | `20` | `config/application.rb` |
-| `URIS_RUN_DEADLINE_HOURS` | `6` | `config/application.rb` |
-| `URIS_RUN_RETENTION_DAYS` | `14` | `config/application.rb` |
-| `URIS_S3_ORIGINS` | `""` | `app/models/resource/s3.rb` |
-| `URIS_SCOUTS_AT_ONCE` | `2` | `config/application.rb` |
-| `URIS_SEARCH_ORIGINS` | `""` | `app/models/resource/search.rb` |
-| `URIS_SEMANTIC_FLOOR` | `"0.55"` | `app/models/search_index.rb` |
-| `URIS_STAGING_ACCESS_KEY_ID` |  | `config/storage.yml` |
-| `URIS_STAGING_BUCKET` |  | `config/storage.yml` |
-| `URIS_STAGING_ENDPOINT` |  | `config/storage.yml` |
-| `URIS_STAGING_REGION` | `"us-east-1"` | `config/storage.yml` |
-| `URIS_STAGING_SECRET_ACCESS_KEY` |  | `config/storage.yml` |
-| `URIS_STAGING_SERVICE` | `"local"` | `config/environments/production.rb` |
-| `URIS_TENANT` |  | `config/application.rb` |
-| `URIS_TENANTS` |  | `config/application.rb` |
-| `URIS_TRANSCRIBE_SECONDS` |  | `app/analyzers/analyzer/media.rb` |
-| `URIS_WHISPER_BIN` |  | `app/analyzers/analyzer/media.rb` |
-| `URIS_WHISPER_MODEL` |  | `app/analyzers/analyzer/media.rb` |
+| `SECRET_KEY_BASE` | none | Signs and encrypts sessions and cookies. Read by Rails. uris ships no credentials file, so without it Rails raises `Missing secret_key_base` in production. |
+| `ENCRYPTION_PRIMARY_KEY` | none | Encrypts the columns that hold secrets: each resource's credentials, and each tenant's masks client secret and registration access token. `bin/rails db:encryption:init` prints a value. Without it, the first read or write of one of those columns raises `ActiveRecord::Encryption::Errors::Configuration`. |
+| `ENCRYPTION_DETERMINISTIC_KEY` | none | Encrypts columns that are looked up by value. No column uses it yet, and Rails requires it to be set. |
+| `ENCRYPTION_KEY_DERIVATION_SALT` | none | Derives the per-column keys from the two above. |
+| `URIS_PUBLIC_ORIGIN` | none | The origin browsers and agents use to reach each tenant, with `%{subdomain}` standing in for the first label of the host, such as `https://%{subdomain}.uris.example.com`. A single tenant uses an origin without the placeholder, such as `https://uris.example.com`. The origin followed by `/mcp` is the audience every access token must name, and the sign-in callback is built from it. Unset, uris builds both from the request's `Host` header, and work outside a request, such as a job refreshing a delegated token, fails with `URIS_PUBLIC_ORIGIN is not set`. |
+| `MASKS_ISSUER_TEMPLATE` | none | The issuer URL of the masks tenant each uris tenant signs in through, with `%{subdomain}` standing in as it does in `URIS_PUBLIC_ORIGIN`, such as `https://%{subdomain}.auth.example.com`. With `URIS_TENANT`, `%{subdomain}` in either template is the pinned tenant, whatever host a request names. Unset, sign-in and the `/mcp` metadata fail with `MASKS_ISSUER_TEMPLATE is not set`. See [signing in](/concepts/tenants/#signing-in). |
+
+:::caution
+`ENCRYPTION_PRIMARY_KEY`, `ENCRYPTION_DETERMINISTIC_KEY`, and `ENCRYPTION_KEY_DERIVATION_SALT`
+cannot change once data is written. Rows encrypted under the old keys become unreadable, which loses
+every resource credential and every tenant's connection to masks. Keep the three values with your
+database backups.
+:::
+
+:::caution
+Leaving `URIS_PUBLIC_ORIGIN` unset lets the request's `Host` header choose the audience uris accepts
+on access tokens. Set it, and set `URIS_HOST_SUFFIX` so Rails refuses hosts outside your domain.
+See [security](/concepts/security/).
+:::
+
+### Tenants
+
+| Variable | Default | |
+| --- | --- | --- |
+| `URIS_TENANT` | none | Declares a single tenant, such as `uris`, and serves it at every host. |
+| `URIS_TENANTS` | none | Declares several tenants, separated by commas or spaces, such as `demo,acme`. A request resolves to the tenant named by the first label of its host. |
+| `URIS_HOST_SUFFIX` | none, or `uris.test` in development | The domain uris answers under, such as `uris.example.com`. Rails accepts that domain and its subdomains and answers `403` to any other `Host`, except at `/up`. Unset in production, Rails accepts every host. uris also refuses an MCP resource whose URL points at a host under this domain, so it cannot call itself. |
+
+`bin/rails uris:tenants` creates each declared tenant that does not exist, and the container
+entrypoint runs it before the server starts. Setting both variables stops that task with
+`Tenant::TenancyConflict`, and the container exits. Setting neither declares no tenants. A request
+resolves against the tenants in the database, so removing a name from `URIS_TENANTS` neither deletes
+that tenant nor stops uris from serving it. See [tenants](/concepts/tenants/).
+
+### Database
+
+uris uses four PostgreSQL databases: the primary, a cache, a job queue, and Action Cable. Production
+connects to `uris_production`, `uris_production_cache`, `uris_production_queue`, and
+`uris_production_cable` as the role `uris`. That role must hold neither `SUPERUSER` nor `BYPASSRLS`,
+because tenant isolation depends on row-level security. uris refuses to enter any tenant when it
+connects as such a role.
+
+| Variable | Default | |
+| --- | --- | --- |
+| `POSTGRES_HOST` | `localhost` | The PostgreSQL server's host name. |
+| `POSTGRES_PORT` | `5432` | The PostgreSQL server's port. |
+| `URIS_DATABASE_PASSWORD` | none | The password of the `uris` role in production. Unset, uris connects without a password. |
+| `POSTGRES_USER` | `uris` | The role in development and test. Production ignores it and connects as `uris`. |
+| `POSTGRES_PASSWORD` | `uris` | The password in development and test. Production ignores it. |
+| `PG_BIN_PATH` | none | A directory put first on `PATH`, so `db:schema:dump` finds a `pg_dump` that matches the server's PostgreSQL version when it writes `db/structure.sql`. |
+
+### Search
+
+| Variable | Default | |
+| --- | --- | --- |
+| `OPENSEARCH_URL` | `http://127.0.0.1:9201` | The OpenSearch server that holds the search index. The index's alias is `uris_` followed by the Rails environment, and each tenant searches through an alias of its own. See [search](/concepts/search/). |
+| `URIS_EMBEDDING_DIMENSIONS` | `768` | The length of the vectors the index holds. The embedding model a tenant declares must return vectors of this length, and checking an inference resource fails when it does not. Changing it changes the index's mapping, so `RebuildSearchIndexJob` builds a new index at 3 a.m. See [rebuilding](/concepts/search/#rebuilding). |
+| `URIS_SEMANTIC_FLOOR` | `0.55` | The lowest cosine similarity a semantic match may have. A match must also score within `0.12` of the best match. Raising it returns fewer, closer matches. See [semantic search](/concepts/search/#semantic-search). |
+
+### Storage
+
+Uploads are staged through Active Storage before a job places them in a resource. See
+[staging](/concepts/adding/#staging).
+
+| Variable | Default | |
+| --- | --- | --- |
+| `URIS_STAGING_SERVICE` | `local` | Where production stages uploads. `local` writes to `/rails/storage`, which the web and worker containers must share. `s3` writes to the bucket named below. Any other name fails when Active Storage loads. Development always uses `local`. |
+| `URIS_STAGING_BUCKET` | none | The staging bucket, when `URIS_STAGING_SERVICE=s3`. |
+| `URIS_STAGING_ENDPOINT` | none | The endpoint of an S3-compatible service, such as `https://s3.example.com`. Setting it addresses the bucket by path. Unset, uris uses AWS. |
+| `URIS_STAGING_REGION` | `us-east-1` | The staging bucket's region. |
+| `URIS_STAGING_ACCESS_KEY_ID` | none | |
+| `URIS_STAGING_SECRET_ACCESS_KEY` | none | |
+| `URIS_FILESYSTEM_ROOTS` | none | Directories `filesystem` resources may use, separated by colons. Each tenant is confined to `<root>/<tenant>` under each root, and a relative root in a resource resolves under the first one. The `files` resource that `config/resources.yml` gives every tenant as default storage is one of these. Unset, every `filesystem` resource fails its check with `no filesystem roots are permitted`. |
+| `URIS_GIT_ROOT` | none | The directory where `git` resources keep their shallow bare clones, at `<root>/<tenant id>/<resource id>.git`. Unset, every `git` resource is unusable. |
+
+### Outbound connections
+
+uris refuses to connect to loopback, private, link-local, and other reserved addresses. These
+variables open exceptions. Each `_ORIGINS` variable lists origins separated by commas, such as
+`http://minio:9000,https://search.internal.example.com`. An origin is a scheme, a host, and a port,
+and a URL matches when all three match. See [addresses](/concepts/adding/#addresses) and
+[security](/concepts/security/).
+
+| Variable | Default | |
+| --- | --- | --- |
+| `URIS_S3_ORIGINS` | none | S3 endpoints an `s3` resource may reach at a private address, such as a MinIO container. |
+| `URIS_MCP_ORIGINS` | none | MCP servers an `mcp` resource may reach at a private address. |
+| `URIS_SEARCH_ORIGINS` | none | Search endpoints a `search` resource may reach at a private address, such as a self-hosted SearXNG. `URIS_ALLOW_PRIVATE_FETCH` does not apply to `search` resources. |
+| `URIS_INFERENCE_ORIGINS` | none | Every origin an `openai_compatible` resource may reach, public or private, such as `https://api.openai.com,http://ollama:11434`. A resource whose base URL is outside the list is unusable, and with the list empty every one is, unless it is reached through another resource. |
+| `URIS_ALLOW_PRIVATE_FETCH` | unset | Lifts the address check for downloads, snapshots, and every resource that fetches URLs. Any value that is not empty turns it on, including `false` and `0`. The scheme check stays. |
+| `URIS_GIT_PROTOCOLS` | `https` | The transports `git` resources may use, separated by commas, such as `https,ssh`. uris passes the list to git as `GIT_ALLOW_PROTOCOL`. Only `http` and `https` URLs go through the address check. |
+
+:::caution
+`URIS_ALLOW_PRIVATE_FETCH` lets anyone who can attach a resource or snapshot a URL reach the
+server's own network, including cloud metadata endpoints. Leave it unset in production and list
+origins in the `_ORIGINS` variables instead. Adding `file`, `ssh`, `git`, or `ext` to
+`URIS_GIT_PROTOCOLS` skips the address check for those URLs. `file` reads any repository on the
+server's disk, including other tenants' clones under `URIS_GIT_ROOT`, and `ext` runs a command.
+:::
+
+### Analysis and models
+
+| Variable | Default | |
+| --- | --- | --- |
+| `URIS_WHISPER_MODEL` | none | The path to a whisper.cpp ggml model file, such as `/models/whisper/ggml-base.en.bin`. The image carries `whisper-cli` and no model. Unset, audio and video are analyzed without a transcript, and the analysis logs `no transcription model is configured`. |
+| `URIS_WHISPER_BIN` | `whisper-cli` | The whisper.cpp command, found on `PATH` unless it is a path. |
+| `URIS_TRANSCRIBE_SECONDS` | `3600` | How many seconds from the start of a recording are measured and transcribed. Whisper runs at about real time on a CPU. |
+| `URIS_CHROME_PATH` | detected | The Chrome or Chromium binary used to render snapshots. Unset, uris looks in the usual places for the platform. The image includes Chromium. Without a browser, `web` resources report themselves unusable. |
+| `URIS_CHROME_NO_SANDBOX` | unset | Starts Chrome with `--no-sandbox`, for a container that cannot give Chrome the namespaces its sandbox needs. Any value that is not empty turns it on. |
+| `URIS_SCOUTS_AT_ONCE` | `2` | How many scouts an agent runs at the same time, from `1` to `6`. Values outside that range are clamped. See [agents](/concepts/agents/). |
+| `ASK_VERIFICATIONS` | `10` | How many times the judge model votes on an answer to a question, from `1` to `32`. Voting stops early at the analysis's deadline. More votes cost more inference and give a steadier score. |
+
+:::caution
+`URIS_CHROME_NO_SANDBOX` turns off the sandbox between a page uris renders and the worker process.
+A page that exploits the browser then runs with the worker's access to the database, the storage,
+and every resource credential.
+:::
+
+### Limits and retention
+
+| Variable | Default | |
+| --- | --- | --- |
+| `URIS_MCP_LIMIT` | `120` | MCP requests per minute, counted per tenant and per bearer token, or per IP address for a request without one. A request over the limit receives a `429`. `0` refuses every request. |
+| `URIS_RUN_BUDGET` | `20` | Syncs, exports, and analyses each subject may start over MCP per clock hour. `0` removes the limit. See [budgets and gates](/concepts/agents/#budgets-and-gates). |
+| `URIS_RUN_DEADLINE_HOURS` | `6` | How long a run or an analysis may stay open. Every 10 minutes, `ExpireOverdueJob` expires any that are past their deadline. `0` sets no deadline. |
+| `URIS_RUN_RETENTION_DAYS` | `14` | How long finished runs are kept. `SweepRunsJob` deletes older ones at 4:20 a.m. `0` keeps them. |
+| `URIS_AUDIT_RETENTION_DAYS` | `90` | How long audit events are kept. `SweepAuditEventsJob` deletes older ones at 4 a.m. `0` keeps them. |
+
+### Jobs
+
+`./bin/jobs` runs Solid Queue with two worker pools, set in `config/queue.yml`. The first takes
+the `sync`, `export`, and `default` queues with 5 threads per process. The second takes the
+`analysis` queue.
+
+| Variable | Default | |
+| --- | --- | --- |
+| `BULK_CONCURRENCY` | `1` | Processes for the `sync`, `export`, and `default` queues. |
+| `ANALYSIS_CONCURRENCY` | `1` | Processes for the `analysis` queue. |
+| `ANALYSIS_THREADS` | `4` | Threads per `analysis` process. |
+| `ANALYSIS_PER_TENANT` | `2` | Analyses one tenant may run at the same time, across every process, so one tenant cannot fill the pool. |
+| `SOLID_QUEUE_IN_PUMA` | unset | Runs the job supervisor inside the web server, for a small host with no worker container. Any value turns it on, including an empty one and `false`. |
+| `URIS_ITERATORS_DISABLED` | unset | Closes every gate in every tenant, which stops every sync, analysis, export, and reindex, including ones in progress. Any value that is not empty turns it on. See [budgets and gates](/concepts/agents/#budgets-and-gates). |
+
+### Web server
+
+The image runs `./bin/thrust ./bin/rails server`. [Thruster](https://github.com/basecamp/thruster)
+listens on `HTTP_PORT` and forwards to Puma on `TARGET_PORT`.
+
+| Variable | Default | |
+| --- | --- | --- |
+| `RAILS_MAX_THREADS` | `3` | Puma threads per process. Also the size of each database connection pool, which is `5` when this is unset. The worker reads it too, and a pool smaller than a worker's threads makes jobs wait for a connection. |
+| `WEB_CONCURRENCY` | `0` | Puma worker processes. `0` runs one process without forking. Read by Puma. |
+| `PORT` | `3000` | The port Puma listens on. Thruster sets it to `TARGET_PORT`. |
+| `PIDFILE` | none | Where Puma writes its process ID. |
+| `HTTP_PORT` | `80` | The port Thruster listens on. Read by Thruster. |
+| `TARGET_PORT` | `3000` | The port Thruster forwards to. Read by Thruster. |
+| `TLS_DOMAIN` | none | Has Thruster obtain a certificate from Let's Encrypt for this domain and serve HTTPS itself. Read by Thruster, which reads [more variables](https://github.com/basecamp/thruster#custom-configuration) than are listed here. |
+
+### Rails
+
+| Variable | Default | |
+| --- | --- | --- |
+| `RAILS_ENV` | `production` in the image | `production`, `development`, or `test`. |
+| `RAILS_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error`, or `fatal`. Production only. |
+| `RAILS_ASSUME_SSL` | `true` | Treats every request as HTTPS, for a server behind a proxy that terminates TLS. Only the value `true` turns it on. Production only. |
+| `RAILS_FORCE_SSL` | `true` | Redirects HTTP to HTTPS and sends `Strict-Transport-Security`. Only the value `true` turns it on, so `1` turns it off. Production only. |
+| `SECRET_KEY_BASE_DUMMY` | unset | Boots with a throwaway secret, for build steps such as `assets:precompile`. Read by Rails. A server running with it set is not secure. |
+
+## Rake task arguments
+
+`bin/rails inference:corpus` analyzes the files in `test/fixtures/corpus` against a tenant's default
+inference resource and prints each summary.
+
+| Variable | Default | |
+| --- | --- | --- |
+| `TENANT` | `demo` | The subdomain of the tenant to run in. The task stops when the tenant does not exist or has no default inference resource. |
+| `ONLY` | none | Analyzes only the corpus files whose path contains this text. |
+
+## Development
+
+Read by `./dev`, the compose files, the seeds, and the test suite. A deployed server ignores them.
+
+### The dev stack
+
+`./dev` and the compose files read these from your shell. Compose also passes your shell's
+`URIS_TENANT` to the containers, defaulting to `uris`, and `compose.multi.yml` clears it and sets
+`URIS_TENANTS=demo,acme`.
+
+| Variable | Default | |
+| --- | --- | --- |
+| `URIS_PORT` | `8180` | The host port of the app, at `http://uris.localhost:8180`. |
+| `URIS_DOCS_PORT` | `8181` | The host port of the docs site. |
+| `URIS_VITE_PORT` | `8182` | The host port of the Vite dev server. |
+| `URIS_POSTGRES_PORT` | `5434` | The host port of PostgreSQL. |
+| `URIS_OPENSEARCH_PORT` | `9201` | The host port of OpenSearch. |
+| `URIS_MINIO_PORT` | `9000` | The host port of MinIO's S3 API. |
+| `URIS_MINIO_CONSOLE_PORT` | `9001` | The host port of MinIO's console. |
+| `URIS_MCP_OAUTH_PORT` | `8190` | The host port of the test MCP server that signs in with OAuth, at `http://mcp.localhost:8190`. Compose lists it in `URIS_MCP_ORIGINS`. |
+| `URIS_MCP_OAUTH_LIFETIME` | `120` | How many seconds the test MCP server's access tokens last. |
+| `URIS_OLLAMA_PORT` | `11434` | The port of Ollama on the host. Compose points `OLLAMA_URL` and `URIS_INFERENCE_ORIGINS` at it. |
+| `URIS_WHISPER_DIR` | `~/.cache/whisper` | The host directory mounted read-only at `/models/whisper`. |
+| `URIS_WHISPER_FILE` | `ggml-base.en.bin` | The model file in that directory. Compose sets `URIS_WHISPER_MODEL` to it. |
+| `MASKS_ISSUER` | `http://masks.localhost:12345` | The masks issuer. Compose sets `MASKS_ISSUER_TEMPLATE` from it, and `compose.multi.yml` defaults it to `http://%{subdomain}.masks.localhost:12345`. |
+| `MASKS_CLIENT_DIR` | `../masks/client` | The masks client checkout that compose builds and mounts into the containers. |
+| `MASKS_CLIENT_PATH` | none | Where the `Gemfile` finds the masks client. When that directory holds a `masks.gemspec`, the gem comes from it. Otherwise the gem comes from RubyGems, or from `../masks/client` under `Gemfile.local`. Compose sets it to `/masks/client` as a build argument. |
+| `MASKS_CONTAINER` | `masks-masks-1` | The masks container that `./dev delegation` runs its setup in. |
+| `MASKS_TENANT` | `masks` | The masks tenant that `./dev delegation` signs in through. |
+| `DEV_ALLOWED_HOSTS` | none | Hosts the Vite and Astro dev servers answer, separated by commas. Set by compose. |
+| `DEV_CLIENT_PORT` | none | The port the browser uses to reach the Vite or Astro dev server for live reload. Set by compose. |
+| `VITE_RUBY_HOST` | `localhost` | Where Rails finds the Vite dev server. Read by `vite_ruby`, and set by compose. |
+| `VITE_RUBY_SKIP_PROXY` | `false` | Read by `vite_ruby`, and set by compose. |
+| `DOCS_SITE` | `https://uris.pages.dev` | The docs site's published URL, for canonical links and the sitemap. The docs workflow sets it for preview deploys. |
+
+### Seeds
+
+`bin/rails db:seed` gives each tenant an `s3` resource, and an `openai_compatible` resource when
+`OLLAMA_URL` is set.
+
+| Variable | Default | |
+| --- | --- | --- |
+| `S3_ENDPOINT` | `http://127.0.0.1:9000` | The endpoint of the seeded `s3` resource. Compose sets it to `http://minio:9000`. |
+| `S3_REGION` | `us-east-1` | Its region. |
+| `S3_ACCESS_KEY_ID` | `items` | Its access key. Compose sets it to `uris`. |
+| `S3_SECRET_ACCESS_KEY` | `urisuris` | Its secret key. |
+| `OLLAMA_URL` | none | The base URL of an OpenAI-compatible server, such as `http://host.docker.internal:11434/v1`. Set, the seeds attach it as `ollama` and make it the default inference resource. |
+| `OLLAMA_FAST_MODEL` | `gemma3:4b` | The model for the `fast` role. |
+| `OLLAMA_SMART_MODEL` | `llama3.1:8b` | The model for the `smart` role. |
+| `OLLAMA_VISION_MODEL` | `gemma3:4b` | The model for the `vision` role. |
+| `OLLAMA_AGENT_MODEL` | `qwen3:8b` | The model for the `agent` role. |
+| `OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text` | The model for the `embedding` role. Its vectors must have `URIS_EMBEDDING_DIMENSIONS` dimensions. |
+
+### Tests
+
+| Variable | Default | |
+| --- | --- | --- |
+| `URIS_TEST_SEARCH_ENGINE` | none | The URL of a real OpenSearch server for the tests. Unset, the tests use an in-process fake and skip the ones that assert what OpenSearch itself does. |
+| `TEST_ENV_NUMBER` | none | Added to the search index's alias, such as `uris_test_2`, so parallel test workers do not share an index. The test suite sets it for each worker. |
+| `CI` | unset | Eager loads the application in tests, as production does. |
