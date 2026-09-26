@@ -1486,7 +1486,7 @@ ALTER TABLE ONLY public.active_storage_variant_records
 --
 
 ALTER TABLE ONLY public.analyses
-    ADD CONSTRAINT fk_rails_9c589bf702 FOREIGN KEY (reference_id) REFERENCES public.feed_references(id);
+    ADD CONSTRAINT fk_rails_9c589bf702 FOREIGN KEY (reference_id) REFERENCES public.feed_references(id) ON DELETE SET NULL;
 
 
 --
@@ -1782,6 +1782,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260926210000'),
 ('20260926200000'),
 ('20260921230000'),
 ('20260914010000'),

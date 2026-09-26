@@ -162,6 +162,18 @@ class AnalyzeFeedJobTest < ActiveSupport::TestCase
     assert_equal [ @tenant.id, @feed.id, analysis.id ], enqueued["arguments"]
   end
 
+  test "a feed its analysis has read can still be destroyed" do
+    analysis = Tenant.switch(@tenant) { @feed.analyze! }
+
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    Tenant.switch(@tenant) do
+      assert analysis.reload.reference_id.present?
+      assert_nothing_raised { @feed.reload.destroy! }
+      assert_equal 0, Analysis.count
+    end
+  end
+
   test "an analysis whose feed has gone away goes with it rather than being left open" do
     Tenant.switch(@tenant) { @feed.analyze! }
     Tenant.switch(@tenant) { @feed.destroy! }
