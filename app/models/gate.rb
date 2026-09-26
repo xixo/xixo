@@ -6,8 +6,6 @@ class Gate < ApplicationRecord
     def closed? = !enabled
   end
 
-  SHUT = "URIS_ITERATORS_DISABLED".freeze
-
   belongs_to :reference, polymorphic: true, optional: true
 
   validates :key, presence: true
@@ -16,7 +14,7 @@ class Gate < ApplicationRecord
   scope :key_wide, -> { where(reference_type: nil, reference_id: nil) }
 
   def self.stopped_everywhere?
-    ENV[SHUT].present?
+    ENV["URIS_ITERATORS_DISABLED"].present?
   end
 
   def self.decide(key:, reference: nil, enabled: true, live: true)

@@ -94,17 +94,11 @@ class Tenant < ApplicationRecord
     end
 
     def resolve(host)
-      return find_by(subdomain: pinned) if pinned
-
-      find_by(subdomain: subdomain_in(host))
-    end
-
-    def subdomain_in(host)
-      host.to_s.split(".").first
+      find_by(subdomain: subdomain_for(host))
     end
 
     def subdomain_for(host)
-      pinned || subdomain_in(host)
+      pinned || host.to_s.split(".").first
     end
 
     def resolve!(host)

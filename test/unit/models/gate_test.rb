@@ -75,11 +75,11 @@ class GateTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       Gate.set!(key: "sync", enabled: true, live: true)
 
-      ENV[Gate::SHUT] = "1"
+      ENV["URIS_ITERATORS_DISABLED"] = "1"
       begin
         assert Gate.decide(key: "sync").closed?
       ensure
-        ENV.delete(Gate::SHUT)
+        ENV.delete("URIS_ITERATORS_DISABLED")
       end
     end
   end

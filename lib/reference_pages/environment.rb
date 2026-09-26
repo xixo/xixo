@@ -3,7 +3,6 @@ module ReferencePages
     PAGE = "docs/src/content/docs/reference/environment.mdx".freeze
 
     RUBY = /ENV(?:\.fetch)?[\[(]\s*["']([A-Z][A-Z0-9_]*)["']/
-    CONSTANT = /ENV(?:\.fetch)?[\[(]\s*([A-Z][A-Z0-9_]*)\s*[\]),]/
     SHELL = /\$\{?([A-Z][A-Z0-9_]*)/
     NODE = /process\.env\.([A-Z][A-Z0-9_]*)/
 
@@ -13,7 +12,6 @@ module ReferencePages
       [ %w[vite.config.ts docs/astro.config.mjs], NODE ]
     ].freeze
 
-    EXTENSIONS = "**/*.{rb,yml,erb,rake}".freeze
     SKIPPED = %w[lib/reference_pages].freeze
     INTERNAL = %w[PATH BUNDLE_GEMFILE HOME SHELL].freeze
 
@@ -30,44 +28,34 @@ module ReferencePages
     ].freeze
 
     def drift
-      read = self.read
+      found = read
       shown = listed
 
-      unlisted = read.except(*shown).map { |name, path| "#{name} is read by #{path} and missing from #{PAGE}" }
-      unread = (shown - read.keys - DEPENDENCIES).map { |name| "#{name} is listed in #{PAGE} and read by nothing" }
+      unlisted = found.except(*shown).map { |name, path| "#{name} is read by #{path} and missing from #{PAGE}" }
+      unread = (shown - found.keys - DEPENDENCIES).map { |name| "#{name} is listed in #{PAGE} and read by nothing" }
 
       unlisted + unread
     end
 
-    def read
-      SOURCES.each_with_object({}) do |(roots, pattern), held|
-        roots.flat_map { |root| files(root) }.each do |path|
-          source = path.read
-          relative = path.relative_path_from(Rails.root).to_s
-
-          names = source.scan(pattern).flatten
-          names += constants(source) if pattern == RUBY
-
-          names.each { |name| held[name] ||= relative unless INTERNAL.include?(name) }
-        end
-      end.sort.to_h
-    end
-
-    def listed
-      Rails.root.join(PAGE).read.scan(/^\| `([A-Z][A-Z0-9_]*)` \|/).flatten.uniq
-    end
-
     private
 
-      def constants(source)
-        source.scan(CONSTANT).flatten.filter_map do |constant|
-          source[/\b#{constant}\s*=\s*["']([A-Z][A-Z0-9_]*)["']/, 1]
-        end
+      def read
+        SOURCES.each_with_object({}) do |(roots, pattern), held|
+          roots.flat_map { |root| files(root) }.each do |path|
+            relative = path.relative_path_from(Rails.root).to_s
+
+            path.read.scan(pattern).flatten.each { |name| held[name] ||= relative unless INTERNAL.include?(name) }
+          end
+        end.sort.to_h
+      end
+
+      def listed
+        Rails.root.join(PAGE).read.scan(/^\| `([A-Z][A-Z0-9_]*)` \|/).flatten.uniq
       end
 
       def files(root)
         path = Rails.root.join(root)
-        found = path.directory? ? Pathname.glob(path.join(EXTENSIONS)) : [ path ]
+        found = path.directory? ? Pathname.glob(path.join("**/*.{rb,yml,erb,rake}")) : [ path ]
 
         found.select(&:file?).reject { |file| SKIPPED.any? { |skip| file.to_s.include?(skip) } }
       end

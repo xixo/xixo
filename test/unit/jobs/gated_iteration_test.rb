@@ -123,7 +123,7 @@ class GatedIterationTest < ActiveSupport::TestCase
   end
 
   test "the operator switch stops a run no tenant asked to stop" do
-    ENV[Gate::SHUT] = "1"
+    ENV["URIS_ITERATORS_DISABLED"] = "1"
 
     begin
       run = start_sync
@@ -133,7 +133,7 @@ class GatedIterationTest < ActiveSupport::TestCase
         assert_equal "gated", run.reload.status
       end
     ensure
-      ENV.delete(Gate::SHUT)
+      ENV.delete("URIS_ITERATORS_DISABLED")
     end
   end
 

@@ -11,13 +11,14 @@ class ContentController < ApplicationController
   def show
     reference = find_reference or return head :not_found
     type = reference.content_type
+    kind = Rack::MediaType.type(type).to_s
 
     response.headers["Content-Type"] = type
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["Content-Security-Policy"] = SANDBOX unless essence(type) == "application/pdf"
+    response.headers["Content-Security-Policy"] = SANDBOX unless kind == "application/pdf"
     response.headers["Content-Disposition"] =
       ActionDispatch::Http::ContentDisposition.format(
-        disposition: inline?(type) ? "inline" : "attachment",
+        disposition: inline?(kind) ? "inline" : "attachment",
         filename: reference.filename
       )
 
@@ -34,14 +35,10 @@ class ContentController < ApplicationController
       refuse(Masks::Client::Unauthorized.new(e.message))
     end
 
-    def inline?(type)
+    def inline?(kind)
       return false if params[:download]
 
-      INLINE.include?(essence(type)) || essence(type).start_with?("video/", "audio/")
-    end
-
-    def essence(type)
-      type.to_s.split(";").first.to_s.strip.downcase
+      INLINE.include?(kind) || MimeType.video?(kind) || MimeType.audio?(kind)
     end
 
     def find_reference
