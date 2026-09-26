@@ -46,13 +46,26 @@ class AnalyzeFeedJobTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       Resource::OpenaiCompatible.create!(
         key: "local", details: { "base_url" => "https://inference.example.test/v1",
-                                 "models" => { "fast" => "small", "vision" => "small", "smart" => "large",
-                                               "agent" => "tools" } }
+                                 "models" => { "agent" => "tools", "fast" => "small", "vision" => "small",
+                                               "smart" => "large" } }
       )
 
       assert_equal Lane.priority(:fast), Lane.priority(:vision)
       assert_equal 3, [ Lane.priority(:fast), Lane.priority(:smart), Lane.priority(:agent) ].uniq.size
       assert_operator Lane.priority(:smart), :>=, Lane::FIRST
+      assert_operator Lane.priority(:agent), :>, [ Lane.priority(:fast), Lane.priority(:smart) ].max
+    end
+  end
+
+  test "a model the agent shares with reading keeps one lane, and it is the last" do
+    Tenant.switch(@tenant) do
+      Resource::OpenaiCompatible.create!(
+        key: "local", details: { "base_url" => "https://inference.example.test/v1",
+                                 "models" => { "agent" => "large", "smart" => "large", "vision" => "small" } }
+      )
+
+      assert_equal Lane.priority(:agent), Lane.priority(:smart)
+      assert_operator Lane.priority(:agent), :>, Lane.priority(:vision)
     end
   end
 

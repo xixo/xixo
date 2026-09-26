@@ -10,14 +10,22 @@ module Lane
     end
 
     def models
-      Resource.capable_of(:inference).shared.order(:id).flat_map do |resource|
+      named = Resource.capable_of(:inference).shared.order(:id).flat_map do |resource|
         next [] unless resource.respond_to?(:models)
 
         resource.models.values.map { |name| "#{resource.id}:#{name}" }
       end.uniq
+
+      filing = agent_model
+      filing && named.include?(filing) ? (named - [ filing ]) + [ filing ] : named
     end
 
     private
+
+      def agent_model
+        held = Resource.for_role(Resource::OpenaiCompatible::AGENT_ROLE)
+        held && model(held, Resource::OpenaiCompatible::AGENT_ROLE)
+      end
 
       def model(resource, role)
         "#{resource.id}:#{resource.model_for(role)}"

@@ -129,7 +129,7 @@ again when filing starts.
 
 Each job's queue priority comes from the model its work needs. `Lane` numbers every model the
 tenant's shared inference resources name, starting at 10, so roles served by one model share a
-priority. The reading job takes the priority of the analyzer's summary role, and the filing job takes
+priority. The model that serves the `agent` role always gets the last number. The reading job takes the priority of the analyzer's summary role, and the filing job takes
 the priority of the `agent` role. Solid Queue runs the lowest priority first, so a large sync
 summarizes everything with one model, then with the next, and files everything with the agent's
 model last.
