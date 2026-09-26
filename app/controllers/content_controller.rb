@@ -2,14 +2,22 @@ class ContentController < ApplicationController
   include Granted
 
   CHUNK = 64.kilobytes
+  INLINE = %w[
+    image/png image/jpeg image/gif image/webp image/avif image/bmp
+    application/pdf application/json text/plain text/markdown text/csv
+  ].freeze
+  SANDBOX = "sandbox; default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'".freeze
 
   def show
     reference = find_reference or return head :not_found
+    type = reference.content_type
 
-    response.headers["Content-Type"] = reference.content_type
+    response.headers["Content-Type"] = type
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Content-Security-Policy"] = SANDBOX unless essence(type) == "application/pdf"
     response.headers["Content-Disposition"] =
       ActionDispatch::Http::ContentDisposition.format(
-        disposition: params[:download] ? "attachment" : "inline",
+        disposition: inline?(type) ? "inline" : "attachment",
         filename: reference.filename
       )
 
@@ -24,6 +32,16 @@ class ContentController < ApplicationController
       super && grant.permit!("uris:catalog:read")
     rescue Grant::Denied => e
       refuse(Masks::Client::Unauthorized.new(e.message))
+    end
+
+    def inline?(type)
+      return false if params[:download]
+
+      INLINE.include?(essence(type)) || essence(type).start_with?("video/", "audio/")
+    end
+
+    def essence(type)
+      type.to_s.split(";").first.to_s.strip.downcase
     end
 
     def find_reference
