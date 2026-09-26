@@ -5,6 +5,21 @@ class SingleTenantTest < ActionDispatch::IntegrationTest
     @tenant = Tenant.create!(subdomain: "demo", name: "Demo items")
   end
 
+  def with_templates
+    was = ENV.values_at("MASKS_ISSUER_TEMPLATE", "URIS_PUBLIC_ORIGIN")
+
+    ENV["MASKS_ISSUER_TEMPLATE"] = "https://%{subdomain}.auth.example/"
+    ENV["URIS_PUBLIC_ORIGIN"] = "https://%{subdomain}.uris.example"
+
+    yield
+  ensure
+    ENV["MASKS_ISSUER_TEMPLATE"], ENV["URIS_PUBLIC_ORIGIN"] = was
+  end
+
+  def request_to(url)
+    ActionDispatch::Request.new(Rack::MockRequest.env_for(url))
+  end
+
   def with_pinned(subdomain, declared: [])
     was_tenant = Rails.configuration.uris.tenant
     was_tenants = Rails.configuration.uris.tenants
@@ -37,6 +52,23 @@ class SingleTenantTest < ActionDispatch::IntegrationTest
   test "a pinned tenant answers at a label that could never be a subdomain" do
     with_pinned(@tenant.subdomain) do
       assert_equal @tenant, Tenant.resolve("-nope-.uris.test")
+    end
+  end
+
+  test "a pinned tenant trusts its own issuer whatever label the host carries" do
+    with_templates do
+      with_pinned(@tenant.subdomain) do
+        evil = request_to("http://evil.uris.test/")
+
+        assert_equal "https://demo.auth.example/", Tenant.issuer_url(evil)
+        assert_equal "https://demo.uris.example/mcp", Tenant.resource_url(evil)
+      end
+    end
+  end
+
+  test "an unpinned server takes the issuer from the host's own label" do
+    with_templates do
+      assert_equal "https://acme.auth.example/", Tenant.issuer_url(request_to("http://acme.uris.test/"))
     end
   end
 

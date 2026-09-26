@@ -103,6 +103,10 @@ class Tenant < ApplicationRecord
       host.to_s.split(".").first
     end
 
+    def subdomain_for(host)
+      pinned || subdomain_in(host)
+    end
+
     def resolve!(host)
       resolve(host) || raise(Unconfigured, "no tenant is served at #{host}")
     end
@@ -111,7 +115,7 @@ class Tenant < ApplicationRecord
       override = ENV["URIS_PUBLIC_ORIGIN"].presence
       return request.base_url if override.nil?
 
-      format(override, subdomain: subdomain_in(request.host))
+      format(override, subdomain: subdomain_for(request.host))
     end
 
     def resource_url(request)
@@ -119,7 +123,7 @@ class Tenant < ApplicationRecord
     end
 
     def issuer_url(request)
-      issuer_for(subdomain_in(request.host))
+      issuer_for(subdomain_for(request.host))
     end
 
     def issuer_for(subdomain)
