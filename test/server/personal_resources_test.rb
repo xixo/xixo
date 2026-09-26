@@ -127,6 +127,49 @@ class PersonalResourcesTest < ActionDispatch::IntegrationTest
     assert_not_includes reached, "notion"
   end
 
+  test "a run somebody starts reaches their own resources, and speaks as the feed" do
+    feed = Tenant.switch(@tenant) { create_feed(key: "memo", title: "Memo") }
+
+    started = graphql("ada", %(mutation { runFeed(input: { id: "#{feed.id}" }) { analysis { id } } }))
+    analysis = Tenant.switch(@tenant) { Analysis.find(started.dig("data", "runFeed", "analysis", "id")) }
+
+    assert_equal "ada", analysis.requested_by
+
+    grant = Tenant.switch(@tenant) { analysis.grant }
+    reached = as(grant) { Resource.visible_to(Current.grant).pluck(:key) }
+
+    assert_includes reached, "notion"
+    assert_equal "feed:memo", grant.subject
+    assert grant.agent?
+  end
+
+  test "a run somebody else starts on the same feed reaches only their own" do
+    feed = Tenant.switch(@tenant) { create_feed(key: "memo", title: "Memo") }
+
+    started = graphql("bob", %(mutation { runFeed(input: { id: "#{feed.id}" }) { analysis { id } } }))
+    analysis = Tenant.switch(@tenant) { Analysis.find(started.dig("data", "runFeed", "analysis", "id")) }
+
+    assert_equal "bob", analysis.requested_by
+    assert_not_includes as(Tenant.switch(@tenant) { analysis.grant }) { Resource.visible_to(Current.grant).pluck(:key) }, "notion"
+  end
+
+  test "a run nobody started reaches only what everyone here can" do
+    analysis = Tenant.switch(@tenant) { create_feed(key: "memo", title: "Memo").analyze!(cause: "sync") }
+
+    assert_nil analysis.requested_by
+    assert_not_includes as(Tenant.switch(@tenant) { analysis.grant }) { Resource.visible_to(Current.grant).pluck(:key) }, "notion"
+  end
+
+  test "a run an agent starts does not inherit whom the agent speaks for" do
+    feed = Tenant.switch(@tenant) { create_feed(key: "memo", title: "Memo") }
+    asked = Tenant.switch(@tenant) { Analysis.create!(feed: feed, cause: "manual", requested_by: "ada") }
+
+    spawned = as(Tenant.switch(@tenant) { asked.grant }) { feed.analyze!(cause: "manual") }
+
+    assert_nil spawned.requested_by
+    assert_not_includes as(Tenant.switch(@tenant) { spawned.grant }) { Resource.visible_to(Current.grant).pluck(:key) }, "notion"
+  end
+
   test "a shared web resource cannot keep its snapshots in somebody's personal storage" do
     Tenant.switch(@tenant) do
       Resource::S3.create!(key: "private-bucket", owner_subject: "ada",

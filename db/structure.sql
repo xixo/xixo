@@ -143,7 +143,8 @@ CREATE TABLE public.analyses (
     deadline timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    question text
+    question text,
+    requested_by character varying
 );
 
 ALTER TABLE ONLY public.analyses FORCE ROW LEVEL SECURITY;
@@ -1781,6 +1782,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260926200000'),
 ('20260921230000'),
 ('20260914010000'),
 ('20260914000000'),

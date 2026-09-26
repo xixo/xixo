@@ -50,7 +50,7 @@ class Resource < ApplicationRecord
   scope :active, -> { where(archived_at: nil) }
   scope :attended, -> { where.not(type: "database", key: INTERNAL.keys.map(&:to_s)) }
   scope :shared, -> { where(owner_subject: nil) }
-  scope :reachable_by, ->(grant) { where(owner_subject: [ nil, grant&.subject ].uniq) }
+  scope :reachable_by, ->(grant) { where(owner_subject: [ nil, grant&.speaks_for ].uniq) }
   scope :visible_to, ->(grant) { attended.active.reachable_by(grant) }
   scope :scheduled, -> { active.where.not(sync_interval: nil) }
   scope :not_syncing, -> {

@@ -80,6 +80,21 @@ uris:catalog:read  uris:catalog:write  uris:web:read  uris:resources:read
 The agent can search, read, file, and place feeds, and send read-only commands to resources. It
 cannot sync, export, write into a resource, call an attached MCP server, or change settings.
 
+### Whose resources a run reaches
+
+Every analysis records `requested_by`, the subject of the person whose request started it. That is
+`runFeed`, `analyzeFeed`, `askCatalog`, an upload, or the `feed` tool called with a person's token.
+`Analysis#grant` builds the agent's grant from it, and the agent reaches the resources everyone here
+can use and that person's own [personal resources](/concepts/resources/#only-mine-or-everyones).
+
+An analysis started by a sync, a schedule, an edge, or another agent records nobody, and its agent
+reaches only the resources everyone can use. Starting a run on somebody else's feed reaches your own
+resources and never theirs.
+
+The grant's subject stays `feed:` and the key either way, so the audit trail and the run budget
+still name the feed. What the agent writes is cataloged for the whole tenant, including anything it
+read from a personal resource.
+
 ## Asking
 
 uris saves a question asked of the catalog as a note, and answers it with an analysis whose cause is

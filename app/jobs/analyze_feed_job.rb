@@ -60,7 +60,7 @@ class AnalyzeFeedJob < ApplicationJob
 
     def answer(feed)
       asking = Asking.new(feed, analysis: analysis)
-      grant = feed.grant(scopes: Feed::ASKING_SCOPES)
+      grant = (analysis || feed).grant(scopes: Feed::ASKING_SCOPES)
       scouting = Scouting.new(grant: grant, analysis: analysis, briefing: ->(task) { asking.briefing(task) },
                               unfinished: ->(calls) { asking.unfinished(calls) })
       lead = Agent.new(grant: grant, analysis: analysis, tools: [], locals: [ scouting ], turns: Asking::TURNS,
@@ -126,7 +126,7 @@ class AnalyzeFeedJob < ApplicationJob
     end
 
     def considered(feed)
-      grant = feed.grant
+      grant = (analysis || feed).grant
       agent = Agent.new(grant: grant, analysis: analysis, turns: turns_for(feed),
                         halted: -> { analysis&.halted? })
 
@@ -164,7 +164,7 @@ class AnalyzeFeedJob < ApplicationJob
     end
 
     def searchable(feed)
-      reach = Reach.new(feed.grant).told
+      reach = Reach.new((analysis || feed).grant).told
       return nil if reach.nil?
 
       <<~TEXT

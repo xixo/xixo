@@ -389,7 +389,7 @@ export function Attach({
                 />
                 <Text size="xs" c="dimmed">
                   {personal
-                    ? 'Nobody else sees it, or reaches it through a tool. What it syncs is still catalogued for everyone.'
+                    ? 'Nobody else sees it, or reaches it through a tool, and agents use it only in runs you start. What it syncs, and what those agents write, is still catalogued for everyone.'
                     : 'Anyone signed in here can use it, and so can the agents working on feeds.'}
                 </Text>
               </Stack>

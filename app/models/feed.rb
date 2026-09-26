@@ -172,7 +172,7 @@ class Feed < ApplicationRecord
     (timeout.presence || TIMEOUT.to_i).seconds
   end
 
-  def grant(scopes: AGENT_SCOPES)
+  def grant(scopes: AGENT_SCOPES, speaking_for: nil)
     Grant.new(
       tenant: tenant,
       claims: Masks::Client::Claims.new(
@@ -180,7 +180,8 @@ class Feed < ApplicationRecord
         "scope" => scopes.join(" "),
         "tenant" => { "subdomain" => tenant.subdomain }
       ),
-      agent: true
+      agent: true,
+      speaking_for: speaking_for
     )
   end
 

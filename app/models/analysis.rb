@@ -21,6 +21,8 @@ class Analysis < ApplicationRecord
   validates :cause, inclusion: { in: CAUSES }
   validates :status, inclusion: { in: STATUSES }
 
+  before_create :remember_who_asked
+
   scope :open, -> { where(status: OPEN) }
   scope :settled, -> { where(status: SETTLED) }
   scope :newest_first, -> { reorder(id: :desc) }
@@ -39,6 +41,10 @@ class Analysis < ApplicationRecord
   end
 
   def open? = OPEN.include?(status)
+
+  def grant(scopes: Feed::AGENT_SCOPES)
+    feed.grant(scopes: scopes, speaking_for: requested_by)
+  end
 
   def self.priority_for(cause) = BULK.include?(cause.to_s) ? BULK_PRIORITY : ASKED_PRIORITY
   def settled? = SETTLED.include?(status)
@@ -200,6 +206,11 @@ class Analysis < ApplicationRecord
   end
 
   private
+
+    def remember_who_asked
+      asking = Current.grant
+      self.requested_by ||= asking.subject if asking && !asking.agent?
+    end
 
     def merge_column!(column, value)
       Analysis.where(id: id).update_all(

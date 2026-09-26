@@ -129,7 +129,7 @@ class Asking
 
   attr_reader :feed
 
-  def initialize(feed, analysis: nil, reach: Reach.new(feed.grant(scopes: Feed::ASKING_SCOPES)))
+  def initialize(feed, analysis: nil, reach: Reach.new((analysis || feed).grant(scopes: Feed::ASKING_SCOPES)))
     @feed = feed
     @analysis = analysis
     @reach = reach
