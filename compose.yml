@@ -23,6 +23,7 @@ x-app: &app
     - ./compose/no-dotenv:/rails/.env:ro
     - modules:/rails/node_modules
     - storage:/rails/storage
+    - ${URIS_WHISPER_DIR:-${HOME}/.cache/whisper}:/models/whisper:ro
 
 x-env: &env
   POSTGRES_HOST: postgres
@@ -49,6 +50,7 @@ x-env: &env
   MASKS_ISSUER_TEMPLATE: ${MASKS_ISSUER:-http://masks.localhost:12345}
   OLLAMA_URL: http://host.docker.internal:${URIS_OLLAMA_PORT:-11434}/v1
   URIS_INFERENCE_ORIGINS: http://host.docker.internal:${URIS_OLLAMA_PORT:-11434}
+  URIS_WHISPER_MODEL: /models/whisper/${URIS_WHISPER_FILE:-ggml-base.en.bin}
   URIS_MCP_ORIGINS: http://mcp.localhost:${URIS_MCP_OAUTH_PORT:-8190}
   DEV_ALLOWED_HOSTS: .uris.localhost,uris-vite
   DEV_CLIENT_PORT: ${URIS_VITE_PORT:-8182}
