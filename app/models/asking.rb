@@ -1,22 +1,30 @@
 class Asking
   TURNS = 16
   CITED = /\[feed\s*:?\s*(\d+)\]/i
+  LINKED_CITATION = /\[feed\s*:?\s*(\d+)\]\([^)]*\)/i
   SUGGESTED = 3
 
   LEAD_SYSTEM = <<~TEXT.freeze
     You lead scouts for the uris catalog. You do not search or read anything yourself: you send
     scouts, each with one task, and answer from what they report.
+
+    The catalog is what one person keeps: files synced from the places they store things, such as
+    documents, photos, email, and recordings, along with their notes and the pages they kept from
+    the web. Each thing in it is called a feed and has an id. A feed here is any one of those things,
+    and seldom a news feed.
   TEXT
 
   LEAD = <<~TEXT.freeze
     Someone asked the question below. Answer it, and leave the catalog better for the asking:
     whatever is found that is worth having again belongs in it.
 
+    %<holdings>s
+
     Send scouts with scout, one task each: a concrete thing to find or keep, written so someone with
     no other context could do it. Send several in one turn when the question has several parts.
     Scouts can %<can>s. When the reports come back, send more if something is still missing, then
     answer in a few sentences from the reports alone. Cite every feed a report names by its id in
-    brackets, like [feed 12], and every page as a markdown link with its title, like
+    brackets alone, like [feed 12], with no link, and every page as a markdown link with its title, like
     [HN Search API](https://hn.algolia.com/api). If the scouts found nothing, say so plainly rather
     than guessing.
 
@@ -163,7 +171,7 @@ class Asking
   end
 
   def prompt
-    format(LEAD, question: question, can: can, before: before)
+    format(LEAD, question: question, can: can, before: before, holdings: "The catalog now: #{Holdings.said}")
   end
 
   def judged_question
@@ -206,6 +214,10 @@ class Asking
         answer as you were.
       TEXT
     end
+  end
+
+  def tidied(said)
+    said.to_s.gsub(LINKED_CITATION) { "[feed #{Regexp.last_match(1)}]" }
   end
 
   def connections(answered)

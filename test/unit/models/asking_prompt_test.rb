@@ -32,6 +32,39 @@ class AskingPromptTest < ActiveSupport::TestCase
 
   def unfinished(calls) = Asking.new(@question).unfinished(calls)
 
+  test "the lead is told what the catalog is, and what is in it now" do
+    Tenant.switch(@tenant) do
+      storage = Resource::Database.create!(key: "shelf", name: "Shelf")
+      2.times do |index|
+        photo = Feed.create!(type: Feed::FILE, key: "photo-#{index}.jpg")
+        Reference.record!(feed: photo, resource: storage, locator_key: "photo-#{index}.jpg", locator: {})
+        photo.connect!(Feed.tag!("holidays"))
+      end
+
+      assert_match(/seldom a news feed/, Asking::LEAD_SYSTEM)
+
+      lead = Asking.new(@question).prompt
+
+      assert_match(/The catalog now: It holds 2 files and 2 notes\./, lead)
+      assert_match(%r{image/jpeg \(2\)}, lead)
+      assert_match(/holidays \(2\)/, lead)
+    end
+  end
+
+  test "an empty catalog is said to be empty" do
+    Tenant.switch(@tenant) do
+      Feed.delete_all
+
+      assert_equal "It is empty.", Holdings.said
+    end
+  end
+
+  test "a feed cited with a link keeps the citation and loses the link" do
+    said = "See [feed 132](https://example.com/feed.xml), [Feed: 7](x) and [HN](https://hn.algolia.com)."
+
+    assert_equal "See [feed 132], [feed 7] and [HN](https://hn.algolia.com).", Asking.new(@question).tidied(said)
+  end
+
   test "with nothing beyond the catalog the question is asked of the catalog alone" do
     Tenant.switch(@tenant) do
       lead = Asking.new(@question).prompt

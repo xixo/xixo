@@ -106,7 +106,7 @@ class AnalyzeFeedJob < ApplicationJob
       Current.analysis = analysis
       Current.confined_to = Concurrent::Set.new
       led = lead.call(asking.prompt)
-      answered = led.with(calls: scouting.calls)
+      answered = led.with(calls: scouting.calls, said: asking.tidied(led.said))
       analysis.log_info("lead", led.reason.to_s, led.said)
       noted(answered)
       spoken(answered.said)
