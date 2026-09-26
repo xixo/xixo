@@ -15,7 +15,7 @@ module Tool
         b: { type: "string", description: "The other feed's id. Leave it off to name a tag instead." },
         tag: {
           type: "string",
-          description: "A tag to file a under, by its name, as receipts. It is made if it does not exist yet."
+          description: "The name of the tag to file a under, such as receipts or travel. It is made if it does not exist yet."
         },
         connected: {
           type: "boolean",
