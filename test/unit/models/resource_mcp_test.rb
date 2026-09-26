@@ -151,6 +151,21 @@ class ResourceMcpTest < ActiveSupport::TestCase
     end
   end
 
+  test "a private server whose origin is named in URIS_MCP_ORIGINS is reached, and no other private address is" do
+    ENV["URIS_MCP_ORIGINS"] = "http://127.0.0.1:1, https://mcp.internal"
+
+    Tenant.switch(@tenant) do
+      named = server(**{ "url" => "http://127.0.0.1:1/mcp", "tools" => LISTED })
+      error = assert_raises(Resource::Failed) { named.invoke!("web_search", { query: "x" }) }
+      assert_not_kind_of PublicFetch::Blocked, error
+
+      named.update!(details: named.details.merge("url" => "http://127.0.0.1:9200/mcp"))
+      assert_raises(PublicFetch::Blocked) { named.invoke!("web_search", { query: "x" }) }
+    end
+  ensure
+    ENV.delete("URIS_MCP_ORIGINS")
+  end
+
   test "a server authenticated through masks names its provider, and holds nothing typed in" do
     Tenant.switch(@tenant) do
       held = Resource::Mcp.new(key: "notion", details: { "url" => "https://mcp.notion.com/mcp", "auth" => "masks", "provider" => "notion" })

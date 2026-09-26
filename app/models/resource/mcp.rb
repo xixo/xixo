@@ -71,6 +71,14 @@ class Resource
       { tools: {}, call: { name: "string", arguments: "json?" } }
     end
 
+    def self.permitted_origins
+      PublicAddress.origins(ENV.fetch("URIS_MCP_ORIGINS", ""))
+    end
+
+    def self.named?(target)
+      permitted_origins.include?(PublicAddress.origin(target))
+    end
+
     before_validation :forget_what_masks_held, if: -> { !delegated? || pointed_elsewhere? }
 
     validate :it_names_an_address
@@ -139,6 +147,10 @@ class Resource
     end
 
     private
+
+      def private_fetch?(target)
+        super || self.class.named?(target)
+      end
 
       def connected(retried: false, expired: false, &block)
         Sessions.with(id, fingerprint, -> { MCP::Client.new(transport: transport) }, &block)

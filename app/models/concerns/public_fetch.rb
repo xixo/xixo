@@ -20,8 +20,12 @@ module PublicFetch
 
   private
 
+    def private_fetch?(_target)
+      self.class.private_fetches_allowed?
+    end
+
     def permitted!(target)
-      PublicAddress.permitted!(target, allow_private: self.class.private_fetches_allowed?)
+      PublicAddress.permitted!(target, allow_private: private_fetch?(target))
     rescue PublicAddress::Blocked => e
       raise Blocked, "#{key}: #{e.message}"
     rescue PublicAddress::Unresolvable => e
@@ -29,7 +33,7 @@ module PublicFetch
     end
 
     def pinned!(target)
-      PublicAddress.pinned!(target, allow_private: self.class.private_fetches_allowed?)
+      PublicAddress.pinned!(target, allow_private: private_fetch?(target))
     rescue PublicAddress::Blocked => e
       raise Blocked, "#{key}: #{e.message}"
     rescue PublicAddress::Unresolvable => e

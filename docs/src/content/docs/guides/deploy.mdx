@@ -138,7 +138,9 @@ uris uses storage in two places.
 An `s3` endpoint that resolves to a private address, such as a MinIO container on the same Docker
 network, is refused unless its origin is listed in `URIS_S3_ORIGINS`, for example
 `URIS_S3_ORIGINS=http://minio:9000`. Model backends at private addresses need
-`URIS_INFERENCE_ORIGINS` in the same way.
+`URIS_INFERENCE_ORIGINS` in the same way, and MCP servers at private addresses need
+`URIS_MCP_ORIGINS`. Each lists origins separated by commas, and a private address whose origin is not
+listed stays refused.
 
 ## 6. Set the environment
 
