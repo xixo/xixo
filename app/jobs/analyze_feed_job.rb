@@ -15,7 +15,23 @@ class AnalyzeFeedJob < ApplicationJob
     job.fail_analysis(error)
   end
 
-  def perform(_tenant_id, feed_id, _analysis_id = nil)
+  WHOLE = "whole"
+  READING = "reading"
+  FILING = "filing"
+
+  def self.enqueue(feed, analysis)
+    unless analysis.bulk?
+      return set(priority: Analysis::ASKED_PRIORITY).perform_later(feed.tenant_id, feed.id, analysis.id)
+    end
+
+    set(priority: Lane.priority(reading_role(feed))).perform_later(feed.tenant_id, feed.id, analysis.id, READING)
+  end
+
+  def self.reading_role(feed)
+    feed.address? ? Resource::OpenaiCompatible::AGENT_ROLE : Analyzer.class_for(feed).summary_role
+  end
+
+  def perform(_tenant_id, feed_id, _analysis_id = nil, phase = WHOLE)
     analysis&.running!
 
     feed = Feed.includes(references: :resource).find_by(id: feed_id)
@@ -24,22 +40,10 @@ class AnalyzeFeedJob < ApplicationJob
     return gate_out if analysis&.halted?
     return answer(feed) if analysis&.cause == "ask"
 
-    placement = Placement.new(feed, analysis: analysis)
-    placement.returned!
+    read(feed) unless phase == FILING
+    return hand_off(feed) if phase == READING
 
-    unless feed.address?
-      ActiveRecord::Base.transaction(requires_new: true) do
-        Analyzer.for(feed, analysis: analysis).run
-      end
-    end
-
-    filed(feed)
-    considered(feed)
-    placement.settled!
-
-    finish
-
-    wake_parent(feed)
+    file(feed)
   end
 
   def fail_analysis(error)
@@ -57,6 +61,34 @@ class AnalyzeFeedJob < ApplicationJob
   TEXT
 
   private
+
+    def read(feed)
+      Placement.new(feed, analysis: analysis).returned!
+
+      unless feed.address?
+        ActiveRecord::Base.transaction(requires_new: true) do
+          Analyzer.for(feed, analysis: analysis).run
+        end
+      end
+
+      filed(feed)
+    end
+
+    def file(feed)
+      considered(feed)
+      Placement.new(feed, analysis: analysis).settled!
+
+      finish
+
+      wake_parent(feed)
+    end
+
+    def hand_off(feed)
+      return if analysis && !analysis.handed_off!
+
+      self.class.set(priority: Lane.priority(Resource::OpenaiCompatible::AGENT_ROLE))
+          .perform_later(feed.tenant_id, feed.id, analysis&.id, FILING)
+    end
 
     def answer(feed)
       asking = Asking.new(feed, analysis: analysis)

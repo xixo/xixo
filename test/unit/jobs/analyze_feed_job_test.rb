@@ -38,7 +38,64 @@ class AnalyzeFeedJobTest < ActiveSupport::TestCase
 
     priorities = enqueued_jobs.select { |job| job["job_class"] == "AnalyzeFeedJob" }.map { |job| job["priority"] }
 
-    assert_equal [ Analysis::ASKED_PRIORITY, Analysis::BULK_PRIORITY ], priorities
+    assert_equal Analysis::ASKED_PRIORITY, priorities.first
+    assert_operator priorities.last, :>=, Lane::FIRST
+  end
+
+  test "roles served by one model share a lane, and another model gets a lane of its own" do
+    Tenant.switch(@tenant) do
+      Resource::OpenaiCompatible.create!(
+        key: "local", details: { "base_url" => "https://inference.example.test/v1",
+                                 "models" => { "fast" => "small", "vision" => "small", "smart" => "large",
+                                               "agent" => "tools" } }
+      )
+
+      assert_equal Lane.priority(:fast), Lane.priority(:vision)
+      assert_equal 3, [ Lane.priority(:fast), Lane.priority(:smart), Lane.priority(:agent) ].uniq.size
+      assert_operator Lane.priority(:smart), :>=, Lane::FIRST
+    end
+  end
+
+  test "a sync reads, then hands filing to the agent's lane with a deadline of its own" do
+    analysis = Tenant.switch(@tenant) { @feed.analyze!(cause: "sync") }
+
+    reading = enqueued_jobs.find { |job| job["job_class"] == "AnalyzeFeedJob" }
+    assert_equal AnalyzeFeedJob::READING, reading["arguments"].last
+    clear_enqueued_jobs
+
+    Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(*reading["arguments"]) }
+
+    Tenant.switch(@tenant) do
+      waiting = analysis.reload
+      assert_equal "queued", waiting.status
+      assert_nil waiting.started_at
+      assert waiting.steps.key?("text")
+      assert @feed.reload.analyzed_at.present?
+    end
+
+    filing = enqueued_jobs.find { |job| job["job_class"] == "AnalyzeFeedJob" }
+    assert_equal AnalyzeFeedJob::FILING, filing["arguments"].last
+
+    travel 1.hour do
+      Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(*filing["arguments"]) }
+    end
+
+    Tenant.switch(@tenant) do
+      assert_equal "done", analysis.reload.status
+      assert_equal [ "text/plain" ], @feed.reload.mimes.map(&:key)
+    end
+  end
+
+  test "a read whose analysis was cancelled hands nothing on" do
+    analysis = Tenant.switch(@tenant) { @feed.analyze!(cause: "sync") }
+    reading = enqueued_jobs.find { |job| job["job_class"] == "AnalyzeFeedJob" }
+    clear_enqueued_jobs
+
+    Tenant.switch(@tenant) { analysis.cancel! }
+    Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(*reading["arguments"]) }
+
+    assert_empty enqueued_jobs.select { |job| job["job_class"] == "AnalyzeFeedJob" }
+    Tenant.switch(@tenant) { assert_equal "cancelled", analysis.reload.status }
   end
 
   test "an address has no bytes to read, so its pass goes straight to the agent" do

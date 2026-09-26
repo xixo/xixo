@@ -304,7 +304,7 @@ class Feed < ApplicationRecord
     return ask!(conversation.last&.question || key || title) if cause.to_s == "ask"
 
     Analysis.open!(feed: self, cause: cause).tap do |held|
-      AnalyzeFeedJob.set(priority: Analysis.priority_for(cause)).perform_later(tenant_id, id, held.id)
+      AnalyzeFeedJob.enqueue(self, held)
     end
   end
 
@@ -314,7 +314,7 @@ class Feed < ApplicationRecord
 
     Analysis.create!(feed: self, cause: "ask", question: question.to_s.squish,
                      deadline: Analysis.default_deadline, steps: {}).tap do |held|
-      AnalyzeFeedJob.set(priority: Analysis.priority_for("ask")).perform_later(tenant_id, id, held.id)
+      AnalyzeFeedJob.set(priority: Analysis::ASKED_PRIORITY).perform_later(tenant_id, id, held.id)
     end
   end
 

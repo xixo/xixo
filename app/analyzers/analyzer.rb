@@ -12,6 +12,10 @@ module Analyzer
   end
 
   def self.for(feed, analysis: nil)
-    all.find { |analyzer| analyzer.handles?(feed) }.new(feed, analysis: analysis)
+    class_for(feed).new(feed, analysis: analysis)
+  end
+
+  def self.class_for(feed)
+    all.find { |analyzer| analyzer.handles?(feed) }
   end
 end

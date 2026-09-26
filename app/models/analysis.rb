@@ -6,7 +6,6 @@ class Analysis < ApplicationRecord
   BOOKKEEPING = %w[placement derived answer drew_on].freeze
   BULK = %w[sync edge].freeze
   ASKED_PRIORITY = 0
-  BULK_PRIORITY = 10
 
   LOG_LIMIT = 256_000
   LINE_LIMIT = 2_000
@@ -46,8 +45,8 @@ class Analysis < ApplicationRecord
     feed.grant(scopes: scopes, speaking_for: requested_by)
   end
 
-  def self.priority_for(cause) = BULK.include?(cause.to_s) ? BULK_PRIORITY : ASKED_PRIORITY
   def settled? = SETTLED.include?(status)
+  def bulk? = BULK.include?(cause)
 
   def running!
     started = started_at || Time.current
@@ -88,6 +87,16 @@ class Analysis < ApplicationRecord
     Feed.where(id: feed_id).where.not(embedded_at: nil).update_all(embedded_at: nil)
     SearchIndex.index(feed.reload)
     publish!
+  end
+
+  def handed_off!
+    moved = Analysis.where(id: id, status: OPEN)
+                    .update_all(status: "queued", started_at: nil, deadline: self.class.default_deadline)
+    return false if moved.zero?
+
+    reload
+    publish!
+    true
   end
 
   def gated!

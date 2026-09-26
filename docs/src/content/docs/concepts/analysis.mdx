@@ -115,3 +115,24 @@ One question is still open. Connecting two feeds does not analyze the feed on th
 The `edge` cause exists, but nothing raises it yet. It needs a way to stop one change from
 triggering a chain of analyses, such as a cooldown, a depth limit, or a cause that cannot write
 edges.
+
+## One model at a time
+
+Loading a model is slow on a single machine, and two models that do not fit in memory together
+unload each other on every call. uris orders analysis work so that each model is used for as long as
+there is work for it.
+
+An analysis caused by `sync` or `edge` runs in two jobs. The reading job runs the analyzer and files
+the feed under its content type. It then puts the analysis back in `queued` and hands the feed to a
+filing job, which runs the agent and settles the file into storage. The analysis gets its timeout
+again when filing starts.
+
+Each job's queue priority comes from the model its work needs. `Lane` numbers every model the
+tenant's shared inference resources name, starting at 10, so roles served by one model share a
+priority. The reading job takes the priority of the analyzer's summary role, and the filing job takes
+the priority of the `agent` role. Solid Queue runs the lowest priority first, so a large sync
+summarizes everything with one model, then with the next, and files everything with the agent's
+model last.
+
+Every other cause runs in a single job at priority 0, ahead of any bulk work, because someone is
+waiting for it.
