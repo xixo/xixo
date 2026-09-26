@@ -6,7 +6,6 @@ module Analyzer
     DEFAULT_BINARY = "whisper-cli".freeze
     STREAMS = 8
     TAGS = %w[title artist album_artist album date genre composer comment].freeze
-    PROBED_AFTER = Time.utc(2026, 9, 26).freeze
     SILENCE = "-50dB".freeze
     SHORTEST_SILENCE = 0.5
     SILENCES = 20
@@ -33,7 +32,7 @@ module Analyzer
 
     def analyze
       with_tempfile do |path|
-        step(:probe, after: PROBED_AFTER) { probe(path) }
+        step(:probe, digest: TAGS.join(",")) { probe(path) }
         attempt { step(:signal) { signal(path) } } if audio?
 
         if self.class.model.blank?
