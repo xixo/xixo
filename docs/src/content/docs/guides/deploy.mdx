@@ -142,6 +142,12 @@ network, is refused unless its origin is listed in `URIS_S3_ORIGINS`, for exampl
 `URIS_MCP_ORIGINS`. Each lists origins separated by commas, and a private address whose origin is not
 listed stays refused.
 
+Transcription needs a whisper.cpp model file, which the image does not include. Download one, such as
+`ggml-base.en.bin` from the `ggerganov/whisper.cpp` repository on Hugging Face, mount it into the
+`uris` and `worker` containers, and set `URIS_WHISPER_MODEL` to its path inside them. The image
+already carries `whisper-cli`. Without a model, audio and video are still analyzed and summarized
+from their sound and tags.
+
 ## 6. Set the environment
 
 Every variable uris reads, with its default, is on the [environment reference](/reference/environment/).
