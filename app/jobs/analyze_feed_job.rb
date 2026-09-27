@@ -56,8 +56,8 @@ class AnalyzeFeedJob < ApplicationJob
   FILE_PROMPT = <<~TEXT.freeze
     A new thing has just been catalogued. Read it, then connect it to whatever else in the
     catalog belongs beside it: file it under tags with connect, passing the tag's name in the
-    tag argument, such as tag "invoices" or tag "travel", chosen for what this thing is about.
-    Connect it by id to any feed it is about. Make the connections with the tools rather
+    tag argument. Name each tag in a word or two for what this particular thing is about, taken
+    from what you read in it. Connect it by id to any feed it is about. Make the connections with the tools rather
     than describing them, then say in one sentence what you filed it as.
   TEXT
 

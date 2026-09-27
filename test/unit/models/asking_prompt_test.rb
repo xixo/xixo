@@ -51,8 +51,11 @@ class AskingPromptTest < ActiveSupport::TestCase
     end
   end
 
-  test "an empty catalog is said to be empty" do
+  test "one of a kind is said in the singular, and an empty catalog is said to be empty" do
     Tenant.switch(@tenant) do
+      @other.destroy!
+      assert_equal "It holds 1 note.", Holdings.said
+
       Feed.delete_all
 
       assert_equal "It is empty.", Holdings.said

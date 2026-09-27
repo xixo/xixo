@@ -1,7 +1,7 @@
 class Holdings
   KINDS = 8
   TAGS = 10
-  COUNTED = { Feed::FILE => "files", Feed::NOTE => "notes", Feed::ADDRESS => "addresses" }.freeze
+  COUNTED = { Feed::FILE => "file", Feed::NOTE => "note", Feed::ADDRESS => "address" }.freeze
 
   def self.said
     new.said
@@ -43,7 +43,10 @@ class Holdings
     end
 
     def counted
-      COUNTED.filter_map { |type, noun| "#{counts[type]} #{noun}" if counts[type].to_i.positive? }.to_sentence
+      COUNTED.filter_map do |type, noun|
+        held = counts[type].to_i
+        "#{held} #{noun.pluralize(held)}" if held.positive?
+      end.to_sentence
     end
 
     def listed(pairs)
