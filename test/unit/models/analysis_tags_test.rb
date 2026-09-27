@@ -19,7 +19,22 @@ class AnalysisTagsTest < ActiveSupport::TestCase
         }
       })
 
-      assert_equal [ "winter", "Black dog", "D750" ], analysis.tags
+      assert_equal [ "winter", "Black dog" ], analysis.tags
+    end
+  end
+
+  test "amounts, dates, numbers and addresses are not tags, and a name with underscores reads as words" do
+    Tenant.switch(@tenant) do
+      feed = Feed.create!(type: Feed::FILE, key: "statement.pdf")
+      analysis = Analysis.open!(feed: feed, cause: "manual")
+      analysis.write_step!("summary", {
+        "result" => {
+          "tags" => [ "Mortgage_Statement", "December 31, 2023", "9413527.1", "Form 1099-INT", "Q3 report" ],
+          "entities" => [ "$2,409.33", "Jennifer Korn", "P.O. Box 351 STN C", "Toronto ON M6P 4H5", "MCAP" ]
+        }
+      })
+
+      assert_equal [ "Mortgage Statement", "Q3 report", "Jennifer Korn", "MCAP" ], analysis.tags
     end
   end
 
@@ -49,6 +64,30 @@ class AnalysisTagsTest < ActiveSupport::TestCase
       assert_equal %w[invoice paid], feed.tags.where(id: feed.edges.inferred.select(:a_id))
                                              .or(feed.tags.where(id: feed.edges.inferred.select(:b_id)))
                                              .order(:key).pluck(:key)
+    end
+  end
+
+  test "a tag nothing is filed under any more is gone" do
+    Tenant.switch(@tenant) do
+      feed = Feed.create!(type: Feed::FILE, key: "scan.pdf")
+      other = Feed.create!(type: Feed::FILE, key: "other.pdf")
+      summarized(feed, tags: %w[invoice draft])
+      other.connect!(Feed.tag!("invoice"))
+
+      summarized(feed, tags: [ "paid" ])
+
+      assert_equal %w[invoice paid], Feed.tags.order(:key).pluck(:key)
+    end
+  end
+
+  test "an item's tags come most shared first" do
+    Tenant.switch(@tenant) do
+      feed = Feed.create!(type: Feed::FILE, key: "scan.pdf")
+      summarized(feed, tags: %w[acme invoice oddity])
+      2.times { |index| Feed.create!(type: Feed::FILE, key: "#{index}.pdf").connect!(Feed.tag!("invoice")) }
+      Feed.create!(type: Feed::FILE, key: "x.pdf").connect!(Feed.tag!("acme"))
+
+      assert_equal %w[invoice acme oddity], feed.tags.by_use.pluck(:key)
     end
   end
 

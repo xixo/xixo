@@ -173,9 +173,16 @@ class Analysis < ApplicationRecord
   def tags
     named = [ feed&.key, feed&.title ].compact.map(&:downcase)
 
-    (summary_terms("tags") + summary_terms("entities"))
+    (summary_terms("tags").reject { |word| numeric?(word) } + summary_terms("entities").grep_v(/\d/))
+      .map { |word| word.tr("_", " ").squish }
       .reject { |word| named.include?(word.downcase) || word.scan(/[[:alnum:]]/).size < 2 }
       .uniq(&:downcase)
+  end
+
+  def numeric?(word)
+    held = word.scan(/[[:alnum:]]/)
+
+    held.count { |character| character.match?(/\d/) } * 3 > held.size
   end
 
   def summary_terms(key)

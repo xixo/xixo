@@ -54,6 +54,10 @@ class Feed < ApplicationRecord
   scope :files, -> { where(type: FILE) }
   scope :addresses, -> { where(type: ADDRESS) }
   scope :tags, -> { where(type: TAG) }
+  scope :by_use, lambda {
+    order(Arel.sql("(SELECT COUNT(*) FROM feed_edges WHERE feed_edges.a_id = feeds.id " \
+                   "OR feed_edges.b_id = feeds.id) DESC"), :key)
+  }
   scope :mimes, -> { where(type: MIME) }
   scope :synced, -> { where(origin: "resource") }
   scope :minted, -> { where(origin: "feed") }
@@ -224,8 +228,12 @@ class Feed < ApplicationRecord
     kept = held.map(&:id)
 
     transaction do
-      edges.inferred.where.not(a_id: kept).where.not(b_id: kept).delete_all
+      dropped = edges.inferred.where.not(a_id: kept).where.not(b_id: kept)
+      loose = dropped.pluck(:a_id, :b_id).flatten - [ id ]
+      dropped.delete_all
       held.each { |tag| connect!(tag, inferred: true) }
+      Feed.tags.where(id: loose).where.not(id: Edge.where(a_id: loose).select(:a_id))
+          .where.not(id: Edge.where(b_id: loose).select(:b_id)).destroy_all
     end
   end
 

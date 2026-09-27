@@ -33,7 +33,8 @@ module Types
     field :connected_count, Integer, null: false
     field :connected, [ Types::FeedType ], null: false
     field :tags, [ Types::FeedType ], null: false,
-          description: "The tags it is filed under: those a person or agent chose, and those its analysis found in it."
+          description: "The tags it is filed under: those a person or agent chose, and those its analysis found in it. " \
+                       "The tags most items share come first."
     field :mimes, [ Types::FeedType ], null: false,
           description: "The content types it was filed under, as feeds of their own."
     field :parent, Types::FeedType, description: "The file it was extracted from, when it was."
@@ -84,7 +85,7 @@ module Types
     end
 
     def tags
-      object.tags.order(:key)
+      object.tags.by_use
     end
 
     def mimes

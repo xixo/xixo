@@ -97,8 +97,10 @@ module Analyzer
           reference number and date above, written exactly as it appears. Fill this
           first. An empty array if there are none.
         - summary: #{says}
-        - tags: 3 to #{SUMMARY_TAGS} tags to file it under and find it by. Each is a proper name, an
-          identifier, or the specific kind of thing this is. Four words at most.
+        - tags: 3 to #{SUMMARY_TAGS} tags to file it under and find it by, the way a person
+          would label a folder. Each is a topic, the kind of thing this is, or the name of a
+          person, company, product or place. Never an amount, a date, an address, or an
+          account or reference number. Four words at most.
           No word that would match anything: not #{STOPWORDS.first(8).join(', ')}.
       SHAPE
     end
