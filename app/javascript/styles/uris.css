@@ -397,10 +397,7 @@ pre,
 }
 
 .hunt-what {
-  display: inline-flex;
   flex: none;
-  align-items: center;
-  gap: var(--s2);
   font-weight: 500;
 }
 
@@ -416,15 +413,6 @@ pre,
   color: var(--brass);
   font-family: var(--mono);
   font-size: var(--t-micro);
-}
-
-.hunt-question {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--bright);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .hunt-where {
