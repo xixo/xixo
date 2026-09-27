@@ -25,6 +25,7 @@ import {
 import { useQuery, useSubscription } from '@uris-to/client/react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useEndless } from '../hooks/useEndless'
 import { usePages } from '../hooks/usePages'
 import { useTitle } from '../hooks/useTitle'
 import { KEPT, lookOf, pluralOf, type Short, TYPE, toned } from '../looks'
@@ -199,6 +200,11 @@ function Listing({
   const total = searching ? (found.data?.search.total ?? null) : null
   const loading = searching ? found.loading : catalog.loading
   const error = searching ? found.error : catalog.error
+  const next = page?.hasMore ? (page.nextCursor ?? null) : null
+  const edge = useEndless(
+    () => setCursor(next),
+    next !== null && !loading && !error,
+  )
 
   return (
     <Stack gap="var(--s5)">
@@ -263,12 +269,12 @@ function Listing({
         <Empty searching={searching} type={type} feed={feed} />
       )}
 
-      {page?.hasMore && (
-        <Group justify="center">
+      {next !== null && (
+        <Group justify="center" ref={edge}>
           <Button
             variant="default"
             radius="xl"
-            onClick={() => setCursor(page.nextCursor ?? null)}
+            onClick={() => setCursor(next)}
             loading={loading}
           >
             Load more
