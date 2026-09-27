@@ -11,8 +11,9 @@ a model backend with an **Agent model** that calls tools. See
 
 1. Type the question in the search bar at the top of the page, where it reads **Search, ask, or
    paste an address**. Press `/` to reach it from anywhere.
-2. Wait for the results. The first row reads **Ask about** followed by your question.
-3. Choose that row.
+2. Wait for the results. Above them, a row reads **Ask about** followed by your question.
+3. Choose that row. From the search bar, `Tab` or `Down` moves to it and `Enter` asks. `Up` or
+   `Escape` goes back to the search bar.
 
 uris creates a note keyed by the question and opens its page. The question appears under **The
 conversation**, with progress while the answer is worked out. A question can be up to 500
@@ -25,9 +26,19 @@ attached them, search the web, read pages, and keep pages. The lead answers from
 When a model backend has a **Fast model**, it gives the note a short title before the scouts go out.
 Without one, a **Smart model** or the **Agent model** titles the note after the answer.
 
+## Ask about one item
+
+1. Open the item's page and choose **Ask about this**.
+2. Type the question in the field that opens, and choose **Ask**.
+
+The note is connected to the item, and the lead and its scouts open that item first. Follow-ups in
+the same note start from it too. **Ask about this** does not appear on a note that was itself
+asked, or on the page of a tag or a content type.
+
 ## Read the answer
 
-The answer appears under the question. Each item it cites is a link to that item's page, and a page
+The conversation lists the newest question and its answer first, with earlier ones below it. The
+answer appears under its question. Each item it cites is a link to that item's page, and a page
 it read on the web is a link to the page.
 
 Below the answer, **What it drew on** lists every item the answer cited, opened, or kept. The note
@@ -35,7 +46,8 @@ is connected to each of them.
 
 ## Follow up
 
-1. On the note's page, type in the field that reads **Ask a follow-up**.
+1. On the note's page, type in the field that reads **Ask a follow-up**, at the top of **The
+   conversation**.
 2. Choose **Ask**.
 
 The lead is told the earlier questions and their answers. The field is disabled while
@@ -44,8 +56,8 @@ as a table", is answered without sending scouts.
 
 ## Ask again
 
-Choose **Ask again** at the top of the note's page. uris asks the latest question in the
-conversation again and adds the new answer below the others.
+Open the menu beside the note's title and choose **Ask again**. uris asks the latest question in the
+conversation again and adds the new answer at the top.
 
 ## Keep what the answer found
 
@@ -55,7 +67,10 @@ created or a page it snapshotted, lasts 30 days.
 1. Open the item from **What it drew on**. Its page shows **forgotten** followed by the date.
 2. Choose **Keep forever**.
 
-To remove the note and its conversation, choose **Forget** on the note's page, then **Forget it**. See
+To tag what the answer drew on, see [tag items](/guides/tag/#tag-what-an-answer-drew-on).
+
+To remove the note and its conversation, choose **Forget** from the menu beside the note's title,
+then **Forget it**. See
 [lifetime](/concepts/feeds/#lifetime).
 
 ## Over GraphQL
@@ -75,7 +90,8 @@ mutation {
 Watch the analysis with the `analysisProgressed` subscription, or query it until `status` is no
 longer `queued` or `running`. When it is done, `said` holds the answer and `drewOn` holds what it drew on.
 
-To follow up, pass the note's id as `feedId` with the next question. To ask the latest question
+To follow up, pass the note's id as `feedId` with the next question. To ask about one item, pass its
+id as `aboutId`. To ask the latest question
 again, call `analyzeFeed` with the note's id. To keep an item for good, call `setFeedLifetime` with
 its id and no `lasts`. See the [GraphQL reference](/reference/graphql/).
 

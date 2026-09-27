@@ -49,6 +49,7 @@ export default defineConfig({
             { label: "Attach a resource", slug: "guides/attach-a-resource" },
             { label: "Connect an agent", slug: "guides/connect-an-agent" },
             { label: "Ask the catalog", slug: "guides/ask" },
+            { label: "Tag items", slug: "guides/tag" },
             { label: "Export your catalog", slug: "guides/export" },
           ],
         },
