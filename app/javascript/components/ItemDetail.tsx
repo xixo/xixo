@@ -81,7 +81,7 @@ export function ItemDetail() {
   )
   const split = useAloud(
     SplitReferenceDocument,
-    'That place could not be split off.',
+    'That place could not be kept apart.',
   )
   const forget = useAloud(
     ForgetFeedDocument,
@@ -538,6 +538,13 @@ export function ItemDetail() {
                     {reference.analyzedAt
                       ? ` · analyzed ${new Date(reference.analyzedAt).toLocaleString()}`
                       : ' · not analyzed'}
+                    {reference.digest &&
+                      originals.some(
+                        (other) =>
+                          other.id !== reference.id &&
+                          other.digest === reference.digest,
+                      ) &&
+                      ' · the same bytes as another place'}
                   </Text>
 
                   {placement &&
@@ -585,12 +592,12 @@ export function ItemDetail() {
                         if (!answered) return
 
                         say({
-                          text: `${reference.resource.key} is its own item now.`,
+                          text: `${reference.resource.key} is its own item now, and stays apart until its bytes change.`,
                         })
                         refetch()
                       }}
                     >
-                      Split
+                      Keep apart
                     </Button>
                   )}
                 </Group>
