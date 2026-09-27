@@ -46,6 +46,7 @@ class Reach
   def searched?(call) = called?(call, "search", engines)
   def fetched?(call) = called?(call, "get", fetchers)
   def kept?(call) = called?(call, "snapshot", keepers)
+  def forecasted?(call) = called?(call, "forecast", forecasters)
 
   def read?(call)
     fetched?(call) || kept?(call)

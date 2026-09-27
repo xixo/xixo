@@ -24,9 +24,10 @@ class Asking
     no other context could do it. Send several in one turn when the question has several parts.
     Scouts can %<can>s. When the reports come back, send more if something is still missing, then
     answer in a few sentences from the reports alone. Cite every feed a report names by its id in
-    brackets alone, like [feed 12], with no link, and every page as a markdown link with its title, like
-    [HN Search API](https://hn.algolia.com/api). If the scouts found nothing, say so plainly rather
-    than guessing.
+    brackets alone, like [feed 12], with no link, and every page a report read as a markdown link with
+    its title, like
+    [HN Search API](https://hn.algolia.com/api). Link nothing a report did not name. If the scouts
+    found nothing, say so plainly rather than guessing.
 
     When the question asks for something as it is now — the weather, a price, a score, a status — the
     answer is the values themselves. Task a scout to read them and report them, and answer with
@@ -209,7 +210,9 @@ class Asking
     listed = catalogued(held)
     partial = partly_read(held)
 
-    if listed.any? && !opened
+    forecasted = held.any? { |call| @reach.forecasted?(call) }
+
+    if listed.any? && !opened && !read && !forecasted
       <<~TEXT.squish
         You answered from catalog search results without opening any of them. Open the ones your
         answer draws on with feed, one call each, with arguments like
@@ -223,7 +226,7 @@ class Asking
         #{partial.first(SUGGESTED).map { |id, _| { id: id, find: 'the words the task is about' }.to_json }.join(' or ')},
         or read on with #{partial.first(SUGGESTED).map { |id, to| { id: id, from: to }.to_json }.join(' or ')}, then answer.
       TEXT
-    elsif !opened && !searched && !read && @reach.web?
+    elsif !opened && !searched && !read && !forecasted && @reach.web?
       "Nothing you read came from the catalog, so look at the web before you answer. #{@reach.told}"
     elsif searched && !read && @reach.readable?
       <<~TEXT.squish

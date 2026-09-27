@@ -74,6 +74,17 @@ class AskingPromptTest < ActiveSupport::TestCase
     end
   end
 
+  test "a scout that answered from the forecast is not sent back to open what its catalog search found" do
+    Tenant.switch(@tenant) do
+      Resource::Weather.create!(key: "weather", details: { "provider" => "open-meteo" })
+      searched = result("search", { "query" => "weather" }, { count: 1, feeds: [ { id: "307" } ] })
+      forecast = result("resource", { "do" => "forecast", "key" => "weather", "input" => { "place" => "Toronto" } }, { current: {} })
+
+      assert_nil unfinished([ searched, forecast ])
+      assert_match(/without opening any of them/, unfinished([ searched ]))
+    end
+  end
+
   test "a scout that read only the start of a long document is sent to look through the rest" do
     Tenant.switch(@tenant) do
       first = result("feed", { "id" => "253" }, { id: "253", text_part: { from: 0, to: 8000, of: 24_788 } })
