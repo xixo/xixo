@@ -127,6 +127,73 @@ class UploadsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the same bytes dropped under another name are answered as already there, not stored twice" do
+    first = upload("march.txt", "the same bytes") && response.parsed_body
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    assert_no_enqueued_jobs only: AnalyzeFeedJob do
+      upload "march-copy.txt", "the same bytes"
+    end
+
+    assert_response :ok
+
+    body = response.parsed_body
+
+    assert_equal true, body["duplicate"]
+    assert_equal first["feed_id"], body["feed_id"]
+    assert_equal "march.txt", body["path"].split("/").last
+    assert_not (@root + "march-copy.txt").exist?
+
+    Tenant.switch(@tenant) do
+      assert_equal 1, Feed.files.count
+      assert_equal 1, Reference.originals.count
+    end
+  end
+
+  test "the same bytes dropped while the first is still waiting to be stored are one item too" do
+    first = upload("march.txt", "still waiting") && response.parsed_body
+    upload "elsewhere/march.txt", "still waiting"
+
+    assert_response :ok
+    assert_equal true, response.parsed_body["duplicate"]
+    assert_equal first["feed_id"], response.parsed_body["feed_id"]
+
+    Tenant.switch(@tenant) { assert_equal 1, Feed.files.count }
+  end
+
+  test "the fingerprint of what was stored is kept on the reference" do
+    upload "march.txt", "fingerprinted"
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    Tenant.switch(@tenant) do
+      assert_equal Digest::SHA256.hexdigest("fingerprinted"), Reference.find_by!(locator_key: "march.txt").digest
+    end
+  end
+
+  test "changed bytes at a known path are not a duplicate of the old ones" do
+    upload "march.txt", "before"
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+    upload "march.txt", "after"
+
+    assert_response :accepted
+    assert_nil response.parsed_body["duplicate"]
+  end
+
+  test "a file another tenant holds is not a duplicate here" do
+    Tenant.switch(@other) do
+      feed = Feed.create!(type: Feed::FILE, key: "theirs.txt", title: "theirs.txt")
+      resource = Resource::Database.create!(key: "theirs-#{SecureRandom.hex(3)}", name: "Theirs")
+
+      Reference.create!(feed: feed, resource: resource, locator_key: "theirs.txt", role: Reference::ORIGINAL,
+                        digest: Digest::SHA256.hexdigest("private to them"))
+    end
+
+    upload "mine.txt", "private to them"
+
+    assert_response :accepted
+    assert_nil response.parsed_body["duplicate"]
+  end
+
   test "a tenant with nowhere that accepts the file is told so rather than staging it" do
     Tenant.switch(@tenant) { @storage.update!(archived_at: Time.current) }
 

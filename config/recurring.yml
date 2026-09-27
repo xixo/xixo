@@ -18,6 +18,11 @@ shared: &shared
     queue: analysis
     schedule: every minute
 
+  digest_references:
+    class: DigestReferencesJob
+    queue: analysis
+    schedule: every minute
+
   sweep_audit_events:
     class: SweepAuditEventsJob
     queue: sync

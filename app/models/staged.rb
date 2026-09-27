@@ -2,12 +2,13 @@ class Staged
   ANALYZED_AT = "analyzed_at".freeze
   PATH = "path".freeze
   SOURCE = "source_url".freeze
+  DIGEST = "digest".freeze
 
   attr_reader :feed, :blob
 
-  def self.stage!(feed, path:, body:, mime:, source: nil)
+  def self.stage!(feed, path:, body:, mime:, source: nil, digest: nil)
     io = body.respond_to?(:read) ? body : StringIO.new(body.to_s)
-    metadata = { PATH => path, SOURCE => source.presence }.compact
+    metadata = { PATH => path, SOURCE => source.presence, DIGEST => digest.presence }.compact
 
     blob = ActiveStorage::Blob.create_and_upload!(
       io: io, filename: File.basename(path), content_type: mime,
@@ -35,6 +36,7 @@ class Staged
   def mime = blob.content_type
   def size = blob.byte_size
   def source = blob.metadata[SOURCE]
+  def digest = blob.metadata[DIGEST].presence
 
   def content_type
     mime.presence || "application/octet-stream"

@@ -11,6 +11,11 @@ export interface Dropped {
   open: () => Promise<File>
 }
 
+export interface Twin {
+  path: string
+  twin: string | null
+}
+
 export interface Failure {
   path: string
   reason: string
@@ -20,6 +25,7 @@ export interface Handlers {
   onFound: (count: number) => void
   onWalked: () => void
   onSent: (path: string) => void
+  onTwin: (twin: Twin) => void
   onFailed: (failure: Failure) => void
 }
 
@@ -155,7 +161,11 @@ async function walk(
   }
 }
 
-async function send(item: Dropped, csrf: string | null, signal: AbortSignal) {
+async function send(
+  item: Dropped,
+  csrf: string | null,
+  signal: AbortSignal,
+): Promise<Twin | null> {
   const file = await item.open()
   const form = new FormData()
 
@@ -172,9 +182,14 @@ async function send(item: Dropped, csrf: string | null, signal: AbortSignal) {
 
   if (response.status === 401)
     throw new Unauthorized('sign in again to add items')
-  if (response.ok) return
-
   const body = await response.json().catch(() => null)
+
+  if (response.ok) {
+    return body?.duplicate
+      ? { path: item.path, twin: body.path ?? body.title ?? null }
+      : null
+  }
+
   const reason = body?.error ?? `the server said ${response.status}`
   const permanent =
     response.status >= 400 && response.status < 500 && response.status !== 429
@@ -199,8 +214,10 @@ async function drain(
       attempt += 1
 
       try {
-        await send(item, csrf, signal)
-        handlers.onSent(item.path)
+        const twin = await send(item, csrf, signal)
+
+        if (twin) handlers.onTwin(twin)
+        else handlers.onSent(item.path)
         break
       } catch (error) {
         if (signal.aborted) return

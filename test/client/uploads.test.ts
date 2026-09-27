@@ -1,17 +1,25 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { type Dropped, type Failure, upload } from '../../app/javascript/uploads'
+import {
+  type Dropped,
+  type Failure,
+  type Twin,
+  upload,
+} from '../../app/javascript/uploads'
 
 function watching() {
   const failures: Failure[] = []
   const sent: string[] = []
+  const twins: Twin[] = []
 
   return {
     failures,
     sent,
+    twins,
     handlers: {
       onFound: () => {},
       onWalked: () => {},
       onSent: (path: string) => sent.push(path),
+      onTwin: (twin: Twin) => twins.push(twin),
       onFailed: (failure: Failure) => failures.push(failure),
     },
   }
@@ -49,6 +57,30 @@ describe('upload', () => {
 
     expect(seen.sent.sort()).toEqual(['file-0.txt', 'file-1.txt', 'file-2.txt'])
     expect(seen.failures).toEqual([])
+  })
+
+  test('reports a file the server already holds as a twin, not as sent', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ duplicate: true, path: 'drop/march.txt' }),
+      })),
+    )
+
+    const seen = watching()
+
+    await upload(
+      { files: batch(1) },
+      seen.handlers,
+      null,
+      new AbortController().signal,
+    )
+
+    expect(seen.sent).toEqual([])
+    expect(seen.failures).toEqual([])
+    expect(seen.twins).toEqual([{ path: 'file-0.txt', twin: 'drop/march.txt' }])
   })
 
   test('settles when a drop larger than the buffer is stopped part way', async () => {

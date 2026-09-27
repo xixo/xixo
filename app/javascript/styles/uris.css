@@ -1014,6 +1014,14 @@ a.entry:hover {
   white-space: nowrap;
 }
 
+.tray-twin {
+  font-size: var(--t-micro);
+  color: var(--soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .gate {
   min-height: 100vh;
   display: grid;

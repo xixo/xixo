@@ -8,8 +8,11 @@ class UploadsController < ApplicationController
 
     landed = Intake.write!(
       path: params[:path].presence || file.original_filename,
-      body: file.tempfile
+      body: file.tempfile,
+      unique: true
     )
+
+    return already_there(landed.feed) if landed.duplicate
 
     render status: :accepted, json: {
       feed_id: landed.feed.id,
@@ -28,6 +31,17 @@ class UploadsController < ApplicationController
       super && grant.permit!("uris:catalog:write")
     rescue Grant::Denied => e
       refuse(Masks::Client::Unauthorized.new(e.message))
+    end
+
+    def already_there(feed)
+      held = feed.reference || feed.staged
+
+      render status: :ok, json: {
+        duplicate: true,
+        feed_id: feed.id,
+        title: feed.title,
+        path: held&.path
+      }
     end
 
     def unusable(message)

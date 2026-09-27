@@ -74,6 +74,7 @@ class Reference < ApplicationRecord
     if version.present? && version != reported
       self.changed_at = Time.current
       self.analyzed_at = nil
+      self.digest = nil
     end
 
     self.version = reported

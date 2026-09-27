@@ -77,6 +77,7 @@ class Placement
       reference.mime = staged.mime
       reference.version = resource.version_for(locator)
       reference.analyzed_at = staged.analyzed_at
+      reference.digest = staged.digest
       reference.save!
       reference
     end

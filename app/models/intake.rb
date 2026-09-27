@@ -4,10 +4,12 @@ class Intake
   MAX_KEY = 900
   MAX_NAME = 180
 
-  Landed = Data.define(:feed, :staged, :analysis)
+  Landed = Data.define(:feed, :staged, :analysis, :duplicate) do
+    def initialize(feed:, staged: nil, analysis: nil, duplicate: false) = super
+  end
 
   class << self
-    def write!(path:, body:, mime: nil, title: nil, source: nil, cause: "upload")
+    def write!(path:, body:, mime: nil, title: nil, source: nil, cause: "upload", unique: false)
       key = key_for(path)
       type = mime.presence || MimeType.for_filename(key)
       size = body.is_a?(String) ? body.bytesize : body.size
@@ -16,10 +18,15 @@ class Intake
         raise Unusable, "nowhere accepts a #{type} of #{size} bytes — attach storage on Resources"
       end
 
+      digest = Fingerprint.of(body)
+      twin = unique ? twin_of(digest) : nil
+
+      return Landed.new(feed: twin, duplicate: true) if twin
+
       feed, staged = ActiveRecord::Base.transaction do
         held = already_at(key) || created(title.presence || File.basename(key))
 
-        [ held, Staged.stage!(held, path: key, body: body, mime: type, source: source) ]
+        [ held, Staged.stage!(held, path: key, body: body, mime: type, source: source, digest: digest) ]
       end
 
       Landed.new(feed: feed, staged: staged, analysis: feed.analyze!(cause: cause))
@@ -60,6 +67,19 @@ class Intake
                           .joins(:resource).order("resources.default_storage DESC", :id).first
 
         placed&.feed || waiting_at(key)
+      end
+
+      def twin_of(digest)
+        placed = Reference.originals.where(digest: digest, gone_at: nil).order(:id).first
+        return placed.feed if placed
+
+        attachment = ActiveStorage::Attachment
+          .where(name: "upload", record_type: "Feed")
+          .joins(:blob)
+          .where("active_storage_blobs.metadata::jsonb ->> ? = ?", Staged::DIGEST, digest)
+          .order(:id).first
+
+        attachment && Feed.files.find_by(id: attachment.record_id)
       end
 
       def waiting_at(key)

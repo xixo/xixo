@@ -18,6 +18,7 @@ import {
   type Failure,
   filesFrom,
   looseFiles,
+  type Twin,
   Unauthorized,
   upload,
 } from '../uploads'
@@ -26,6 +27,8 @@ import { Spectrum } from './Spectrum'
 interface Tally {
   found: number
   done: number
+  skipped: number
+  twins: Twin[]
   failures: Failure[]
   current: string | null
   walking: boolean
@@ -37,6 +40,8 @@ interface Tally {
 const EMPTY: Tally = {
   found: 0,
   done: 0,
+  skipped: 0,
+  twins: [],
   failures: [],
   current: null,
   walking: false,
@@ -102,6 +107,11 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
         onSent: (path: string) => {
           live.current.done += 1
           live.current.current = path
+        },
+        onTwin: (twin: Twin) => {
+          live.current.skipped += 1
+          live.current.current = twin.path
+          live.current.twins = [...live.current.twins, twin].slice(-50)
         },
         onFailed: (failure: Failure) => {
           live.current.failures = [...live.current.failures, failure].slice(-50)
@@ -283,6 +293,8 @@ function Tray() {
   const {
     found,
     done,
+    skipped,
+    twins,
     failures,
     current,
     walking,
@@ -295,7 +307,9 @@ function Tray() {
 
   if (!running && settledAt === null) return null
 
-  const share = found > 0 ? Math.min(100, Math.round((done / found) * 100)) : 0
+  const handled = done + skipped
+  const share =
+    found > 0 ? Math.min(100, Math.round((handled / found) * 100)) : 0
 
   return (
     <aside className="tray" aria-live="polite">
@@ -305,8 +319,10 @@ function Tray() {
           {running
             ? walking
               ? `Reading — ${counted(found)} found`
-              : `Adding ${counted(done)} of ${counted(found)}`
-            : `Added ${counted(done)}`}
+              : `Adding ${counted(handled)} of ${counted(found)}`
+            : skipped > 0
+              ? `Added ${counted(done)} · ${counted(skipped)} already here`
+              : `Added ${counted(done)}`}
         </Text>
         <Group gap="var(--s1)" ml="auto" wrap="nowrap">
           {running ? (
@@ -350,7 +366,27 @@ function Tray() {
         )}
 
         {!running && failures.length === 0 && (
-          <div style={{ marginTop: 'var(--s3)' }}>Everything landed.</div>
+          <div style={{ marginTop: 'var(--s3)' }}>
+            {skipped > 0 ? 'Nothing else was needed.' : 'Everything landed.'}
+          </div>
+        )}
+
+        {skipped > 0 && (
+          <div className="tray-fails">
+            <div style={{ marginBottom: 'var(--s2)' }}>
+              {counted(skipped)} already here, so not added again
+            </div>
+            {twins.slice(-8).map((twin, at) => (
+              <div
+                className="tray-twin"
+                // biome-ignore lint/suspicious/noArrayIndexKey: two drops can match the same file
+                key={`${at}-${twin.path}`}
+              >
+                {twin.path}
+                {twin.twin ? ` — same as ${twin.twin}` : ''}
+              </div>
+            ))}
+          </div>
         )}
 
         {failures.length > 0 && (
