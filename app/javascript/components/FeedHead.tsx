@@ -91,12 +91,10 @@ function cadence(feed: Feed) {
 export function FeedHead({
   feed,
   passes,
-  cap,
   onChanged,
 }: {
   feed: Feed
   passes: readonly Pass[]
-  cap?: number | null
   onChanged: () => void
 }) {
   const say = useSay()
@@ -213,7 +211,7 @@ export function FeedHead({
       <div className="eyebrow">{cadence(feed)}</div>
 
       {open ? (
-        <Progress key={open.id} pass={open} cap={cap} />
+        <Progress key={open.id} pass={open} />
       ) : last ? (
         <LastRun pass={last} />
       ) : null}
@@ -281,25 +279,23 @@ function LastRun({ pass }: { pass: Pass }) {
   )
 }
 
-const MARKED = /^\[.{1,2}\]\s*:\s*/
-const CALLED = /^called [^\n]*\n+/
-const THINKING = /^thinking:\s*/i
+const NOISE = /^(\[.{1,2}\]\s*:\s*|called [^\n]*\n+|thinking:\s*)+/i
 
-function glimpse(turns: Turn[], logs?: string | null) {
-  const said = turns
-    .map((turn) => (turn.said ?? '').replace(CALLED, '').replace(THINKING, ''))
-    .map((text) => text.replace(/\s+/g, ' ').trim())
-    .filter(Boolean)
-    .pop()
-
-  if (said) return said
-
-  const line = (logs ?? '').split('\n').filter(Boolean).pop()
-
-  return line ? line.replace(MARKED, '').replace(/\s+/g, ' ').trim() : null
+function tidy(text?: string | null) {
+  return (text ?? '').replace(NOISE, '').replace(/\s+/g, ' ').trim()
 }
 
-export function Progress({ pass, cap }: { pass: Pass; cap?: number | null }) {
+function glimpse(turns: Turn[], logs?: string | null) {
+  for (let at = turns.length - 1; at >= 0; at -= 1) {
+    const said = tidy(turns[at].said)
+
+    if (said) return said
+  }
+
+  return tidy((logs ?? '').split('\n').filter(Boolean).pop()) || null
+}
+
+export function Progress({ pass }: { pass: Pass }) {
   const [turns, setTurns] = useState<Turn[]>(agentTurns(pass.turns))
   const { data } = useSubscription(AnalysisProgressedDocument, { id: pass.id })
   const streamed = data?.analysisProgressed.analysis
@@ -337,8 +333,6 @@ export function Progress({ pass, cap }: { pass: Pass; cap?: number | null }) {
     </Button>
   )
 
-  const latest = turns[turns.length - 1]
-
   if (stopped || status === 'cancelled') return null
 
   if (status === 'queued') {
@@ -362,10 +356,9 @@ export function Progress({ pass, cap }: { pass: Pass; cap?: number | null }) {
   }
 
   const line = glimpse(turns, streamed?.logs) ?? 'Reading the catalog'
-  const where = `turn ${latest?.turn ?? 1}${cap ? ` of ${cap}` : ''}`
 
   return (
-    <div className="thinking" title={where} aria-live="polite">
+    <div className="thinking" aria-live="polite">
       <span className="thinking-pulse" />
       <span className="label">Thinking</span>
       <span className="thinking-line" key={line}>

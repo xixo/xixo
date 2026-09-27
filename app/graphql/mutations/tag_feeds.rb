@@ -4,12 +4,13 @@ module Mutations
   class TagFeeds < BaseMutation
     MOST = 200
 
-    argument :ids, [ ID ], required: true
-    argument :tag, String, required: true
+    argument :ids, [ ID ], required: true, description: "The items to change, up to 200."
+    argument :tag, String, required: true,
+             description: "The name of the tag. Runs of whitespace collapse to one space, and a tag that does not exist yet is created."
     argument :tagged, Boolean, required: false,
-             description: "False takes the items out of the tag instead of putting them in."
+             description: "Set to false to remove the tag from the items. It defaults to true."
 
-    field :feeds, [ Types::FeedType ], null: false
+    field :feeds, [ Types::FeedType ], null: false, description: "The items after the change."
 
     def resolve(ids:, tag:, tagged: true)
       key = tag.to_s.squish
@@ -18,16 +19,31 @@ module Mutations
       refused("that tag is longer than #{Feed::MAX_KEY} characters") if key.length > Feed::MAX_KEY
       refused("no more than #{MOST} items can be tagged at once") if ids.size > MOST
 
-      feeds = ids.uniq.map { |id| feed!(id) }
+      wanted = ids.uniq
+      held = Feed.where(id: wanted).index_by { |feed| feed.id.to_s }
+      missing = wanted.find { |id| !held.key?(id.to_s) }
+
+      refused("no feed with id #{missing}") if missing
+
+      feeds = wanted.map { |id| held.fetch(id.to_s) }
       refused("a tag, type or address cannot itself be tagged") if feeds.any?(&:singleton?)
 
-      Feed.transaction do
-        feeds.each { |feed| tagged ? feed.file_under!(key) : feed.take_out_of!(key) }
-      end
+      apply(feeds, key, tagged)
 
-      feeds.each(&:reindex!)
+      Feed.reindex!(feeds)
 
       { feeds: feeds }
     end
+
+    private
+
+      def apply(feeds, key, tagged)
+        if tagged
+          tag = Feed.tag!(key)
+          Feed.transaction { feeds.each { |feed| feed.connect!(tag) } }
+        elsif (tag = Feed.tags.by_key(key).first)
+          Feed.transaction { feeds.each { |feed| feed.disconnect!(tag) } }
+        end
+      end
   end
 end

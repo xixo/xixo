@@ -99,6 +99,19 @@ export function ItemDetail() {
   )
   const viewable = originals.filter((reference) => reference.thumbnailUrl)
   const filed = item.connected.filter((held) => FACETS.has(held.type))
+
+  const untag = async (key: string) => {
+    const answered = await untagging.execute({
+      ids: [item.id],
+      tag: key,
+      tagged: false,
+    })
+
+    if (!answered?.tagFeeds) return
+
+    say({ text: `Removed ${key}.` })
+    refetch()
+  }
   const drawnOn = new Set(
     item.analyses.flatMap((pass) => pass.drewOn.map((held) => held.id)),
   )
@@ -319,18 +332,7 @@ export function ItemDetail() {
                   className="filed-untag"
                   aria-label={`Remove the tag ${held.key}`}
                   disabled={untagging.loading}
-                  onClick={async () => {
-                    const answered = await untagging.execute({
-                      ids: [item.id],
-                      tag: held.key,
-                      tagged: false,
-                    })
-
-                    if (!answered?.tagFeeds) return
-
-                    say({ text: `Removed ${held.key}.` })
-                    refetch()
-                  }}
+                  onClick={() => untag(held.key)}
                 >
                   <IconX size={12} stroke={2} />
                 </button>

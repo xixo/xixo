@@ -998,7 +998,8 @@ a.entry:hover {
   text-align: left;
 }
 
-.tray-fails {
+.tray-fails,
+.tray-twins {
   margin-top: var(--s2);
   max-height: 132px;
   overflow-y: auto;

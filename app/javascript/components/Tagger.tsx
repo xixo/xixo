@@ -2,7 +2,7 @@ import { Autocomplete, Button } from '@mantine/core'
 import { IconTag } from '@tabler/icons-react'
 import { TagFeedsDocument, TagsDocument } from '@uris-to/client'
 import { useQuery } from '@uris-to/client/react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useAloud, useSay } from './Say'
 
 export function Tagger({
@@ -21,7 +21,10 @@ export function Tagger({
   const tagging = useAloud(TagFeedsDocument, 'That could not be tagged.')
   const name = tag.trim()
   const { data, refetch } = useQuery(TagsDocument)
-  const known = (data?.feeds.nodes ?? []).map((held) => held.key)
+  const known = useMemo(
+    () => (data?.feeds.nodes ?? []).map((held) => held.key),
+    [data],
+  )
 
   const submit = async () => {
     if (!name || ids.length === 0) return

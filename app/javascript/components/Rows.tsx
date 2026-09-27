@@ -9,7 +9,7 @@ export type Row = RowFragment
 
 export type View = 'list' | 'cards'
 
-export interface Pick {
+interface Pick {
   chosen: ReadonlySet<string>
   toggle: (id: string) => void
   pickable: (row: Row) => boolean
@@ -75,44 +75,42 @@ export function Rows({
 
   return (
     <div className="panel">
-      {rows.map((row) => {
-        const entry = (
-          <Link
-            key={row.id}
-            to={hrefFor(row)}
-            className="entry"
-            data-picked={pick?.chosen.has(row.id) || undefined}
-          >
-            <Thumb
-              url={row.thumbnailUrl}
-              looked={row}
-              alt={named(row)}
-              size={48}
-            />
-            <div style={{ minWidth: 0 }}>
-              <div className="entry-title">{named(row)}</div>
-              <Within row={row} />
-              <Gist row={row} className="entry-summary" />
-            </div>
-            <TypeBadge type={row.type} mime={row.mime} />
-          </Link>
-        )
+      {rows.map((row) => (
+        <Entry key={row.id} row={row} pick={pick} />
+      ))}
+    </div>
+  )
+}
 
-        if (!pick) return entry
+function Entry({ row, pick }: { row: Row; pick?: Pick }) {
+  const entry = (
+    <Link
+      to={hrefFor(row)}
+      className="entry"
+      data-picked={pick?.chosen.has(row.id) || undefined}
+    >
+      <Thumb url={row.thumbnailUrl} looked={row} alt={named(row)} size={48} />
+      <div style={{ minWidth: 0 }}>
+        <div className="entry-title">{named(row)}</div>
+        <Within row={row} />
+        <Gist row={row} className="entry-summary" />
+      </div>
+      <TypeBadge type={row.type} mime={row.mime} />
+    </Link>
+  )
 
-        return (
-          <div key={row.id} className="entry-pick">
-            <Checkbox
-              color="chalk"
-              checked={pick.chosen.has(row.id)}
-              disabled={!pick.pickable(row)}
-              onChange={() => pick.toggle(row.id)}
-              aria-label={`Select ${named(row)}`}
-            />
-            {entry}
-          </div>
-        )
-      })}
+  if (!pick) return entry
+
+  return (
+    <div className="entry-pick">
+      <Checkbox
+        color="chalk"
+        checked={pick.chosen.has(row.id)}
+        disabled={!pick.pickable(row)}
+        onChange={() => pick.toggle(row.id)}
+        aria-label={`Select ${named(row)}`}
+      />
+      {entry}
     </div>
   )
 }

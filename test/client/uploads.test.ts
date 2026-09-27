@@ -65,7 +65,7 @@ describe('upload', () => {
       vi.fn(async () => ({
         ok: true,
         status: 200,
-        json: async () => ({ duplicate: true, path: 'drop/march.txt' }),
+        json: async () => ({ duplicate: true, twin: 'drop/march.txt' }),
       })),
     )
 

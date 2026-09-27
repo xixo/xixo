@@ -16,7 +16,7 @@ module Mutations
       refused("a feed cannot connect to itself") if feed.id == other.id
 
       connected ? feed.connect!(other) : feed.disconnect!(other)
-      [ feed, other ].each(&:reindex!)
+      Feed.reindex!([ feed, other ])
 
       { feed: feed }
     end

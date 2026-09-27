@@ -182,14 +182,15 @@ async function send(
 
   if (response.status === 401)
     throw new Unauthorized('sign in again to add items')
-  const body = await response.json().catch(() => null)
-
   if (response.ok) {
-    return body?.duplicate
-      ? { path: item.path, twin: body.path ?? body.title ?? null }
-      : null
+    if (response.status !== 200) return null
+
+    const held = await response.json().catch(() => null)
+
+    return held?.duplicate ? { path: item.path, twin: held.twin ?? null } : null
   }
 
+  const body = await response.json().catch(() => null)
   const reason = body?.error ?? `the server said ${response.status}`
   const permanent =
     response.status >= 400 && response.status < 500 && response.status !== 429

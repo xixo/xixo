@@ -111,7 +111,10 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
         onTwin: (twin: Twin) => {
           live.current.skipped += 1
           live.current.current = twin.path
-          live.current.twins = [...live.current.twins, twin].slice(-50)
+          live.current.twins = [
+            ...live.current.twins.filter((held) => held.path !== twin.path),
+            twin,
+          ].slice(-50)
         },
         onFailed: (failure: Failure) => {
           live.current.failures = [...live.current.failures, failure].slice(-50)
@@ -372,16 +375,12 @@ function Tray() {
         )}
 
         {skipped > 0 && (
-          <div className="tray-fails">
+          <div className="tray-twins">
             <div style={{ marginBottom: 'var(--s2)' }}>
               {counted(skipped)} already here, so not added again
             </div>
-            {twins.slice(-8).map((twin, at) => (
-              <div
-                className="tray-twin"
-                // biome-ignore lint/suspicious/noArrayIndexKey: two drops can match the same file
-                key={`${at}-${twin.path}`}
-              >
+            {twins.slice(-8).map((twin) => (
+              <div className="tray-twin" key={twin.path}>
                 {twin.path}
                 {twin.twin ? ` — same as ${twin.twin}` : ''}
               </div>

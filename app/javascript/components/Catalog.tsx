@@ -220,7 +220,6 @@ function Listing({
         <FeedHead
           feed={feed}
           passes={analyses}
-          cap={thinking.data?.feed?.schedule?.turns}
           onChanged={() => {
             onChanged()
             thinking.refetch()

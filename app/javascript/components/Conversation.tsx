@@ -14,14 +14,8 @@ import { Tagger } from './Tagger'
 const taggable = (row: Row) => row.type === TYPE.file || row.type === TYPE.note
 
 function DrewOn({ rows, onChanged }: { rows: Row[]; onChanged: () => void }) {
-  const [reviewing, setReviewing] = useState(false)
-  const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set())
+  const [chosen, setChosen] = useState<ReadonlySet<string> | null>(null)
   const held = rows.filter(taggable)
-
-  const review = () => {
-    setChosen(new Set(held.map((row) => row.id)))
-    setReviewing(true)
-  }
 
   const toggle = (id: string) =>
     setChosen((now) => {
@@ -35,13 +29,13 @@ function DrewOn({ rows, onChanged }: { rows: Row[]; onChanged: () => void }) {
     <Stack gap="var(--s2)">
       <Group justify="space-between">
         <div className="label">What it drew on</div>
-        {held.length > 0 && !reviewing && (
+        {held.length > 0 && !chosen && (
           <Button
             size="compact-xs"
             variant="subtle"
             color="chalk"
             leftSection={<IconTag size={13} />}
-            onClick={review}
+            onClick={() => setChosen(new Set(held.map((row) => row.id)))}
           >
             Tag these
           </Button>
@@ -49,17 +43,17 @@ function DrewOn({ rows, onChanged }: { rows: Row[]; onChanged: () => void }) {
       </Group>
       <Rows
         rows={rows}
-        pick={reviewing ? { chosen, toggle, pickable: taggable } : undefined}
+        pick={chosen ? { chosen, toggle, pickable: taggable } : undefined}
       />
-      {reviewing && (
+      {chosen && (
         <Tagger
           ids={[...chosen]}
           placeholder="Tag the ones you have checked"
           onTagged={() => {
-            setReviewing(false)
+            setChosen(null)
             onChanged()
           }}
-          onCancel={() => setReviewing(false)}
+          onCancel={() => setChosen(null)}
         />
       )}
     </Stack>

@@ -971,6 +971,13 @@ CREATE UNIQUE INDEX index_active_storage_attachments_uniqueness ON public.active
 
 
 --
+-- Name: index_active_storage_blobs_on_digest; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_active_storage_blobs_on_digest ON public.active_storage_blobs USING btree ((((metadata)::jsonb ->> 'digest'::text))) WHERE (((metadata)::jsonb ->> 'digest'::text) IS NOT NULL);
+
+
+--
 -- Name: index_active_storage_blobs_on_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1918,6 +1925,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260927050000'),
 ('20260927040000'),
 ('20260927030000'),
 ('20260927010000'),

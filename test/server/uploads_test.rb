@@ -141,7 +141,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
 
     assert_equal true, body["duplicate"]
     assert_equal first["feed_id"], body["feed_id"]
-    assert_equal "march.txt", body["path"].split("/").last
+    assert_equal "march.txt", body["twin"].split("/").last
     assert_not (@root + "march-copy.txt").exist?
 
     Tenant.switch(@tenant) do

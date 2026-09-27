@@ -1,11 +1,13 @@
 class Intake
   class Unusable < StandardError; end
 
-  MAX_KEY = 900
+  MAX_KEY = Feed::MAX_KEY
   MAX_NAME = 180
 
-  Landed = Data.define(:feed, :staged, :analysis, :duplicate) do
-    def initialize(feed:, staged: nil, analysis: nil, duplicate: false) = super
+  Landed = Data.define(:feed, :staged, :analysis) do
+    def initialize(feed:, staged: nil, analysis: nil) = super
+
+    def duplicate = staged.nil?
   end
 
   class << self
@@ -23,7 +25,7 @@ class Intake
       feed, staged = ActiveRecord::Base.transaction do
         alone!(digest) if unique
 
-        twin = unique ? twin_of(digest, grant) : nil
+        twin = twin_of(digest, grant) if unique
         next [ twin, nil ] if twin
 
         held = already_at(key) || created(title.presence || File.basename(key))
@@ -31,7 +33,7 @@ class Intake
         [ held, Staged.stage!(held, path: key, body: body, mime: type, source: source, digest: digest) ]
       end
 
-      return Landed.new(feed: feed, duplicate: true) if staged.nil?
+      return Landed.new(feed: feed) if staged.nil?
 
       Landed.new(feed: feed, staged: staged, analysis: feed.analyze!(cause: cause))
     end
@@ -74,31 +76,26 @@ class Intake
       end
 
       def alone!(digest)
-        lock = Zlib.crc32("#{Current.tenant&.id}:#{digest}")
+        held = ActiveRecord::Base.sanitize_sql_array([ "SELECT pg_advisory_xact_lock(hashtext(?))", "#{Current.tenant&.id}:#{digest}" ])
 
-        ActiveRecord::Base.connection.execute("SELECT pg_advisory_xact_lock(#{lock.to_i})")
+        ActiveRecord::Base.connection.execute(held)
       end
 
       def twin_of(digest, grant)
         placed = Reference.originals
                           .where(digest: digest, gone_at: nil, resource: Resource.visible_to(grant))
                           .order(:id).first
-        return placed.feed if placed
 
-        attachment = ActiveStorage::Attachment
-          .where(name: "upload", record_type: "Feed")
-          .joins(:blob)
-          .where("active_storage_blobs.metadata::jsonb ->> ? = ?", Staged::DIGEST, digest)
-          .order(:id).first
-
-        attachment && Feed.files.find_by(id: attachment.record_id)
+        placed&.feed || waiting(Staged::DIGEST, digest)
       end
 
-      def waiting_at(key)
+      def waiting_at(key) = waiting(Staged::PATH, key)
+
+      def waiting(field, value)
         attachment = ActiveStorage::Attachment
           .where(name: "upload", record_type: "Feed")
           .joins(:blob)
-          .where("active_storage_blobs.metadata::jsonb ->> ? = ?", Staged::PATH, key)
+          .where("active_storage_blobs.metadata::jsonb ->> ? = ?", field, value)
           .order(:id).last
 
         attachment && Feed.files.find_by(id: attachment.record_id)

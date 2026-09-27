@@ -40,8 +40,7 @@ class UploadsController < ApplicationController
       render status: :ok, json: {
         duplicate: true,
         feed_id: feed.id,
-        title: feed.title,
-        path: held&.path
+        twin: held&.path || feed.title
       }
     end
 

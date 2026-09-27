@@ -79,6 +79,10 @@ class Feed < ApplicationRecord
   def to_param = tag? || address? ? key : id.to_s
 
   def self.tag!(key) = singleton!(TAG, key)
+
+  def self.reindex!(feeds)
+    SearchIndex.index_all(for_indexing.where(id: feeds.map { |held| held.respond_to?(:id) ? held.id : held }))
+  end
   def self.mime!(key) = singleton!(MIME, key)
 
   def self.singleton!(type, key)
@@ -208,17 +212,6 @@ class Feed < ApplicationRecord
 
   def disconnect!(other)
     Edge.between(self, other)&.destroy
-  end
-
-  def reindex! = index_for_search
-
-  def file_under!(key)
-    connect!(Feed.tag!(key))
-  end
-
-  def take_out_of!(key)
-    held = Feed.tags.by_key(key).first
-    disconnect!(held) if held
   end
 
   def destroy_if_empty!
