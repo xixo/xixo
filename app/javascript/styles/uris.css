@@ -2064,7 +2064,7 @@ a.tag:hover {
   border-top: 1px solid var(--line);
 }
 
-.readout-more {
+.plain-toggle {
   justify-self: start;
   padding: 0;
   border: 0;
@@ -2075,7 +2075,7 @@ a.tag:hover {
   cursor: pointer;
 }
 
-.readout-more:hover {
+.plain-toggle:hover {
   color: var(--soft);
 }
 

@@ -62,7 +62,7 @@ function Group({ name, rows }: { name: string; rows: Detail[] }) {
       {rows.length > FOLDED && (
         <button
           type="button"
-          className="readout-more"
+          className="plain-toggle"
           onClick={() => setOpen(!open)}
         >
           {open ? 'Show fewer' : `Show all ${rows.length}`}

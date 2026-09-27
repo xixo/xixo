@@ -31,6 +31,7 @@ import {
 import { useQuery } from '@uris-to/client/react'
 import {
   type CSSProperties,
+  type ReactNode,
   useCallback,
   useEffect,
   useRef,
@@ -395,10 +396,9 @@ export function ItemDetail() {
       )}
 
       {!facet && !item.asked && item.details.length > 0 && (
-        <Stack gap="var(--s2)">
-          <div className="label">Read out of it</div>
+        <Section label="Read out of it">
           <Readout details={item.details} />
-        </Stack>
+        </Section>
       )}
 
       {item.children.length > 0 && (
@@ -417,7 +417,7 @@ export function ItemDetail() {
                 : 'What it drew on'
               : ABOUT[item.type]
                 ? 'In it'
-                : 'Beside it'}
+                : 'What connects to it'}
           </div>
           {ABOUT[item.type] && (
             <Text size="sm" c="dimmed">
@@ -435,9 +435,7 @@ export function ItemDetail() {
       )}
 
       {(originals.length > 0 || item.staged) && (
-        <Stack gap="var(--s3)">
-          <div className="label">Where it lives</div>
-
+        <Section label="Where it lives" defaultOpen={item.staged}>
           <div className="panel">
             {item.staged && (
               <div
@@ -545,15 +543,46 @@ export function ItemDetail() {
               </div>
             ))}
           </div>
-        </Stack>
+        </Section>
       )}
 
       {!facet && (
-        <Stack gap="var(--s3)">
-          <div className="label">Analysis</div>
+        <Section
+          label="Analysis"
+          defaultOpen={item.analyses.some((pass) => pass.status !== 'done')}
+        >
           <Passes passes={item.analyses} onSettled={settled} />
-        </Stack>
+        </Section>
       )}
+    </Stack>
+  )
+}
+
+function Section({
+  label,
+  defaultOpen = false,
+  children,
+}: {
+  label: string
+  defaultOpen?: boolean
+  children: ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+
+  return (
+    <Stack gap="var(--s3)">
+      <Group justify="space-between" align="baseline">
+        <div className="label">{label}</div>
+        <button
+          type="button"
+          className="plain-toggle"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          {open ? 'Hide' : 'Show'}
+        </button>
+      </Group>
+      {open && children}
     </Stack>
   )
 }
