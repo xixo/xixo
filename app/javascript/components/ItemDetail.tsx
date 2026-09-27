@@ -352,7 +352,7 @@ export function ItemDetail() {
           {pictured.map((reference) => (
             <a
               key={reference.id}
-              href={reference.contentUrl}
+              href={reference.hiresUrl ?? reference.contentUrl}
               target="_blank"
               rel="noreferrer"
             >
@@ -367,7 +367,7 @@ export function ItemDetail() {
         </Group>
       )}
 
-      {filed.length > 0 && (
+      {(filed.length > 0 || item.keywords.length > 0) && (
         <div className="filed">
           {filed.map((held) => (
             <span key={held.id} className="filed-tag">
@@ -391,6 +391,19 @@ export function ItemDetail() {
               )}
             </span>
           ))}
+          {!facet &&
+            !item.asked &&
+            item.keywords.map((word) => (
+              <Link
+                key={word}
+                to={`/?q=${encodeURIComponent(word)}`}
+                className="tag"
+                data-dot="false"
+                title={`Search for ${word}`}
+              >
+                {word}
+              </Link>
+            ))}
         </div>
       )}
 
@@ -426,25 +439,6 @@ export function ItemDetail() {
             <Text size="sm" style={{ lineHeight: 1.6 }}>
               {item.summary}
             </Text>
-          </div>
-        </Stack>
-      )}
-
-      {!facet && !item.asked && item.keywords.length > 0 && (
-        <Stack gap="var(--s2)">
-          <div className="label">Keywords</div>
-          <div className="filed">
-            {item.keywords.map((word) => (
-              <Link
-                key={word}
-                to={`/?q=${encodeURIComponent(word)}`}
-                className="tag"
-                data-dot="false"
-                title={`Search for ${word}`}
-              >
-                {word}
-              </Link>
-            ))}
           </div>
         </Stack>
       )}
