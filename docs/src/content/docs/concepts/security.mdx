@@ -42,7 +42,8 @@ See [tenants](/concepts/tenants/#isolation) and [search](/concepts/search/#tenan
 
 `/graphql`, `/mcp`, `/uploads`, and `/references/:id/content` each verify a masks access token. A
 token is accepted only when its issuer is this tenant's masks issuer, its audience is this tenant's
-origin followed by `/mcp`, and any `tenant` claim names this tenant.
+origin followed by `/mcp`, and any `tenant` claim names this tenant. Production refuses to boot
+without `URIS_PUBLIC_ORIGIN`, so the audience never comes from a request's `Host` header.
 
 - The scopes a token holds decide what it reaches. A GraphQL field that names a scope refuses a
   token without it, and an MCP tool the token cannot use is left out of `tools/list`. See

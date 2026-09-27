@@ -5,6 +5,9 @@ require "rails/all"
 Bundler.require(*Rails.groups)
 
 require_relative "../lib/tenancy/middleware"
+require_relative "../lib/switch"
+
+Switch.check!
 
 module Uris
   class Application < Rails::Application
@@ -17,7 +20,7 @@ module Uris
     ]
     config.load_defaults 8.1
 
-    config.autoload_lib(ignore: %w[assets tasks tenancy])
+    config.autoload_lib(ignore: %w[assets tasks tenancy switch.rb])
 
     config.middleware.use Tenancy::Middleware
 

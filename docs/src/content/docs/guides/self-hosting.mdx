@@ -218,8 +218,7 @@ A tenant is a separate catalog with its own resources, feeds, and settings, at i
 
    With a single tenant, give the origin without the placeholder, such as
    `https://uris.example.com`. The origin followed by `/mcp` is the audience every access token
-   must name. Work that runs outside a request, such as a job refreshing the token of a resource
-   connected through masks, fails with `URIS_PUBLIC_ORIGIN is not set` without it.
+   must name. Production refuses to boot without it.
 4. Point DNS for each tenant's host, or a wildcard under the suffix, at the reverse proxy.
 
 `RAILS_ASSUME_SSL` and `RAILS_FORCE_SSL` default to `true`. The proxy must terminate TLS and pass the
@@ -304,7 +303,7 @@ requests, and so the two scale separately. To run jobs inside the web process on
 `SOLID_QUEUE_IN_PUMA=1` on the web container and run no worker.
 
 Syncs and exports checkpoint as they go, so a worker restarted during one resumes from its last
-checkpoint. Set `URIS_ITERATORS_DISABLED` to any value to stop every iterating job in every tenant.
+checkpoint. Set `URIS_ITERATORS_DISABLED=true` to stop every iterating job in every tenant.
 
 Follow job progress in the app under **Runs** in settings, and in the worker's log:
 
@@ -443,6 +442,9 @@ attach an `s3` resource with endpoint `http://minio:9000`, the bucket's name as 
 - **`Tenant::Exposed`, naming the role**: the database role holds `SUPERUSER` or `BYPASSRLS`. Remove
   them with `ALTER ROLE uris NOSUPERUSER NOBYPASSRLS;`.
 - **`Tenant::TenancyConflict`**: both `URIS_TENANT` and `URIS_TENANTS` are set. Remove one.
+- **The container exits with `URIS_PUBLIC_ORIGIN is not set`**: set it to the origin browsers use.
+- **The container exits with `Switch::Invalid`**: a switch holds a value other than `true` or
+  `false`. The error names it.
 - **`MASKS_ISSUER_TEMPLATE is not set`**: sign-in and the `/mcp` metadata cannot name an issuer.
   Set the variable.
 - **Requests answer `403`**: the request's host is outside `URIS_HOST_SUFFIX`.

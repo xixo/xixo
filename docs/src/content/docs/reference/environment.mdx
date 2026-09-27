@@ -19,7 +19,8 @@ one the code no longer reads.
 ## Server
 
 Set these the same on the web and worker containers, and restart both after changing one. Values
-are strings. Where a variable is a switch, its row says which values turn it on.
+are strings. A switch is on for `1`, `true`, `yes`, or `on`, and off for `0`, `false`, `no`, `off`, or
+nothing, in any case. uris refuses to boot when a switch holds any other value.
 
 ### Required in production
 
@@ -32,7 +33,7 @@ generate them.
 | `ENCRYPTION_PRIMARY_KEY` | none | Encrypts the columns that hold secrets: each resource's credentials, and each tenant's masks client secret and registration access token. `bin/rails db:encryption:init` prints a value. Without it, the first read or write of one of those columns raises `ActiveRecord::Encryption::Errors::Configuration`. |
 | `ENCRYPTION_DETERMINISTIC_KEY` | none | Encrypts columns that are looked up by value. No column uses it yet, and Rails requires it to be set. |
 | `ENCRYPTION_KEY_DERIVATION_SALT` | none | Derives the per-column keys from the two above. |
-| `URIS_PUBLIC_ORIGIN` | none | The origin browsers and agents use to reach each tenant, with `%{subdomain}` standing in for the first label of the host, such as `https://%{subdomain}.uris.example.com`. A single tenant uses an origin without the placeholder, such as `https://uris.example.com`. The origin followed by `/mcp` is the audience every access token must name, and the sign-in callback is built from it. Unset, uris builds both from the request's `Host` header, and work outside a request, such as a job refreshing a delegated token, fails with `URIS_PUBLIC_ORIGIN is not set`. |
+| `URIS_PUBLIC_ORIGIN` | none | The origin browsers and agents use to reach each tenant, with `%{subdomain}` standing in for the first label of the host, such as `https://%{subdomain}.uris.example.com`. A single tenant uses an origin without the placeholder, such as `https://uris.example.com`. The origin followed by `/mcp` is the audience every access token must name, and the sign-in callback is built from it. Production refuses to boot without it. In development and test, uris builds both from the request's `Host` header when it is unset. |
 | `MASKS_ISSUER_TEMPLATE` | none | The issuer URL of the masks tenant each uris tenant signs in through, with `%{subdomain}` standing in as it does in `URIS_PUBLIC_ORIGIN`, such as `https://%{subdomain}.auth.example.com`. With `URIS_TENANT`, `%{subdomain}` in either template is the pinned tenant, whatever host a request names. Unset, sign-in and the `/mcp` metadata fail with `MASKS_ISSUER_TEMPLATE is not set`. See [signing in](/concepts/tenants/#signing-in). |
 
 :::caution
@@ -43,9 +44,8 @@ database backups.
 :::
 
 :::caution
-Leaving `URIS_PUBLIC_ORIGIN` unset lets the request's `Host` header choose the audience uris accepts
-on access tokens. Set it, and set `URIS_HOST_SUFFIX` so Rails refuses hosts outside your domain.
-See [security](/concepts/security/).
+Set `URIS_HOST_SUFFIX` as well, so Rails refuses hosts outside your domain. Unset, production accepts
+every `Host` header. See [security](/concepts/security/).
 :::
 
 ### Tenants
@@ -117,7 +117,7 @@ and a URL matches when all three match. See [addresses](/concepts/adding/#addres
 | `URIS_MCP_ORIGINS` | none | MCP servers an `mcp` resource may reach at a private address. |
 | `URIS_SEARCH_ORIGINS` | none | Search endpoints a `search` resource may reach at a private address, such as a self-hosted SearXNG. `URIS_ALLOW_PRIVATE_FETCH` does not apply to `search` resources. |
 | `URIS_INFERENCE_ORIGINS` | none | Every origin an `openai_compatible` resource may reach, public or private, such as `https://api.openai.com,http://ollama:11434`. A resource whose base URL is outside the list is unusable, and with the list empty every one is, unless it is reached through another resource. |
-| `URIS_ALLOW_PRIVATE_FETCH` | unset | Lifts the address check for downloads, snapshots, and every resource that fetches URLs. Any value that is not empty turns it on, including `false` and `0`. The scheme check stays. |
+| `URIS_ALLOW_PRIVATE_FETCH` | `false` | Lifts the address check for downloads, snapshots, and every resource that fetches URLs. The scheme check stays. |
 | `URIS_GIT_PROTOCOLS` | `https` | The transports `git` resources may use, separated by commas, such as `https,ssh`. uris passes the list to git as `GIT_ALLOW_PROTOCOL`. Only `http` and `https` URLs go through the address check. |
 
 :::caution
@@ -136,7 +136,7 @@ server's disk, including other tenants' clones under `URIS_GIT_ROOT`, and `ext` 
 | `URIS_WHISPER_BIN` | `whisper-cli` | The whisper.cpp command, found on `PATH` unless it is a path. |
 | `URIS_TRANSCRIBE_SECONDS` | `3600` | How many seconds from the start of a recording are measured and transcribed. Whisper runs at about real time on a CPU. |
 | `URIS_CHROME_PATH` | detected | The Chrome or Chromium binary used to render snapshots. Unset, uris looks in the usual places for the platform. The image includes Chromium. Without a browser, `web` resources report themselves unusable. |
-| `URIS_CHROME_NO_SANDBOX` | unset | Starts Chrome with `--no-sandbox`, for a container that cannot give Chrome the namespaces its sandbox needs. Any value that is not empty turns it on. |
+| `URIS_CHROME_NO_SANDBOX` | `false` | Starts Chrome with `--no-sandbox`, for a container that cannot give Chrome the namespaces its sandbox needs. |
 | `URIS_SCOUTS_AT_ONCE` | `2` | How many scouts an agent runs at the same time, from `1` to `6`. Values outside that range are clamped. See [agents](/concepts/agents/). |
 | `ASK_VERIFICATIONS` | `10` | How many times the judge model votes on an answer to a question, from `1` to `32`. Voting stops early at the analysis's deadline. More votes cost more inference and give a steadier score. |
 
@@ -168,8 +168,8 @@ the `sync`, `export`, and `default` queues with 5 threads per process. The secon
 | `ANALYSIS_CONCURRENCY` | `1` | Processes for the `analysis` queue. |
 | `ANALYSIS_THREADS` | `4` | Threads per `analysis` process. |
 | `ANALYSIS_PER_TENANT` | `2` | Analyses one tenant may run at the same time, across every process, so one tenant cannot fill the pool. |
-| `SOLID_QUEUE_IN_PUMA` | unset | Runs the job supervisor inside the web server, for a small host with no worker container. Any value turns it on, including an empty one and `false`. |
-| `URIS_ITERATORS_DISABLED` | unset | Closes every gate in every tenant, which stops every sync, analysis, export, and reindex, including ones in progress. Any value that is not empty turns it on. See [budgets and gates](/concepts/agents/#budgets-and-gates). |
+| `SOLID_QUEUE_IN_PUMA` | `false` | Runs the job supervisor inside the web server, for a small host with no worker container. |
+| `URIS_ITERATORS_DISABLED` | `false` | Closes every gate in every tenant, which stops every sync, analysis, export, and reindex, including ones in progress. See [budgets and gates](/concepts/agents/#budgets-and-gates). |
 
 ### Web server
 
@@ -192,8 +192,8 @@ listens on `HTTP_PORT` and forwards to Puma on `TARGET_PORT`.
 | --- | --- | --- |
 | `RAILS_ENV` | `production` in the image | `production`, `development`, or `test`. |
 | `RAILS_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error`, or `fatal`. Production only. |
-| `RAILS_ASSUME_SSL` | `true` | Treats every request as HTTPS, for a server behind a proxy that terminates TLS. Only the value `true` turns it on. Production only. |
-| `RAILS_FORCE_SSL` | `true` | Redirects HTTP to HTTPS and sends `Strict-Transport-Security`. Only the value `true` turns it on, so `1` turns it off. Production only. |
+| `RAILS_ASSUME_SSL` | `true` | Treats every request as HTTPS, for a server behind a proxy that terminates TLS. Production only. |
+| `RAILS_FORCE_SSL` | `true` | Redirects HTTP to HTTPS and sends `Strict-Transport-Security`. Production only. |
 | `SECRET_KEY_BASE_DUMMY` | unset | Boots with a throwaway secret, for build steps such as `assets:precompile`. Read by Rails. A server running with it set is not secure. |
 
 ## Rake task arguments

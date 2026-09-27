@@ -59,7 +59,7 @@ class Snapshot
       features = defaults["disable-features"].to_s.split(",") - UNSAFE_FEATURES
 
       flags = defaults.merge(HARDENING).merge("disable-features" => features.join(","))
-      flags = flags.merge("no-sandbox" => nil) if ENV["URIS_CHROME_NO_SANDBOX"].present?
+      flags = flags.merge("no-sandbox" => nil) if Switch.on?("URIS_CHROME_NO_SANDBOX")
       flags = flags.merge(routed(egress)) if egress
       flags
     end

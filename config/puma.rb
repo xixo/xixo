@@ -5,6 +5,8 @@ port ENV.fetch("PORT", 3000)
 
 plugin :tmp_restart
 
-plugin :solid_queue if ENV["SOLID_QUEUE_IN_PUMA"]
+require_relative "../lib/switch"
+
+plugin :solid_queue if Switch.on?("SOLID_QUEUE_IN_PUMA")
 
 pidfile ENV["PIDFILE"] if ENV["PIDFILE"]

@@ -13,9 +13,9 @@ Rails.application.configure do
 
   config.active_storage.service = ENV.fetch("URIS_STAGING_SERVICE", "local").to_sym
 
-  config.assume_ssl = ENV.fetch("RAILS_ASSUME_SSL", "true") == "true"
+  config.assume_ssl = Switch.on?("RAILS_ASSUME_SSL", default: true)
 
-  config.force_ssl = ENV.fetch("RAILS_FORCE_SSL", "true") == "true"
+  config.force_ssl = Switch.on?("RAILS_FORCE_SSL", default: true)
 
   config.log_tags = [ :request_id ]
   config.logger   = ActiveSupport::TaggedLogging.logger(STDOUT)
@@ -36,6 +36,11 @@ Rails.application.configure do
   config.active_record.dump_schema_after_migration = false
 
   config.active_record.attributes_for_inspect = [ :id ]
+
+  if ENV["URIS_PUBLIC_ORIGIN"].blank? && ENV["SECRET_KEY_BASE_DUMMY"].blank?
+    raise "URIS_PUBLIC_ORIGIN is not set. Production names the token audience and every link from it, " \
+          "so without it the request's Host header would choose."
+  end
 
   if ENV["URIS_HOST_SUFFIX"].present?
     config.hosts << ".#{ENV['URIS_HOST_SUFFIX']}"

@@ -20,7 +20,7 @@ module PublicAddress
 
   class << self
     def allowed?
-      ENV["URIS_ALLOW_PRIVATE_FETCH"].present?
+      Switch.on?("URIS_ALLOW_PRIVATE_FETCH")
     end
 
     def permitted!(target, allow_private: allowed?)

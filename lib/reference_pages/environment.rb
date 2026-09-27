@@ -2,7 +2,7 @@ module ReferencePages
   class Environment
     PAGE = "docs/src/content/docs/reference/environment.mdx".freeze
 
-    RUBY = /ENV(?:\.fetch)?[\[(]\s*["']([A-Z][A-Z0-9_]*)["']/
+    RUBY = /(?:ENV(?:\.fetch)?[\[(]|Switch\.on\?\()\s*["']([A-Z][A-Z0-9_]*)["']/
     SHELL = /\$\{?([A-Z][A-Z0-9_]*)/
     NODE = /process\.env\.([A-Z][A-Z0-9_]*)/
 
