@@ -210,6 +210,24 @@ class UploadsTest < ActionDispatch::IntegrationTest
     assert_nil response.parsed_body["duplicate"]
   end
 
+  test "a file on the uploader's own personal resource is not a twin of a shared upload" do
+    Tenant.switch(@tenant) do
+      own = @allowed + @tenant.subdomain + "own"
+      own.mkpath
+      feed = Feed.create!(type: Feed::FILE, key: "mine.txt", title: "mine.txt")
+      personal = Resource::Filesystem.create!(key: "own-#{SecureRandom.hex(3)}", name: "Own",
+                                              details: { "root" => own.to_s }, owner_subject: "test")
+
+      Reference.create!(feed: feed, resource: personal, locator_key: "mine.txt", role: Reference::ORIGINAL,
+                        digest: Digest::SHA256.hexdigest("my own bytes"))
+    end
+
+    upload "shared.txt", "my own bytes"
+
+    assert_response :accepted
+    assert_nil response.parsed_body["duplicate"]
+  end
+
   test "a file on an archived resource is not a duplicate" do
     Tenant.switch(@tenant) do
       feed = Feed.create!(type: Feed::FILE, key: "old.txt", title: "old.txt")

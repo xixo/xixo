@@ -218,6 +218,39 @@ class Feed < ApplicationRecord
     destroy! if file? && references.originals.none?
   end
 
+  def inherit!(other)
+    other.connected.where.not(id: id).find_each { |held| connect!(held) }
+    keep_note_from(other)
+  end
+
+  def absorb!(other, moved)
+    ids = moved.pluck(:id)
+
+    transaction do
+      if other.references.originals.where.not(id: ids).none?
+        inherit!(other)
+        outlast!(other)
+      end
+
+      Reference.where(id: ids).update_all(feed_id: id, updated_at: Time.current)
+      other.reload.destroy_if_empty!
+    end
+  end
+
+  def keep_note_from(other)
+    return if other.note.blank?
+    return update!(note: other.note) if note.blank?
+    return if note.include?(other.note)
+
+    update!(note: [ note, other.note ].join("\n\n"))
+  end
+
+  def outlast!(other)
+    return if expires_at.nil?
+
+    update!(expires_at: other.expires_at && [ expires_at, other.expires_at ].max)
+  end
+
   def reference
     references.find { |held| held.role == Reference::ORIGINAL }
   end

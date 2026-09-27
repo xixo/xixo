@@ -2,7 +2,9 @@
 
 module Mutations
   class SplitReference < BaseMutation
-    argument :id, ID, required: true, description: "The reference to move to a feed of its own."
+    argument :id, ID, required: true,
+             description: "The reference to move to a feed of its own. The new feed carries the old one's connections " \
+                          "and note, and stays apart from references with the same bytes until its own bytes change."
 
     field :feed, Types::FeedType, null: false
 
@@ -13,7 +15,9 @@ module Mutations
       refused("a feed with one reference is already split") if
         reference.feed.references.originals.size == 1
 
-      { feed: reference.split!.feed }
+      reference.split!.update!(kept_apart: true)
+
+      { feed: reference.feed }
     end
   end
 end

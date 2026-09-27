@@ -287,7 +287,8 @@ CREATE TABLE public.feed_references (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     seen_at timestamp(6) without time zone,
-    gone_at timestamp(6) without time zone
+    gone_at timestamp(6) without time zone,
+    kept_apart boolean DEFAULT false NOT NULL
 );
 
 ALTER TABLE ONLY public.feed_references FORCE ROW LEVEL SECURITY;
@@ -1925,6 +1926,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260927060000'),
 ('20260927050000'),
 ('20260927040000'),
 ('20260927030000'),

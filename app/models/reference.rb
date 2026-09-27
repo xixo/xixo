@@ -23,6 +23,12 @@ class Reference < ApplicationRecord
   scope :derived, -> { where(role: DERIVED) }
   scope :in_role, ->(role) { where(role: role.to_s) }
 
+  scope :joinable, -> {
+    originals.where(gone_at: nil, kept_apart: false)
+             .where.not(digest: [ nil, Fingerprint::EMPTY ])
+             .where(resource: Resource.active.external)
+  }
+
   scope :under, ->(prefix) {
     escaped = sanitize_sql_like(prefix.to_s.delete_prefix("/").chomp("/"))
 
@@ -75,6 +81,7 @@ class Reference < ApplicationRecord
       self.changed_at = Time.current
       self.analyzed_at = nil
       self.digest = nil
+      self.kept_apart = false
     end
 
     self.version = reported
@@ -121,7 +128,58 @@ class Reference < ApplicationRecord
   end
 
   def split!
-    move_to!(Feed.create!(type: feed.type, key: feed.key, title: feed.title))
+    left = feed
+
+    transaction do
+      move_to!(Feed.create!(type: left.type, key: left.key, title: left.title, expires_at: left.expires_at))
+      feed.inherit!(left)
+    end
+
+    self
+  end
+
+  def leave!
+    return self if feed.references.originals.where.not(id: id).none?
+
+    split!
+  end
+
+  def fingerprint!
+    io = download
+    found = Fingerprint.of(io)
+    return false if Reference.where(id: id, digest: nil, version: version).update_all(digest: found).zero?
+
+    self.digest = found
+    true
+  ensure
+    io.close if io.respond_to?(:close)
+  end
+
+  def twins
+    Reference.joinable.where(digest: digest, resource: Resource.where(owner_subject: resource.owner_subject))
+  end
+
+  def survivor
+    Feed.where(id: twins.select(:feed_id)).order(:id).first
+  end
+
+  def settle!
+    return feed unless Reference.joinable.exists?(id: id)
+
+    kept, absorbed = transaction do
+      Fingerprint.lock!(digest)
+
+      held = survivor
+      others = Feed.where(id: twins.select(:feed_id)).where.not(id: held.id)
+                   .where.not(id: Analysis.open.select(:feed_id)).order(:id).to_a
+
+      others.each { |other| held.absorb!(other, twins.where(feed_id: other.id)) }
+      [ held, others ]
+    end
+
+    joined(kept, absorbed) if absorbed.any?
+    reload
+    kept
   end
 
   def download
@@ -141,6 +199,23 @@ class Reference < ApplicationRecord
   end
 
   private
+
+    def joined(kept, absorbed)
+      Feed.reindex!([ kept ])
+
+      absorbed.each do |other|
+        AuditEvent.record(
+          channel: "job", action: "join_feeds", status: "ok",
+          grant: nil, context: { remote_ip: nil, request_id: nil }, feed: kept,
+          told: "joined #{other.title || other.key} into #{kept.title || kept.key}, which holds the same bytes",
+          arguments: { "survivor" => kept.id, "absorbed" => other.id, "digest" => digest }
+        )
+      end
+
+      return if kept.analyses.open.exists? || kept.analyses.where(status: "done").exists?
+
+      kept.analyze!(cause: "sync")
+    end
 
     def forget_bytes_uris_made
       store = Resource.find_by(id: resource_id)

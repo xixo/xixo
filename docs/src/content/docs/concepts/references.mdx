@@ -70,8 +70,39 @@ versions and copies the file again only when the original has changed.
 `move_to!` moves a reference to another feed. If that feed already has a reference to the same
 place, uris destroys the moved reference so there is no duplicate. In both cases, a `uris:file` feed
 left with no originals is destroyed. `split!` is `move_to!` into a new feed with the same type, key,
-and title. `splitReference` refuses a feed that has only one original. In practice, sync and export
-are what move references.
+title, and expiry, and the new feed connects to everything the old one connects to and takes its
+note. `splitReference` refuses a feed that has only one original. Export, joining, and leaving are
+what move references.
+
+## Joining the same bytes
+
+`digest` is the SHA-256 of an original's bytes. Every original gets one: an analysis computes it
+before it reads anything, and a recurring job fills in any that are missing. An upload carries the
+digest it arrived with.
+
+Two originals share a feed when they have the same join key, which is the digest together with the
+owner of the resource. A tenant's resources join each other, and a person's own resources join only
+that person's, so a feed never lists a personal place beside a shared one. Empty files, originals
+that are gone, originals on archived resources, and the extracted children an analysis stores for
+itself never join.
+
+When a digest is written, `settle!` finds the oldest feed that holds the same join key and joins
+the others to it. The joined feed's connections are added to the oldest feed, its note is appended
+unless the oldest feed's note already contains it, and the later of the two expiries is kept, with
+a feed that lasts forever outlasting any date. Its analyses, derived references, and extracted
+children are destroyed, because they describe the same bytes. A feed with an analysis still open
+is left alone until that analysis starts, because the analysis settles its own feed and stops
+without reading anything when the feed joins another. Each join is recorded in the audit log.
+
+## Leaving and keeping apart
+
+When a sync reports a new version for an original on a feed with other originals, that original
+leaves with `split!` before anything analyzes it. The analysis that follows computes the new digest,
+so a file saved again with the same bytes joins its old feed and is not analyzed, and a file whose
+bytes changed stays on its own.
+
+`splitReference` marks the original `kept_apart`, and a kept-apart original never joins. A new
+version clears the mark, so the original joins again once its bytes match something.
 
 ## What uris deletes
 

@@ -49,6 +49,7 @@ class Resource < ApplicationRecord
 
   scope :active, -> { where(archived_at: nil) }
   scope :attended, -> { where.not(type: "database", key: INTERNAL.keys.map(&:to_s)) }
+  scope :external, -> { where.not(type: "database").or(where.not(key: INTERNAL.keys.map(&:to_s))) }
   scope :shared, -> { where(owner_subject: nil) }
   scope :reachable_by, ->(grant) { where(owner_subject: [ nil, grant&.speaks_for ].uniq) }
   scope :visible_to, ->(grant) { attended.active.reachable_by(grant) }
@@ -412,6 +413,7 @@ class Resource < ApplicationRecord
       title: title_for(object)
     )
 
+    reference.leave! if reference.saved_change_to_changed_at?
     reference.feed.analyze!(cause: cause) if reference.awaiting_analysis?
 
     if cause == "sync"

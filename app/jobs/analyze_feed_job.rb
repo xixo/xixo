@@ -39,6 +39,7 @@ class AnalyzeFeedJob < ApplicationJob
     return finish if feed.nil?
     return gate_out if analysis&.halted?
     return answer(feed) if analysis&.cause == "ask"
+    return if phase != FILING && joined?(feed)
 
     read(feed) unless phase == FILING
     return hand_off(feed) if phase == READING
@@ -82,6 +83,26 @@ class AnalyzeFeedJob < ApplicationJob
       finish
 
       wake_parent(feed)
+      feed.references.originals.reload.each(&:settle!)
+    end
+
+    def joined?(feed)
+      original = feed.reference
+      return false if original.nil?
+
+      fingerprinted(original)
+      return false unless Reference.joinable.exists?(id: original.id)
+      return false if original.survivor == feed
+
+      finish
+      original.settle!
+      true
+    end
+
+    def fingerprinted(original)
+      original.fingerprint! if original.digest.nil?
+    rescue StandardError => e
+      analysis&.log_skip("fingerprint", "#{e.class}: #{e.message.truncate(200)}")
     end
 
     def hand_off(feed)

@@ -23,7 +23,7 @@ class Intake
       digest = Fingerprint.of(body)
 
       feed, staged = ActiveRecord::Base.transaction do
-        alone!(digest) if unique
+        Fingerprint.lock!(digest) if unique
 
         twin = twin_of(digest, grant) if unique
         next [ twin, nil ] if twin
@@ -75,15 +75,8 @@ class Intake
         placed&.feed || waiting_at(key)
       end
 
-      def alone!(digest)
-        held = ActiveRecord::Base.sanitize_sql_array([ "SELECT pg_advisory_xact_lock(hashtext(?))", "#{Current.tenant&.id}:#{digest}" ])
-
-        ActiveRecord::Base.connection.execute(held)
-      end
-
       def twin_of(digest, grant)
-        placed = Reference.originals
-                          .where(digest: digest, gone_at: nil, resource: Resource.visible_to(grant))
+        placed = Reference.joinable.where(digest: digest, resource: Resource.visible_to(grant).shared)
                           .order(:id).first
 
         placed&.feed || waiting(Staged::DIGEST, digest)

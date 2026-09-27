@@ -16,6 +16,8 @@ module Types
     field :gone_at, GraphQL::Types::ISO8601DateTime,
           description: "When a sync of its resource last walked everything and did not find it."
     field :role, String, null: false
+    field :digest, String,
+          description: "The SHA-256 of its bytes, once uris has read them. Places with the same digest and owner are one item."
     field :mime, String
     field :size, GraphQL::Types::BigInt
     field :content_url, String, null: false
