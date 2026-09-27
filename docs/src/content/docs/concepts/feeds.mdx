@@ -79,9 +79,12 @@ the file and the `uris:tag` feed keyed `receipts`. Analysis connects every file 
 that tag's edges. Destroying a feed deletes all of its edges.
 
 A finished analysis files its feed under a tag for each of its summary's tags and entities, leaving
-out the feed's own name, any term of fewer than two letters or digits, any entity with a digit in
-it, and any tag that is mostly digits. Amounts, dates, account numbers, and addresses stay
-searchable in the body, but are not tags. A tag that nothing is filed under after an analysis is
+out any entity with a digit in it and any tag `Feed.fit_tag?` refuses. A fit tag has at least two
+letters or digits, no more digits than letters, and is not shaped like a date. It is not the feed's
+own key or title, and when the file's name has a digit in it, as a camera's `GIG_2081.NEF` does,
+it does not contain that name. So `NEMA 14-50R` is a tag, and `$2,409.33`, `June 2026`, and
+`GIG 2081` are not. Amounts, dates, account numbers, and addresses stay searchable in the body.
+The agent's `connect` tool refuses the same tags, and says why. A tag that nothing is filed under after an analysis is
 removed. An item's tags are listed most shared first. Those edges are marked
 `inferred`. The next analysis that finishes replaces the inferred edges with its own, and leaves the
 edges a person or an agent made. Tagging a feed by hand with a tag analysis found makes that edge a

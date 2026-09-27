@@ -13,6 +13,8 @@ class Feed < ApplicationRecord
 
   DEPTH = 4
   MAX_KEY = 900
+  MONTHS = "jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec".freeze
+  DATED = %r{\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}|\b(#{MONTHS})[a-z]*\.?,?\s+\d|\d(st|nd|rd|th)?\s+(#{MONTHS})}i
   TIMEOUT = 5.minutes
   MIN_TIMEOUT = 1.minute
   MAX_TIMEOUT = 1.day
@@ -87,6 +89,17 @@ class Feed < ApplicationRecord
   def self.tag_named(key) = tags.find_by("lower(key) = ?", tag_name(key).downcase)
 
   def self.tag!(key) = tag_named(key) || singleton!(TAG, tag_name(key))
+
+  def self.fit_tag?(name, feed = nil)
+    held = tag_name(name)
+    characters = held.scan(/[[:alnum:]]/)
+    digits = characters.count { |character| character.match?(/\d/) }
+
+    return false if characters.size < 2 || held.length > MAX_KEY
+    return false if digits * 2 > characters.size || held.match?(DATED)
+
+    feed.nil? || !feed.named_by?(held)
+  end
   def self.mime!(key) = singleton!(MIME, key)
 
   def self.singleton!(type, key)
@@ -221,10 +234,20 @@ class Feed < ApplicationRecord
     Edge.between!(self, other, inferred: inferred)
   end
 
+  def named_by?(name)
+    wanted = Feed.tag_name(name).downcase
+
+    [ key, title ].compact.any? do |own|
+      stem = Feed.tag_name(File.basename(own, ".*")).downcase
+
+      own.downcase == wanted || (stem.match?(/\d/) && wanted.include?(stem))
+    end
+  end
+
   def tag_with!(names)
     return if singleton?
 
-    held = names.filter_map { |name| Feed.tag!(name) if name.to_s.squish.length.between?(1, MAX_KEY) }.uniq
+    held = names.filter_map { |name| Feed.tag!(name) if Feed.fit_tag?(name, self) }.uniq
     kept = held.map(&:id)
 
     transaction do

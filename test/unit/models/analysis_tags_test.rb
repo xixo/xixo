@@ -34,7 +34,7 @@ class AnalysisTagsTest < ActiveSupport::TestCase
         }
       })
 
-      assert_equal [ "Mortgage_Statement", "Q3 report", "Jennifer Korn", "MCAP" ], analysis.tags
+      assert_equal [ "Mortgage_Statement", "Form 1099-INT", "Q3 report", "Jennifer Korn", "MCAP" ], analysis.tags
     end
   end
 
@@ -71,6 +71,37 @@ class AnalysisTagsTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       assert_equal Feed.tag!("Mortgage Statement"), Feed.tag!("mortgage_statement")
       assert_equal "Single sign on", Feed.tag!("Single_sign_on").key
+    end
+  end
+
+  test "a model number is a tag, and a file's own name, a date, or a number is not" do
+    Tenant.switch(@tenant) do
+      photo = Feed.create!(type: Feed::FILE, key: "GIG_2081.xmp")
+      invoice = Feed.create!(type: Feed::FILE, key: "invoice.pdf")
+
+      assert Feed.fit_tag?("NEMA 14-50R", photo)
+      assert Feed.fit_tag?("UTF-16", photo)
+      assert Feed.fit_tag?("invoice", invoice)
+      assert_not Feed.fit_tag?("GIG 2081 file", photo)
+      assert_not Feed.fit_tag?("GIG_2081.xmp", photo)
+      assert_not Feed.fit_tag?("1966", photo)
+      assert_not Feed.fit_tag?("June 2026", photo)
+      assert_not Feed.fit_tag?("2 January 2024", photo)
+      assert_not Feed.fit_tag?("2024-01-02", photo)
+    end
+  end
+
+  test "the agent is refused a tag that is the file's own name, and told what a tag is" do
+    Tenant.switch(@tenant) do
+      photo = Feed.create!(type: Feed::FILE, key: "GIG_2081.NEF")
+
+      said = Current.set(grant: photo.grant, acting_for: photo.id) do
+        Tool::Connect.call(a: photo.id.to_s, tag: "GIG 2081", server_context: {})
+      end
+
+      assert said.error?
+      assert_match(/never the file's own name/, said.content.first[:text])
+      assert_empty photo.tags
     end
   end
 

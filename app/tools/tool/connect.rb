@@ -28,6 +28,7 @@ module Tool
     def self.call(a:, server_context:, b: nil, tag: nil, connected: true)
       respond(server_context, { a: a, b: b, tag: tag, connected: connected }) do
         one = feed!(a)
+        unfit!(one, tag) if b.blank? && connected != false
         other = other_end(b, tag, connected)
 
         raise ArgumentError, "a feed cannot connect to itself" if one.id == other.id
@@ -54,6 +55,14 @@ module Tool
 
     def self.about(arguments)
       Feed.find_by(id: arguments[:a])
+    end
+
+    def self.unfit!(one, tag)
+      named = tag.to_s.strip.delete_prefix("tag:").strip
+      return if named.empty? || Feed.fit_tag?(named, one)
+
+      raise ArgumentError, "#{named} is not a tag. A tag names a topic, the kind of thing it is, or a person, " \
+                           "company, product or place, never the file's own name, a date, or a number"
     end
 
     def self.other_end(b, tag, connected)

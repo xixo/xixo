@@ -58,7 +58,9 @@ class AnalyzeFeedJob < ApplicationJob
     A new thing has just been catalogued. Read it, then connect it to whatever else in the
     catalog belongs beside it: file it under tags with connect, passing the tag's name in the
     tag argument. Name each tag in a word or two for what this particular thing is about, taken
-    from what you read in it. Connect it by id to any feed it is about. Make the connections with the tools rather
+    from what you read in it, the way a person would label a folder. Use a tag that already
+    exists when one fits. Never tag it with its own file name, a date, an amount, or a
+    number. Connect it by id to any feed it is about. Make the connections with the tools rather
     than describing them, then say in one sentence what you filed it as.
   TEXT
 
