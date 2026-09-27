@@ -48,6 +48,7 @@ One feed: everything known about it, every place it lives, what analysis drew ou
 | `prompt` | string |  | For create of a uris:feed: what it should find. |
 | `resource` | string |  | For place: the key of the resource to store it in. |
 | `reason` | string |  | For place: why it belongs there, in one sentence. |
+| `from` | integer |  | For get: where in its text to start reading, as a character offset. Each get returns up to 8000 characters and says where the next part starts. |
 | `lasts` | string |  | For create and last: "forever", or how many days it lasts before it is forgotten. What is made while answering a question lasts 30 days unless this says otherwise. |
 
 

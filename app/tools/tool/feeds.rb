@@ -4,6 +4,7 @@ module Tool
     scope "uris:catalog:read"
 
     EXCERPT = 8_000
+    STEP_TEXT = 600
 
     description <<~TEXT
       One feed: everything known about it, every place it lives, what analysis drew out of
@@ -31,6 +32,11 @@ module Tool
         prompt: { type: "string", description: "For create of a uris:feed: what it should find." },
         resource: { type: "string", description: "For place: the key of the resource to store it in." },
         reason: { type: "string", description: "For place: why it belongs there, in one sentence." },
+        from: {
+          type: "integer",
+          description: "For get: where in its text to start reading, as a character offset. Each get returns " \
+                       "up to #{EXCERPT} characters and says where the next part starts."
+        },
         lasts: {
           type: "string",
           description: "For create and last: \"forever\", or how many days it lasts before it is forgotten. " \
@@ -40,17 +46,17 @@ module Tool
     )
 
     def self.call(server_context:, id: nil, key: nil, title: nil, note: nil,
-                  type: nil, prompt: nil, resource: nil, reason: nil, lasts: nil, **held)
+                  type: nil, prompt: nil, resource: nil, reason: nil, lasts: nil, from: nil, **held)
       verb = (held[:do] || held["do"] || "get").to_s
 
       respond(server_context, { id: id, key: key, do: verb, type: type, title: title, resource: resource,
-                                lasts: lasts }.compact) do
+                                lasts: lasts, from: from }.compact) do
         raise ArgumentError, "no such action '#{verb}'" unless (READ + WRITE).include?(verb)
 
         Current.grant.permit!("uris:catalog:write") if WRITE.include?(verb)
 
         act(verb, id: id, key: key, title: title, note: note, type: type, prompt: prompt,
-                  resource: resource, reason: reason, lasts: lasts)
+                  resource: resource, reason: reason, lasts: lasts, from: from)
       end
     end
 
@@ -82,7 +88,7 @@ module Tool
       key.present? ? Feed.address(key) || Feed.by_key(key).first : nil
     end
 
-    def self.act(verb, id:, key:, title:, note:, type:, prompt:, resource: nil, reason: nil, lasts: nil)
+    def self.act(verb, id:, key:, title:, note:, type:, prompt:, resource: nil, reason: nil, lasts: nil, from: nil)
       return made(type: type, key: key, title: title, prompt: prompt, lasts: lasts) if verb == "create"
 
       feed = found(id, key)
@@ -102,7 +108,7 @@ module Tool
         return summarize(feed).merge(analysis: feed.analyze!(cause: "manual").id.to_s)
       end
 
-      told(feed)
+      told(feed, from: from)
     end
 
     def self.placed(feed, key, reason)
@@ -145,7 +151,7 @@ module Tool
         accepted_by: Placement.candidates(feed).pluck(:key) }
     end
 
-    def self.told(feed)
+    def self.told(feed, from: nil)
       summarize(feed).merge(
         note: feed.note,
         summary: feed.summary,
@@ -155,10 +161,30 @@ module Tool
         staged: staged(feed),
         connected: feed.connected.limit(50).map { |held| { id: held.id.to_s, key: held.key } },
         steps: feed.analysis&.steps.to_h.transform_values { |step|
-          step.key?("error") ? { "error" => step["error"]["message"] } : step["result"]
-        },
-        text: feed.body_text&.truncate(EXCERPT)
-      )
+          step.key?("error") ? { "error" => step["error"]["message"] } : gist(step["result"])
+        }
+      ).merge(part_of(feed, from))
+    end
+
+    def self.part_of(feed, from)
+      body = feed.body_text.to_s
+      return { text: nil } if body.empty?
+
+      start = from.to_i.clamp(0, body.length)
+      part = body[start, EXCERPT].to_s
+      finish = start + part.length
+
+      {
+        text: part,
+        text_part: { from: start, to: finish, of: body.length,
+                     next: ({ id: feed.id.to_s, from: finish } if finish < body.length) }.compact
+      }
+    end
+
+    def self.gist(value)
+      return value unless value.is_a?(String) && value.length > STEP_TEXT
+
+      "#{value.first(STEP_TEXT)}… (#{value.length} characters in all; read them as text)"
     end
   end
 end

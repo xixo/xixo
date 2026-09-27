@@ -41,6 +41,7 @@ class AskingTest < ActionDispatch::IntegrationTest
   test "a question is kept as a note, answered from what a scout reported, and connected to what it cites" do
     scout("Find the Acme invoice's total") do
       @server.answer_tool_call("search", query: "invoice")
+      @server.answer_tool_call("feed", id: @invoice.id.to_s)
       @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
     end
     @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
@@ -60,6 +61,7 @@ class AskingTest < ActionDispatch::IntegrationTest
       assert_equal [ @invoice.id ], note.connected.pluck(:id)
       assert_match(/lead : turn 1 : scout/, analysis.logs)
       assert_match(/scout 1 : turn 1 : search/, analysis.logs)
+      assert_match(/scout 1 : turn 2 : feed/, analysis.logs)
     end
   end
 

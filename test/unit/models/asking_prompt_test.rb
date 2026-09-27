@@ -62,6 +62,27 @@ class AskingPromptTest < ActiveSupport::TestCase
     end
   end
 
+  test "a scout that answers from catalog results without opening any is sent to open them" do
+    Tenant.switch(@tenant) do
+      searched = result("search", { "query" => "agreement" }, { count: 2, feeds: [ { id: "253" }, { id: "254" } ] })
+
+      pushed = unfinished([ searched ])
+      assert_match(/without opening any of them/, pushed)
+      assert_match(/\{"id":"253"\}/, pushed)
+
+      assert_nil unfinished([ searched, result("feed", { "id" => "253" }) ])
+    end
+  end
+
+  test "the lead and its scouts are told today's date" do
+    Tenant.switch(@tenant) do
+      today = Date.current.strftime("%B %-d, %Y")
+
+      assert_includes Asking.new(@question).prompt, "Today is #{today}."
+      assert_includes Asking.new(@question).briefing("find it"), "Today is #{today}."
+    end
+  end
+
   test "a feed cited with a link keeps the citation and loses the link" do
     said = "See [feed 132](https://example.com/feed.xml), [Feed: 7](x) and [HN](https://hn.algolia.com)."
 
