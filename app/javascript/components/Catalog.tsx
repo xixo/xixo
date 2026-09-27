@@ -208,6 +208,12 @@ function Listing({
 
   return (
     <Stack gap="var(--s5)">
+      {searching && !feed && (
+        <div className="panel">
+          <AskAbout term={term} />
+        </div>
+      )}
+
       <Shelf feeds={feeds} here={feed} onChanged={onChanged} />
 
       {feed && (
@@ -255,11 +261,7 @@ function Listing({
 
       {error && <Alert color="red">{error.message}</Alert>}
 
-      <Rows
-        rows={rows}
-        view={view}
-        lead={searching && !feed ? <AskAbout term={term} /> : null}
-      />
+      <Rows rows={rows} view={view} />
 
       {loading && rows.length === 0 && (
         <Loader size="sm" color="var(--brass)" />

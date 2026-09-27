@@ -1,5 +1,4 @@
 import type { RowFragment } from '@uris-to/client'
-import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { hrefFor } from '../looks'
 import { Cover, Thumb } from './Thumb'
@@ -32,19 +31,10 @@ function named(row: Row) {
   return row.title ?? row.key ?? 'Untitled'
 }
 
-export function Rows({
-  rows,
-  view = 'list',
-  lead,
-}: {
-  rows: Row[]
-  view?: View
-  lead?: ReactNode
-}) {
+export function Rows({ rows, view = 'list' }: { rows: Row[]; view?: View }) {
   if (view === 'cards') {
     return (
       <>
-        {lead && <div className="panel">{lead}</div>}
         {rows.length > 0 && (
           <div className="grid">
             {rows.map((row) => (
@@ -66,11 +56,10 @@ export function Rows({
     )
   }
 
-  if (rows.length === 0 && !lead) return null
+  if (rows.length === 0) return null
 
   return (
     <div className="panel">
-      {lead}
       {rows.map((row) => (
         <Link key={row.id} to={hrefFor(row)} className="entry">
           <Thumb
