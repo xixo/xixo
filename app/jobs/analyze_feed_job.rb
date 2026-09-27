@@ -160,7 +160,7 @@ class AnalyzeFeedJob < ApplicationJob
 
     def considered(feed)
       grant = (analysis || feed).grant
-      agent = Agent.new(grant: grant, analysis: analysis, turns: turns_for(feed),
+      agent = Agent.new(grant: grant, analysis: analysis, turns: turns_for(feed), routine: true,
                         halted: -> { analysis&.halted? })
 
       return if agent.inference_key.nil?

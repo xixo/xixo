@@ -52,7 +52,8 @@ seeded.each do |tenant|
             "vision" => ENV.fetch("OLLAMA_VISION_MODEL", "gemma3:4b"),
             "agent" => ENV.fetch("OLLAMA_AGENT_MODEL", "qwen3:8b"),
             "embedding" => ENV.fetch("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text")
-          }
+          },
+          "routine_effort" => "none"
         }
       )
       brain.save!

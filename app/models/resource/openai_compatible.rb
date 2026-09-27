@@ -19,6 +19,7 @@ class Resource
     SCOUT_ROLE = "scout"
     TOOL_ROLES = [ AGENT_ROLE, SCOUT_ROLE ].freeze
     EMBEDDING_ROLE = "embedding"
+    EFFORTS = %w[none minimal low medium high].freeze
     EMBED_PROBE = "an invoice from acme for four thousand two hundred dollars".freeze
     MAX_EMBED = 8_000
     CHAIN_TIMEOUT = 120
@@ -62,6 +63,11 @@ class Resource
           field("models.embedding", "Embedding model",
                 help: "What search compares meaning with. Its vectors have to be the width " \
                       "the index was built for."),
+          field("routine_effort", "Effort on routine work", kind: "choice", value: "",
+                options: [ { value: "", label: "As the model likes" } ] +
+                         EFFORTS.map { |effort| { value: effort, label: effort } },
+                help: "How hard a reasoning model thinks while filing what arrives. Sent as reasoning_effort. " \
+                      "Ollama takes none, and OpenAI minimal or low. Questions always think as the model likes."),
           field("api_key", "API key", secret: true, help: "Left off where the backend wants none.")
         ]
       }
@@ -76,6 +82,7 @@ class Resource
     end
 
     validate :it_names_an_endpoint
+    validate :its_routine_effort_is_known
 
     after_update :reconsider_every_vector, if: :embedding_model_changed?
 
@@ -205,7 +212,11 @@ class Resource
     # tool call, because the loop is ours: a model emits a request to run something, never
     # runs it. json_mode is deliberately not set here — response_format and tools fight,
     # and a model forced into a JSON object cannot emit a tool call.
-    def converse(messages:, tools: [], role: AGENT_ROLE, analysis: nil, turn: 1)
+    def routine_effort
+      details.to_h["routine_effort"].presence
+    end
+
+    def converse(messages:, tools: [], role: AGENT_ROLE, analysis: nil, turn: 1, effort: nil)
       model = model_for(role)
       last = messages.last.to_h
       asked = (last[:content] || last["content"] || last[:name] || last["name"]).to_s.presence || "(tool result)"
@@ -215,7 +226,7 @@ class Resource
       begin
         answered = post("/chat/completions", {
           model: model, stream: false, max_tokens: agent_max_tokens, temperature: temperature,
-          messages: messages, tools: tools
+          messages: messages, tools: tools, reasoning_effort: effort
         }.compact_blank, timeout: read_timeout)
       rescue StandardError => e
         noted(analysis, role: role, model: model, number: turn, request: request,
@@ -353,6 +364,12 @@ class Resource
 
       def it_names_an_endpoint
         errors.add(:details, "must name a base_url") if details["base_url"].blank?
+      end
+
+      def its_routine_effort_is_known
+        return if routine_effort.nil? || EFFORTS.include?(routine_effort)
+
+        errors.add(:details, "routine_effort is one of #{EFFORTS.join(', ')}")
       end
 
       def loaded_context(model)

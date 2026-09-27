@@ -18,6 +18,8 @@ class FakeModelServer
     @answers = []
     @prompts = []
     @attachments = []
+    @efforts = []
+    @systems = []
     @counts = Hash.new(0)
     @authorizations = Hash.new { |hash, key| hash[key] = [] }
     @hang = 0
@@ -46,6 +48,8 @@ class FakeModelServer
       @answers = []
       @prompts = []
       @attachments = []
+      @efforts = []
+      @systems = []
       @counts = Hash.new(0)
       @authorizations = Hash.new { |hash, key| hash[key] = [] }
       @hang = 0
@@ -137,6 +141,14 @@ class FakeModelServer
 
   def attachments
     @lock.synchronize { @attachments.dup }
+  end
+
+  def efforts
+    @lock.synchronize { @efforts.dup }
+  end
+
+  def systems
+    @lock.synchronize { @systems.dup }
   end
 
   def count_for(path)
@@ -264,6 +276,8 @@ class FakeModelServer
       @lock.synchronize do
         @prompts << spoken(content)
         @attachments << attached(content)
+        @efforts << parsed["reasoning_effort"]
+        @systems << Array(parsed["messages"]).find { |message| message["role"] == "system" }.to_h["content"]
       end
     rescue JSON::ParserError
       @lock.synchronize do

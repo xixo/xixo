@@ -294,6 +294,7 @@ A model backend. Anything speaking the OpenAI chat API — ollama, LM Studio, ll
 | `models.agent` | Agent model | string |  |  |  | What a feed drives. It has to call tools. |
 | `models.scout` | Scout model | string |  |  |  | What the agent sends out to find things, in a fresh context each time. It has to call tools, and can be smaller. Left empty, the agent model scouts. |
 | `models.embedding` | Embedding model | string |  |  |  | What search compares meaning with. Its vectors have to be the width the index was built for. |
+| `routine_effort` | Effort on routine work | choice of `` `none` `minimal` `low` `medium` `high` |  |  |  | How hard a reasoning model thinks while filing what arrives. Sent as reasoning_effort. Ollama takes none, and OpenAI minimal or low. Questions always think as the model likes. |
 | `api_key` | API key | string |  | encrypted |  | Left off where the backend wants none. |
 
 ### Commands

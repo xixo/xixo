@@ -35,7 +35,7 @@ class Agent
 
   def initialize(grant:, inference: nil, role: Resource::OpenaiCompatible::AGENT_ROLE, tools: nil, locals: [],
                  analysis: nil, turns: TURNS, halted: nil, unfinished: nil, system: SYSTEM, label: "agent",
-                 extendable: true, reserve: 0)
+                 extendable: true, reserve: 0, routine: false)
     @grant = grant
     @role = role
     @inference = inference || Resource.for_role(role)
@@ -46,6 +46,7 @@ class Agent
     @unfinished = unfinished
     @system = system
     @label = label
+    @routine = routine
     @pressed = Set.new
     @turns_taken = 0
     @calls = []
@@ -57,7 +58,7 @@ class Agent
   def call(prompt)
     raise Refused, "no inference resource serves the #{@role} role" if @inference.nil?
 
-    transcript = Transcript.new(system: [ @system, @clock.told ].compact.join("\n"), prompt: prompt)
+    transcript = Transcript.new(system: [ @system, Today.said, @clock.told ].compact.join("\n"), prompt: prompt)
 
     @turns.times do |index|
       return finished(:halted) if @halted&.call || @clock.spent?
@@ -98,7 +99,8 @@ class Agent
         tools: last ? [] : declared,
         role: @role,
         analysis: @analysis,
-        turn: @turns_taken
+        turn: @turns_taken,
+        effort: (@inference.routine_effort if @routine && @inference.respond_to?(:routine_effort))
       )
     end
 
