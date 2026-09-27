@@ -158,6 +158,25 @@ export function ItemDetail() {
           style={{ minWidth: 'min(100%, 16rem)', flex: 1 }}
         >
           {facet && <Thumb looked={item} alt="" size={48} />}
+          {!facet && pictured.length > 0 && (
+            <button
+              type="button"
+              className="thumb-open"
+              onClick={() =>
+                setZoomed({
+                  url: pictured[0].hiresUrl ?? pictured[0].contentUrl,
+                  alt: pictured[0].filename,
+                })
+              }
+            >
+              <Thumb
+                url={pictured[0].thumbnailUrl}
+                looked={item}
+                alt={pictured[0].filename}
+                size={48}
+              />
+            </button>
+          )}
           <div style={{ minWidth: 0, flex: 1 }}>
             {facet ? (
               <h1 className="page-title mono-title">{item.key}</h1>
@@ -350,31 +369,6 @@ export function ItemDetail() {
           />
         </a>
       ))}
-
-      {pictured.length > 0 && (
-        <Group align="flex-start" gap="var(--s4)">
-          {pictured.map((reference) => (
-            <button
-              key={reference.id}
-              type="button"
-              className="thumb-open"
-              onClick={() =>
-                setZoomed({
-                  url: reference.hiresUrl ?? reference.contentUrl,
-                  alt: reference.filename,
-                })
-              }
-            >
-              <Thumb
-                url={reference.thumbnailUrl}
-                looked={item}
-                alt={reference.filename}
-                size={230}
-              />
-            </button>
-          ))}
-        </Group>
-      )}
 
       <Modal
         opened={zoomed !== null}
