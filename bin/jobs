@@ -3,4 +3,17 @@
 require_relative "../config/environment"
 require "solid_queue/cli"
 
+waited = 0
+
+begin
+  ActiveRecord::Base.with_connection { |connection| connection.execute("select 1") }
+rescue ActiveRecord::ActiveRecordError, PG::Error => error
+  raise if waited >= 120
+
+  warn "waiting for the database: #{error.class}"
+  sleep 2
+  waited += 2
+  retry
+end
+
 SolidQueue::Cli.start(ARGV)

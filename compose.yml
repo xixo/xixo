@@ -150,6 +150,7 @@ services:
   uris-worker:
     <<: *app
     command: ["./bin/jobs"]
+    restart: unless-stopped
     environment: *env
     depends_on:
       uris:
