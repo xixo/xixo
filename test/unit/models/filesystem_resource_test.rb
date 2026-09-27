@@ -119,6 +119,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
       assert_raises(ArgumentError) { @resource.command(:keep, key: "notes.txt") }
       assert_raises(ArgumentError) { @resource.command(:get, key: "notes.txt") }
       assert_raises(ArgumentError) { @resource.command(:list, prefix: "invoices") }
+      assert_raises(ArgumentError) { @resource.command(:put, key: "notes.txt", body: "x") }
       assert_equal 0, Feed.files.count
     end
   end

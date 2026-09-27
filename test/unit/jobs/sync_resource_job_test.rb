@@ -124,6 +124,7 @@ class SyncResourceJobTest < ActiveSupport::TestCase
       assert_raises(ArgumentError) { @resource.command(:keep, key: "invoices/march.pdf") }
       assert_raises(ArgumentError) { @resource.command(:get, key: "invoices/march.pdf") }
       assert_raises(ArgumentError) { @resource.command(:list, prefix: "invoices/") }
+      assert_raises(ArgumentError) { @resource.command(:put, key: "invoices/april.pdf", body: "x") }
       assert_equal 0, Feed.files.count
     end
   end

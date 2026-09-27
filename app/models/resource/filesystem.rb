@@ -154,7 +154,8 @@ class Resource
     def command_keep(key:) = kept(key)
 
     def command_put(key:, body:)
-      upload(key, body)
+      permitted_root!
+      upload(within_prefix(lexical(key).relative_path_from(root.cleanpath).to_s), body)
     end
 
     private

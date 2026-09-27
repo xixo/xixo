@@ -63,7 +63,8 @@ class Resource
     end
 
     def command_get(id:)
-      file = api_get("/files/#{CGI.escape(id)}", fields: FIELDS, supportsAllDrives: true)
+      file = api_get("/files/#{escaped_segment(id)}", fields: FIELDS, supportsAllDrives: true)
+      within_query!(file)
 
       describe(file).merge(text_for(file))
     end
@@ -110,8 +111,8 @@ class Resource
       end
 
       def api_download(id)
-        api_bytes("/files/#{CGI.escape(id)}", max_bytes: MAX_DOWNLOAD,
-                                              alt: "media", supportsAllDrives: true)
+        api_bytes("/files/#{escaped_segment(id)}", max_bytes: MAX_DOWNLOAD,
+                                                     alt: "media", supportsAllDrives: true)
       end
 
       def folder?(file)
@@ -120,6 +121,18 @@ class Resource
 
       def native?(file)
         file["mimeType"].to_s.start_with?("application/vnd.google-apps.")
+      end
+
+      def within_query!(file)
+        return if details["query"].blank?
+
+        narrowed = [ drive_query(nil, file["parents"]&.first), "name = #{quoted(file['name'])}" ].join(" and ")
+        found = api_get("/files", q: narrowed, fields: "files(id)", pageSize: PAGE,
+                                  supportsAllDrives: true, includeItemsFromAllDrives: true)
+
+        return if Array(found["files"]).any? { |held| held["id"] == file["id"] }
+
+        raise ArgumentError, "#{key}: #{file['name']} is outside what it reads"
       end
 
       def quoted(value)

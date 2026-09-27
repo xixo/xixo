@@ -131,9 +131,9 @@ Active Storage's own routes are not drawn. Staged bytes are reached only through
 - A filesystem resource's root must be inside the tenant's own directory under
   `URIS_FILESYSTEM_ROOTS`. uris checks the real path, so a symlink cannot lead out, and a write never
   follows one.
-- A resource reads only what it was attached to. The prefix, folder, repositories, or channels
-  given when attaching it bound `get` and `list` as well as `keep` and a sync, even where its
-  credential reaches further.
+- A resource reads only what it was attached to. The prefix, folder, repositories, channels,
+  mailbox, or Google Drive query given when attaching it bound `get`, `list`, `search`, and a
+  caller's `put` as well as `keep` and a sync, even where its credential reaches further.
 - An id or path a caller names is sent percent-encoded, one segment at a time, and a `.` or `..`
   segment is refused before any request is made. A Google Drive search escapes its backslashes and
   quotes, and the resource's own query clause is grouped so a search cannot widen it.

@@ -138,7 +138,7 @@ class Resource
     def command_keep(key:) = kept(key)
 
     def command_put(key:, body:)
-      upload(key, body)
+      upload(within_prefix(key), body)
     end
 
     private

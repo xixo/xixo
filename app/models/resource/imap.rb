@@ -40,9 +40,9 @@ class Resource
 
     def self.command_schema
       {
-        list: { mailbox: "string?", limit: "integer?" },
-        get: { uid: "integer", mailbox: "string?" },
-        search: { query: "string", mailbox: "string?" }
+        list: { limit: "integer?" },
+        get: { uid: "integer" },
+        search: { query: "string" }
       }
     end
 
@@ -125,8 +125,8 @@ class Resource
       end
     end
 
-    def command_list(mailbox: nil, limit: nil)
-      name = mailbox.presence || self.mailbox
+    def command_list(limit: nil)
+      name = mailbox
       count = (limit || LISTED).to_i.clamp(1, 500)
 
       connect do |imap|
@@ -141,8 +141,8 @@ class Resource
       end
     end
 
-    def command_get(uid:, mailbox: nil)
-      name = mailbox.presence || self.mailbox
+    def command_get(uid:)
+      name = mailbox
       wanted = Integer(uid)
 
       connect do |imap|
@@ -162,8 +162,8 @@ class Resource
       end
     end
 
-    def command_search(query:, mailbox: nil)
-      name = mailbox.presence || self.mailbox
+    def command_search(query:)
+      name = mailbox
 
       connect do |imap|
         validity = examine(imap, name)
