@@ -599,7 +599,8 @@ pre,
   cursor: pointer;
 }
 
-.entry-ask:hover {
+.entry-ask:hover,
+.entry-ask:focus-visible {
   background: var(--lifted);
 }
 

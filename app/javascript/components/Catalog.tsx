@@ -499,7 +499,14 @@ function AskAbout({ term }: { term: string }) {
     <button
       type="button"
       className="entry entry-ask"
+      data-ask-row
       disabled={ask.loading}
+      onKeyDown={(event) => {
+        if (event.key !== 'ArrowUp' && event.key !== 'Escape') return
+
+        event.preventDefault()
+        document.querySelector<HTMLInputElement>('.hunt input')?.focus()
+      }}
       onClick={async () => {
         const answered = await ask.execute({ question: term })
         const held = answered?.askCatalog

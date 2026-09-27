@@ -268,6 +268,13 @@ function Hunt() {
     return () => window.clearTimeout(pause)
   }, [draft, found, search])
 
+  const reachAsk = (tries = 40) => {
+    const row = document.querySelector<HTMLElement>('[data-ask-row]')
+
+    if (row) row.focus()
+    else if (tries > 0) window.setTimeout(() => reachAsk(tries - 1), 50)
+  }
+
   const keep = async (taking: Intent) => {
     const outcome = await keepUrl(draft, taking)
 
@@ -310,6 +317,18 @@ function Hunt() {
           if (event.key === 'Escape') {
             setDraft('')
             event.currentTarget.blur()
+            return
+          }
+
+          const question = draft.trim()
+          const onward =
+            event.key === 'ArrowDown' ||
+            (event.key === 'Tab' && !event.shiftKey)
+
+          if (!offering && question && onward) {
+            event.preventDefault()
+            if (question !== sought.current) search(question)
+            reachAsk()
             return
           }
 
