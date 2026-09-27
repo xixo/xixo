@@ -1115,7 +1115,8 @@ a.entry:hover {
     animation: none;
   }
 
-  .thinking-pulse {
+  .thinking-pulse,
+  .thinking-line {
     animation: none;
   }
 
@@ -1378,21 +1379,18 @@ a.entry:hover {
 }
 
 .thinking {
-  border: 1px solid var(--edge);
-  border-radius: var(--radius);
-  background: var(--raised);
-  overflow: hidden;
-}
-
-.thinking-head {
   display: flex;
   align-items: center;
   gap: var(--s3);
+  min-width: 0;
   padding: var(--s3) var(--s4);
-  border-bottom: 1px solid var(--line);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--raised);
 }
 
 .thinking-pulse {
+  flex: none;
   width: 7px;
   height: 7px;
   border-radius: 999px;
@@ -1406,39 +1404,15 @@ a.entry:hover {
   }
 }
 
-.thinking-turns {
-  max-height: 22rem;
-  overflow-y: auto;
-}
-
-.thinking-turn {
-  display: grid;
-  grid-template-columns: 2ch minmax(0, 1fr);
-  gap: var(--s4);
-  padding: var(--s3) var(--s4);
-  border-bottom: 1px solid var(--line);
-}
-
-.thinking-turn:last-child {
-  border-bottom: 0;
-}
-
-.thinking-count {
-  color: var(--muted);
-  font-size: var(--t-small);
-  line-height: 1.6;
-}
-
-.thinking-said {
-  display: -webkit-box;
-  -webkit-line-clamp: 6;
-  -webkit-box-orient: vertical;
+.thinking-line {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
-  color: var(--text);
+  color: var(--soft);
   font-size: var(--t-small);
-  line-height: 1.6;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  animation: thinking-beat 1.4s ease-in-out infinite;
 }
 
 .run-log {

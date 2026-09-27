@@ -280,6 +280,24 @@ function LastRun({ pass }: { pass: Pass }) {
   )
 }
 
+const MARKED = /^\[.{1,2}\]\s*:\s*/
+const CALLED = /^called [^\n]*\n+/
+const THINKING = /^thinking:\s*/i
+
+function glimpse(turns: Turn[], logs?: string | null) {
+  const said = turns
+    .map((turn) => (turn.said ?? '').replace(CALLED, '').replace(THINKING, ''))
+    .map((text) => text.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .pop()
+
+  if (said) return said
+
+  const line = (logs ?? '').split('\n').filter(Boolean).pop()
+
+  return line ? line.replace(MARKED, '').replace(/\s+/g, ' ').trim() : null
+}
+
 export function Progress({ pass, cap }: { pass: Pass; cap?: number | null }) {
   const [turns, setTurns] = useState<Turn[]>(agentTurns(pass.turns))
   const { data } = useSubscription(AnalysisProgressedDocument, { id: pass.id })
@@ -311,59 +329,16 @@ export function Progress({ pass, cap }: { pass: Pass; cap?: number | null }) {
     )
   }
 
+  const line = glimpse(turns, streamed?.logs) ?? 'Reading the catalog'
+  const where = `turn ${latest?.turn ?? 1}${cap ? ` of ${cap}` : ''}`
+
   return (
-    <div className="thinking">
-      <div className="thinking-head">
-        <span className="thinking-pulse" />
-        <span className="label">Thinking</span>
-        <span className="eyebrow">
-          turn <span className="figure">{latest?.turn ?? 1}</span>
-          {cap ? (
-            <>
-              {' '}
-              of <span className="figure">{cap}</span>
-            </>
-          ) : null}
-        </span>
-      </div>
-
-      {turns.length === 0 ? (
-        <Text size="sm" c="dimmed" px="var(--s4)" py="var(--s3)">
-          Reading the catalog before its first turn.
-        </Text>
-      ) : (
-        <div className="thinking-turns">
-          {turns.map((turn) => (
-            <div key={turn.turn} className="thinking-turn">
-              <span className="thinking-count figure">{turn.turn}</span>
-
-              <div style={{ minWidth: 0 }}>
-                {turn.said && <div className="thinking-said">{turn.said}</div>}
-
-                {turn.calls.length > 0 && (
-                  <Group gap="var(--s2)" mt="var(--s2)">
-                    {turn.calls.map((call) => (
-                      <span
-                        key={call}
-                        className="tag mono"
-                        style={toned('var(--brass)')}
-                      >
-                        {call}
-                      </span>
-                    ))}
-                  </Group>
-                )}
-
-                {!turn.said && turn.calls.length === 0 && (
-                  <Text size="xs" c="dimmed">
-                    thought without saying anything
-                  </Text>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+    <div className="thinking" title={where} aria-live="polite">
+      <span className="thinking-pulse" />
+      <span className="label">Thinking</span>
+      <span className="thinking-line" key={line}>
+        {line}
+      </span>
     </div>
   )
 }
