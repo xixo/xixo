@@ -1,6 +1,7 @@
 import { Button, Loader, Tooltip } from '@mantine/core'
 import type { Account } from '@masks/client'
-import { IconLink, IconSearch } from '@tabler/icons-react'
+import { IconLink, IconSearch, IconSparkles } from '@tabler/icons-react'
+import { AskCatalogDocument } from '@uris-to/client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Link,
@@ -25,7 +26,7 @@ import { Lost } from './Lost'
 import { Mark } from './Mark'
 import { Resources } from './Resources'
 import { Runs } from './Runs'
-import { SayProvider } from './Say'
+import { SayProvider, useAloud } from './Say'
 import { Settings, SignedIn } from './Settings'
 import { UploadsProvider } from './Uploads'
 
@@ -208,7 +209,10 @@ function Hunt() {
   const [draft, setDraft] = useState(term)
   const [wanted, setWanted] = useState<Intent | null>(null)
   const [said, setSaid] = useState<string | null>(null)
+  const [asking, setAsking] = useState(false)
+  const [focused, setFocused] = useState(false)
   const box = useRef<HTMLInputElement | null>(null)
+  const ask = useAloud(AskCatalogDocument, 'That could not be asked.')
   const sought = useRef(term)
 
   useEffect(() => {
@@ -242,6 +246,8 @@ function Hunt() {
   const found = asUrl(draft)
   const intent = wanted ?? (found ? intentFor(found) : 'snapshot')
   const offering = found !== null && said === null
+  const question = draft.trim()
+  const askable = focused && !found && question.length > 0 && said === null
 
   const search = useCallback(
     (text: string) => {
@@ -268,6 +274,21 @@ function Hunt() {
     return () => window.clearTimeout(pause)
   }, [draft, found, search])
 
+  const askIt = async () => {
+    if (!question || ask.loading) return
+
+    const answered = await ask.execute({ question })
+    const held = answered?.askCatalog
+
+    if (!held) return
+
+    sought.current = ''
+    setAsking(false)
+    setDraft('')
+    box.current?.blur()
+    navigate(`/items/${held.feed.id}`)
+  }
+
   const keep = async (taking: Intent) => {
     const outcome = await keepUrl(draft, taking)
 
@@ -289,7 +310,8 @@ function Hunt() {
         event.preventDefault()
 
         if (found) keep(intent)
-        else search(draft.trim())
+        else if (asking) askIt()
+        else search(question)
       }}
     >
       {found ? (
@@ -305,12 +327,54 @@ function Hunt() {
           setDraft(event.currentTarget.value)
           setWanted(null)
           setSaid(null)
+          setAsking(false)
         }}
+        onFocus={() => setFocused(true)}
+        onBlur={() => {
+          setFocused(false)
+          setAsking(false)
+        }}
+        role="combobox"
+        aria-expanded={askable || offering}
+        aria-controls="hunt-options"
+        aria-activedescendant={askable && asking ? 'hunt-ask' : undefined}
+        aria-autocomplete="none"
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
+            if (asking) {
+              setAsking(false)
+              return
+            }
+
             setDraft('')
             event.currentTarget.blur()
             return
+          }
+
+          if (askable) {
+            const forward =
+              event.key === 'ArrowDown' ||
+              (event.key === 'Tab' && !event.shiftKey)
+            const back =
+              event.key === 'ArrowUp' || (event.key === 'Tab' && event.shiftKey)
+
+            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault()
+              askIt()
+              return
+            }
+
+            if (forward && !asking) {
+              event.preventDefault()
+              setAsking(true)
+              return
+            }
+
+            if (back && asking) {
+              event.preventDefault()
+              setAsking(false)
+              return
+            }
           }
 
           if (!offering) return
@@ -344,8 +408,36 @@ function Hunt() {
 
       {said && <div className="hunt-drop hunt-said">{said}</div>}
 
+      {askable && (
+        <div className="hunt-drop" id="hunt-options" role="listbox">
+          <button
+            id="hunt-ask"
+            type="button"
+            role="option"
+            aria-selected={asking}
+            tabIndex={-1}
+            className="hunt-row"
+            data-on={asking}
+            disabled={ask.loading}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={askIt}
+          >
+            <span className="hunt-what">
+              {ask.loading ? (
+                <Loader size="xs" color="var(--brass)" />
+              ) : (
+                <IconSparkles size={15} stroke={1.8} />
+              )}
+              Ask
+            </span>
+            <span className="hunt-question">{question}</span>
+            <span className="hunt-where">{asking ? 'Enter' : 'Tab'}</span>
+          </button>
+        </div>
+      )}
+
       {offering && (
-        <div className="hunt-drop">
+        <div className="hunt-drop" id="hunt-options" role="listbox">
           {OFFERS.map((offer) => (
             <button
               key={offer.intent}
