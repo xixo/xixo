@@ -74,6 +74,23 @@ class AskingPromptTest < ActiveSupport::TestCase
     end
   end
 
+  test "a scout that read only the start of a long document is sent to look through the rest" do
+    Tenant.switch(@tenant) do
+      first = result("feed", { "id" => "253" }, { id: "253", text_part: { from: 0, to: 8000, of: 24_788 } })
+
+      pushed = unfinished([ first ])
+      assert_match(/read only part of \[feed 253\]/, pushed)
+      assert_match(/\{"id":"253","from":8000\}/, pushed)
+      assert_match(/"find":/, pushed)
+
+      looked = result("feed", { "id" => "253", "find" => "termination" }, { id: "253", passages: [], text_part: { of: 24_788 } })
+      assert_nil unfinished([ first, looked ])
+
+      whole = result("feed", { "id" => "253" }, { id: "253", text_part: { from: 0, to: 900, of: 900 } })
+      assert_nil unfinished([ whole ])
+    end
+  end
+
   test "a feed cited with a link keeps the citation and loses the link" do
     said = "See [feed 132](https://example.com/feed.xml), [Feed: 7](x) and [HN](https://hn.algolia.com)."
 

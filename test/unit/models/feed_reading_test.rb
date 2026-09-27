@@ -1,7 +1,7 @@
 require "test_helper"
 
 class FeedReadingTest < ActiveSupport::TestCase
-  LONG = (1..3_000).map { |line| "Clause #{line} says the same thing again." }.join("\n")
+  LONG = (1..3_000).map { |line| line == 2_500 ? "Clause 2500 sets out severance on dismissal." : "Clause #{line} says the same thing again." }.join("\n")
 
   setup do
     @tenant = Tenant.create!(subdomain: "read-#{SecureRandom.hex(4)}", name: "Reading")
@@ -49,5 +49,15 @@ class FeedReadingTest < ActiveSupport::TestCase
 
     assert_operator step.length, :<, 1_000
     assert_match(/#{LONG.length} characters in all/, step)
+  end
+
+  test "words looked for in a long text come back as the passages that mention them, wherever they are" do
+    found = opened(find: "Severance dismissal")
+
+    assert_equal 2, found["found"]
+    assert_equal 1, found["passages"].size
+    assert_includes found["passages"].first["text"], "sets out severance on dismissal"
+    assert_operator found["passages"].first["from"], :>, Tool::Feeds::EXCERPT
+    assert_nil found["text"]
   end
 end

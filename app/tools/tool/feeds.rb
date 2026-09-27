@@ -5,6 +5,9 @@ module Tool
 
     EXCERPT = 8_000
     STEP_TEXT = 600
+    PASSAGES = 8
+    AROUND = 500
+    FIND_WORDS = 8
 
     description <<~TEXT
       One feed: everything known about it, every place it lives, what analysis drew out of
@@ -37,6 +40,12 @@ module Tool
           description: "For get: where in its text to start reading, as a character offset. Each get returns " \
                        "up to #{EXCERPT} characters and says where the next part starts."
         },
+        find: {
+          type: "string",
+          description: "For get: words to look for in its text. Instead of a part of the text, get returns the " \
+                       "passages that mention them, each with where it starts, so a long document can be " \
+                       "searched without reading all of it."
+        },
         lasts: {
           type: "string",
           description: "For create and last: \"forever\", or how many days it lasts before it is forgotten. " \
@@ -46,17 +55,17 @@ module Tool
     )
 
     def self.call(server_context:, id: nil, key: nil, title: nil, note: nil,
-                  type: nil, prompt: nil, resource: nil, reason: nil, lasts: nil, from: nil, **held)
+                  type: nil, prompt: nil, resource: nil, reason: nil, lasts: nil, from: nil, find: nil, **held)
       verb = (held[:do] || held["do"] || "get").to_s
 
       respond(server_context, { id: id, key: key, do: verb, type: type, title: title, resource: resource,
-                                lasts: lasts, from: from }.compact) do
+                                lasts: lasts, from: from, find: find }.compact) do
         raise ArgumentError, "no such action '#{verb}'" unless (READ + WRITE).include?(verb)
 
         Current.grant.permit!("uris:catalog:write") if WRITE.include?(verb)
 
         act(verb, id: id, key: key, title: title, note: note, type: type, prompt: prompt,
-                  resource: resource, reason: reason, lasts: lasts, from: from)
+                  resource: resource, reason: reason, lasts: lasts, from: from, find: find)
       end
     end
 
@@ -88,7 +97,8 @@ module Tool
       key.present? ? Feed.address(key) || Feed.by_key(key).first : nil
     end
 
-    def self.act(verb, id:, key:, title:, note:, type:, prompt:, resource: nil, reason: nil, lasts: nil, from: nil)
+    def self.act(verb, id:, key:, title:, note:, type:, prompt:, resource: nil, reason: nil, lasts: nil, from: nil,
+                 find: nil)
       return made(type: type, key: key, title: title, prompt: prompt, lasts: lasts) if verb == "create"
 
       feed = found(id, key)
@@ -108,7 +118,7 @@ module Tool
         return summarize(feed).merge(analysis: feed.analyze!(cause: "manual").id.to_s)
       end
 
-      told(feed, from: from)
+      told(feed, from: from, find: find)
     end
 
     def self.placed(feed, key, reason)
@@ -151,7 +161,7 @@ module Tool
         accepted_by: Placement.candidates(feed).pluck(:key) }
     end
 
-    def self.told(feed, from: nil)
+    def self.told(feed, from: nil, find: nil)
       summarize(feed).merge(
         note: feed.note,
         summary: feed.summary,
@@ -163,7 +173,30 @@ module Tool
         steps: feed.analysis&.steps.to_h.transform_values { |step|
           step.key?("error") ? { "error" => step["error"]["message"] } : gist(step["result"])
         }
-      ).merge(part_of(feed, from))
+      ).merge(find.present? ? found_in(feed, find) : part_of(feed, from))
+    end
+
+    def self.found_in(feed, find)
+      body = feed.body_text.to_s
+      words = find.to_s.downcase.scan(/[[:alnum:]]{3,}/).uniq.first(FIND_WORDS)
+      return { passages: [], text_part: { of: body.length } } if words.empty? || body.empty?
+
+      pattern = Regexp.new(words.map { |word| Regexp.escape(word) }.join("|"), Regexp::IGNORECASE)
+      hits = body.to_enum(:scan, pattern).map { Regexp.last_match.begin(0) }
+
+      windows = hits.each_with_object([]) do |at, merged|
+        start = [ at - AROUND, 0 ].max
+        finish = [ at + AROUND, body.length ].min
+        next merged.last[1] = finish if merged.any? && start <= merged.last[1]
+
+        merged << [ start, finish ]
+      end
+
+      {
+        found: hits.size,
+        passages: windows.first(PASSAGES).map { |start, finish| { from: start, text: body[start...finish] } },
+        text_part: { of: body.length }
+      }
     end
 
     def self.part_of(feed, from)
