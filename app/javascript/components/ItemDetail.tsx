@@ -412,20 +412,25 @@ export function ItemDetail() {
             <Text size="sm" style={{ lineHeight: 1.6, maxWidth: '72ch' }}>
               {item.summary}
             </Text>
-            {item.keywords.length > 0 && (
-              <div className="filed" style={{ marginTop: 'var(--s3)' }}>
-                {item.keywords.map((word) => (
-                  <Link
-                    key={word}
-                    to={`/?q=${encodeURIComponent(word)}`}
-                    className="tag"
-                    data-dot="false"
-                  >
-                    {word}
-                  </Link>
-                ))}
-              </div>
-            )}
+          </div>
+        </Stack>
+      )}
+
+      {!facet && !item.asked && item.keywords.length > 0 && (
+        <Stack gap="var(--s2)">
+          <div className="label">Keywords</div>
+          <div className="filed">
+            {item.keywords.map((word) => (
+              <Link
+                key={word}
+                to={`/?q=${encodeURIComponent(word)}`}
+                className="tag"
+                data-dot="false"
+                title={`Search for ${word}`}
+              >
+                {word}
+              </Link>
+            ))}
           </div>
         </Stack>
       )}
