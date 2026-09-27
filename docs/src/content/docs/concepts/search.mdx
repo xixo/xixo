@@ -74,8 +74,13 @@ asks for the 200 nearest neighbors under the same facets. The neighbors are cut 
 cosine similarity is at least `URIS_SEMANTIC_FLOOR` (0.55 by default), and within 0.12 of the best
 match. A query whose meaning matches nothing well therefore adds no semantic results.
 
-The top 200 lexical results and the remaining neighbors are fused by reciprocal rank fusion. Each
-list adds `1 / (60 + rank)` to a feed's score, with ranks counted from one, and the fused list is
+When no facet is set, uris also asks the passage index for the 200 passages nearest the query, cut
+the same way, and ranks their feeds by their best passage. This finds a long document by something
+said deep inside it, which its own vector, drawn mostly from its opening, does not carry. The
+`search` tool gives each result found this way the passage and where it starts.
+
+The top 200 lexical results and the remaining neighbors, of feeds and of passages, are fused by
+reciprocal rank fusion. Each list adds `1 / (60 + rank)` to a feed's score, with ranks counted from one, and the fused list is
 sorted by score. Fusion uses only the rank in each list. The two engines score on different scales,
 so their scores are never compared.
 
@@ -111,6 +116,23 @@ embedding the feed again. Changing a title or a note, finishing an analysis, or 
 clears `embedded_at`. Changing the embedding model clears it for every feed in the tenant, because
 vectors from two models cannot be compared. The vector's dimension is `URIS_EMBEDDING_DIMENSIONS`,
 768 by default.
+
+## Passages
+
+A feed whose text is longer than 1,500 characters is also cut into passages of up to 1,500
+characters. Each passage ends at the first of a paragraph, a line, a sentence, a clause, or a word found in its last 40
+percent, and the next starts 200 characters before it ends, so a clause across a boundary is whole
+in one of them. The `passages` table holds each passage's text, where it starts and ends, and its
+vector. A digest of the text in `feeds.passages_digest` means a feed is cut again only when its
+text changes.
+
+The same job cuts feeds that have no passages digest, up to fifty a minute, and embeds up to 64
+passages a minute, each with its feed's title before it. The vectors are indexed in their own
+index, `_passages` after the feeds' index name, and every query on it filters by `tenant_id`.
+
+The `feed` tool's `find` returns a long document's passages that contain the words asked for, ranked
+by how many of them each passage holds, together with the passages nearest in meaning. Each says
+whether it matched by words, by meaning, or both.
 
 ## Tenants
 

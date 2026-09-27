@@ -47,6 +47,8 @@ module Embedding
       items = Feed.unembedded.includes(:analyses, children: :analyses).limit(limit).to_a
       return 0 if items.empty?
 
+      items.each { |item| Passage.cut!(item) }
+
       model = resource.model_for(ROLE)
       wanted = items.to_h { |item| [ item.id, gist(item) ] }
       digests = wanted.transform_values { |text| digest_of(text, model) }

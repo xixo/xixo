@@ -1,4 +1,5 @@
 require "test_helper"
+require_relative "../../support/fake_model_server"
 
 class FeedReadingTest < ActiveSupport::TestCase
   LONG = (1..3_000).map { |line| line == 2_500 ? "Clause 2500 sets out severance on dismissal." : "Clause #{line} says the same thing again." }.join("\n")
@@ -54,10 +55,37 @@ class FeedReadingTest < ActiveSupport::TestCase
   test "words looked for in a long text come back as the passages that mention them, wherever they are" do
     found = opened(find: "Severance dismissal")
 
-    assert_equal 2, found["found"]
+    assert_equal 1, found["found"]
     assert_equal 1, found["passages"].size
+    assert_equal "words", found["passages"].first["matched_by"]
     assert_includes found["passages"].first["text"], "sets out severance on dismissal"
     assert_operator found["passages"].first["from"], :>, Tool::Feeds::EXCERPT
     assert_nil found["text"]
+  end
+
+  test "a question finds the passage that means it, though they share no word" do
+    server = FakeModelServer.current
+    server.reset!.serves("nomic-embed-text").embeds(width: SearchIndex::VECTOR_DIMENSIONS)
+    ENV["URIS_INFERENCE_ORIGINS"] = server.origin
+    PassageIndex.reset!
+    toward = Array.new(SearchIndex::VECTOR_DIMENSIONS, 0.0).tap { |vector| vector[11] = 1.0 }
+    server.embeds_as("what if the roof leaks", toward)
+
+    Tenant.switch(@tenant) do
+      Resource::OpenaiCompatible.create!(
+        key: "ollama", details: { "base_url" => server.base_url, "models" => { "embedding" => "nomic-embed-text" } }
+      )
+      Passage.cut!(@feed.reload)
+      wanted = Passage.where(feed: @feed).find_by!(position: 40)
+      wanted.update_columns(embedding: toward, embedded_at: Time.current)
+      PassageIndex.index_all([ wanted ])
+      PassageIndex.refresh!
+
+      found = opened(find: "what if the roof leaks")["passages"]
+
+      assert_includes found.map { |passage| [ passage["from"], passage["matched_by"] ] }, [ wanted.starts_at, "meaning" ]
+    end
+  ensure
+    ENV.delete("URIS_INFERENCE_ORIGINS")
   end
 end

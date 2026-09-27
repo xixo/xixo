@@ -200,7 +200,9 @@ module SearchIndex
       return lexical(query, tenant: tenant, limit: limit, from: from, **facets) if vector.nil?
 
       found = lexical(query, tenant: tenant, limit: CANDIDATES, from: 0, **facets)
-      fused = fuse(found[:ids], nearest(vector, tenant: tenant, limit: CANDIDATES, **facets))
+      passages = facets.compact_blank.empty? ? PassageIndex.nearest(vector, tenant: tenant, limit: CANDIDATES) : []
+      fused = fuse(found[:ids], nearest(vector, tenant: tenant, limit: CANDIDATES, **facets),
+                   passages.map(&:feed_id).uniq)
 
       { ids: fused.drop(from).first(limit), total: [ found[:total], fused.length ].max }
     end
@@ -287,10 +289,10 @@ module SearchIndex
                                            .map { |field, value| { (value.is_a?(Array) ? :terms : :term) => { field => value } } }
     end
 
-    def fuse(lexical, semantic)
+    def fuse(*lists)
       scored = Hash.new(0.0)
 
-      [ lexical, semantic ].each do |ranked|
+      lists.each do |ranked|
         ranked.each_with_index { |id, rank| scored[id] += 1.0 / (FUSION_RANK + rank + 1) }
       end
 

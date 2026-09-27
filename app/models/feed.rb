@@ -34,6 +34,7 @@ class Feed < ApplicationRecord
   has_many :resources, through: :references
   has_many :analyses, -> { order(:id) }, dependent: :destroy, inverse_of: :feed
   has_one :schedule, dependent: :destroy
+  has_many :passages, -> { order(:position) }, inverse_of: :feed
   has_one_attached :upload, dependent: :purge
 
   belongs_to :parent, class_name: "Feed", optional: true
@@ -386,6 +387,7 @@ class Feed < ApplicationRecord
 
     def remove_from_search
       SearchIndex.delete(self)
+      PassageIndex.delete_for(self)
     end
 
     def collect_strings(value, &block)

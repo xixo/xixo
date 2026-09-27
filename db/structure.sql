@@ -330,7 +330,8 @@ CREATE TABLE public.feeds (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     timeout integer,
-    expires_at timestamp(6) without time zone
+    expires_at timestamp(6) without time zone,
+    passages_digest character varying
 );
 
 ALTER TABLE ONLY public.feeds FORCE ROW LEVEL SECURITY;
@@ -392,6 +393,46 @@ CREATE SEQUENCE public.gates_id_seq
 --
 
 ALTER SEQUENCE public.gates_id_seq OWNED BY public.gates.id;
+
+
+--
+-- Name: passages; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.passages (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    feed_id bigint NOT NULL,
+    "position" integer NOT NULL,
+    starts_at integer NOT NULL,
+    ends_at integer NOT NULL,
+    text text NOT NULL,
+    embedding double precision[],
+    embedded_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+ALTER TABLE ONLY public.passages FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: passages_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.passages_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: passages_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.passages_id_seq OWNED BY public.passages.id;
 
 
 --
@@ -715,6 +756,13 @@ ALTER TABLE ONLY public.gates ALTER COLUMN id SET DEFAULT nextval('public.gates_
 
 
 --
+-- Name: passages id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.passages ALTER COLUMN id SET DEFAULT nextval('public.passages_id_seq'::regclass);
+
+
+--
 -- Name: resource_blobs id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -834,6 +882,14 @@ ALTER TABLE ONLY public.feeds
 
 ALTER TABLE ONLY public.gates
     ADD CONSTRAINT gates_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: passages passages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.passages
+    ADD CONSTRAINT passages_pkey PRIMARY KEY (id);
 
 
 --
@@ -1194,6 +1250,34 @@ CREATE INDEX index_gates_on_tenant_id ON public.gates USING btree (tenant_id);
 
 
 --
+-- Name: index_passages_on_feed_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_passages_on_feed_id ON public.passages USING btree (feed_id);
+
+
+--
+-- Name: index_passages_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_passages_on_tenant_id ON public.passages USING btree (tenant_id);
+
+
+--
+-- Name: index_passages_on_tenant_id_and_embedded_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_passages_on_tenant_id_and_embedded_at ON public.passages USING btree (tenant_id, embedded_at);
+
+
+--
+-- Name: index_passages_on_tenant_id_and_feed_id_and_position; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_passages_on_tenant_id_and_feed_id_and_position ON public.passages USING btree (tenant_id, feed_id, "position");
+
+
+--
 -- Name: index_resource_blobs_on_resource_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1458,6 +1542,14 @@ ALTER TABLE ONLY public.feed_references
 
 
 --
+-- Name: passages fk_rails_6ffbde4107; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.passages
+    ADD CONSTRAINT fk_rails_6ffbde4107 FOREIGN KEY (feed_id) REFERENCES public.feeds(id) ON DELETE CASCADE;
+
+
+--
 -- Name: active_storage_blobs fk_rails_717534d285; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1487,6 +1579,14 @@ ALTER TABLE ONLY public.active_storage_variant_records
 
 ALTER TABLE ONLY public.analyses
     ADD CONSTRAINT fk_rails_9c589bf702 FOREIGN KEY (reference_id) REFERENCES public.feed_references(id) ON DELETE SET NULL;
+
+
+--
+-- Name: passages fk_rails_a77c30c7e1; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.passages
+    ADD CONSTRAINT fk_rails_a77c30c7e1 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -1648,6 +1748,12 @@ ALTER TABLE public.feeds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.gates ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: passages; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.passages ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: resource_blobs; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -1741,6 +1847,13 @@ CREATE POLICY tenant_isolation ON public.gates USING ((tenant_id = (NULLIF(curre
 
 
 --
+-- Name: passages tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.passages USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+
+
+--
 -- Name: resource_blobs tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -1782,6 +1895,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260927010000'),
 ('20260926210000'),
 ('20260926200000'),
 ('20260921230000'),

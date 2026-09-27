@@ -8,6 +8,13 @@ module Tool
     PASSAGES = 8
     AROUND = 500
     FIND_WORDS = 8
+    MEANT = 4
+    WIDEST = AROUND * 3
+    COMMON = %w[
+      the and for are but not you your all any can had has have her his how its our out who why was were
+      what when where which will with this that these those from into about there their them then than
+      does did done been being also just only some such very would could should shall may might must
+    ].freeze
 
     description <<~TEXT
       One feed: everything known about it, every place it lives, what analysis drew out of
@@ -42,9 +49,9 @@ module Tool
         },
         find: {
           type: "string",
-          description: "For get: words to look for in its text. Instead of a part of the text, get returns the " \
-                       "passages that mention them, each with where it starts, so a long document can be " \
-                       "searched without reading all of it."
+          description: "For get: what to look for in its text, in words or as a question. Instead of a part of " \
+                       "the text, get returns the passages that mention those words or mean what was asked, each " \
+                       "with where it starts, so a long document can be searched without reading all of it."
         },
         lasts: {
           type: "string",
@@ -178,25 +185,52 @@ module Tool
 
     def self.found_in(feed, find)
       body = feed.body_text.to_s
-      words = find.to_s.downcase.scan(/[[:alnum:]]{3,}/).uniq.first(FIND_WORDS)
-      return { passages: [], text_part: { of: body.length } } if words.empty? || body.empty?
+      return { passages: [], text_part: { of: body.length } } if body.empty?
+
+      ranked = (meant(feed, find) + worded(body, find)).each_with_object([]) do |(start, finish, by), held|
+        joined = held.find { |one| start <= one[1] && finish >= one[0] }
+        next held << [ start, finish, [ by ] ] if joined.nil?
+
+        joined[0] = [ joined[0], start ].min
+        joined[1] = [ joined[1], finish ].max
+        joined[2] |= [ by ]
+      end
+
+      {
+        found: ranked.size,
+        passages: ranked.first(PASSAGES).sort_by(&:first).map do |start, finish, by|
+          { from: start, matched_by: by.join(" and "), text: body[start...finish] }
+        end,
+        text_part: { of: body.length }
+      }
+    end
+
+    def self.worded(body, find)
+      words = (find.to_s.downcase.scan(/[[:alnum:]]{3,}/).uniq - COMMON).first(FIND_WORDS)
+      return [] if words.empty?
 
       pattern = Regexp.new(words.map { |word| Regexp.escape(word) }.join("|"), Regexp::IGNORECASE)
       hits = body.to_enum(:scan, pattern).map { Regexp.last_match.begin(0) }
 
-      windows = hits.each_with_object([]) do |at, merged|
+      windows = hits.each_with_object([]) do |at, held|
         start = [ at - AROUND, 0 ].max
         finish = [ at + AROUND, body.length ].min
-        next merged.last[1] = finish if merged.any? && start <= merged.last[1]
+        next held.last[1] = finish if held.any? && start <= held.last[1] && finish - held.last[0] <= WIDEST
 
-        merged << [ start, finish ]
+        held << [ start, finish ]
       end
 
-      {
-        found: hits.size,
-        passages: windows.first(PASSAGES).map { |start, finish| { from: start, text: body[start...finish] } },
-        text_part: { of: body.length }
-      }
+      windows.map { |start, finish| [ start, finish, "words", body[start...finish].downcase.then { |text| words.count { |word| text.include?(word) } } ] }
+             .sort_by { |start, _, _, matched| [ -matched, start ] }
+             .map { |start, finish, by, _| [ start, finish, by ] }
+    end
+
+    def self.meant(feed, find)
+      vector = Embedding.query(find)
+      return [] if vector.nil?
+
+      PassageIndex.nearest(vector, tenant: feed.tenant, limit: MEANT, feed_id: feed.id)
+                  .map { |hit| [ hit.starts_at, hit.ends_at, "meaning" ] }
     end
 
     def self.part_of(feed, from)

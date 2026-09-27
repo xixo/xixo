@@ -12,6 +12,7 @@ class EmbedItemsJob < ApplicationJob
 
     def sweep(tenant)
       Embedding.sweep!
+      Passage.sweep!
     rescue Resource::Failed => e
       Rails.logger.warn("#{tenant.subdomain} embedded nothing: #{e.class}: #{e.message.truncate(200)}")
     end
