@@ -115,7 +115,9 @@ class Asking
 
   BEYOND = <<~TEXT.squish.freeze
     If the catalog does not have it, or the task is about the world rather than what they keep,
-    look beyond it.
+    look beyond it. Use the tool made for the job: places and what is near them, the weather, a
+    search of the web. Read a page only at an address the task gave you or a search returned,
+    never one you made up.
   TEXT
 
   READ_FIRST = <<~TEXT.squish.freeze
@@ -224,7 +226,8 @@ class Asking
         You answered from catalog search results without opening any of them. Open the ones your
         answer draws on with feed, one call each, with arguments like
         #{listed.first(SUGGESTED).map { |id| { id: id }.to_json }.join(' or ')}, and read on through a long
-        one, then answer from what they say.
+        one, then answer from what they say. If none of them bears on the task, say so and use
+        the other tools you have instead.
       TEXT
     elsif partial.any?
       <<~TEXT.squish
