@@ -74,15 +74,6 @@ class AskingPromptTest < ActiveSupport::TestCase
     end
   end
 
-  test "the lead and its scouts are told today's date" do
-    Tenant.switch(@tenant) do
-      today = Date.current.strftime("%B %-d, %Y")
-
-      assert_includes Asking.new(@question).prompt, "Today is #{today}."
-      assert_includes Asking.new(@question).briefing("find it"), "Today is #{today}."
-    end
-  end
-
   test "a feed cited with a link keeps the citation and loses the link" do
     said = "See [feed 132](https://example.com/feed.xml), [Feed: 7](x) and [HN](https://hn.algolia.com)."
 

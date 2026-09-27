@@ -63,6 +63,25 @@ class AskingTest < ActionDispatch::IntegrationTest
       assert_match(/scout 1 : turn 1 : search/, analysis.logs)
       assert_match(/scout 1 : turn 2 : feed/, analysis.logs)
     end
+
+    assert(@server.prompts.any? { |prompt| prompt.include?("judged against today") && prompt.include?(Today.said) },
+           "the judges are told the date an answer's claims about time are held to")
+  end
+
+  test "a question is thought through however hard the backend lets routine work skimp" do
+    Tenant.switch(@tenant) do
+      held = Resource::OpenaiCompatible.find_by!(key: "ollama")
+      held.update!(details: held.details.merge("routine_effort" => "none"))
+    end
+
+    scout("Find the Acme invoice's total") { @server.answer("It is $4,200 [feed #{@invoice.id}].") }
+    @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
+
+    ask("How much is the Acme invoice?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    assert_operator @server.efforts.size, :>, 1
+    assert_equal [ nil ], @server.efforts.uniq
   end
 
   test "a follow-up is asked in the same note, told what was asked before, and the whole conversation is rolled up" do
