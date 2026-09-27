@@ -73,7 +73,7 @@ export function Conversation({
 
   const turns = [...(data?.feed?.analyses ?? [])]
     .filter((pass) => pass.cause === 'ask')
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   const answering = turns.some((pass) => RUN_OPEN.has(pass.status))
   const was = useRef(answering)
 
@@ -107,38 +107,6 @@ export function Conversation({
     <section className="ask">
       <div className="label">The conversation</div>
 
-      {turns.map((pass) => (
-        <div key={pass.id} className="ask-answer">
-          <div className="ask-question">{pass.question}</div>
-
-          {RUN_OPEN.has(pass.status) ? (
-            <Progress
-              pass={{
-                id: pass.id,
-                cause: 'ask',
-                status: pass.status,
-                turns: pass.turns,
-                createdAt: pass.createdAt,
-              }}
-            />
-          ) : pass.status === 'done' && pass.said ? (
-            <>
-              <AnswerText
-                said={pass.said}
-                cited={[...(data?.feed?.connected ?? []), ...pass.drewOn]}
-              />
-              {pass.drewOn.length > 0 && (
-                <DrewOn rows={pass.drewOn as Row[]} onChanged={onChanged} />
-              )}
-            </>
-          ) : (
-            <Text size="sm" style={{ color: 'var(--bad)' }}>
-              {pass.error ?? 'It could not answer that.'}
-            </Text>
-          )}
-        </div>
-      ))}
-
       <form
         className="ask-bar"
         onSubmit={(event) => {
@@ -171,6 +139,38 @@ export function Conversation({
           Ask
         </Button>
       </form>
+
+      {turns.map((pass) => (
+        <div key={pass.id} className="ask-answer">
+          <div className="ask-question">{pass.question}</div>
+
+          {RUN_OPEN.has(pass.status) ? (
+            <Progress
+              pass={{
+                id: pass.id,
+                cause: 'ask',
+                status: pass.status,
+                turns: pass.turns,
+                createdAt: pass.createdAt,
+              }}
+            />
+          ) : pass.status === 'done' && pass.said ? (
+            <>
+              <AnswerText
+                said={pass.said}
+                cited={[...(data?.feed?.connected ?? []), ...pass.drewOn]}
+              />
+              {pass.drewOn.length > 0 && (
+                <DrewOn rows={pass.drewOn as Row[]} onChanged={onChanged} />
+              )}
+            </>
+          ) : (
+            <Text size="sm" style={{ color: 'var(--bad)' }}>
+              {pass.error ?? 'It could not answer that.'}
+            </Text>
+          )}
+        </div>
+      ))}
     </section>
   )
 }
