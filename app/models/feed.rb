@@ -210,6 +210,11 @@ class Feed < ApplicationRecord
     Edge.between(self, other)&.destroy
   end
 
+  def file_under!(key)
+    connect!(Feed.tag!(key))
+    index_for_search
+  end
+
   def destroy_if_empty!
     destroy! if file? && references.originals.none?
   end

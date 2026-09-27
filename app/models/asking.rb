@@ -29,6 +29,11 @@ class Asking
     [HN Search API](https://hn.algolia.com/api). Link nothing a report did not name. If the scouts
     found nothing, say so plainly rather than guessing.
 
+    What the question itself tells you is given: take it as true rather than looking for it in the
+    catalog. You cannot change the files and notes already kept; when asked to tag, rename or
+    otherwise change them, name the ones that match, by feed, and say so. The person reviews the
+    ones you drew on and tags them from your answer.
+
     When the question asks for something as it is now — the weather, a price, a score, a status — the
     answer is the values themselves. Task a scout to read them and report them, and answer with
     them; where they could be looked up is not an answer.

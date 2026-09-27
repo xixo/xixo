@@ -1,13 +1,70 @@
-import { Button, Stack, Text } from '@mantine/core'
-import { IconArrowRight, IconSparkles } from '@tabler/icons-react'
+import { Button, Group, Stack, Text } from '@mantine/core'
+import { IconArrowRight, IconSparkles, IconTag } from '@tabler/icons-react'
 import { AskCatalogDocument, AskedDocument } from '@uris-to/client'
 import { useQuery } from '@uris-to/client/react'
 import { useEffect, useRef, useState } from 'react'
+import { TYPE } from '../looks'
 import { AnswerText } from './Answer'
 import { Progress } from './FeedHead'
 import { type Row, Rows } from './Rows'
 import { RUN_OPEN } from './RunLog'
 import { useAloud } from './Say'
+import { Tagger } from './Tagger'
+
+const taggable = (row: Row) => row.type === TYPE.file || row.type === TYPE.note
+
+function DrewOn({ rows, onChanged }: { rows: Row[]; onChanged: () => void }) {
+  const [reviewing, setReviewing] = useState(false)
+  const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set())
+  const held = rows.filter(taggable)
+
+  const review = () => {
+    setChosen(new Set(held.map((row) => row.id)))
+    setReviewing(true)
+  }
+
+  const toggle = (id: string) =>
+    setChosen((now) => {
+      const next = new Set(now)
+      if (!next.delete(id)) next.add(id)
+
+      return next
+    })
+
+  return (
+    <Stack gap="var(--s2)">
+      <Group justify="space-between">
+        <div className="label">What it drew on</div>
+        {held.length > 0 && !reviewing && (
+          <Button
+            size="compact-xs"
+            variant="subtle"
+            color="chalk"
+            leftSection={<IconTag size={13} />}
+            onClick={review}
+          >
+            Tag these
+          </Button>
+        )}
+      </Group>
+      <Rows
+        rows={rows}
+        pick={reviewing ? { chosen, toggle, pickable: taggable } : undefined}
+      />
+      {reviewing && (
+        <Tagger
+          ids={[...chosen]}
+          placeholder="Tag the ones you have checked"
+          onTagged={() => {
+            setReviewing(false)
+            onChanged()
+          }}
+          onCancel={() => setReviewing(false)}
+        />
+      )}
+    </Stack>
+  )
+}
 
 export function Conversation({
   feedId,
@@ -76,10 +133,7 @@ export function Conversation({
             <>
               <AnswerText said={pass.said} cited={cited} />
               {pass.drewOn.length > 0 && (
-                <Stack gap="var(--s2)">
-                  <div className="label">What it drew on</div>
-                  <Rows rows={pass.drewOn as Row[]} />
-                </Stack>
+                <DrewOn rows={pass.drewOn as Row[]} onChanged={onChanged} />
               )}
             </>
           ) : (

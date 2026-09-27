@@ -1,3 +1,4 @@
+import { Checkbox } from '@mantine/core'
 import type { RowFragment } from '@uris-to/client'
 import { Link } from 'react-router-dom'
 import { hrefFor } from '../looks'
@@ -7,6 +8,12 @@ import { TypeBadge } from './TypeBadge'
 export type Row = RowFragment
 
 export type View = 'list' | 'cards'
+
+export interface Pick {
+  chosen: ReadonlySet<string>
+  toggle: (id: string) => void
+  pickable: (row: Row) => boolean
+}
 
 function Within({ row }: { row: Row }) {
   if (!row.parent) return null
@@ -31,7 +38,15 @@ function named(row: Row) {
   return row.title ?? row.key ?? 'Untitled'
 }
 
-export function Rows({ rows, view = 'list' }: { rows: Row[]; view?: View }) {
+export function Rows({
+  rows,
+  view = 'list',
+  pick,
+}: {
+  rows: Row[]
+  view?: View
+  pick?: Pick
+}) {
   if (view === 'cards') {
     return (
       <>
@@ -60,22 +75,44 @@ export function Rows({ rows, view = 'list' }: { rows: Row[]; view?: View }) {
 
   return (
     <div className="panel">
-      {rows.map((row) => (
-        <Link key={row.id} to={hrefFor(row)} className="entry">
-          <Thumb
-            url={row.thumbnailUrl}
-            looked={row}
-            alt={named(row)}
-            size={48}
-          />
-          <div style={{ minWidth: 0 }}>
-            <div className="entry-title">{named(row)}</div>
-            <Within row={row} />
-            <Gist row={row} className="entry-summary" />
+      {rows.map((row) => {
+        const entry = (
+          <Link
+            key={row.id}
+            to={hrefFor(row)}
+            className="entry"
+            data-picked={pick?.chosen.has(row.id) || undefined}
+          >
+            <Thumb
+              url={row.thumbnailUrl}
+              looked={row}
+              alt={named(row)}
+              size={48}
+            />
+            <div style={{ minWidth: 0 }}>
+              <div className="entry-title">{named(row)}</div>
+              <Within row={row} />
+              <Gist row={row} className="entry-summary" />
+            </div>
+            <TypeBadge type={row.type} mime={row.mime} />
+          </Link>
+        )
+
+        if (!pick) return entry
+
+        return (
+          <div key={row.id} className="entry-pick">
+            <Checkbox
+              color="chalk"
+              checked={pick.chosen.has(row.id)}
+              disabled={!pick.pickable(row)}
+              onChange={() => pick.toggle(row.id)}
+              aria-label={`Select ${named(row)}`}
+            />
+            {entry}
           </div>
-          <TypeBadge type={row.type} mime={row.mime} />
-        </Link>
-      ))}
+        )
+      })}
     </div>
   )
 }

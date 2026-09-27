@@ -142,3 +142,11 @@ mutation CancelAnalysis($id: ID!) {
     }
   }
 }
+
+mutation TagFeeds($ids: [ID!]!, $tag: String!) {
+  tagFeeds(input: { ids: $ids, tag: $tag }) {
+    feeds {
+      id
+    }
+  }
+}

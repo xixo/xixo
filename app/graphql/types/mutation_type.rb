@@ -30,6 +30,7 @@ module Types
     field :export_feeds, mutation: Mutations::ExportFeeds, grants: "uris:catalog:write"
     field :cancel_run, mutation: Mutations::CancelRun, grants: "uris:catalog:write"
     field :cancel_analysis, mutation: Mutations::CancelAnalysis, grants: "uris:catalog:write"
+    field :tag_feeds, mutation: Mutations::TagFeeds, grants: "uris:catalog:write"
     field :save_feed, mutation: Mutations::SaveFeed, grants: "uris:catalog:write"
     field :run_feed, mutation: Mutations::RunFeed, grants: "uris:catalog:write"
     field :pause_feed, mutation: Mutations::PauseFeed, grants: "uris:catalog:write"

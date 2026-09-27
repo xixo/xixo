@@ -1942,3 +1942,48 @@ a.tag:hover {
     align-items: stretch;
   }
 }
+
+.tagger {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) var(--s2) var(--s2) var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raised);
+}
+
+.tagger:focus-within {
+  border-color: var(--brass-dim);
+}
+
+.tagger input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--t-small);
+}
+
+.tagger input::placeholder {
+  color: var(--muted);
+}
+
+.entry-pick {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding-left: var(--s4);
+}
+
+.entry-pick .entry {
+  flex: 1;
+  min-width: 0;
+}
+
+.entry[data-picked] {
+  background: var(--lifted);
+}

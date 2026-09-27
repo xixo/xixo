@@ -42,6 +42,7 @@ import { Passes, placementOf, why } from './Passes'
 import { Rows } from './Rows'
 import { useAloud, useSay } from './Say'
 import { Sure } from './Sure'
+import { Tagger } from './Tagger'
 import { Thumb } from './Thumb'
 import { TypeBadge } from './TypeBadge'
 
@@ -312,6 +313,8 @@ export function ItemDetail() {
           ))}
         </div>
       )}
+
+      {!facet && <Tagger ids={[item.id]} onTagged={settled} />}
 
       {!facet && (
         <Noting
