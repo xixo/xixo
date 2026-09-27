@@ -13,6 +13,8 @@ class Thumbnail
   WAVE = "0xc9a86a".freeze
   GROUND = "0x1b2024".freeze
   WAVE_SECONDS = 3600
+  WAVE_MIN_WIDTH = 100
+  WAVE_MAX_WIDTH = 1000
 
   def self.for(reference, size: DEFAULT_SIZE)
     new(reference, size).bytes
@@ -113,7 +115,8 @@ class Thumbnail
 
     def from_audio(path, dir)
       out = File.join(dir, "out.jpg")
-      shape = "#{width}x#{width / 3}"
+      wide = wave_width(path)
+      shape = "#{wide}x#{wide / 3}"
       graph = "[0:a]aformat=channel_layouts=mono,showwavespic=s=#{shape}:scale=sqrt:colors=#{WAVE}[wave];" \
               "color=c=#{GROUND}:s=#{shape}[ground];[ground][wave]overlay=format=auto"
 
@@ -123,6 +126,15 @@ class Thumbnail
       raise Unavailable, "ffmpeg drew no waveform of #{reference.filename}" unless File.size?(out)
 
       File.binread(out)
+    end
+
+    def wave_width(path)
+      seconds = capture("ffprobe", "-v", "error", "-show_entries", "format=duration",
+                        "-of", "default=noprint_wrappers=1:nokey=1", path).to_f
+      rendered = seconds.clamp(0, WAVE_SECONDS)
+      spread = WAVE_MAX_WIDTH - WAVE_MIN_WIDTH
+
+      (WAVE_MIN_WIDTH + (rendered / WAVE_SECONDS) * spread).round.clamp(WAVE_MIN_WIDTH, WAVE_MAX_WIDTH)
     end
 
     def attempt(*args)
@@ -163,5 +175,12 @@ class Thumbnail
       raise Unavailable, "#{args.first}: #{err.truncate(200)}" unless status.success?
 
       true
+    end
+
+    def capture(*args)
+      out, err, status = Open3.capture3(*args)
+      raise Unavailable, "#{args.first}: #{err.truncate(200)}" unless status.success?
+
+      out
     end
 end

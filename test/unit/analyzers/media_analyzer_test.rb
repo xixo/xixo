@@ -170,6 +170,17 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
     end
   end
 
+  test "a waveform is as wide as the recording is long, never narrower than the minimum" do
+    Tenant.switch(@tenant) do
+      shorter = image_width(Thumbnail.for(reference_at("tone.m4a"), size: "medium"))
+      longer = image_width(Thumbnail.for(reference_at("standup.m4a"), size: "medium"))
+
+      assert_operator shorter, :>=, Thumbnail::WAVE_MIN_WIDTH
+      assert_operator longer, :>, shorter
+      assert_operator longer, :<=, Thumbnail::WAVE_MAX_WIDTH
+    end
+  end
+
   test "a recording is measured for loudness, peak, dynamics and spectrum, and the prompt hears it" do
     analyze_feed_at "standup.m4a"
 
@@ -234,4 +245,14 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) { assert_not steps_at("silent.mp4").key?("signal") }
   end
+
+  private
+
+    def image_width(bytes)
+      Tempfile.create([ "wave", ".jpg" ], binmode: true) do |file|
+        file.write(bytes)
+        file.flush
+        Open3.capture2("vipsheader", "-f", "width", file.path).first.to_i
+      end
+    end
 end
