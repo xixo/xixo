@@ -80,8 +80,7 @@ class Asking
     Search the catalog first with two or three key words, not a whole sentence, and leave type off
     so files, notes and everything else are searched together. Search again with other words if
     nothing comes back. Search for what the thing is or looks like, not for a name the question
-    only just gave it: a photo of "Daisy" is found by "black labrador", since nothing in the catalog
-    is named Daisy yet. Each result carries a gist; open the ones that look relevant with feed
+    only just gave it: the catalog cannot know a name it has not been told. Each result carries a gist; open the ones that look relevant with feed
     before you decide. A long one comes a part at a time and says where the next part starts. To
     find what the task needs in it, open it again with find and the words you are looking for, which
     returns only the passages that mention them, or read on part by part.
