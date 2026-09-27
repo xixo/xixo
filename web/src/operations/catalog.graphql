@@ -85,7 +85,6 @@ query FeedDetail($id: ID!) {
     asked
     note
     expiresAt
-    keywords
     details {
       group
       step

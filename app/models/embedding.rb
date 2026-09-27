@@ -17,7 +17,7 @@ module Embedding
     def gist(feed)
       [
         feed.title,
-        feed.keywords.join(", ").presence,
+        feed.family_tags.join(", ").presence,
         feed.summaries.join("\n").presence,
         feed.note,
         feed.body_text(without: [ :summary ])&.truncate(BODY_TEXT)

@@ -285,7 +285,7 @@ class FakeSearchEngine
       case name
       when "match_all" then true
       when "bool" then Array(held["must"]).all? { |one| clause?(document, one) }
-      when "term" then held.all? { |field, value| holds?(document[field], value) }
+      when "term" then held.all? { |field, value| holds?(document[field.delete_suffix(".raw")], value) }
       when "multi_match" then multi_match?(document, held)
       else raise ArgumentError, "the fake engine does not understand #{name}"
       end

@@ -52,7 +52,7 @@ module Analyzer
     SUMMARY_TEXT = 10_000
     SECTIONS = 8
     SECTION_TEXT = 20_000
-    SUMMARY_KEYWORDS = 20
+    SUMMARY_TAGS = 20
 
     def self.summary_role
       :smart
@@ -91,13 +91,13 @@ module Analyzer
     def summary_shape(says = SAYS)
       <<~SHAPE
         Return ONLY valid JSON, no markdown and no explanation:
-        {"entities": ["..."], "summary": "...", "keywords": ["...", "..."]}
+        {"entities": ["..."], "summary": "...", "tags": ["...", "..."]}
 
         - entities: every proper name, product, company, person, place, amount,
           reference number and date above, written exactly as it appears. Fill this
           first. An empty array if there are none.
         - summary: #{says}
-        - keywords: 3 to #{SUMMARY_KEYWORDS} search terms. Each is a proper name, an
+        - tags: 3 to #{SUMMARY_TAGS} tags to file it under and find it by. Each is a proper name, an
           identifier, or the specific kind of thing this is. Four words at most.
           No word that would match anything: not #{STOPWORDS.first(8).join(', ')}.
       SHAPE
@@ -346,15 +346,15 @@ module Analyzer
         {
           "summary" => answer["summary"].to_s.strip.presence,
           "entities" => terms(answer["entities"]),
-          "keywords" => keywords(answer["keywords"])
+          "tags" => tags(answer["tags"])
         }.compact_blank
       end
 
-      KEYWORD_WORDS = 4
+      TAG_WORDS = 4
 
-      def keywords(given)
+      def tags(given)
         terms(given).reject { |word| STOPWORDS.include?(word.downcase) }
-                    .reject { |word| word.split.length > KEYWORD_WORDS }
+                    .reject { |word| word.split.length > TAG_WORDS }
       end
 
       def terms(given)
@@ -363,7 +363,7 @@ module Analyzer
         list.map { |word| word.to_s.strip.squeeze(" ") }
             .compact_blank
             .uniq { |word| word.downcase }
-            .first(SUMMARY_KEYWORDS)
+            .first(SUMMARY_TAGS)
       end
 
       def children_summaries

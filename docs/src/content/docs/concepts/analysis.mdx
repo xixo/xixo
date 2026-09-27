@@ -117,10 +117,10 @@ Every analyzer inherits the same sequence from `Analyzer::Base`:
    same model under the step `sections`, and the summary is written from those.
    The role is `smart` by default, `vision` for images and pages, and `fast` for email and the
    fallback. The prompt fences the file's text and tells the model to treat it as data. uris
-   reduces the model's answer to a summary, up to 20 entities, and up to 20 keywords. It drops
-   stopwords and keywords longer than four words. A feed's keywords combine both lists, without
-   the feed's own name and without any term of fewer than two letters or digits. If no resource
-   serves the role, there is no summary.
+   reduces the model's answer to a summary, up to 20 entities, and up to 20 tags. It drops
+   stopwords and tags longer than four words. When the analysis finishes, the feed is
+   [filed under](/concepts/feeds/) the tags and the entities as tags of its own. If no resource
+   serves the role, there is no summary and no tags.
 
 If derive, analyze, or summarize fails, uris skips that part and continues. The reference is marked
 analyzed either way.

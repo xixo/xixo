@@ -172,7 +172,6 @@ module Tool
       summarize(feed).merge(
         note: feed.note,
         summary: feed.summary,
-        keywords: feed.keywords,
         tags: feed.tags.map(&:key),
         mimes: feed.mimes.map(&:key),
         staged: staged(feed),

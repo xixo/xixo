@@ -41,7 +41,7 @@ class RawTest < ActiveSupport::TestCase
       Tenant.switch(tenant) { SyncResourceJob.perform_now(tenant.id, storage.id) }
     end
 
-    server.answer_json({ summary: "A photograph off a Nikon.", keywords: [ "photograph" ] })
+    server.answer_json({ summary: "A photograph off a Nikon.", tags: [ "photograph" ] })
 
     id = Tenant.switch(tenant) do
       Feed.joins(:references).find_by!(feed_references: { locator_key: "photo.nef" }).id

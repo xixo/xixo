@@ -44,7 +44,7 @@ class CorpusSummaryTest < ActiveSupport::TestCase
       Tenant.switch(@tenant) { @storage.upload(name, source.read) }
       Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @storage.id) }
 
-      @server.answer_json({ summary: "It concerns CORPUSECHO-7781.", keywords: [ "corpusecho" ] })
+      @server.answer_json({ summary: "It concerns CORPUSECHO-7781.", tags: [ "corpusecho" ] })
 
       id = Tenant.switch(@tenant) do
         Feed.joins(:references).find_by!(feed_references: { locator_key: name }).id

@@ -36,7 +36,7 @@ class VisionTest < ActiveSupport::TestCase
 
   test "an image is described from its pixels, and the preview travels with the prompt" do
     inference!
-    @server.answer_json({ summary: "A printed sign reading PELICAN CENSUS.", keywords: %w[sign pelican] })
+    @server.answer_json({ summary: "A printed sign reading PELICAN CENSUS.", tags: %w[sign pelican] })
 
     analyze "poster.png"
 
@@ -44,7 +44,7 @@ class VisionTest < ActiveSupport::TestCase
       summary = steps_at("poster.png").dig("summary", "result")
 
       assert_equal "A printed sign reading PELICAN CENSUS.", summary["summary"]
-      assert_equal %w[sign pelican], summary["keywords"]
+      assert_equal %w[sign pelican], summary["tags"]
     end
 
     assert_equal 1, @server.attachments.last.length
@@ -124,13 +124,13 @@ class VisionTest < ActiveSupport::TestCase
 
   test "the description reaches the search index" do
     inference!
-    @server.answer_json({ summary: "A sign counting wading birds.", keywords: [ "estuary" ] })
+    @server.answer_json({ summary: "A sign counting wading birds.", tags: [ "estuary" ] })
 
     analyze "poster.png"
     SearchIndex.refresh!
 
     Tenant.switch(@tenant) do
-      assert_equal [ "poster.png" ], Feed.search("estuary").pluck(:title)
+      assert_equal [ "poster.png" ], Feed.search("wading").pluck(:title)
     end
   end
 
@@ -174,7 +174,7 @@ class VisionTest < ActiveSupport::TestCase
 
       assert_includes summary["summary"], "single-colour"
       assert_includes summary["summary"], "120×80"
-      assert_equal %w[solid background], summary["keywords"]
+      assert_equal %w[solid background], summary["tags"]
     end
   end
 

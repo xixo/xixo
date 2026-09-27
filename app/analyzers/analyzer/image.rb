@@ -141,11 +141,11 @@ module Analyzer
         if sliver?
           shaped("summary" => "A #{width}×#{height} image, too small to hold a picture — " \
                               "a spacer or a tracking pixel.",
-                 "keywords" => %w[spacer pixel])
+                 "tags" => %w[spacer pixel])
         else
           shaped("summary" => "A single-colour #{width}×#{height} image with no detail in it — " \
                               "a background, a rule, or a placeholder.",
-                 "keywords" => %w[solid background])
+                 "tags" => %w[solid background])
         end
       end
 

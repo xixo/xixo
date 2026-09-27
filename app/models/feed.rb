@@ -78,11 +78,16 @@ class Feed < ApplicationRecord
 
   def to_param = tag? || address? ? key : id.to_s
 
-  def self.tag!(key) = singleton!(TAG, key)
+  def self.tag!(key)
+    name = key.to_s.squish
+
+    tags.find_by("lower(key) = ?", name.downcase) || singleton!(TAG, name)
+  end
   def self.mime!(key) = singleton!(MIME, key)
 
   def self.singleton!(type, key)
-    where(type: type).find_or_create_by!(key: key.to_s) { |feed| feed.title = key.to_s }
+    where(type: type).find_by(key: key.to_s) ||
+      where(type: type).create_or_find_by!(key: key.to_s) { |feed| feed.title = key.to_s }
   end
 
   def self.reindex!(feeds)
@@ -129,9 +134,11 @@ class Feed < ApplicationRecord
     held.nil? ? none : connected_to(held)
   end
 
-  def self.connected_to(feed)
-    where(id: Edge.where(b_id: feed.id).select(:a_id))
-      .or(where(id: Edge.where(a_id: feed.id).select(:b_id)))
+  def self.connected_to(feeds)
+    ids = Array.wrap(feeds).map(&:id)
+
+    where(id: Edge.where(b_id: ids).select(:a_id))
+      .or(where(id: Edge.where(a_id: ids).select(:b_id)))
   end
 
   def self.under(folder)
@@ -206,8 +213,20 @@ class Feed < ApplicationRecord
     connected.mimes
   end
 
-  def connect!(other)
-    Edge.between!(self, other)
+  def connect!(other, inferred: false)
+    Edge.between!(self, other, inferred: inferred)
+  end
+
+  def tag_with!(names)
+    return if singleton?
+
+    held = names.filter_map { |name| Feed.tag!(name) if name.to_s.squish.length.between?(1, MAX_KEY) }.uniq
+    kept = held.map(&:id)
+
+    transaction do
+      edges.inferred.where.not(a_id: kept).where.not(b_id: kept).delete_all
+      held.each { |tag| connect!(tag, inferred: true) }
+    end
   end
 
   def disconnect!(other)
@@ -219,7 +238,10 @@ class Feed < ApplicationRecord
   end
 
   def inherit!(other)
-    other.connected.where.not(id: id).find_each { |held| connect!(held) }
+    other.edges.find_each do |edge|
+      held = edge.other_than(other)
+      connect!(held, inferred: edge.inferred) unless held.id == id
+    end
     keep_note_from(other)
   end
 
@@ -387,8 +409,8 @@ class Feed < ApplicationRecord
     analysis&.summary
   end
 
-  def keywords
-    family.flat_map { |held| held.analysis&.keywords || [] }.uniq { |word| word.downcase }
+  def family_tags
+    Feed.connected_to(family).tags.distinct.order(:key).pluck(:key)
   end
 
   def depth

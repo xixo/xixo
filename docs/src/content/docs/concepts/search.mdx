@@ -15,10 +15,9 @@ from Postgres in ranked order.
 | --- | --- | --- |
 | `tenant_id` | the feed's tenant | long |
 | `type`, `mime` | the feed | keyword |
-| `tags` | the keys of its tags | keyword |
+| `tags` | the keys of its tags, across the feed and its children | path, and `tags.raw` as keyword |
 | `key`, `title` | the feed | path |
 | `locator_key` | its original references, joined | path |
-| `keywords` | the summary's keywords and entities, across the feed and its children | path, and `keywords.raw` as keyword |
 | `note` | the feed | standard |
 | `summary` | every summary across the feed and its children | standard |
 | `body` | everything its analyses extracted, across the feed and its children | standard |
@@ -39,8 +38,8 @@ A query with text runs a `multi_match` over these fields, with these boosts:
 
 | | |
 | --- | --- |
-| 3 | `title`, `key`, and `keywords` |
-| 2 | `note`, `summary`, and `tags` |
+| 3 | `title`, `key`, and `tags` |
+| 2 | `note` and `summary` |
 | 1 | `locator_key` and `body` |
 
 The first search is strict. It uses the `and` operator, so every word has to match, and the
@@ -59,7 +58,7 @@ takes one value or a list:
 | --- | --- |
 | `type` | `type` |
 | `mime` | `mime` |
-| `tag` | `tags` |
+| `tag` | `tags.raw` |
 
 ## Semantic search
 
@@ -109,7 +108,7 @@ When a feed is selected in the catalog, the catalog uses `connectedTo` to list t
 ## Embeddings
 
 `EmbedItemsJob` runs every minute in every tenant and embeds up to fifty feeds that have no
-`embedded_at`. The text it embeds is the feed's title, keywords, summaries, note, and the first 2,000
+`embedded_at`. The text it embeds is the feed's title, tags, summaries, note, and the first 2,000
 characters of its body, up to 8,000 characters in total. uris stores a digest of that text and the
 model name next to the vector. If the digest has not changed, uris sets `embedded_at` without
 embedding the feed again. Changing a title or a note, finishing an analysis, or saving a reference

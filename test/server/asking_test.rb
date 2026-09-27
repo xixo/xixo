@@ -159,7 +159,7 @@ class AskingTest < ActionDispatch::IntegrationTest
     @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
     10.times { @server.answer_json(answered: true, useful: true, why: "it says so") }
     @server.answer_json(title: "Acme invoice")
-    @server.answer_json(summary: "Asked what the Acme invoice costs: $4,200.", entities: [ "Acme" ], keywords: [ "Acme invoice" ])
+    @server.answer_json(summary: "Asked what the Acme invoice costs: $4,200.", entities: [ "Acme" ], tags: [ "Acme invoice" ])
     first = ask("How much is the Acme invoice?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
@@ -167,17 +167,17 @@ class AskingTest < ActionDispatch::IntegrationTest
     @server.answer("It is due on 1 October.")
     10.times { @server.answer_json(answered: true, useful: true, why: "it says so") }
     @server.answer_json(summary: "The Acme invoice is $4,200, due on 1 October.", entities: [ "Acme", "1 October" ],
-                        keywords: [ "Acme invoice", "due date" ])
+                        tags: [ "Acme invoice", "due date" ])
     follow_up(first.dig("feed", "id"), "When is it due?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
     summarised = @server.prompts.reverse.find { |prompt| prompt.include?("Catalogue the conversation") }
     assert_match(/Asked: How much is the Acme invoice\?.*Asked: When is it due\?/m, summarised)
 
-    note = graphql("query($id: ID) { feed(id: $id) { summary keywords } }", id: first.dig("feed", "id"))["feed"]
+    note = graphql("query($id: ID) { feed(id: $id) { summary tags { key } } }", id: first.dig("feed", "id"))["feed"]
 
     assert_equal "The Acme invoice is $4,200, due on 1 October.", note["summary"]
-    assert_includes note["keywords"], "due date"
+    assert_includes note["tags"].pluck("key"), "due date"
   end
 
   test "a question is kept untitled and named by the fast model before the scouts set out" do

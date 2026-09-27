@@ -10,6 +10,7 @@ class Edge < ApplicationRecord
   validate :the_pair_is_canonical
 
   scope :touching, ->(id) { where(a_id: id).or(where(b_id: id)) }
+  scope :inferred, -> { where(inferred: true) }
 
   def self.pair(one, other)
     [ one, other ].map { |held| held.respond_to?(:id) ? held.id : held.to_i }.sort
@@ -21,11 +22,13 @@ class Edge < ApplicationRecord
     find_by(a_id: low, b_id: high)
   end
 
-  def self.between!(one, other)
+  def self.between!(one, other, inferred: false)
     low, high = pair(one, other)
     raise ArgumentError, "a feed cannot connect to itself" if low == high
 
-    find_or_create_by!(a_id: low, b_id: high)
+    edge = create_with(inferred: inferred).find_or_create_by!(a_id: low, b_id: high)
+    edge.update!(inferred: false) if edge.inferred && !inferred
+    edge
   end
 
   def other_than(feed)

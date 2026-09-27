@@ -391,7 +391,7 @@ export function ItemDetail() {
         )}
       </Modal>
 
-      {(filed.length > 0 || item.keywords.length > 0) && (
+      {filed.length > 0 && (
         <div className="filed">
           {filed.map((held) => (
             <span key={held.id} className="filed-tag">
@@ -415,19 +415,6 @@ export function ItemDetail() {
               )}
             </span>
           ))}
-          {!facet &&
-            !item.asked &&
-            item.keywords.map((word) => (
-              <Link
-                key={word}
-                to={`/?q=${encodeURIComponent(word)}`}
-                className="tag"
-                data-dot="false"
-                title={`Search for ${word}`}
-              >
-                {word}
-              </Link>
-            ))}
         </div>
       )}
 

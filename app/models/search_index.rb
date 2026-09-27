@@ -27,13 +27,12 @@ module SearchIndex
       tenant_id: { type: "long" },
       type: { type: "keyword" },
       mime: { type: "keyword" },
-      tags: { type: "keyword" },
+      tags: { type: "text", analyzer: "path", fields: { raw: { type: "keyword" } } },
       key: { type: "text", analyzer: "path" },
       title: { type: "text", analyzer: "path" },
       locator_key: { type: "text", analyzer: "path" },
       note: { type: "text" },
       summary: { type: "text" },
-      keywords: { type: "text", analyzer: "path", fields: { raw: { type: "keyword" } } },
       body: { type: "text" },
       resource_ids: { type: "long" },
       created_at: { type: "date" },
@@ -173,13 +172,12 @@ module SearchIndex
         tenant_id: feed.tenant_id,
         type: feed.type,
         mime: feed.mime,
-        tags: feed.tags.pluck(:key),
+        tags: feed.family_tags,
         key: feed.key,
         title: feed.title,
         note: feed.note,
         locator_key: originals(feed).map(&:locator_key).compact.join(" "),
         summary: feed.summaries.join("\n"),
-        keywords: feed.keywords,
         body: feed.body_text(without: [ :summary ]),
         resource_ids: originals(feed).map(&:resource_id),
         created_at: feed.created_at,
@@ -225,7 +223,7 @@ module SearchIndex
     def matched(query, tenant:, size:, loosely:, type: nil, mime: nil, tag: nil)
       must = if query.present?
         [ { multi_match: {
-          query: query, fields: %w[title^3 key^3 keywords^3 note^2 summary^2 tags^2 locator_key body],
+          query: query, fields: %w[title^3 key^3 tags^3 note^2 summary^2 locator_key body],
           **(loosely ? { operator: "or", minimum_should_match: LOOSE_MATCH } : { operator: "and", type: "bool_prefix" })
         } } ]
       else
@@ -285,7 +283,7 @@ module SearchIndex
     end
 
     def faceted(type:, mime:, tag:)
-      { type: type, mime: mime, tags: tag }.compact_blank
+      { type: type, mime: mime, "tags.raw": tag }.compact_blank
                                            .map { |field, value| { (value.is_a?(Array) ? :terms : :term) => { field => value } } }
     end
 

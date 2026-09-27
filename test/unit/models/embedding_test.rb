@@ -215,7 +215,7 @@ class EmbeddingTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       item = create_feed(mime: "application/pdf", title: "scan-0001.pdf")
 
-      summarized(item, "An invoice from Acme for $4,200.", keywords: %w[acme invoice])
+      summarized(item, "An invoice from Acme for $4,200.", tags: %w[acme invoice])
 
       gist = Embedding.gist(item.reload)
 
@@ -252,9 +252,9 @@ class EmbeddingTest < ActiveSupport::TestCase
     end
   end
 
-  def summarized(feed, summary, keywords: [])
+  def summarized(feed, summary, tags: [])
     analysis = Analysis.open!(feed: feed, cause: "manual")
-    analysis.write_step!("summary", { "result" => { "summary" => summary, "keywords" => keywords } })
+    analysis.write_step!("summary", { "result" => { "summary" => summary, "tags" => tags } })
     analysis.finished!
     analysis
   end

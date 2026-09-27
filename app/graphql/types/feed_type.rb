@@ -24,8 +24,6 @@ module Types
           description: "When it is forgotten, unless it is kept. Null for a feed that lasts forever."
     field :summary, String,
           description: "What a model made of it, or until one has, the start of the text read out of it."
-    field :keywords, [ String ], null: false,
-          description: "Search terms a model drew out of it."
     field :details, [ Types::DetailType ], null: false,
           description: "Everything its last analysis read out of it that has a name and a value, " \
                        "such as embedded metadata, dimensions, and document info, grouped by where it came from."
@@ -34,7 +32,8 @@ module Types
 
     field :connected_count, Integer, null: false
     field :connected, [ Types::FeedType ], null: false
-    field :tags, [ Types::FeedType ], null: false
+    field :tags, [ Types::FeedType ], null: false,
+          description: "The tags it is filed under: those a person or agent chose, and those its analysis found in it."
     field :mimes, [ Types::FeedType ], null: false,
           description: "The content types it was filed under, as feeds of their own."
     field :parent, Types::FeedType, description: "The file it was extracted from, when it was."
@@ -64,10 +63,6 @@ module Types
       said = object.note if said.blank?
 
       said.to_s.gsub(CITATION, "").gsub(/[*`]+/, "").gsub(/[#>|\\]+/, " ").squish.truncate(SUMMARY).presence
-    end
-
-    def keywords
-      object.keywords
     end
 
     def details

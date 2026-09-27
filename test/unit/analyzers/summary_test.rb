@@ -55,7 +55,7 @@ class SummaryTest < ActiveSupport::TestCase
     before = Tenant.switch(@tenant) { steps_at("notes.txt").dig("text", "finished_at") }
 
     inference!
-    @server.answer_json({ summary: "A pelican census.", keywords: %w[pelican census] })
+    @server.answer_json({ summary: "A pelican census.", tags: %w[pelican census] })
     analyze "notes.txt"
 
     Tenant.switch(@tenant) do
@@ -63,7 +63,7 @@ class SummaryTest < ActiveSupport::TestCase
 
       assert_equal before, steps.dig("text", "finished_at")
       assert_equal "A pelican census.", steps.dig("summary", "result", "summary")
-      assert_equal %w[pelican census], steps.dig("summary", "result", "keywords")
+      assert_equal %w[pelican census], steps.dig("summary", "result", "tags")
     end
   end
 
@@ -78,12 +78,12 @@ class SummaryTest < ActiveSupport::TestCase
 
   test "the summary reaches the search index" do
     inference!
-    @server.answer_json({ summary: "A study of wading birds in the estuary.", keywords: [ "estuary" ] })
+    @server.answer_json({ summary: "A study of wading birds in the estuary.", tags: [ "estuary" ] })
     analyze "notes.txt"
     SearchIndex.refresh!
 
     Tenant.switch(@tenant) do
-      assert_equal [ "notes.txt" ], Feed.search("estuary").pluck(:title)
+      assert_equal [ "notes.txt" ], Feed.search("wading").pluck(:title)
     end
   end
 
@@ -211,14 +211,14 @@ class SummaryTest < ActiveSupport::TestCase
     assert_equal 1, @server.count_for("/v1/chat/completions")
   end
 
-  test "keywords returned as a string are coerced into a list" do
+  test "tags returned as a string are coerced into a list" do
     inference!
-    @server.answer_json({ summary: "ok", keywords: "pelican, census, estuary" })
+    @server.answer_json({ summary: "ok", tags: "pelican, census, estuary" })
     analyze "notes.txt"
 
     Tenant.switch(@tenant) do
       assert_equal %w[pelican census estuary],
-                   steps_at("notes.txt").dig("summary", "result", "keywords")
+                   steps_at("notes.txt").dig("summary", "result", "tags")
     end
   end
 
@@ -227,7 +227,7 @@ class SummaryTest < ActiveSupport::TestCase
     sync
     inference!
     @server.answer_json("summary" => "A two-word note reading \"too short\".",
-                        "keywords" => [ "too short" ])
+                        "tags" => [ "too short" ])
 
     analyze "tiny.txt"
 
@@ -294,7 +294,7 @@ class SummaryTest < ActiveSupport::TestCase
     inference!
 
     @server.answer_json("summary" => "A 21-byte binary file named mystery.bin. Its contents were not read.",
-                        "keywords" => [ "mystery.bin" ])
+                        "tags" => [ "mystery.bin" ])
 
     Tenant.switch(@tenant) { store("mystery.bin", "\x01\x02\x03 not text at all") }
     sync
@@ -315,7 +315,7 @@ class SummaryTest < ActiveSupport::TestCase
     inference!
 
     @server.answer_json("summary" => "An access log of order and refund requests.",
-                        "keywords" => [ "orders", "refunds" ])
+                        "tags" => [ "orders", "refunds" ])
 
     Tenant.switch(@tenant) { store("server.log", "GET /orders/4820 200\nPOST /refunds 500\n" * 8) }
     sync

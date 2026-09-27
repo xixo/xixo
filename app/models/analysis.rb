@@ -85,6 +85,8 @@ class Analysis < ApplicationRecord
       finished_at: Time.current
     )
 
+    feed.tag_with!(tags) if error.nil?
+
     Feed.where(id: feed_id).where.not(embedded_at: nil).update_all(embedded_at: nil)
     SearchIndex.index(feed.reload)
     publish!
@@ -168,10 +170,10 @@ class Analysis < ApplicationRecord
     step_result("summary").to_h["summary"].presence
   end
 
-  def keywords
+  def tags
     named = [ feed&.key, feed&.title ].compact.map(&:downcase)
 
-    (summary_terms("keywords") + summary_terms("entities"))
+    (summary_terms("tags") + summary_terms("entities"))
       .reject { |word| named.include?(word.downcase) || word.scan(/[[:alnum:]]/).size < 2 }
       .uniq(&:downcase)
   end
