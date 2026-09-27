@@ -84,4 +84,26 @@ class SettingTest < ActiveSupport::TestCase
     assert_includes Grant::SCOPES, definition.reads
     assert_includes Grant::SCOPES, definition.writes
   end
+
+  test "a shared setting is one value for everyone in the tenant" do
+    Tenant.switch(@demo) do
+      Setting.write!("hires_size", "2048", subject: "ada")
+
+      assert_equal "2048", Setting.read("hires_size", subject: "bea")
+      assert_equal 1, Setting.where(key: "hires_size").count
+      assert_nil Setting.find_by(key: "hires_size").subject
+    end
+
+    Tenant.switch(@acme) do
+      assert_equal "1500", Setting.read("hires_size", subject: "ada")
+    end
+  end
+
+  test "a shared definition is reached with the same scopes as a personal one" do
+    definition = Setting.definition!("thumbnail_size")
+
+    assert_not_predicate definition, :personal?
+    assert_equal "uris:settings:read", definition.reads
+    assert_equal "uris:settings:write", definition.writes
+  end
 end

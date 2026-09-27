@@ -59,7 +59,7 @@ class PageAnalyzerTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       assert Thumbnail.available_for?(MimeType::PAGE)
 
-      tile = Thumbnail.for(@reference, size: "medium")
+      tile = Thumbnail.for(@reference)
 
       assert_equal "\xFF\xD8".b, tile.byteslice(0, 2)
     end

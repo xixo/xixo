@@ -20,17 +20,29 @@ module Types
     field :size, GraphQL::Types::BigInt
     field :content_url, String, null: false
     field :thumbnail_url, String
+    field :hires_url, String,
+          description: "The large image rendered from it, no longer on its longest edge than the hi-res size setting."
 
     def content_url
       "/references/#{object.id}/content"
     end
 
     def thumbnail_url
-      return nil unless object.role == Reference::ORIGINAL
-
-      thumbnail = object.feed.references.find { |held| held.role == Reference::THUMBNAIL }
-
-      "/references/#{thumbnail.id}/content" if thumbnail
+      derived(Reference::THUMBNAIL)
     end
+
+    def hires_url
+      derived(Reference::PREVIEW)
+    end
+
+    private
+
+      def derived(role)
+        return nil unless object.role == Reference::ORIGINAL
+
+        held = object.feed.references.find { |reference| reference.role == role }
+
+        "/references/#{held.id}/content" if held
+      end
   end
 end

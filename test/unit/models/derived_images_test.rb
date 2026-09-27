@@ -24,8 +24,8 @@ class DerivedImagesTest < ActiveSupport::TestCase
 
       assert_equal Resource.internal!(:derived), thumbnail.resource
       assert_equal "\xFF\xD8".b, thumbnail.download.read.byteslice(0, 2)
-      assert_operator width(thumbnail), :<=, Thumbnail::SIZES.fetch("medium")
-      assert_operator width(preview), :<=, Thumbnail::SIZES.fetch("large")
+      assert_operator width(thumbnail), :<=, Thumbnail.width(Reference::THUMBNAIL)
+      assert_operator width(preview), :<=, Thumbnail.width(Reference::PREVIEW)
     end
   end
 
@@ -50,6 +50,35 @@ class DerivedImagesTest < ActiveSupport::TestCase
       assert_no_changes -> { feed.references.in_role(Reference::THUMBNAIL).sole.updated_at } do
         pass(feed.reload)
       end
+    end
+  end
+
+  test "a hi-res image is bounded on its longest edge, and a changed size renders again on the next pass" do
+    Tenant.switch(@tenant) do
+      feed = staged("poster.png")
+      pass(feed)
+
+      assert_equal 1500, width(feed.references.in_role(Reference::PREVIEW).sole)
+      assert_equal 320, width(feed.references.in_role(Reference::THUMBNAIL).sole)
+
+      Setting.write!("hires_size", "1024", subject: nil)
+      Setting.write!("thumbnail_size", "160", subject: nil)
+      pass(feed.reload)
+
+      assert_equal 1024, width(feed.references.in_role(Reference::PREVIEW).sole)
+      assert_equal 160, width(feed.references.in_role(Reference::THUMBNAIL).sole)
+    end
+  end
+
+  test "a pdf's first page is rendered at both sizes the settings name" do
+    Tenant.switch(@tenant) do
+      Setting.write!("hires_size", "2048", subject: nil)
+      Setting.write!("thumbnail_size", "240", subject: nil)
+      feed = staged("invoice.pdf")
+      pass(feed)
+
+      assert_equal 240, width(feed.references.in_role(Reference::THUMBNAIL).sole)
+      assert_equal 2048, edges(feed.references.in_role(Reference::PREVIEW).sole).max
     end
   end
 
@@ -115,10 +144,14 @@ class DerivedImagesTest < ActiveSupport::TestCase
     end
 
     def width(reference)
+      edges(reference).first
+    end
+
+    def edges(reference)
       Tempfile.create([ "derived", ".jpg" ], binmode: true) do |file|
         file.write(reference.download.read)
         file.flush
-        Open3.capture2("vipsheader", "-f", "width", file.path).first.to_i
+        %w[width height].map { |edge| Open3.capture2("vipsheader", "-f", edge, file.path).first.to_i }
       end
     end
 end

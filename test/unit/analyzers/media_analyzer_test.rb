@@ -162,7 +162,7 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       %w[clip.mp4 tone.m4a].each do |key|
-        bytes = Thumbnail.for(reference_at(key), size: "medium")
+        bytes = Thumbnail.for(reference_at(key))
 
         assert bytes.bytesize.positive?
         assert_equal "\xFF\xD8".b, bytes[0, 2].b, "#{key} renders a jpeg, not whatever ffmpeg felt like"
@@ -172,8 +172,8 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
 
   test "a waveform is as wide as the recording is long, never narrower than the minimum" do
     Tenant.switch(@tenant) do
-      shorter = image_width(Thumbnail.for(reference_at("tone.m4a"), size: "medium"))
-      longer = image_width(Thumbnail.for(reference_at("standup.m4a"), size: "medium"))
+      shorter = image_width(Thumbnail.for(reference_at("tone.m4a")))
+      longer = image_width(Thumbnail.for(reference_at("standup.m4a")))
 
       assert_operator shorter, :>=, Thumbnail::WAVE_MIN_WIDTH
       assert_operator longer, :>, shorter

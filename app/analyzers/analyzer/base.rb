@@ -165,7 +165,7 @@ module Analyzer
     end
 
     def derive!
-      step(:derived) { Thumbnail.stored!(feed, reference) }
+      step(:derived, digest: Thumbnail.widths.to_json) { Thumbnail.stored!(feed, reference) }
     rescue Thumbnail::Unavailable => e
       raise Analyzer::Failed, e.message
     end
@@ -179,7 +179,7 @@ module Analyzer
     end
 
     def preview
-      @preview ||= stored_preview || Thumbnail.for(reference, size: Thumbnail::PREVIEW_SIZE)
+      @preview ||= stored_preview || Thumbnail.for(reference, role: Reference::PREVIEW)
     rescue Thumbnail::Unavailable => e
       raise Analyzer::Failed, e.message
     end

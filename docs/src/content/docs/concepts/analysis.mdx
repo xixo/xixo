@@ -94,9 +94,16 @@ Every analyzer inherits the same sequence from `Analyzer::Base`:
    example, an email's attachments become child feeds in the internal `children` store, and each is
    analyzed on its own. The analyzer stops here until every child has been analyzed. When the last
    child finishes, uris analyzes the parent again.
-2. **Derive** a thumbnail and a preview for images, video, audio, PDFs, and pages. Audio gets a
+2. **Derive** a thumbnail and a hi-res image for images, video, audio, PDFs, and pages. Audio gets a
    picture of its waveform. They are stored as
-   references in the internal `derived` store, under the step `derived`.
+   references in the internal `derived` store, under the step `derived`. Two settings shared by
+   everyone in the tenant size them. **Thumbnail width** is 320 pixels by default, and a page
+   capture's thumbnail is the top of the page, cut square. **Hi-res size** bounds the longest edge,
+   1,500 pixels by default, and a page capture keeps its full length at that width. A PDF's first page
+   is drawn at both sizes, so it stays sharp at any setting. A photo or a video frame is never made
+   larger than it is. The hi-res image is what a thumbnail opens and what the vision
+   model reads. Changing either setting renders an item's images again the next time it is
+   analyzed.
 3. **Describe** the file with `exiftool` under the step `metadata`: EXIF, XMP, and IPTC from photos,
    camera and lens details, QuickTime and ID3 tags, PDF and Office document properties, and the
    like. The step keeps up to 200 named values and drops file system details, maker notes, binary

@@ -117,6 +117,7 @@ query FeedDetail($id: ID!) {
       contentType
       contentUrl
       thumbnailUrl
+      hiresUrl
       analyzedAt
       goneAt
       resource {

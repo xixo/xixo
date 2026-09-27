@@ -3,13 +3,14 @@ class Setting < ApplicationRecord
 
   class Unknown < StandardError; end
 
-  LEVELS = %i[personal server].freeze
+  LEVELS = %i[personal shared server].freeze
 
   Definition = Data.define(:key, :level, :default, :allowed, :label, :note) do
     def personal? = level == :personal
+    def server? = level == :server
     def permits?(value) = allowed.include?(value)
-    def reads = personal? ? "uris:settings:read" : "uris:settings:admin"
-    def writes = personal? ? "uris:settings:write" : "uris:settings:admin"
+    def reads = server? ? "uris:settings:admin" : "uris:settings:read"
+    def writes = server? ? "uris:settings:admin" : "uris:settings:write"
   end
 
   DEFINED = [
@@ -20,6 +21,24 @@ class Setting < ApplicationRecord
       allowed: %w[list cards],
       label: "How the catalog opens",
       note: "A list reads names quickly. Cards show you what an item looks like."
+    ),
+    Definition.new(
+      key: "thumbnail_size",
+      level: :shared,
+      default: "320",
+      allowed: %w[160 240 320 480 640],
+      label: "Thumbnail width",
+      note: "The width in pixels of the small image rendered for every photo, video, PDF, and page " \
+            "capture. Items rendered before a change keep their old size until they are analyzed again."
+    ),
+    Definition.new(
+      key: "hires_size",
+      level: :shared,
+      default: "1500",
+      allowed: %w[1024 1500 2048 3072],
+      label: "Hi-res size",
+      note: "The longest edge in pixels of the large image a thumbnail opens, which is also what the " \
+            "vision model reads. A page capture keeps its full length at this width."
     )
   ].index_by(&:key).freeze
 

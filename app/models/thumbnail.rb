@@ -3,10 +3,7 @@ require "open3"
 class Thumbnail
   class Unavailable < StandardError; end
 
-  SIZES = { "medium" => 320, "large" => 1024 }.freeze
-  DEFAULT_SIZE = "medium"
-  PREVIEW_SIZE = "large"
-  ROLES = { Reference::THUMBNAIL => DEFAULT_SIZE, Reference::PREVIEW => PREVIEW_SIZE }.freeze
+  ROLES = { Reference::THUMBNAIL => "thumbnail_size", Reference::PREVIEW => "hires_size" }.freeze
   PDF = "application/pdf".freeze
   POSTER_AT = "00:00:01".freeze
   CONTENT_TYPE = "image/jpeg"
@@ -16,8 +13,16 @@ class Thumbnail
   WAVE_MIN_WIDTH = 1000
   WAVE_MAX_WIDTH = 2000
 
-  def self.for(reference, size: DEFAULT_SIZE)
-    new(reference, size).bytes
+  def self.for(reference, role: Reference::THUMBNAIL)
+    new(reference, role).bytes
+  end
+
+  def self.width(role)
+    Setting.read(ROLES.fetch(role), subject: nil).to_i
+  end
+
+  def self.widths
+    ROLES.keys.to_h { |role| [ role, width(role) ] }
   end
 
   def self.available_for?(mime)
@@ -28,9 +33,9 @@ class Thumbnail
   def self.stored!(feed, source)
     store = Resource.internal!(:derived)
 
-    ROLES.to_h do |role, size|
+    ROLES.keys.to_h do |role|
       key = "#{feed.id}/#{role}.jpg"
-      locator = store.upload(key, self.for(source, size: size))
+      locator = store.upload(key, self.for(source, role: role))
 
       Reference.record!(feed: feed, resource: store, locator: locator, locator_key: key,
                         role: role, mime: CONTENT_TYPE)
@@ -39,10 +44,10 @@ class Thumbnail
     end
   end
 
-  def initialize(reference, size)
+  def initialize(reference, role)
     @reference = reference
-    @size = size
-    @width = SIZES[size] || raise(Unavailable, "no thumbnail size called #{size}")
+    @role = role
+    @width = ROLES.key?(role) ? self.class.width(role) : raise(Unavailable, "no derived image called #{role}")
 
     raise Unavailable, "nothing to render for a #{reference.mime}" unless
       self.class.available_for?(reference.mime)
@@ -54,7 +59,15 @@ class Thumbnail
 
   private
 
-    attr_reader :reference, :size, :width
+    attr_reader :reference, :role, :width
+
+    def hires?
+      role == Reference::PREVIEW
+    end
+
+    def bounds
+      hires? ? "#{width}x#{width}>" : "#{width}x>"
+    end
 
     def render
       source do |path|
@@ -75,7 +88,7 @@ class Thumbnail
     def from_image(path, dir)
       viewable(path) do |ready|
         out = File.join(dir, "out.jpg")
-        run("vipsthumbnail", ready, "--size", "#{width}x>", "-o", "#{out}[Q=80]")
+        run("vipsthumbnail", ready, "--size", bounds, "-o", "#{out}[Q=80]")
         File.binread(out)
       end
     end
@@ -85,8 +98,8 @@ class Thumbnail
     # the preview, which the vision analyzer reads, keeps the whole column.
     def from_page(path, dir)
       out = File.join(dir, "out.jpg")
-      crop = size == PREVIEW_SIZE ? [] : [ "--smartcrop", "low" ]
-      geometry = size == PREVIEW_SIZE ? "#{width}x>" : "#{width}x#{width}"
+      crop = hires? ? [] : [ "--smartcrop", "low" ]
+      geometry = hires? ? "#{width}x>" : "#{width}x#{width}"
 
       run("vipsthumbnail", path, "--size", geometry, *crop, "-o", "#{out}[Q=80]")
       File.binread(out)
@@ -109,7 +122,7 @@ class Thumbnail
 
       raise Unavailable, "ffmpeg rendered no frame of #{reference.filename}" unless File.size?(frame)
 
-      run("vipsthumbnail", frame, "--size", "#{width}x>", "-o", "#{out}[Q=80]")
+      run("vipsthumbnail", frame, "--size", bounds, "-o", "#{out}[Q=80]")
       File.binread(out)
     end
 
@@ -145,8 +158,8 @@ class Thumbnail
 
     def from_pdf(path, dir)
       prefix = File.join(dir, "page")
-      run("pdftoppm", "-jpeg", "-r", "72", "-f", "1", "-l", "1",
-          "-scale-to-x", width.to_s, "-scale-to-y", "-1", path, prefix)
+      scale = hires? ? [ "-scale-to", width.to_s ] : [ "-scale-to-x", width.to_s, "-scale-to-y", "-1" ]
+      run("pdftoppm", "-jpeg", "-r", "72", "-f", "1", "-l", "1", *scale, path, prefix)
 
       rendered = Dir["#{prefix}*.jpg"].first
       raise Unavailable, "pdftoppm rendered no page" if rendered.nil?

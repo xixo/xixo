@@ -62,8 +62,9 @@ class RawTest < ActiveSupport::TestCase
     path = File.join(Dir.mktmpdir, "sent.jpg")
     File.binwrite(path, sent)
 
-    assert_equal Thumbnail::SIZES.fetch("large").to_s,
-                 Open3.capture2("vipsheader", "-f", "width", path).first.strip
+    edges = %w[width height].map { |edge| Open3.capture2("vipsheader", "-f", edge, path).first.to_i }
+
+    assert_equal Setting.definition!("hires_size").default.to_i, edges.max
   ensure
     ENV.delete("URIS_INFERENCE_ORIGINS")
   end

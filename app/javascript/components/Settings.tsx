@@ -134,6 +134,12 @@ export function SignedIn({
   )
 }
 
+const GROUPS = [
+  { level: 'personal', heading: null },
+  { level: 'shared', heading: 'How uris behaves for everyone here' },
+  { level: 'server', heading: 'Only for administrators' },
+]
+
 function Preferences() {
   const { data, loading, error, refetch } = useQuery(SettingsDocument)
   const save = useAloud(SetSettingDocument, 'That could not be changed.')
@@ -160,29 +166,38 @@ function Preferences() {
 
       {loading && !data && <Loader size="sm" color="var(--brass)" />}
 
-      {settings.length > 0 && (
-        <div className="panel">
-          {settings.map((setting) => (
-            <div className="setting" key={setting.key}>
-              <div>
-                <div className="setting-name">{setting.label}</div>
-                {setting.note && (
-                  <div className="setting-note">{setting.note}</div>
-                )}
-              </div>
+      {GROUPS.map(({ level, heading }) => {
+        const held = settings.filter((setting) => setting.level === level)
 
-              <Choice
-                allowed={setting.allowed}
-                value={setting.value}
-                onPick={async (next) => {
-                  await save.execute({ key: setting.key, value: next })
-                  refetch()
-                }}
-              />
+        if (held.length === 0) return null
+
+        return (
+          <Stack key={level} gap="var(--s3)">
+            {heading && <div className="eyebrow">{heading}</div>}
+            <div className="panel">
+              {held.map((setting) => (
+                <div className="setting" key={setting.key}>
+                  <div>
+                    <div className="setting-name">{setting.label}</div>
+                    {setting.note && (
+                      <div className="setting-note">{setting.note}</div>
+                    )}
+                  </div>
+
+                  <Choice
+                    allowed={setting.allowed}
+                    value={setting.value}
+                    onPick={async (next) => {
+                      await save.execute({ key: setting.key, value: next })
+                      refetch()
+                    }}
+                  />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          </Stack>
+        )
+      })}
     </Stack>
   )
 }
@@ -206,7 +221,7 @@ function Choice({
           aria-pressed={value === option}
           onClick={() => onPick(option)}
         >
-          {option}
+          {/^\d+$/.test(option) ? `${option}px` : option}
         </button>
       ))}
     </div>

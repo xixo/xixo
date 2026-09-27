@@ -60,7 +60,7 @@ class VisionTest < ActiveSupport::TestCase
     sent = decoded(@server.attachments.last.first)
 
     assert_equal "1902", header(FILES.join("poster.png").to_s, "width")
-    assert_equal Thumbnail::SIZES.fetch("large").to_s, header(sent, "width")
+    assert_equal Setting.definition!("hires_size").default, header(sent, "width")
     assert_equal "jpegload", header(sent, "vips-loader")
   end
 
