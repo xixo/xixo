@@ -14,7 +14,8 @@ npx chokidar --polling 'app/graphql/**/*.rb' \
 npx chokidar --polling 'web/src/operations/**/*.graphql' \
   -c 'npm run codegen' &
 
-npm run build:sdk:watch -- --watchFile dynamicPriorityPolling &
+npx chokidar --polling 'web/src/**/*.ts' \
+  -c 'npm run build:sdk' &
 
 bin/vite dev &
 
