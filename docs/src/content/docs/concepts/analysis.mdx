@@ -61,6 +61,10 @@ The order matters. `text/calendar` and `text/csv` are both text types. They reac
 detects the format from magic bytes, reads the file as text if it looks printable, and lists the
 entries if the file is a zip.
 
+`Pdf` reads the text layer with `pdftotext`. When that yields fewer than 40 characters a page, the
+PDF is taken to be a scan: its first 30 pages are rendered at 200 dpi and read with `tesseract`, and
+the log says how many pages were read that way.
+
 An EPUB is a zip too, and `Epub` claims it first. It follows `META-INF/container.xml` to the package
 document and records the title, creators, publisher, date, language, subjects, and chapter paths
 under the step `book`. The `text` step starts with those details and continues with each chapter's
