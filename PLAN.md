@@ -85,14 +85,15 @@ Each has the answer this plan assumes. Change one and the phase that depends on 
 
 - [ ] `Resource#keep!` calls `settle!` after `Reference.discover!` has saved, and before `analyze!`.
       A reference whose version changed in that discover, on a feed with other originals, `split!`s
-      into a feed that `connect!`s to the old feed's tags and takes its note. `note_version!` stays
-      a setter
+      into a feed that `connect!`s to everything the old feed connects to and takes its note.
+      Edges are the same rule both ways: a join takes the union, and a leave copies them all.
+      `note_version!` stays a setter
 - [ ] `feed_references.kept_apart`. `Mutations::SplitReference` sets it; `note_version!` clears it
       where it clears the digest. The split in `keep!` does not set it
 - [ ] The Split button in `ItemDetail.tsx` becomes "Keep apart", its toast says the place stays
       apart until its bytes change, and the places list says a place was joined because the bytes
       are the same
-- [ ] Tests: an edited copy leaves and is analyzed alone; a kept-apart place stays apart through a
+- [ ] Tests: an edited copy leaves with every edge and the note, and is analyzed alone; a kept-apart place stays apart through a
       settle and joins again after an edit
 
 ## Phase 4: analysis settles what it reads
