@@ -246,6 +246,22 @@ class AskingPromptTest < ActiveSupport::TestCase
     end
   end
 
+  test "asking the same question again answers it afresh, without the answer it is replacing" do
+    Tenant.switch(@tenant) do
+      note = Feed.create!(type: Feed::NOTE, key: "Notice period")
+      Analysis.create!(feed: note, cause: "ask", question: "how long is my notice period", status: "done",
+                       steps: { "answer" => { "result" => { "said" => "Nothing says, so none." } } })
+      Analysis.create!(feed: note, cause: "ask", question: "who do I report to", status: "done",
+                       steps: { "answer" => { "result" => { "said" => "The CTO." } } })
+      again = Analysis.create!(feed: note, cause: "ask", question: "How long is my notice period?", steps: {})
+      asking = Asking.new(note, analysis: again)
+
+      assert_equal [ "who do I report to" ], asking.earlier.map(&:question)
+      assert_no_match(/Nothing says, so none/, asking.prompt)
+      assert_equal Asking::UNSCOUTED_FOLLOWING, asking.led([])
+    end
+  end
+
   test "the question is connected to what it cited, opened and kept, and never to itself" do
     Tenant.switch(@tenant) do
       web!

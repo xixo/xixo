@@ -169,7 +169,10 @@ class Asking
   end
 
   def earlier
-    held = feed.conversation(through: @analysis).reject { |turn| turn.analysis == @analysis || turn.said.blank? }
+    asked = asked_as(question)
+    held = feed.conversation(through: @analysis).reject do |turn|
+      turn.analysis == @analysis || turn.said.blank? || asked_as(turn.question) == asked
+    end
 
     held.last(EARLIER)
   end
@@ -257,6 +260,10 @@ class Asking
       told = earlier.map { |turn| "Asked: #{turn.question}\nAnswered: #{turn.said.to_s.truncate(EARLIER_ANSWER)}" }
 
       format(BEFORE, turns: told.join("\n\n"))
+    end
+
+    def asked_as(question)
+      question.to_s.downcase.gsub(/[^[:alnum:]]+/, " ").squish
     end
 
     def partly_read(calls)
