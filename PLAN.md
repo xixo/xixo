@@ -1,219 +1,149 @@
-# Somebody else's account, through masks
+# The same bytes are one feed
 
-A resource that acts as a person somewhere else — their Notion, their Drive, their OneDrive —
-reaches that account through the identity masks holds for them, and uris never runs an OAuth
-flow of its own.
+A file synced from two resources, or synced once and uploaded again, is one feed with two
+references. uris notices this from the bytes and joins the two feeds itself, and a person can keep
+them apart.
 
-Written 2026-09-13, replacing "One record, one pass", which finished 2026-09-12. Its open decision
-and the gaps it recorded are carried to the bottom of this one. Ordered by dependency; each phase
-is usable on its own and the one after it assumes the one before landed.
+Written 2026-09-27, replacing "Somebody else's account, through masks", whose phases all landed.
+Its two open decisions and its known gaps are carried to the bottom of this one. Ordered by
+dependency; each phase is usable on its own and the one after it assumes the one before landed.
 
-Background: masks `47a211b` took upstream tokens out of masks the same day — `POST
-/connections/token`, `/connections/:provider/start`, the `masks:connections:*` scopes and the token
-columns on `Connection`. uris's `Broker`, `Resource::Brokered`, `Enrollment`, `oauth-google` and
-`microsoft-graph` are built on exactly those, so both types are dead against masks as it stands.
-Nothing noticed: every uris test talks to `test/support/fake_broker_server.rb`, and `Gemfile.lock`
-pins masks at `6c604ea`, from before the removal. This plan brings the tokens back into masks, and
-fixes what made them worth removing.
+## Where this starts
 
-## What the old broker got wrong
+Duplicates were proposed and merged by hand from 2026-08-31 (`28fe996`, `a1a5c6a`) and removed on
+2026-09-08 (`6196e11`). The proposals grouped on two keys, the same basename or the same reported
+version, and a person settled each one. That was removed because identity had become `(type, key)`
+and a proposal asked an identity question the schema had not answered.
 
-- **It released a token to any bearer holding `masks:connections:<provider>`.** A scope says what
-  kind of thing a token may do, not whose account it may do it to or which application asked.
-- **Masks sat on every upstream call**, since nothing downstream kept what it was handed.
+For a `uris:file` it still has not. The key is a display name, the basename the file was found
+under, and it is not unique. Each place a file lives in is unique, as `(resource, locator_key)`.
+Nothing says two places hold one thing, so a file synced from two resources is two feeds, analyzed
+twice, tagged twice, and counted twice.
 
-A delegation is narrower on both counts. A token is released to one registered client, for one
-connection, which that connection's owner consented to that client using. uris holds the upstream
-access token until it expires, so masks is asked when one runs out rather than per call.
+What exists to build on:
 
-## Decisions still open
+- `feed_references.digest` is the SHA-256 of an original's bytes. `DigestReferencesJob` fills it
+  every minute, twenty references at a time, and `Placement` copies it from the upload. It is
+  indexed on `(tenant_id, digest)`.
+- `Reference#note_version!` clears the digest when a sync reports a new version, so a digest always
+  describes the current bytes or is empty.
+- `Intake` already refuses a second upload of the same bytes when `unique` is set, under an
+  advisory lock on `tenant:digest`, and only against resources the uploader can see.
+- `Reference#move_to!` and `#split!` survived the removal. `splitReference` and the Split button on
+  the item page still reach `split!`.
+- Export already writes the copy it makes onto the source's feed through `Reference.record!`, so an
+  exported file is one feed in two places today.
 
-- [x] **Upstream tokens live in masks.** Not in uris per resource. Masks already knows the
-      identity, already links it, and is the one place a person can see and withdraw what every
-      application does with it. Decided 2026-09-13.
-- [x] **Connecting is gated on the identity.** Only the person whose masks account holds the
-      linked Notion (or Google, or Microsoft) identity can connect a resource to it. Decided
-      2026-09-13.
-- [x] **Google Drive and OneDrive move onto the same flow** rather than being deleted. Decided
-      2026-09-13.
-- [x] **A resource is the tenant's or a person's**, chosen by whoever connects it. Decided
-      2026-09-13.
-- [x] **The seam is a masks client library.** uris calls it and knows nothing of the wire; masks
-      ships it with a fake for uris' suite, the way `FakeIssuer` stands in for sign-in. Decided
-      2026-09-13.
+## Decisions
+
+Each has the answer this plan assumes. Change one and the phase that depends on it changes.
+
+- [ ] **A file's identity is its bytes.** Two originals with the same digest in one tenant are one
+      thing and belong to one feed. The key stays a display name. Proposals and a review queue do
+      not come back, because the same bytes are a fact rather than a judgement.
+- [ ] **Joining is automatic, and splitting is the undo.** A reference split off by hand is marked
+      apart and is not joined again until its bytes change.
+- [ ] **Only places with the same owner join.** A tenant resource joins tenant resources, and a
+      person's own resource joins only that person's resources. A feed never lists a personal place
+      beside a shared one, so joining cannot tell others that a file sits in somebody's own
+      Drive.
+- [ ] **What survives.** The oldest feed with a settled analysis, or the oldest feed when none has
+      one. The other feed's originals move onto it, its edges are added, its note is appended
+      unless the survivor's already contains it, and the later of the two expiries is kept, with
+      forever beating any date. Its analyses, derived references, children, and passages go with it,
+      because they describe the same bytes the survivor already describes.
+- [ ] **What does not join.** Empty files, whose digest is the same for every one of them. Feeds
+      with a parent, which are part of something else. Gone references, and references on archived
+      resources.
+- [ ] **A changed file leaves at once.** When a sync reports a new version for a reference on a
+      feed with other originals, the reference splits off before anything analyzes it, and takes
+      a copy of the feed's tags and note. If its new digest matches something, the sweep joins it
+      again. Waiting for the digest instead would analyze the feed from whichever original comes
+      first, which may be the one that did not change.
+- [ ] **Near duplicates are out of scope.** The same photo re-encoded, a PDF and the DOCX it came
+      from, and two files with one name and different bytes are related, not identical. They are a
+      later plan, and the likely shape is an edge found through embeddings.
+
+## Phase 1: join the same bytes
+
+- [ ] `Twins`, a model beside `Intake` and `Placement`, with `join!(digest)`. It takes the same
+      advisory lock `Intake` takes, finds every eligible original with that digest, groups them by
+      resource owner, and for each group with more than one feed moves every original onto the
+      survivor and destroys the rest
+- [ ] Recover `keep_note_from` from `6196e11^:app/models/feed.rb` for the note rule
+- [ ] `Twins.sweep` finds digests held by more than one feed with a grouped query on the existing
+      index, a bounded batch at a time. `DigestReferencesJob` calls it after each tenant's
+      fingerprinting, so there is one job and one concurrency limit, and the first runs after
+      deploy join what the catalog already holds
+- [ ] Each join writes an audit event naming the survivor, the feeds it absorbed, and the digest
+- [ ] Tests: two resources, one file, one feed after the sweep; three copies across two owners make
+      two feeds; empty files and child feeds stay apart; a join never crosses tenants; edges, note,
+      and expiry follow the rules above; the search index holds the survivor and not the absorbed
+      feed; two sweeps at once join each digest once
+
+## Phase 2: leave when the bytes change, stay apart when asked
+
+- [ ] `feed_references.apart_at`. `split!` from `splitReference` sets it; `note_version!` clears it
+      when the version changes; `Twins` skips references that have it
+- [ ] `note_version!` on a reference whose feed has another original splits it into a new feed
+      carrying the old feed's tags and note, and the sync analyzes the new feed as it would any
+      changed file
+- [ ] The item page's Split becomes "Keep apart", with a line saying the place was joined because
+      the bytes are the same
+- [ ] Tests: an edited copy leaves and is analyzed alone; a touched file with unchanged bytes
+      leaves and is joined again; a kept-apart place stays apart through a sweep and joins again
+      after an edit
+
+## Phase 3: stop paying twice
+
+A sync analyzes a new file straight away, before the digest sweep reaches it, so phase 1 joins
+duplicates after they have already been analyzed.
+
+- [ ] `AnalyzeFeedJob` fingerprints the original first when it has no digest, since the analysis
+      downloads the bytes anyway, and calls `Twins.join!` before any step runs. If the feed is
+      absorbed, the analysis finishes with one step naming the survivor and runs nothing else
+- [ ] Holdings, the catalog counts, and export count feeds, so their numbers fall as
+      joins land. Check each one reads right afterward
+- [ ] Tests: a second resource holding an analyzed file adds a reference and no second analysis
+
+## Phase 4: say so
+
+- [ ] `docs/src/content/docs/concepts/references.mdx` gains a section on joining: the digest, the
+      owner rule, what survives, leaving, and keeping apart. "Moving between feeds" stops saying
+      that sync and export are the only things that move references
+- [ ] `splitReference` gets a description, `ReferenceType` gains a described `digest` field, and `bin/rails docs:reference`
+      regenerates the GraphQL reference
+- [ ] `Reference.discover!` and `Intake` both create a feed per new place today. Say in the
+      concept page that the join comes after, within a minute
+
+## Verification
+
+- The suite, with each phase's tests, plus these mutations each caught by a test: joining across
+  owners, dropping the empty-file rule, joining a kept-apart reference, skipping the lock
+- Live in the dev stack: attach two filesystem resources over one folder, sync both, and watch one
+  feed per file appear with two places; edit one file and watch it leave; keep a place apart and
+  sync again
+
+## Decisions carried
+
 - [ ] **Does an MCP server's authorization server say who somebody is?** The gate needs a stable
       subject. `mcp.notion.com` registers its clients dynamically and runs PKCE, but it is its own
       authorization server, not Notion's public OAuth, and may hand back nothing that names the
       Notion user. Masks' `Federation::Mcp` takes it as anonymous unless the provider names a
-      `userinfo_url`, so today a Notion MCP connection is gated on the masks actor alone. Phase 6
-      runs it for real; whether that is enough is still to decide.
-- [x] **What the client library is called and shaped like.** `Masks::Client::Delegations`, in
-      the masks gem: `start`, `finish` and `token`, `Refused` and `Unavailable` each carrying any
-      rotated secret, and `Delegations::Fake`. Decided 2026-09-13.
-- [x] **Whose personal resources a feed may use.** The person who started the run, and nobody
-      else. An analysis records `requested_by` from the grant that started it, and its agent reaches
-      that person's own resources beside the tenant's. A run started by a sync, a schedule, an
-      edge, or another agent reaches only the tenant's. Keyed on the run rather than on who made
-      the feed, because anyone may run or ask again on a feed somebody else made. Decided
-      2026-09-26.
-- [ ] **What re-analysis costs.** Carried from the last plan. An analysis that writes an edge
-      re-analyzes the feed on the other side, which cascades without a cooldown. Per-feed cooldown,
-      a depth cap, or a cause that refuses to write edges.
-
-## Phase 0 — keep one thing
-
-Independent of masks, so it lands first. Today a resource is synced whole or not at all; its
-`list` and `get` let an agent look without keeping anything.
-
-- [x] `object_for(id)` on the syncable types, answering the object `each_page` yields, so the
-      locator, key, mime, title and version come out the same way a sync would make them. Notion
-      first — one page lookup — then GitHub, Slack, S3, the filesystem, WebDAV and git
-- [x] The body of `SyncResourceJob#each_iteration` — `Reference.discover!`, then
-      `awaiting_analysis?`, then `analyze!` — becomes a method on the resource both call, so a kept
-      object and a synced one cannot drift apart
-- [x] `keep` in each type's `command_schema`, and in `Tool::Resources::WRITE`
-- [x] A kept object is found again by the next full sync rather than duplicated, and changes are
-      noticed on it like any other
-
-## Phase 1 — the client library
-
-Masks' work; recorded here so the two sides agree on what crosses. Landed in masks `4b7048c`,
-`912e856` and `738fba6`; see masks' `concepts/delegation` page for what it became.
-
-What uris needs from the library:
-
-- **Start connecting** — given a provider key and a return URL, an authorize URL and the state to
-  keep across the redirect.
-- **Finish connecting** — given the callback parameters and that state, a held delegation: the
-  connection, its provider, the subject that connected, and a secret for uris to keep encrypted.
-- **A token** — given a held delegation, a live upstream access token and when it expires, with
-  nobody signed in, and a replacement secret whenever the old one rotates.
-- **Two kinds of refusal** — refused (the connection was revoked, the identity unlinked, consent
-  withdrawn, the actor gone), which a person has to fix, and unavailable, which is worth retrying.
-- **A fake**, so uris' suite stops keeping a fake of masks' internals.
-
-What the library does underneath, as far as uris cares:
-
-- The person goes to masks `/authorize` with PKCE, asking for
-  `openid offline_access masks:delegate:<provider>`. Masks shows the consent, links the provider
-  first through `Linking` if the person has no live connection to it, and sends a code back.
-- The code is redeemed for a masks refresh token whose grant is bound to the client, the actor and
-  the connection.
-- A token is a refresh, then an RFC 8693 exchange — masks' `Exchange` already takes one — with the
-  masks access token as `subject_token`, the connection as `audience`, and an upstream token type
-  as `requested_token_type`. Masks refreshes the upstream token itself.
-
-What masks has to hold, in outline:
-
-- Encrypted access and refresh tokens back on `Connection`, only for a provider that delegates
-  access and names the API scopes it asks for beyond identity.
-- A `Delegation` — client, actor, connection, when consented and when revoked — made at consent,
-  listed and revocable from the account page and the manage API. Dynamically registered clients
-  cannot hold `masks:` scopes, so only an approved client can be delegated to.
-- `ExchangePolicy` releasing an upstream token only when the client may exchange, the subject token
-  carries `masks:delegate:<provider>`, its actor owns the live connection named, and a live
-  delegation exists for all three. Every release is an event.
-- Providers whose authorization server is an MCP server's own, found from
-  `/.well-known/oauth-protected-resource`, with masks registering itself as their client.
-
-## Phase 2 — delegation replaces the broker
-
-- [x] Delete `Broker`, `Resource::Brokered`, `Enrollment`, `EnrollmentsController`, the `/enroll`
-      routes, `enrollResource`, `fake_broker_server.rb` and their tests
-- [x] `Resource::Delegated`: the held delegation, the cached access token and its expiry in
-      `credentials`, which are already encrypted. `upstream_token` answers the cache until it
-      expires, then asks the library, and writes back what changed. `token_expired!` clears the
-      cache for `Api#answer`'s one retry
-- [x] A refusal sets `needs_connect_at` and raises `Resource::Unusable`, so `SyncResourceJob` stops
-      rather than retrying it five times; a check or a sync that succeeds clears it
-- [x] `Tenant#issuer` from `MASKS_ISSUER_TEMPLATE`, so a job with no request can reach masks. This
-      is what OneDrive's background sync has been missing — `Broker.release` read `Current.issuer`,
-      which only a request sets
-- [x] `GET /resources/:id/connect`, behind `uris:resources:command`, keeps the library's state in
-      the session bound to the resource and the subject, and redirects. `GET /connect/callback`
-      refuses a state or a subject that does not match, and saves the delegation with
-      `connected_by`
-- [x] `attachResource` takes a delegated type and makes it unconnected; `connectResource` answers
-      the address; `ResourceType` carries `connected`, `needsConnect` and `connectedBy`
-- [x] `Attach.tsx` offers **Connect** where it offered a sign-in link, and a resource that needs it
-      shows **Reconnect**
-
-## Phase 3 — Google Drive and OneDrive
-
-- [x] `oauth-google` and `microsoft-graph` include `Delegated` in place of `Brokered`, naming masks'
-      `google` and `microsoft` providers. Their API calls do not change
-- [x] `microsoft_graph_resource_test.rb` runs against the library's fake
-- [x] OneDrive syncs on a schedule, with nobody signed in
-
-## Phase 4 — an MCP server through masks
-
-- [x] `Resource::Mcp` takes an optional provider. With one, its bearer is `upstream_token` rather
-      than a pasted token, and a 401 clears the cache and tries once more
-- [x] A pasted token keeps working as it does today
-- [x] The `mcp` gem's own OAuth flow stays unused: it blocks a thread across the browser round
-      trip, which suits a CLI rather than a request, and its discovery and token calls go through
-      a client of its own, past `PublicAddress`
-
-## Phase 5 — a person's resources
-
-- [x] `resources.owner_subject`, empty for the tenant's; connecting offers "only me" or "everyone
-      here"
-- [x] `Resource.visible_to(grant)` — the tenant's, and the grant subject's own — replaces
-      `Resource.attended.active` everywhere a person or a tool names a resource: the GraphQL
-      mutations and query, `Tool::Resources`, `Tool::Base`, `Tool::Feeds`
-- [x] `Grant#proxied` offers a personal MCP server's tools to its owner alone
-- [x] A sync of a personal resource writes into the tenant's catalog like any sync; what an agent
-      run may reach waits on the open decision above
-
-## Phase 6 — the two sides, for real
-
-Every phase above is proven against `Masks::Client::Delegations::Fake`, and a fake is how the old
-broker went dead with nothing noticing. This phase runs the whole of it across both dev stacks —
-masks on :12345, uris on :8180 — against an MCP server that runs its own authorization server, and
-fixes whatever the fakes were hiding.
-
-- [x] Track masks at its head in both lockfiles. Resolved by the release: uris takes masks
-      `~> 0.7` from rubygems, and dev builds against the sibling checkout
-- [x] An MCP server with an authorization server of its own: `script/mcp_oauth_server.rb`, which
-      the dev stack runs as `mcp-oauth` at `mcp.localhost:8190`
-- [x] The dev masks set up past its first-run screen, and the dev `uris` tenant paired with it
-- [x] A provider in masks of protocol `mcp`, found from that server's metadata, with masks
-      registering itself as the server's client
-- [x] Attach an MCP resource in uris authenticating through masks, press **Connect**, consent in
-      masks, come back connected; check it, and call one of its tools over MCP
-- [x] With nobody signed in: restart `uris-worker` and let `ScheduleChecksJob` check it
-- [x] Past the token's lifetime, a tool call still answers, and the session pool starts a new
-      upstream session on the new token
-- [x] Revoke the delegation from the masks account page; the next call leaves the resource needing
-      a connection, and the resource list offers **Reconnect**
-- [x] Attached as "only me", its tools are absent for another person's grant
-- [x] What the run needs, written down: `./dev delegation`
-
-Run for real on 2026-09-26. What the fakes had been hiding:
-
-- **masks refused an http provider under `.localhost`.** `Provider` counted only the literal
-  loopback names, where `Client` and `Handshake` also counted `.localhost`. They share
-  `Client.loopback?` now (masks `c2690f6`).
-- **uris could reach a private MCP server only by lifting the address guard for every type.**
-  `URIS_MCP_ORIGINS` names the origins that may be private, as `URIS_S3_ORIGINS` does for storage.
-
-## Verification
-
-- The library's fake answering connect, token, rotation and both refusals; a cached token reused
-  and an expired one replaced; a refusal marking the resource and stopping the job; a background
-  sync with no `Current`
-- The connect flow end to end against `FakeIssuer`: the redirect, a wrong state refused, a
-  different subject refused, the delegation saved
-- A personal resource absent for another subject in GraphQL, the resource tool and the proxied
-  tools
-- `keep` cataloguing one Notion page with a version, and the next sync noticing its edit
-- Live, across both dev stacks, as phase 6 lays out
+      `userinfo_url`, so today a Notion MCP connection is gated on the masks actor alone. Whether
+      that is enough is still to decide.
+- [ ] **What re-analysis costs.** An analysis that writes an edge re-analyzes the feed on the other
+      side, which cascades without a cooldown. Per-feed cooldown, a depth cap, or a cause that
+      refuses to write edges.
 
 ## Known gaps, recorded rather than fixed
 
-Carried from the last plan, and from a sweep of the resource types on 2026-09-13 that fixed the
-rest of what it found.
+The first was found writing this plan; the rest are carried from the last one.
 
+- **A personal resource's places show on the tenant's catalog.** A sync of a personal resource
+  writes into the shared catalog, and `FeedType.references` lists every place to anyone who can
+  read the catalog. Joining keeps owners apart so it does not make this worse, and it does not fix
+  it.
 - **The headless browser resolves hosts for itself.** Git and the MCP client are pinned to the
   vetted address now; the browser checks every request it makes, which narrows the window but
   does not close it.
