@@ -294,6 +294,7 @@ class Asking
       [
         "search the catalog and open what they find",
         ("search the web" if @reach.engines.any?),
+        ("look up the weather" if @reach.forecasters.any?),
         ("read pages" if @reach.readable?),
         ("keep pages as items in the catalog" if @reach.keepers.any?),
         "make notes of what has no page of its own"

@@ -31,6 +31,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | [`slack`](#slack) | — | yes |
 | [`microsoft-graph`](#microsoft-graph) | `integration` | yes |
 | [`git`](#git) | — | yes |
+| [`weather`](#weather) | `weather` |  |
 
 ## s3
 
@@ -568,3 +569,30 @@ A git repository. Every file at the tip of one branch, each one an item. The clo
 | `list` | `prefix: string?` `limit: integer?` |
 | `get` | `path: string` |
 | `keep` | `path: string` |
+
+## weather
+
+Weather. Current conditions and the forecast for any place, looked up when asked. Open-Meteo answers without a key for personal use; a key from its paid plan is used when one is given. Attach more than one to keep several providers or keys.
+
+|  |  |
+| --- | --- |
+| Serves | `weather` |
+| Accepts | — |
+| Up to | — |
+| Syncs | no |
+| Connected through masks | no |
+| Attached from the app | yes |
+
+### Fields
+
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `provider` | Provider | choice of `open-meteo` |  |  |  |  |
+| `units` | Units | choice of `metric` `imperial` |  |  |  |  |
+| `api_key` | API key | string |  | encrypted |  | Left off, the free service answers, which is for non-commercial use. |
+
+### Commands
+
+| Command | Arguments |
+| --- | --- |
+| `forecast` | `place: string?` `latitude: number?` `longitude: number?` `days: integer?` |

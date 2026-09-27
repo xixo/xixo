@@ -40,6 +40,11 @@ seeded.each do |tenant|
       resource.details = {}
     end
 
+    Resource::Weather.find_or_create_by!(key: "weather") do |weather|
+      weather.name = "Weather"
+      weather.details = { "provider" => "open-meteo", "units" => "metric" }
+    end
+
     if (endpoint = ENV["OLLAMA_URL"]).present?
       brain = Resource::OpenaiCompatible.find_or_initialize_by(key: "ollama")
       brain.assign_attributes(

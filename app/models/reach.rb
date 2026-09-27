@@ -15,8 +15,12 @@ class Reach
     @keepers ||= keys(:browser)
   end
 
+  def forecasters
+    @forecasters ||= keys(:weather)
+  end
+
   def web?
-    engines.any? || fetchers.any?
+    engines.any? || fetchers.any? || forecasters.any?
   end
 
   def readable?
@@ -28,7 +32,8 @@ class Reach
 
     [
       (%(Search it with resource, do=search, key #{quoted(engines)}, input {"query": "..."}.) if engines.any?),
-      (%(Read a page with resource, do=get, key #{quoted(fetchers)}, input {"url": "https://..."}.) if fetchers.any?)
+      (%(Read a page with resource, do=get, key #{quoted(fetchers)}, input {"url": "https://..."}.) if fetchers.any?),
+      (%(Look up the weather with resource, do=forecast, key #{quoted(forecasters)}, input {"place": "..."}.) if forecasters.any?)
     ].compact.join(" ")
   end
 
