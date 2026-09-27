@@ -47,6 +47,7 @@ import { useTitle } from '../hooks/useTitle'
 import { hrefFor, lookOf, TYPE, toned } from '../looks'
 import { Connections } from './Connections'
 import { Conversation } from './Conversation'
+import { OneLine } from './OneLine'
 import { Passes, placementOf, why } from './Passes'
 import { Readout } from './Readout'
 import { Rows } from './Rows'
@@ -116,7 +117,7 @@ export function ItemDetail() {
   const pictured = viewable.filter(
     (reference) => !reference.contentType?.startsWith('audio/'),
   )
-  const filed = [...item.tags, ...item.mimes]
+  const filed = [...item.mimes, ...item.tags]
 
   const untag = async (key: string) => {
     const answered = await untagging.execute({
@@ -392,7 +393,7 @@ export function ItemDetail() {
       </Modal>
 
       {filed.length > 0 && (
-        <div className="filed">
+        <OneLine className="filed" noun="tags">
           {filed.map((held) => (
             <span key={held.id} className="filed-tag">
               <Link
@@ -415,7 +416,7 @@ export function ItemDetail() {
               )}
             </span>
           ))}
-        </div>
+        </OneLine>
       )}
 
       {!facet &&

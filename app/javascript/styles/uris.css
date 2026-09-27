@@ -1500,6 +1500,35 @@ a.entry:hover {
   gap: var(--s2);
 }
 
+.one-line {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+}
+
+.one-line > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.one-line-more {
+  flex: none;
+  padding: 2px var(--s2);
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--soft);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.one-line-more:hover,
+.one-line-more:focus-visible {
+  background: var(--lifted);
+  color: var(--text);
+}
+
 a.tag {
   text-decoration: none;
 }
