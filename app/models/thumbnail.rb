@@ -13,8 +13,8 @@ class Thumbnail
   WAVE = "0xc9a86a".freeze
   GROUND = "0x1b2024".freeze
   WAVE_SECONDS = 3600
-  WAVE_MIN_WIDTH = 100
-  WAVE_MAX_WIDTH = 1000
+  WAVE_MIN_WIDTH = 1000
+  WAVE_MAX_WIDTH = 2000
 
   def self.for(reference, size: DEFAULT_SIZE)
     new(reference, size).bytes
