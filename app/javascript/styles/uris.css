@@ -894,6 +894,21 @@ a.entry:hover {
   background: var(--void);
 }
 
+.thumb-open {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+
+.zoomed-image {
+  display: block;
+  max-width: min(90vw, 1200px);
+  max-height: 80vh;
+  border-radius: var(--radius-sm);
+}
+
 .drop {
   position: fixed;
   inset: 0;

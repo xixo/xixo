@@ -4,6 +4,7 @@ import {
   Group,
   Loader,
   Menu,
+  Modal,
   Stack,
   Text,
   Textarea,
@@ -70,6 +71,9 @@ export function ItemDetail() {
   const [asking, setAsking] = useState(false)
   const [notingOpen, setNotingOpen] = useState(false)
   const [taggerOpen, setTaggerOpen] = useState(false)
+  const [zoomed, setZoomed] = useState<{ url: string; alt: string } | null>(
+    null,
+  )
   const { data, loading, error, refetch } = useQuery(FeedDetailDocument, { id })
   const analyze = useAloud(
     AnalyzeFeedDocument,
@@ -350,11 +354,16 @@ export function ItemDetail() {
       {pictured.length > 0 && (
         <Group align="flex-start" gap="var(--s4)">
           {pictured.map((reference) => (
-            <a
+            <button
               key={reference.id}
-              href={reference.hiresUrl ?? reference.contentUrl}
-              target="_blank"
-              rel="noreferrer"
+              type="button"
+              className="thumb-open"
+              onClick={() =>
+                setZoomed({
+                  url: reference.hiresUrl ?? reference.contentUrl,
+                  alt: reference.filename,
+                })
+              }
             >
               <Thumb
                 url={reference.thumbnailUrl}
@@ -362,10 +371,31 @@ export function ItemDetail() {
                 alt={reference.filename}
                 size={230}
               />
-            </a>
+            </button>
           ))}
         </Group>
       )}
+
+      <Modal
+        opened={zoomed !== null}
+        onClose={() => setZoomed(null)}
+        size="auto"
+        centered
+      >
+        {zoomed && (
+          <Stack gap="var(--s3)" align="center">
+            <img src={zoomed.url} alt={zoomed.alt} className="zoomed-image" />
+            <a
+              href={zoomed.url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-link"
+            >
+              Open full size
+            </a>
+          </Stack>
+        )}
+      </Modal>
 
       {(filed.length > 0 || item.keywords.length > 0) && (
         <div className="filed">
