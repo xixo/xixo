@@ -16,6 +16,7 @@ class Analysis < ApplicationRecord
 
   belongs_to :feed
   belongs_to :reference, optional: true
+  belongs_to :about, class_name: "Feed", optional: true
 
   validates :cause, inclusion: { in: CAUSES }
   validates :status, inclusion: { in: STATUSES }

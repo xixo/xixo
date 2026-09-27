@@ -144,7 +144,8 @@ CREATE TABLE public.analyses (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     question text,
-    requested_by character varying
+    requested_by character varying,
+    about_id bigint
 );
 
 ALTER TABLE ONLY public.analyses FORCE ROW LEVEL SECURITY;
@@ -998,6 +999,13 @@ CREATE UNIQUE INDEX index_active_storage_variant_records_uniqueness ON public.ac
 
 
 --
+-- Name: index_analyses_on_about_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_analyses_on_about_id ON public.analyses USING btree (about_id);
+
+
+--
 -- Name: index_analyses_on_feed_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1566,6 +1574,14 @@ ALTER TABLE ONLY public.feed_edges
 
 
 --
+-- Name: analyses fk_rails_966b3de0ba; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.analyses
+    ADD CONSTRAINT fk_rails_966b3de0ba FOREIGN KEY (about_id) REFERENCES public.feeds(id) ON DELETE SET NULL;
+
+
+--
 -- Name: active_storage_variant_records fk_rails_993965df05; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1895,6 +1911,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260927030000'),
 ('20260927010000'),
 ('20260926210000'),
 ('20260926200000'),

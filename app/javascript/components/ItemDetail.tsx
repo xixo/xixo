@@ -9,6 +9,7 @@ import {
 } from '@mantine/core'
 import {
   IconArrowLeft,
+  IconArrowRight,
   IconCut,
   IconEraser,
   IconNote,
@@ -17,6 +18,7 @@ import {
 } from '@tabler/icons-react'
 import {
   AnalyzeFeedDocument,
+  AskCatalogDocument,
   FeedDetailDocument,
   ForgetFeedDocument,
   NoteFeedDocument,
@@ -56,6 +58,7 @@ export function ItemDetail() {
   const navigate = useNavigate()
   const say = useSay()
   const [forgetting, setForgetting] = useState(false)
+  const [asking, setAsking] = useState(false)
   const { data, loading, error, refetch } = useQuery(FeedDetailDocument, { id })
   const analyze = useAloud(
     AnalyzeFeedDocument,
@@ -199,6 +202,18 @@ export function ItemDetail() {
               Forget
             </Button>
 
+            {!item.asked && (
+              <Button
+                radius="xl"
+                variant="default"
+                leftSection={<IconSparkles size={16} />}
+                aria-expanded={asking}
+                onClick={() => setAsking((held) => !held)}
+              >
+                Ask about this
+              </Button>
+            )}
+
             <Button
               radius="xl"
               color="chalk"
@@ -220,6 +235,14 @@ export function ItemDetail() {
           </Group>
         )}
       </Group>
+
+      {asking && (
+        <AskAboutThis
+          id={item.id}
+          name={name}
+          onClose={() => setAsking(false)}
+        />
+      )}
 
       <Sure
         opened={forgetting}
@@ -676,5 +699,68 @@ function Noting({
         </Button>
       </Group>
     </Stack>
+  )
+}
+
+function AskAboutThis({
+  id,
+  name,
+  onClose,
+}: {
+  id: string
+  name: string
+  onClose: () => void
+}) {
+  const navigate = useNavigate()
+  const ask = useAloud(AskCatalogDocument, 'That could not be asked.')
+  const [question, setQuestion] = useState('')
+  const box = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    box.current?.focus()
+  }, [])
+
+  const submit = async () => {
+    const text = question.trim()
+    if (!text || ask.loading) return
+
+    const answered = await ask.execute({ question: text, aboutId: id })
+    const held = answered?.askCatalog
+
+    if (held) navigate(`/items/${held.feed.id}`)
+  }
+
+  return (
+    <form
+      className="ask-bar"
+      onSubmit={(event) => {
+        event.preventDefault()
+        submit()
+      }}
+    >
+      <IconSparkles size={17} stroke={1.7} color="var(--brass)" />
+      <input
+        value={question}
+        onChange={(event) => setQuestion(event.currentTarget.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') onClose()
+        }}
+        placeholder={`Ask about ${name}`}
+        aria-label={`Ask a question about ${name}`}
+        maxLength={500}
+        ref={box}
+      />
+      <Button
+        type="submit"
+        radius="xl"
+        color="chalk"
+        size="compact-md"
+        loading={ask.loading}
+        disabled={!question.trim()}
+        rightSection={<IconArrowRight size={15} />}
+      >
+        Ask
+      </Button>
+    </form>
   )
 }

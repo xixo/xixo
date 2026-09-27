@@ -18,7 +18,7 @@ class Asking
     Someone asked the question below. Answer it, and leave the catalog better for the asking:
     whatever is found that is worth having again belongs in it.
 
-    %<holdings>s
+    %<holdings>s%<about>s
 
     Send scouts with scout, one task each: a concrete thing to find or keep, written so someone with
     no other context could do it. Send several in one turn when the question has several parts.
@@ -179,7 +179,8 @@ class Asking
   end
 
   def prompt
-    format(LEAD, question: question, can: can, before: before, holdings: "The catalog now: #{Holdings.said}")
+    format(LEAD, question: question, can: can, before: before, holdings: "The catalog now: #{Holdings.said}",
+                 about: about_told.then { |told| told ? "\n\n#{told}" : "" })
   end
 
   def judged_question
@@ -191,7 +192,7 @@ class Asking
   end
 
   def briefing(task)
-    [ format(SCOUT, task: task, question: followed_question), beyond ].compact.join("\n\n")
+    [ format(SCOUT, task: task, question: followed_question), about_told, beyond ].compact.join("\n\n")
   end
 
   def led(calls)
@@ -263,6 +264,21 @@ class Asking
       told = earlier.map { |turn| "Asked: #{turn.question}\nAnswered: #{turn.said.to_s.truncate(EARLIER_ANSWER)}" }
 
       format(BEFORE, turns: told.join("\n\n"))
+    end
+
+    def about
+      return @about if defined?(@about)
+
+      @about = @analysis&.about ||
+               feed.analyses.where(cause: "ask").where.not(about_id: nil).order(:id).first&.about
+    end
+
+    def about_told
+      return nil if about.nil?
+
+      named = [ about.title.presence || about.key, about.mime ].compact.join(", ")
+      "The question is about [feed #{about.id}] (#{named}). Open it with feed first and answer from what it " \
+        "says; for a long one, look through it with find."
     end
 
     def asked_as(question)

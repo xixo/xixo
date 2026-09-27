@@ -84,6 +84,37 @@ class AskingTest < ActionDispatch::IntegrationTest
     assert_equal [ nil ], @server.efforts.uniq
   end
 
+  ABOUT = <<~GQL.freeze
+    mutation($question: String!, $about: ID) {
+      askCatalog(input: { question: $question, aboutId: $about }) { feed { id } analysis { id } }
+    }
+  GQL
+
+  test "a question about an item is connected to it, and its lead and scouts are told to open it first" do
+    asked = execute(ABOUT, question: "When is it due?", about: @invoice.id.to_s).dig("data", "askCatalog")
+
+    Tenant.switch(@tenant) do
+      note = Feed.find(asked.dig("feed", "id"))
+      analysis = Analysis.find(asked.dig("analysis", "id"))
+
+      assert_equal @invoice, analysis.about
+      assert_includes note.connected, @invoice
+
+      asking = Asking.new(note, analysis: analysis)
+      assert_match(/The question is about \[feed #{@invoice.id}\] \(Acme invoice\)\. Open it with feed first/, asking.prompt)
+      assert_match(/\[feed #{@invoice.id}\]/, asking.briefing("find the due date"))
+
+      later = Analysis.create!(feed: note, cause: "ask", question: "and who sent it?", steps: {})
+      assert_match(/about \[feed #{@invoice.id}\]/, Asking.new(note, analysis: later).prompt, "a follow-up keeps what it is about")
+    end
+  end
+
+  test "a question about an item that is not there is refused" do
+    body = execute(ABOUT, question: "When is it due?", about: "999999")
+
+    assert_match(/no feed with id 999999/, body.dig("errors", 0, "message"))
+  end
+
   test "a follow-up is asked in the same note, told what was asked before, and the whole conversation is rolled up" do
     scout("Find the Acme invoice's total") { @server.answer("It is $4,200 [feed #{@invoice.id}].") }
     @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
