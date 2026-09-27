@@ -3,6 +3,7 @@ import {
   Button,
   Group,
   Loader,
+  Menu,
   Stack,
   Text,
   Textarea,
@@ -11,10 +12,13 @@ import {
   IconArrowLeft,
   IconArrowRight,
   IconCut,
+  IconDots,
   IconEraser,
   IconNote,
   IconPencil,
+  IconRefresh,
   IconSparkles,
+  IconTag,
   IconX,
 } from '@tabler/icons-react'
 import {
@@ -64,6 +68,8 @@ export function ItemDetail() {
   const say = useSay()
   const [forgetting, setForgetting] = useState(false)
   const [asking, setAsking] = useState(false)
+  const [notingOpen, setNotingOpen] = useState(false)
+  const [taggerOpen, setTaggerOpen] = useState(false)
   const { data, loading, error, refetch } = useQuery(FeedDetailDocument, { id })
   const analyze = useAloud(
     AnalyzeFeedDocument,
@@ -213,18 +219,29 @@ export function ItemDetail() {
           <Group gap="var(--s2)" wrap="nowrap">
             <Button
               radius="xl"
-              variant="subtle"
-              color="gray"
-              leftSection={<IconEraser size={16} />}
-              onClick={() => setForgetting(true)}
+              variant="default"
+              leftSection={<IconRefresh size={16} />}
+              loading={analyze.loading}
+              onClick={async () => {
+                const answered = await analyze.execute({ id: item.id })
+
+                if (!answered) return
+
+                say({
+                  text: item.asked
+                    ? 'Asking again.'
+                    : `Analyzing ${name} again.`,
+                })
+                refetch()
+              }}
             >
-              Forget
+              {item.asked ? 'Ask again' : 'Re-analyze'}
             </Button>
 
             {!item.asked && (
               <Button
                 radius="xl"
-                variant="default"
+                color="chalk"
                 leftSection={<IconSparkles size={16} />}
                 aria-expanded={asking}
                 onClick={() => setAsking((held) => !held)}
@@ -233,24 +250,40 @@ export function ItemDetail() {
               </Button>
             )}
 
-            <Button
-              radius="xl"
-              color="chalk"
-              leftSection={<IconSparkles size={16} />}
-              loading={analyze.loading}
-              onClick={async () => {
-                const answered = await analyze.execute({ id: item.id })
-
-                if (!answered) return
-
-                say({
-                  text: item.asked ? 'Asking again.' : `Analyzing ${name}.`,
-                })
-                refetch()
-              }}
-            >
-              {item.asked ? 'Ask again' : 'Analyze'}
-            </Button>
+            <Menu position="bottom-end" width={200}>
+              <Menu.Target>
+                <Button
+                  radius="xl"
+                  variant="subtle"
+                  color="gray"
+                  aria-label={`More for ${name}`}
+                >
+                  <IconDots size={16} stroke={1.8} />
+                </Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Item
+                  leftSection={<IconNote size={15} stroke={1.6} />}
+                  onClick={() => setNotingOpen(true)}
+                >
+                  Add a note
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconTag size={15} stroke={1.6} />}
+                  onClick={() => setTaggerOpen(true)}
+                >
+                  Tag
+                </Menu.Item>
+                <Menu.Divider />
+                <Menu.Item
+                  color="red"
+                  leftSection={<IconEraser size={15} stroke={1.6} />}
+                  onClick={() => setForgetting(true)}
+                >
+                  Forget
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
           </Group>
         )}
       </Group>
@@ -344,12 +377,17 @@ export function ItemDetail() {
         </div>
       )}
 
-      {!facet && <Tagger ids={[item.id]} onTagged={settled} />}
+      {!facet &&
+        (taggerOpen || filed.some((held) => held.type === TYPE.tag)) && (
+          <Tagger ids={[item.id]} onTagged={settled} />
+        )}
 
       {!facet && (
         <Noting
           note={item.note ?? ''}
           busy={note.loading}
+          open={notingOpen}
+          onOpenChange={setNotingOpen}
           onNote={async (next) => {
             const answered = await note.execute({ id: item.id, note: next })
 
@@ -372,7 +410,7 @@ export function ItemDetail() {
 
       {!facet && !item.asked && item.summary && (
         <Stack gap="var(--s2)">
-          <div className="label">What uris made of it</div>
+          <div className="label">Summary</div>
           <div className="panel" style={{ padding: 'var(--s4) var(--s5)' }}>
             <Text size="sm" style={{ lineHeight: 1.6, maxWidth: '72ch' }}>
               {item.summary}
@@ -395,30 +433,16 @@ export function ItemDetail() {
         </Stack>
       )}
 
-      {!facet && !item.asked && item.details.length > 0 && (
-        <Section label="Read out of it">
-          <Readout details={item.details} />
-        </Section>
-      )}
-
       {item.children.length > 0 && (
         <Stack gap="var(--s3)">
-          <div className="label">Inside it</div>
+          <div className="label">Contents</div>
           <Rows rows={item.children} />
         </Stack>
       )}
 
       {related.length > 0 && (
         <Stack gap="var(--s3)">
-          <div className="label">
-            {item.asked
-              ? drawnOn.size > 0
-                ? 'Also connected'
-                : 'What it drew on'
-              : ABOUT[item.type]
-                ? 'In it'
-                : 'What connects to it'}
-          </div>
+          <div className="label">Connections</div>
           {ABOUT[item.type] && (
             <Text size="sm" c="dimmed">
               {ABOUT[item.type]}
@@ -432,6 +456,12 @@ export function ItemDetail() {
         <Text size="sm" c="dimmed">
           Nothing is filed under this yet.
         </Text>
+      )}
+
+      {!facet && !item.asked && item.details.length > 0 && (
+        <Section label="Details">
+          <Readout details={item.details} />
+        </Section>
       )}
 
       {(originals.length > 0 || item.staged) && (
@@ -676,23 +706,28 @@ function Naming({
 function Noting({
   note,
   busy,
+  open,
+  onOpenChange,
   onNote,
 }: {
   note: string
   busy: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
   onNote: (next: string) => Promise<boolean>
 }) {
-  const [writing, setWriting] = useState(false)
   const [draft, setDraft] = useState(note)
 
   useEffect(() => setDraft(note), [note])
 
   const keep = async () => {
-    if (await onNote(draft.trim())) setWriting(false)
+    if (await onNote(draft.trim())) onOpenChange(false)
   }
 
-  if (!writing) {
-    return note ? (
+  if (!open) {
+    if (!note) return null
+
+    return (
       <Stack gap="var(--s2)">
         <Group justify="space-between" align="baseline">
           <div className="label">Your note</div>
@@ -700,7 +735,7 @@ function Noting({
             size="compact-xs"
             variant="subtle"
             color="gray"
-            onClick={() => setWriting(true)}
+            onClick={() => onOpenChange(true)}
           >
             Edit
           </Button>
@@ -708,18 +743,6 @@ function Noting({
 
         <div className="panel note">{note}</div>
       </Stack>
-    ) : (
-      <Button
-        w="fit-content"
-        size="compact-sm"
-        radius="xl"
-        variant="subtle"
-        color="gray"
-        leftSection={<IconNote size={15} />}
-        onClick={() => setWriting(true)}
-      >
-        Add a note
-      </Button>
     )
   }
 
@@ -739,7 +762,7 @@ function Noting({
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
             setDraft(note)
-            setWriting(false)
+            onOpenChange(false)
           }
         }}
       />
@@ -760,7 +783,7 @@ function Noting({
           variant="default"
           onClick={() => {
             setDraft(note)
-            setWriting(false)
+            onOpenChange(false)
           }}
         >
           Cancel
