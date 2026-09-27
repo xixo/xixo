@@ -153,7 +153,7 @@ export function ItemDetail() {
       <Group justify="space-between" align="flex-start" gap="var(--s4)">
         <Group
           gap="var(--s4)"
-          align="flex-start"
+          align="stretch"
           wrap="nowrap"
           style={{ minWidth: 'min(100%, 16rem)', flex: 1 }}
         >
@@ -161,7 +161,7 @@ export function ItemDetail() {
           {!facet && pictured.length > 0 && (
             <button
               type="button"
-              className="thumb-open"
+              className="thumb-open thumb-header"
               onClick={() =>
                 setZoomed({
                   url: pictured[0].hiresUrl ?? pictured[0].contentUrl,
@@ -169,11 +169,11 @@ export function ItemDetail() {
                 })
               }
             >
-              <Thumb
-                url={pictured[0].thumbnailUrl}
-                looked={item}
+              <img
+                src={pictured[0].thumbnailUrl ?? undefined}
                 alt={pictured[0].filename}
-                size={48}
+                loading="lazy"
+                className="thumb-header-image"
               />
             </button>
           )}

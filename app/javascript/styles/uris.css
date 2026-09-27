@@ -902,6 +902,20 @@ a.entry:hover {
   cursor: zoom-in;
 }
 
+.thumb-header {
+  flex: none;
+}
+
+.thumb-header-image {
+  display: block;
+  width: auto;
+  height: 100%;
+  max-width: 120px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background: var(--void);
+}
+
 .zoomed-image {
   display: block;
   max-width: min(90vw, 1200px);
