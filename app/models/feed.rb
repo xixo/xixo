@@ -82,11 +82,11 @@ class Feed < ApplicationRecord
 
   def to_param = tag? || address? ? key : id.to_s
 
-  def self.tag!(key)
-    name = key.to_s.squish
+  def self.tag_name(key) = key.to_s.tr("_", " ").squish
 
-    tags.find_by("lower(key) = ?", name.downcase) || singleton!(TAG, name)
-  end
+  def self.tag_named(key) = tags.find_by("lower(key) = ?", tag_name(key).downcase)
+
+  def self.tag!(key) = tag_named(key) || singleton!(TAG, tag_name(key))
   def self.mime!(key) = singleton!(MIME, key)
 
   def self.singleton!(type, key)

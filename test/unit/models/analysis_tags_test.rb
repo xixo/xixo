@@ -23,7 +23,7 @@ class AnalysisTagsTest < ActiveSupport::TestCase
     end
   end
 
-  test "amounts, dates, numbers and addresses are not tags, and a name with underscores reads as words" do
+  test "amounts, dates, numbers and addresses are not tags" do
     Tenant.switch(@tenant) do
       feed = Feed.create!(type: Feed::FILE, key: "statement.pdf")
       analysis = Analysis.open!(feed: feed, cause: "manual")
@@ -34,7 +34,7 @@ class AnalysisTagsTest < ActiveSupport::TestCase
         }
       })
 
-      assert_equal [ "Mortgage Statement", "Q3 report", "Jennifer Korn", "MCAP" ], analysis.tags
+      assert_equal [ "Mortgage_Statement", "Q3 report", "Jennifer Korn", "MCAP" ], analysis.tags
     end
   end
 
@@ -64,6 +64,13 @@ class AnalysisTagsTest < ActiveSupport::TestCase
       assert_equal %w[invoice paid], feed.tags.where(id: feed.edges.inferred.select(:a_id))
                                              .or(feed.tags.where(id: feed.edges.inferred.select(:b_id)))
                                              .order(:key).pluck(:key)
+    end
+  end
+
+  test "a tag's name reads underscores as spaces, whoever gives it" do
+    Tenant.switch(@tenant) do
+      assert_equal Feed.tag!("Mortgage Statement"), Feed.tag!("mortgage_statement")
+      assert_equal "Single sign on", Feed.tag!("Single_sign_on").key
     end
   end
 

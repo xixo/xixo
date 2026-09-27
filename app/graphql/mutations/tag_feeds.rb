@@ -6,14 +6,14 @@ module Mutations
 
     argument :ids, [ ID ], required: true, description: "The items to change, up to 200."
     argument :tag, String, required: true,
-             description: "The name of the tag. Runs of whitespace collapse to one space, and a tag that does not exist yet is created."
+             description: "The name of the tag. Underscores read as spaces, runs of whitespace collapse to one, case is ignored, and a tag that does not exist yet is created."
     argument :tagged, Boolean, required: false,
              description: "Set to false to remove the tag from the items. It defaults to true."
 
     field :feeds, [ Types::FeedType ], null: false, description: "The items after the change."
 
     def resolve(ids:, tag:, tagged: true)
-      key = tag.to_s.squish
+      key = Feed.tag_name(tag)
 
       refused("a tag needs a name") if key.empty?
       refused("that tag is longer than #{Feed::MAX_KEY} characters") if key.length > Feed::MAX_KEY
@@ -41,7 +41,7 @@ module Mutations
         if tagged
           tag = Feed.tag!(key)
           Feed.transaction { feeds.each { |feed| feed.connect!(tag) } }
-        elsif (tag = Feed.tags.by_key(key).first)
+        elsif (tag = Feed.tag_named(key))
           Feed.transaction { feeds.each { |feed| feed.disconnect!(tag) } }
         end
       end

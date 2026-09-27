@@ -62,7 +62,7 @@ module Tool
       raise ArgumentError, "connect needs b, a feed id, or tag, a tag's name" if b.blank? && named.empty?
       return feed!(b) if b.present?
 
-      found = Feed.tags.by_key(named).first
+      found = Feed.tag_named(named)
       return found if found
       raise ArgumentError, "there is no tag called #{named}" unless connected
 
