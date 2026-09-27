@@ -4,6 +4,7 @@ require "json"
 class Resource
   class Api < Resource
     class Gone < Resource::Failed; end
+    class Expired < Resource::Failed; end
 
     OPEN_TIMEOUT = 5
     READ_TIMEOUT = 30
@@ -80,6 +81,8 @@ class Resource
           raise Resource::Unusable, "#{key}: #{self.class.service} refused the token"
         when Net::HTTPNotFound
           raise Gone, "#{key}: #{self.class.service} has no #{uri.path}"
+        when Net::HTTPGone
+          raise Expired, "#{key}: #{self.class.service} no longer answers #{uri.path} — #{refused(response)}"
         when Net::HTTPTooManyRequests, Net::HTTPForbidden
           raise Resource::Failed, "#{key}: #{self.class.service} is rate limiting — #{refused(response)}"
         when Net::HTTPServerError

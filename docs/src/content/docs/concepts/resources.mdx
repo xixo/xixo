@@ -127,12 +127,13 @@ abandoned, and another sync can start.
 A run can be cancelled, and it stops when it passes its deadline.
 
 `Resource::Walk` decides which kind of walk a sync does. A type that can ask its source for only
-what changed, such as git, IMAP, or GitHub, keeps a checkpoint in `sync_state`. The checkpoint is the
-commit it reached, the last message it saw together with the mailbox's `UIDVALIDITY`, or the time the
-last walk began minus five minutes. The next sync walks only what changed since the checkpoint, as
-long as a full walk finished within the last day. Otherwise it walks everything. It also walks
-everything when the checkpoint cannot be used, for example because history was rewritten or the
-mailbox was renumbered. A walk saves its new checkpoint only when it finishes. A cancelled, failed,
+what changed, such as git, IMAP, GitHub, or OneDrive, keeps a checkpoint in `sync_state`. The
+checkpoint is the commit it reached, the last message it saw together with the mailbox's
+`UIDVALIDITY`, the time the last walk began minus five minutes, or the delta link Microsoft Graph
+handed back. The next sync walks only what changed since the checkpoint, as long as a full walk
+finished within the last day. Otherwise it walks everything. It also walks everything when the
+checkpoint cannot be used, for example because history was rewritten, the mailbox was renumbered,
+or Microsoft Graph expired the delta link. A walk saves its new checkpoint only when it finishes. A cancelled, failed,
 or dry-run sync leaves the previous checkpoint in place, and a walk resumed after a deploy keeps the
 checkpoint it started with. `walked_at` records when a full walk last finished without missing
 anything.

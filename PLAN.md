@@ -223,13 +223,12 @@ rest of what it found.
 - **An edge does not re-analyze the feed on the other side**, pending the cost decision.
 - **A feed with no reference has no `analyzed_at`.**
 - **Something deleted at the source is marked gone, never removed.** A finished sync sets `gone_at`
-  on what it did not see; nothing yet forgets a feed whose every place is gone, and Graph's delta
-  still throws away the deletions it is handed, so OneDrive notices none.
-- **Only git, IMAP and GitHub walk what changed.** Notion and Slack still walk everything, and Graph
-  still discards its `deltaLink`, which is also how it would learn of deletions.
-- **Graph keys are probably bare filenames.** A delta response omits `parentReference.path`, so two
-  files of one name in different folders would share a key; the tests supply the path and cannot
-  see it.
+  on what it did not see; nothing yet forgets a feed whose every place is gone.
+- **Only git, IMAP, GitHub, and OneDrive walk what changed.** Notion and Slack still walk everything.
+- **A OneDrive folder renamed between full walks leaves its files' paths stale.** Graph reports the
+  folder and not what is under it, and items are keyed on their id, so nothing is duplicated; the
+  next full walk, at most a day later, puts the paths right. A file under a folder moved out of
+  the resource's folder is likewise noticed as gone only by that full walk.
 - **Truncation is silent.** Fifty GitHub comments, two thousand Notion blocks three deep, git blobs
   under two megabytes, the first thousand Slack users named.
 - **A resource cannot be edited or deleted**, only archived and attached again under another key.

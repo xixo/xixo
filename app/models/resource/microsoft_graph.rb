@@ -6,6 +6,7 @@ class Resource
     DRIVE = "/me/drive".freeze
     MAX_DOWNLOAD = 512.megabytes
     ROOT = %r{\A/[^:]*:?/?}
+    ITEM_ID = /\A[A-Za-z0-9!_-]{1,200}\z/
 
     def self.api
       API
@@ -21,8 +22,8 @@ class Resource
       "microsoft"
     end
 
-    def self.notices_what_is_gone?
-      false
+    def self.walks_changes?
+      true
     end
 
     def self.attaching
@@ -42,7 +43,8 @@ class Resource
     def self.command_schema
       {
         list: { folder: "string?", limit: "integer?" },
-        get: { id: "string" }
+        get: { id: "string" },
+        keep: { id: "string" }
       }
     end
 
@@ -68,17 +70,33 @@ class Resource
     # and a cursor that is the next page's own URL, so a resumed sync asks for exactly what it
     # had not reached.
     def each_page(cursor: nil, prefix: nil, walk: nil)
-      held = cursor.presence || "#{DRIVE}/root/delta"
+      since = walk&.since.to_h["delta"]
+      held = cursor.presence || since.presence || "#{DRIVE}/root/delta"
 
       loop do
-        found = api_get(held)
-        batch = Array(found["value"]).select { |entry| wanted?(entry, prefix) }
+        found = delta(held, walk)
+        entries = Array(found["value"]).select { |entry| entry.is_a?(Hash) }
+        entries.each { |entry| learn(entry) }
+
+        walk&.gone(entries.reject { |entry| entry.key?("folder") || kept?(entry) }.pluck("id"))
+
+        batch = entries.select { |entry| kept?(entry) && under?(entry, prefix) }
         held = found["@odata.nextLink"]
+        walk&.reached({ "delta" => found["@odata.deltaLink"] }) if found["@odata.deltaLink"].present?
 
         yield batch, held if batch.any?
 
         break if held.blank?
       end
+    end
+
+    def object_for(id)
+      entry = api_get(item(id))
+
+      raise ArgumentError, "#{key}: #{id} is not a file" unless file?(entry)
+      raise ArgumentError, "#{key}: #{id} is outside #{folder}" unless under?(entry, folder)
+
+      entry
     end
 
     def locator_for(entry)
@@ -93,9 +111,15 @@ class Resource
     end
 
     def locator_key_for(entry)
-      return entry.to_s unless entry.is_a?(Hash)
+      entry.is_a?(Hash) ? entry["id"].to_s : entry.to_s
+    end
 
-      path_of(entry).presence || entry["id"].to_s
+    def title_for(entry)
+      entry["name"].presence || entry["id"].to_s
+    end
+
+    def mime_for(entry)
+      MimeType.for_filename(entry["name"].to_s)
     end
 
     def download(locator)
@@ -112,26 +136,74 @@ class Resource
       { "folder" => wanted, "files" => Array(found["value"]).map { |entry| described(entry) } }
     end
 
+    def command_keep(id:) = kept(id)
+
     def command_get(id:)
-      described(api_get("#{DRIVE}/items/#{id}"))
+      described(api_get(item(id)))
     end
 
     private
 
-      def wanted?(entry, prefix)
-        return false unless entry.is_a?(Hash)
-        return false if entry["deleted"].present? || entry["folder"].present?
-        return false if entry["file"].blank?
+      def item(id)
+        raise ArgumentError, "#{key}: #{id.inspect} is not a OneDrive item id" unless id.to_s.match?(ITEM_ID)
 
-        under = prefix.presence || folder
+        "#{DRIVE}/items/#{id}"
+      end
 
-        under.blank? || locator_key_for(entry).start_with?("#{under.delete_prefix('/').chomp('/')}/")
+      def delta(held, walk)
+        api_get(held)
+      rescue Api::Expired
+        raise if walk.nil? || walk.full?
+
+        walk.start_over!
+        api_get("#{DRIVE}/root/delta")
+      end
+
+      def file?(entry)
+        !entry.key?("deleted") && !entry.key?("folder") && entry.key?("file")
+      end
+
+      def kept?(entry)
+        file?(entry) && under?(entry, folder)
+      end
+
+      def under?(entry, within)
+        wanted = within.to_s.delete_prefix("/").chomp("/")
+
+        wanted.blank? || path_of(entry).downcase.start_with?("#{wanted.downcase}/")
+      end
+
+      def learn(entry)
+        id = entry["id"]
+        return if id.blank?
+
+        if entry.key?("deleted")
+          folders.delete(id)
+        elsif entry.key?("root")
+          folders[id] = ""
+        elsif entry.key?("folder")
+          folders[id] = path_of(entry)
+        end
       end
 
       def path_of(entry)
-        held = entry.dig("parentReference", "path").to_s.sub(ROOT, "")
+        parent = entry["parentReference"].to_h
+        above = parent["path"].present? ? parent["path"].sub(ROOT, "") : folder_path(parent["id"])
 
-        [ held.presence, entry["name"] ].compact.join("/").delete_prefix("/")
+        [ above.presence, entry["name"] ].compact.join("/").delete_prefix("/")
+      end
+
+      def folder_path(id)
+        return nil if id.blank?
+
+        folders.fetch(id) do
+          found = api_get("#{DRIVE}/items/#{id}", "$select": "id,name,parentReference,root")
+          folders[id] = found.key?("root") ? "" : path_of(found)
+        end
+      end
+
+      def folders
+        @folders ||= {}
       end
 
       def described(entry)
@@ -142,7 +214,7 @@ class Resource
           "size" => entry["size"],
           "mime_type" => entry.dig("file", "mimeType"),
           "modified_at" => entry["lastModifiedDateTime"],
-          "folder" => entry["folder"].present?
+          "folder" => entry.key?("folder")
         }
       end
 

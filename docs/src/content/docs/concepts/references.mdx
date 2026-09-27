@@ -53,13 +53,13 @@ again clears `gone_at`.
 
 Only a full walk can tell what is missing. A walk of only what changed has no information about what
 it did not visit, so it marks nothing as gone. The exception is a source that reports deletions
-itself, as the commits since a git checkpoint do.
+itself, as the commits since a git checkpoint and a OneDrive delta do. A OneDrive delta also marks a
+file as gone when it moves out of the resource's folder.
 
 A reference that was only ever kept by hand has no `seen_at`, and a sync that does not reach it
 never marks it as gone. RSS does not detect deletions at all, because an entry that scrolls out of
-a feed's window has not been removed. OneDrive does not detect them either, until its delta keys are
-reliable. A filesystem walk that could not read a directory marks nothing as gone, because the files
-it missed may still be there.
+a feed's window has not been removed. A filesystem walk that could not read a directory marks
+nothing as gone, because the files it missed may still be there.
 
 `source_version` belongs to a copy. When an export writes a feed into another resource, the new
 reference records the version of the original it was copied from. The next export compares the two
