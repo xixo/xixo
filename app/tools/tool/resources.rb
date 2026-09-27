@@ -3,7 +3,8 @@ module Tool
     tool_name "resource"
     scope "uris:resources:read"
 
-    READ = %w[list describe runs get parameters search forecast].freeze
+    READ = %w[list describe runs get parameters search forecast find reverse nearby].freeze
+    PLACES = %w[find reverse nearby].freeze
     WRITE = %w[check sync keep export cancel put snapshot].freeze
     RUNS = %w[sync export].freeze
 
@@ -19,7 +20,9 @@ module Tool
       with no key it lists the places there are. Some places reach the web: one that can
       search takes do=search with input {"query": "..."}, and one that can fetch reads a page
       with do=get and input {"url": "https://..."}, and one that serves weather takes
-      do=forecast with input {"place": "Toronto"}. Credentials never travel through here:
+      do=forecast with input {"place": "Toronto"}, and one that knows places takes do=find with input
+      {"query": "..."}, do=reverse with a latitude and longitude, or do=nearby with a kind such as
+      cafe and a place. Credentials never travel through here:
       connecting a resource is a browser flow.
     TEXT
 
@@ -90,6 +93,7 @@ module Tool
       Current.grant.permit!(WEB) if verb == "search" && resource.capabilities.include?(:search)
       Current.grant.permit!(WEB) if verb == "get" && resource.capabilities.include?(:fetch)
       Current.grant.permit!(WEB) if verb == "forecast" && resource.capabilities.include?(:weather)
+      Current.grant.permit!(WEB) if PLACES.include?(verb) && resource.capabilities.include?(:places)
       kept!(resource) if KEEPING.include?(verb)
       within_budget! if RUNS.include?(verb)
 

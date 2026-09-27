@@ -41,6 +41,7 @@ The fields for every type, with their help text, are listed in the
 | **The web** | `web` | Optionally **Render width** |
 | **A feed** | `rss` | **Feed URL** |
 | **Weather** | `weather` | **Provider** and **Units**, and an **API key** for Open-Meteo's paid service |
+| **Places** | `places` | Nothing, or your own **Search server** and **Nearby server** |
 | **A mailbox** | `imap` | **Server**, **Username**, **Password**, and optionally **Port**, **Over TLS**, and **Mailbox** |
 | **Calendars**, **Contacts** | `caldav`, `carddav` | **Collection URL**, and a username and password if the server wants them |
 | **A model backend** | `openai-compatible` | **Base URL**, a model for each role you want it to serve, and an **API key** if the backend wants one |
@@ -57,7 +58,11 @@ the search index was built for, `URIS_EMBEDDING_DIMENSIONS`.
 To give [questions](/guides/ask/) the web, attach **Web search** to search it, **Fetch a page** to read
 pages, and **The web** to keep pages as items. Attach **Weather** so a question about the weather is
 answered with the forecast itself. Each weather resource is one provider and key, so attach another
-to use a second. **The web** writes its snapshots to default storage.
+to use a second. Attach **Places** so a question can find an address, name coordinates, or look for
+what is near a place. It uses OpenStreetMap's public Nominatim and Overpass servers, which ask for
+about one request a second, so point it at your own for heavy use. **Name where photos were taken**
+sends the coordinates in each photo's EXIF to the search server and catalogs the photo by the
+address it names. It is off until you turn it on. **The web** writes its snapshots to default storage.
 
 ## Accounts connected through masks
 

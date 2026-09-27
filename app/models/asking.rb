@@ -211,9 +211,9 @@ class Asking
     listed = catalogued(held)
     partial = partly_read(held)
 
-    forecasted = held.any? { |call| @reach.forecasted?(call) }
+    looked_up = held.any? { |call| @reach.looked_up?(call) }
 
-    if listed.any? && !opened && !read && !forecasted
+    if listed.any? && !opened && !read && !looked_up
       <<~TEXT.squish
         You answered from catalog search results without opening any of them. Open the ones your
         answer draws on with feed, one call each, with arguments like
@@ -227,7 +227,7 @@ class Asking
         #{partial.first(SUGGESTED).map { |id, _| { id: id, find: 'the words the task is about' }.to_json }.join(' or ')},
         or read on with #{partial.first(SUGGESTED).map { |id, to| { id: id, from: to }.to_json }.join(' or ')}, then answer.
       TEXT
-    elsif !opened && !searched && !read && !forecasted && @reach.web?
+    elsif !opened && !searched && !read && !looked_up && @reach.web?
       "Nothing you read came from the catalog, so look at the web before you answer. #{@reach.told}"
     elsif searched && !read && @reach.readable?
       <<~TEXT.squish
@@ -314,6 +314,7 @@ class Asking
         "search the catalog and open what they find",
         ("search the web" if @reach.engines.any?),
         ("look up the weather" if @reach.forecasters.any?),
+        ("find places, addresses and what is near them" if @reach.mappers.any?),
         ("read pages" if @reach.readable?),
         ("keep pages as items in the catalog" if @reach.keepers.any?),
         "make notes of what has no page of its own"

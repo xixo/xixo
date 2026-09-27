@@ -32,6 +32,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | [`microsoft-graph`](#microsoft-graph) | `integration` | yes |
 | [`git`](#git) | — | yes |
 | [`weather`](#weather) | `weather` |  |
+| [`places`](#places) | `places` |  |
 
 ## s3
 
@@ -598,3 +599,33 @@ Weather. Current conditions and the forecast for any place, looked up when asked
 | Command | Arguments |
 | --- | --- |
 | `forecast` | `place: string?` `latitude: number?` `longitude: number?` `days: integer?` |
+
+## places
+
+Places. Addresses, coordinates, and what is nearby, from OpenStreetMap. It answers without a key: Nominatim finds a place and names coordinates, and Overpass finds what is around them. The public servers ask for a light touch, so point it at your own for heavy use.
+
+|  |  |
+| --- | --- |
+| Serves | `places` |
+| Accepts | — |
+| Up to | — |
+| Syncs | no |
+| Connected through masks | no |
+| Attached from the app | yes |
+
+### Fields
+
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `provider` | Provider | choice of `openstreetmap` |  |  |  |  |
+| `search_url` | Search server | string |  |  |  | A Nominatim server. Left off, the public one, which allows about one request a second. |
+| `nearby_url` | Nearby server | string |  |  |  | An Overpass API interpreter. Left off, the public one. |
+| `photos` | Name where photos were taken | boolean |  |  |  | Sends the coordinates in each photo's EXIF to the search server, so a photo is catalogued by the place it was taken. |
+
+### Commands
+
+| Command | Arguments |
+| --- | --- |
+| `find` | `query: string` `limit: integer?` |
+| `reverse` | `latitude: number` `longitude: number` |
+| `nearby` | `kind: string` `place: string?` `latitude: number?` `longitude: number?` `radius: integer?` |

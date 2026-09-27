@@ -1,4 +1,5 @@
 class Reach
+  PLACED = %w[find reverse nearby].freeze
   def initialize(grant)
     @grant = grant
   end
@@ -19,8 +20,12 @@ class Reach
     @forecasters ||= keys(:weather)
   end
 
+  def mappers
+    @mappers ||= keys(:places)
+  end
+
   def web?
-    engines.any? || fetchers.any? || forecasters.any?
+    engines.any? || fetchers.any? || forecasters.any? || mappers.any?
   end
 
   def readable?
@@ -33,7 +38,8 @@ class Reach
     [
       (%(Search it with resource, do=search, key #{quoted(engines)}, input {"query": "..."}.) if engines.any?),
       (%(Read a page with resource, do=get, key #{quoted(fetchers)}, input {"url": "https://..."}.) if fetchers.any?),
-      (%(Look up the weather with resource, do=forecast, key #{quoted(forecasters)}, input {"place": "..."}.) if forecasters.any?)
+      (%(Look up the weather with resource, do=forecast, key #{quoted(forecasters)}, input {"place": "..."}.) if forecasters.any?),
+      (%(Find a place or address with resource, do=find, key #{quoted(mappers)}, input {"query": "..."}, and what is near it with do=nearby, input {"place": "...", "kind": "cafe"}.) if mappers.any?)
     ].compact.join(" ")
   end
 
@@ -46,7 +52,7 @@ class Reach
   def searched?(call) = called?(call, "search", engines)
   def fetched?(call) = called?(call, "get", fetchers)
   def kept?(call) = called?(call, "snapshot", keepers)
-  def forecasted?(call) = called?(call, "forecast", forecasters)
+  def looked_up?(call) = called?(call, "forecast", forecasters) || PLACED.any? { |verb| called?(call, verb, mappers) }
 
   def read?(call)
     fetched?(call) || kept?(call)

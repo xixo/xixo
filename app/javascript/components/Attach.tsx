@@ -27,6 +27,7 @@ import {
   IconFolders,
   IconGitBranch,
   IconMail,
+  IconMapPin,
   IconPlug,
   IconPuzzle,
   IconRss,
@@ -69,6 +70,7 @@ const GLYPHS: Record<string, Glyph> = {
   'microsoft-graph': IconBrandOnedrive,
   search: IconSearch,
   weather: IconCloud,
+  places: IconMapPin,
   curl: IconWorldDownload,
   web: IconWorld,
   rss: IconRss,
@@ -88,7 +90,10 @@ const GROUPS: { title: string; types: string[] }[] = [
     title: 'Where your files live',
     types: ['s3', 'webdav', 'filesystem', 'oauth-google', 'microsoft-graph'],
   },
-  { title: 'The web', types: ['search', 'curl', 'web', 'rss', 'weather'] },
+  {
+    title: 'The web',
+    types: ['search', 'curl', 'web', 'rss', 'weather', 'places'],
+  },
   {
     title: 'Mail, calendars and contacts',
     types: ['imap', 'caldav', 'carddav'],

@@ -40,6 +40,11 @@ seeded.each do |tenant|
       resource.details = {}
     end
 
+    Resource::Places.find_or_create_by!(key: "places") do |places|
+      places.name = "Places"
+      places.details = { "provider" => "openstreetmap", "photos" => "true" }
+    end
+
     Resource::Weather.find_or_create_by!(key: "weather") do |weather|
       weather.name = "Weather"
       weather.details = { "provider" => "open-meteo", "units" => "metric" }
