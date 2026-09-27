@@ -44,6 +44,7 @@ import {
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
 import { hrefFor, lookOf, TYPE, toned } from '../looks'
+import { Connections } from './Connections'
 import { Conversation } from './Conversation'
 import { Passes, placementOf, why } from './Passes'
 import { Readout } from './Readout'
@@ -58,7 +59,6 @@ const FACETS = new Set<string>([TYPE.tag, TYPE.mime])
 
 const ABOUT: Record<string, string> = {
   [TYPE.tag]: 'Everything filed under this tag.',
-  [TYPE.mime]: 'Everything whose bytes are of this content type.',
   [TYPE.feed]: 'What this feed has kept.',
 }
 
@@ -112,7 +112,7 @@ export function ItemDetail() {
   const pictured = viewable.filter(
     (reference) => !reference.contentType?.startsWith('audio/'),
   )
-  const filed = item.connected.filter((held) => FACETS.has(held.type))
+  const filed = [...item.tags, ...item.mimes]
 
   const untag = async (key: string) => {
     const answered = await untagging.execute({
@@ -128,9 +128,6 @@ export function ItemDetail() {
   }
   const drawnOn = new Set(
     item.analyses.flatMap((pass) => pass.drewOn.map((held) => held.id)),
-  )
-  const related = item.connected.filter(
-    (held) => !FACETS.has(held.type) && !drawnOn.has(held.id),
   )
   const placement = placementOf(item.analyses)
   const name = item.title ?? item.key
@@ -420,13 +417,7 @@ export function ItemDetail() {
         />
       )}
 
-      {item.asked && (
-        <Conversation
-          feedId={item.id}
-          cited={item.connected}
-          onChanged={settled}
-        />
-      )}
+      {item.asked && <Conversation feedId={item.id} onChanged={settled} />}
 
       {!facet && !item.asked && item.summary && (
         <Stack gap="var(--s2)">
@@ -465,23 +456,13 @@ export function ItemDetail() {
         </Stack>
       )}
 
-      {related.length > 0 && (
-        <Stack gap="var(--s3)">
-          <div className="label">Connections</div>
-          {ABOUT[item.type] && (
-            <Text size="sm" c="dimmed">
-              {ABOUT[item.type]}
-            </Text>
-          )}
-          <Rows rows={related} />
-        </Stack>
-      )}
-
-      {facet && related.length === 0 && (
-        <Text size="sm" c="dimmed">
-          Nothing is filed under this yet.
-        </Text>
-      )}
+      <Connections
+        key={`${item.id}-${item.connectedCount}`}
+        id={item.id}
+        hidden={drawnOn}
+        facet={facet}
+        about={ABOUT[item.type]}
+      />
 
       {!facet && !item.asked && item.details.length > 0 && (
         <Section label="Details">

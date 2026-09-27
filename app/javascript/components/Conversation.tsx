@@ -62,11 +62,9 @@ function DrewOn({ rows, onChanged }: { rows: Row[]; onChanged: () => void }) {
 
 export function Conversation({
   feedId,
-  cited,
   onChanged,
 }: {
   feedId: string
-  cited: readonly Row[]
   onChanged: () => void
 }) {
   const [question, setQuestion] = useState('')
@@ -125,7 +123,10 @@ export function Conversation({
             />
           ) : pass.status === 'done' && pass.said ? (
             <>
-              <AnswerText said={pass.said} cited={cited} />
+              <AnswerText
+                said={pass.said}
+                cited={[...(data?.feed?.connected ?? []), ...pass.drewOn]}
+              />
               {pass.drewOn.length > 0 && (
                 <DrewOn rows={pass.drewOn as Row[]} onChanged={onChanged} />
               )}

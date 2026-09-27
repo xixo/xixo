@@ -103,7 +103,10 @@ query FeedDetail($id: ID!) {
     children {
       ...Row
     }
-    connected {
+    tags {
+      ...Row
+    }
+    mimes {
       ...Row
     }
     references {
