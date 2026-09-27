@@ -210,8 +210,16 @@ class Feed < ApplicationRecord
     Edge.between(self, other)&.destroy
   end
 
+  def reindex! = index_for_search
+
   def file_under!(key)
     connect!(Feed.tag!(key))
+    index_for_search
+  end
+
+  def take_out_of!(key)
+    held = Feed.tags.by_key(key).first
+    disconnect!(held) if held
     index_for_search
   end
 

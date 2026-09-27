@@ -143,10 +143,19 @@ mutation CancelAnalysis($id: ID!) {
   }
 }
 
-mutation TagFeeds($ids: [ID!]!, $tag: String!) {
-  tagFeeds(input: { ids: $ids, tag: $tag }) {
+mutation TagFeeds($ids: [ID!]!, $tag: String!, $tagged: Boolean) {
+  tagFeeds(input: { ids: $ids, tag: $tag, tagged: $tagged }) {
     feeds {
       id
+    }
+  }
+}
+
+query Tags {
+  feeds(types: ["uris:tag"], limit: 200) {
+    nodes {
+      id
+      key
     }
   }
 }

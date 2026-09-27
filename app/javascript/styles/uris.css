@@ -1957,19 +1957,9 @@ a.tag:hover {
   border-color: var(--brass-dim);
 }
 
-.tagger input {
+.tagger-field {
   flex: 1;
   min-width: 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: var(--t-small);
-}
-
-.tagger input::placeholder {
-  color: var(--muted);
 }
 
 .entry-pick {
@@ -1986,4 +1976,29 @@ a.tag:hover {
 
 .entry[data-picked] {
   background: var(--lifted);
+}
+
+.filed-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.filed-untag {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.filed-untag:hover,
+.filed-untag:focus-visible {
+  background: var(--lifted);
+  color: var(--bad);
 }

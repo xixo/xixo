@@ -2,8 +2,14 @@ require "test_helper"
 
 class TaggingTest < ActionDispatch::IntegrationTest
   TAG = <<~GQL.freeze
-    mutation($ids: [ID!]!, $tag: String!) {
-      tagFeeds(input: { ids: $ids, tag: $tag }) { feeds { id } }
+    mutation($ids: [ID!]!, $tag: String!, $tagged: Boolean) {
+      tagFeeds(input: { ids: $ids, tag: $tag, tagged: $tagged }) { feeds { id } }
+    }
+  GQL
+
+  CONNECT = <<~GQL.freeze
+    mutation($id: ID!, $otherId: ID!, $connected: Boolean) {
+      connectFeeds(input: { id: $id, otherId: $otherId, connected: $connected }) { feed { id } }
     }
   GQL
 
@@ -31,6 +37,7 @@ class TaggingTest < ActionDispatch::IntegrationTest
       assert_equal [ "wonky name" ], @one.reload.tags.pluck(:key)
       assert_equal [ @one.id, @two.id ].sort, Feed.tagged("wonky name").pluck(:id).sort
       assert_equal [ @one.id, @two.id ].sort, Feed.search("wonky name").where.not(type: Feed::TAG).pluck(:id).sort
+      assert_equal [ @one.id, @two.id ].sort, Feed.search(nil, tag: "wonky name").pluck(:id).sort
     end
   end
 
@@ -38,6 +45,39 @@ class TaggingTest < ActionDispatch::IntegrationTest
     2.times { execute(TAG, variables: { ids: [ @one.id ], tag: "twice" }) }
 
     Tenant.switch(@tenant) { assert_equal 1, @one.reload.tags.where(key: "twice").count }
+  end
+
+  test "an item is taken out of a tag it was filed under, and the others stay in" do
+    execute(TAG, variables: { ids: [ @one.id, @two.id ], tag: "keep" })
+    execute(TAG, variables: { ids: [ @one.id ], tag: "keep", tagged: false })
+    SearchIndex.refresh!
+
+    Tenant.switch(@tenant) do
+      assert_empty @one.reload.tags.where(key: "keep")
+      assert_equal [ "keep" ], @two.reload.tags.pluck(:key)
+      assert_equal [ @two.id ], Feed.search("keep").where.not(type: Feed::TAG).pluck(:id)
+      assert_equal [ @two.id ], Feed.search(nil, tag: "keep").pluck(:id)
+    end
+  end
+
+  test "taking an item out of a tag it never had is harmless" do
+    body = execute(TAG, variables: { ids: [ @one.id ], tag: "never", tagged: false })
+
+    assert_equal [ @one.id.to_s ], body.dig("data", "tagFeeds", "feeds").map { |held| held["id"] }
+  end
+
+  test "connecting an item to a tag feed by hand reaches search too" do
+    held = Tenant.switch(@tenant) { Feed.tag!("by hand") }
+
+    execute(CONNECT, variables: { id: @one.id, otherId: held.id })
+    SearchIndex.refresh!
+
+    Tenant.switch(@tenant) { assert_equal [ @one.id ], Feed.search(nil, tag: "by hand").pluck(:id) }
+
+    execute(CONNECT, variables: { id: @one.id, otherId: held.id, connected: false })
+    SearchIndex.refresh!
+
+    Tenant.switch(@tenant) { assert_empty Feed.search(nil, tag: "by hand").pluck(:id) }
   end
 
   test "a blank tag is refused" do

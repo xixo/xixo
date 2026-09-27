@@ -1,6 +1,7 @@
-import { Button } from '@mantine/core'
+import { Autocomplete, Button } from '@mantine/core'
 import { IconTag } from '@tabler/icons-react'
-import { TagFeedsDocument } from '@uris-to/client'
+import { TagFeedsDocument, TagsDocument } from '@uris-to/client'
+import { useQuery } from '@uris-to/client/react'
 import { useState } from 'react'
 import { useAloud, useSay } from './Say'
 
@@ -19,6 +20,8 @@ export function Tagger({
   const say = useSay()
   const tagging = useAloud(TagFeedsDocument, 'That could not be tagged.')
   const name = tag.trim()
+  const { data, refetch } = useQuery(TagsDocument)
+  const known = (data?.feeds.nodes ?? []).map((held) => held.key)
 
   const submit = async () => {
     if (!name || ids.length === 0) return
@@ -28,6 +31,7 @@ export function Tagger({
     if (!answered?.tagFeeds) return
 
     setTag('')
+    refetch()
     say({
       text: `${ids.length === 1 ? 'Tagged' : `Tagged ${ids.length} items`} ${name}.`,
     })
@@ -43,12 +47,18 @@ export function Tagger({
       }}
     >
       <IconTag size={15} stroke={1.7} color="var(--brass)" />
-      <input
+      <Autocomplete
+        className="tagger-field"
+        variant="unstyled"
+        size="xs"
         value={tag}
-        onChange={(event) => setTag(event.currentTarget.value)}
+        onChange={setTag}
+        data={known}
+        limit={8}
+        maxLength={100}
         placeholder={placeholder}
         aria-label={placeholder}
-        maxLength={100}
+        comboboxProps={{ withinPortal: true }}
       />
       <Button
         type="submit"

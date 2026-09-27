@@ -15,6 +15,7 @@ import {
   IconNote,
   IconPencil,
   IconSparkles,
+  IconX,
 } from '@tabler/icons-react'
 import {
   AnalyzeFeedDocument,
@@ -25,6 +26,7 @@ import {
   RenameFeedDocument,
   SetFeedLifetimeDocument,
   SplitReferenceDocument,
+  TagFeedsDocument,
 } from '@uris-to/client'
 import { useQuery } from '@uris-to/client/react'
 import {
@@ -75,6 +77,7 @@ export function ItemDetail() {
   )
   const rename = useAloud(RenameFeedDocument, 'That name could not be kept.')
   const note = useAloud(NoteFeedDocument, 'That note could not be kept.')
+  const untagging = useAloud(TagFeedsDocument, 'That tag could not be removed.')
   const lifetime = useAloud(
     SetFeedLifetimeDocument,
     'That could not be kept for good.',
@@ -302,14 +305,37 @@ export function ItemDetail() {
       {filed.length > 0 && (
         <div className="filed">
           {filed.map((held) => (
-            <Link
-              key={held.id}
-              to={hrefFor(held)}
-              className="tag"
-              style={toned(lookOf(held).tone)}
-            >
-              {held.key}
-            </Link>
+            <span key={held.id} className="filed-tag">
+              <Link
+                to={hrefFor(held)}
+                className="tag"
+                style={toned(lookOf(held).tone)}
+              >
+                {held.key}
+              </Link>
+              {held.type === TYPE.tag && !facet && (
+                <button
+                  type="button"
+                  className="filed-untag"
+                  aria-label={`Remove the tag ${held.key}`}
+                  disabled={untagging.loading}
+                  onClick={async () => {
+                    const answered = await untagging.execute({
+                      ids: [item.id],
+                      tag: held.key,
+                      tagged: false,
+                    })
+
+                    if (!answered?.tagFeeds) return
+
+                    say({ text: `Removed ${held.key}.` })
+                    refetch()
+                  }}
+                >
+                  <IconX size={12} stroke={2} />
+                </button>
+              )}
+            </span>
           ))}
         </div>
       )}
