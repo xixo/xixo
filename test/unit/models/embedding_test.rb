@@ -107,6 +107,60 @@ class EmbeddingTest < ActiveSupport::TestCase
     end
   end
 
+  test "a model trained with prefixes gets them, one for what is kept and one for what is asked" do
+    Tenant.switch(@tenant) do
+      create_feed(mime: "application/pdf", title: "March invoice")
+
+      Embedding.sweep!
+      Embedding.query("what do I owe")
+
+      assert(@server.embedded.first.start_with?("search_document: "))
+      assert_equal "search_query: what do I owe", @server.embedded.last
+    end
+  end
+
+  test "a model uris does not know gets no prefix, and prefixes named on the backend win" do
+    assert_empty Resource::OpenaiCompatible.prefixes_for("models" => { "embedding" => "text-embedding-3-small" })
+    assert_equal({ "query" => "query: ", "document" => "passage: " },
+                 Resource::OpenaiCompatible.prefixes_for("models" => { "embedding" => "multilingual-e5-large" }))
+    assert_equal({ "query" => "Q: " },
+                 Resource::OpenaiCompatible.prefixes_for("models" => { "embedding" => "nomic-embed-text" },
+                                                         "embedding_prefixes" => { "query" => "Q: ", "document" => "" }))
+  end
+
+  test "vectors made before the prefixes were known are made again, once, feeds and passages alike" do
+    Tenant.switch(@tenant) do
+      item = create_feed(mime: "application/pdf", title: "March invoice")
+      item.update_columns(embedding: [ 1.0 ], embedded_digest: "made the old way", embedded_at: Time.current)
+      passage = Passage.create!(feed: item, position: 0, starts_at: 0, ends_at: 5, text: "March",
+                                embedding: [ 1.0 ], embedded_at: Time.current)
+      item.update_columns(passages_digest: Digest::SHA256.hexdigest(item.body_text(without: [ :summary ]).to_s).first(32))
+
+      Embedding.sweep!
+
+      assert @brain.reload.vectors_current?
+      assert_not_equal "made the old way", item.reload.embedded_digest
+      assert_nil passage.reload.embedded_at
+
+      Passage.embed!
+      calls = @server.count_for("/v1/embeddings")
+      Embedding.sweep!
+
+      assert_equal calls, @server.count_for("/v1/embeddings"), "nothing is made twice"
+    end
+  end
+
+  test "changing a prefix on the backend re-embeds the catalogue" do
+    Tenant.switch(@tenant) do
+      create_feed(mime: "application/pdf", title: "March invoice")
+      Embedding.sweep!
+
+      @brain.update!(details: @brain.details.merge("embedding_prefixes" => { "query" => "find: ", "document" => "doc: " }))
+
+      assert_equal 1, Feed.unembedded.count
+    end
+  end
+
   test "changing something else about the backend leaves the catalogue alone" do
     Tenant.switch(@tenant) do
       create_feed(mime: "application/pdf", title: "March invoice")

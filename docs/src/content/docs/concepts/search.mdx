@@ -113,8 +113,18 @@ When a feed is selected in the catalog, the catalog uses `connectedTo` to list t
 characters of its body, up to 8,000 characters in total. uris stores a digest of that text and the
 model name next to the vector. If the digest has not changed, uris sets `embedded_at` without
 embedding the feed again. Changing a title or a note, finishing an analysis, or saving a reference
-clears `embedded_at`. Changing the embedding model clears it for every feed in the tenant, because
-vectors from two models cannot be compared. The vector's dimension is `URIS_EMBEDDING_DIMENSIONS`,
+clears `embedded_at`.
+
+Some embedding models were trained with a prefix on each text, one for what is stored and one for
+what is searched, and match poorly without it. uris puts `search_document: ` and `search_query: `
+before texts for `nomic-embed-text`, `passage: ` and `query: ` for e5 models, and the searching
+instruction mxbai, bge, and snowflake-arctic-embed expect before queries. A model backend's **Query
+prefix** and **Document prefix** replace these.
+
+The model and its prefixes make a signature. Every digest includes it, and the backend keeps the
+signature its vectors were made with. When the two differ, because the model or a prefix changed,
+the next sweep clears `embedded_at` on every feed and passage in the tenant, since vectors made two
+ways cannot be compared. The vector's dimension is `URIS_EMBEDDING_DIMENSIONS`,
 768 by default.
 
 ## Passages

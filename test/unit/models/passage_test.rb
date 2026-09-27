@@ -89,7 +89,7 @@ class PassageTest < ActiveSupport::TestCase
     Tenant.switch(@other) { Passage.sweep! }
     PassageIndex.refresh!
 
-    assert(@server.embedded.all? { |text| text.start_with?("Shed manual\n") })
+    assert(@server.embedded.all? { |text| text.start_with?("search_document: Shed manual\n") })
 
     Tenant.switch(@tenant) do
       wanted = Passage.where(feed: feed).find_by!(position: 3)
@@ -121,7 +121,7 @@ class PassageTest < ActiveSupport::TestCase
 
   test "a passage deep in a long document brings the document into search, and the result carries it" do
     feed = manual_in(@tenant)
-    @server.embeds_as("what if the roof leaks", pointing(21))
+    @server.embeds_as("search_query: what if the roof leaks", pointing(21))
 
     Tenant.switch(@tenant) do
       Passage.cut!(feed.reload)

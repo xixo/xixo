@@ -24,8 +24,8 @@ module Embedding
       ].compact_blank.join("\n").strip.truncate(MAX_TEXT)
     end
 
-    def digest_of(text, model)
-      Digest::SHA256.hexdigest([ model, text ].join("\n")).first(32)
+    def digest_of(text, signature)
+      Digest::SHA256.hexdigest([ signature, text ].join("\n")).first(32)
     end
 
     def query(text, resource: held)
@@ -34,7 +34,7 @@ module Embedding
       wanted = text.to_s.truncate(MAX_TEXT)
 
       Rails.cache.fetch(query_key(resource, wanted), expires_in: QUERY_HELD) do
-        resource.embed([ wanted ]).first
+        resource.embed([ wanted ], as: :query).first
       end
     rescue Resource::Failed
       nil
@@ -44,14 +44,16 @@ module Embedding
       resource = held
       return 0 if resource.nil?
 
+      resource.forget_vectors! unless resource.vectors_current?
+
       items = Feed.unembedded.includes(:analyses, children: :analyses).limit(limit).to_a
       return 0 if items.empty?
 
       items.each { |item| Passage.cut!(item) }
 
-      model = resource.model_for(ROLE)
+      signature = resource.embedding_signature
       wanted = items.to_h { |item| [ item.id, gist(item) ] }
-      digests = wanted.transform_values { |text| digest_of(text, model) }
+      digests = wanted.transform_values { |text| digest_of(text, signature) }
       moved, settled = items.partition { |item| item.embedded_digest != digests.fetch(item.id) }
 
       settle(settled)
@@ -85,7 +87,7 @@ module Embedding
       end
 
       def query_key(resource, text)
-        [ "embedding", Current.tenant&.id, resource.id, resource.model_for(ROLE),
+        [ "embedding", Current.tenant&.id, resource.id, resource.embedding_signature,
           Digest::SHA256.hexdigest(text).first(32) ].join("/")
       end
   end

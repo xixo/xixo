@@ -30,7 +30,7 @@ class SemanticSearchTest < ActiveSupport::TestCase
   end
 
   test "a query finds an item that shares no word with it" do
-    @server.embeds_as("what did the vet say", near)
+    @server.embeds_as("search_query: what did the vet say", near)
 
     Tenant.switch(@demo) do
       semantic = create_feed(mime: "application/pdf", title: "Rosie annual checkup")
@@ -48,7 +48,7 @@ class SemanticSearchTest < ActiveSupport::TestCase
   end
 
   test "a lexical hit the vector missed is kept, not replaced" do
-    @server.embeds_as("invoice", near)
+    @server.embeds_as("search_query: invoice", near)
 
     Tenant.switch(@demo) do
       lexical = create_feed(mime: "application/pdf", title: "March invoice")
@@ -66,7 +66,7 @@ class SemanticSearchTest < ActiveSupport::TestCase
   end
 
   test "a neighbour that is only the nearest of strangers is not a match" do
-    @server.embeds_as("pelican", near)
+    @server.embeds_as("search_query: pelican", near)
 
     Tenant.switch(@demo) do
       stranger = create_feed(mime: "application/pdf", title: "certificate")
@@ -165,7 +165,7 @@ class SemanticSearchTest < ActiveSupport::TestCase
 
       3.times { Feed.search("quarterly report") }
 
-      assert_equal 1, @server.embedded.count("quarterly report")
+      assert_equal 1, @server.embedded.count("search_query: quarterly report")
     end
   end
 

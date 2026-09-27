@@ -20,6 +20,12 @@ class Resource
     TOOL_ROLES = [ AGENT_ROLE, SCOUT_ROLE ].freeze
     EMBEDDING_ROLE = "embedding"
     EFFORTS = %w[none minimal low medium high].freeze
+    ASKING = "Represent this sentence for searching relevant passages: ".freeze
+    KNOWN_PREFIXES = [
+      [ /nomic-embed/, { "query" => "search_query: ", "document" => "search_document: " } ],
+      [ /(\A|[^a-z])e5([^a-z]|\z)/, { "query" => "query: ", "document" => "passage: " } ],
+      [ /mxbai-embed|bge-[a-z]+-en|snowflake-arctic-embed/, { "query" => ASKING, "document" => "" } ]
+    ].freeze
     EMBED_PROBE = "an invoice from acme for four thousand two hundred dollars".freeze
     MAX_EMBED = 8_000
     CHAIN_TIMEOUT = 120
@@ -63,6 +69,11 @@ class Resource
           field("models.embedding", "Embedding model",
                 help: "What search compares meaning with. Its vectors have to be the width " \
                       "the index was built for."),
+          field("embedding_prefixes.query", "Query prefix",
+                help: "Put before a search when it is embedded. Left off, uris uses what nomic-embed-text, " \
+                      "e5, mxbai and bge were trained with, and nothing for any other model."),
+          field("embedding_prefixes.document", "Document prefix",
+                help: "Put before what is catalogued when it is embedded. Left off, as above."),
           field("routine_effort", "Effort on routine work", kind: "choice", value: "",
                 options: [ { value: "", label: "As the model likes" } ] +
                          EFFORTS.map { |effort| { value: effort, label: effort } },
@@ -84,7 +95,41 @@ class Resource
     validate :it_names_an_endpoint
     validate :its_routine_effort_is_known
 
-    after_update :reconsider_every_vector, if: :embedding_model_changed?
+    after_update :forget_vectors!, if: :embedding_signature_changed?
+
+    def self.prefixes_for(details)
+      held = details.to_h
+      given = held["embedding_prefixes"].to_h.slice("query", "document").compact_blank
+      return given if given.any?
+
+      model = held.dig("models", EMBEDDING_ROLE).to_s
+      KNOWN_PREFIXES.find { |pattern, _| model.match?(pattern) }&.last || {}
+    end
+
+    def self.signature_for(details)
+      model = details.to_h.dig("models", EMBEDDING_ROLE)
+      return nil if model.blank?
+
+      Digest::SHA256.hexdigest([ model, prefixes_for(details) ].to_json).first(16)
+    end
+
+    def embedding_signature
+      self.class.signature_for(details)
+    end
+
+    def embedding_prefix(as)
+      self.class.prefixes_for(details)[as.to_s].to_s
+    end
+
+    def vectors_current?
+      details.to_h["embedded_with"] == embedding_signature
+    end
+
+    def forget_vectors!
+      Feed.where.not(embedded_at: nil).update_all(embedded_at: nil)
+      Passage.where.not(embedded_at: nil).update_all(embedded_at: nil)
+      update_column(:details, details.merge("embedded_with" => embedding_signature))
+    end
 
     def models
       details.fetch("models", {})
@@ -160,8 +205,9 @@ class Resource
             "let the index rebuild itself"
     end
 
-    def embed(texts)
-      wanted = Array(texts).map { |text| scrub(text).truncate(MAX_EMBED) }
+    def embed(texts, as: :document)
+      prefix = embedding_prefix(as)
+      wanted = Array(texts).map { |text| "#{prefix}#{scrub(text)}".truncate(MAX_EMBED) }
       return [] if wanted.empty?
 
       model = model_for(EMBEDDING_ROLE)
@@ -352,14 +398,10 @@ class Resource
       # Two models do not share a vector space, so a catalogue half embedded by each is a
       # catalogue that answers neither well. Changing the model clears every stamp, and the
       # sweep does the rest.
-      def embedding_model_changed?
+      def embedding_signature_changed?
         before, after = saved_change_to_details
 
-        before.to_h.dig("models", EMBEDDING_ROLE) != after.to_h.dig("models", EMBEDDING_ROLE)
-      end
-
-      def reconsider_every_vector
-        Feed.where.not(embedded_at: nil).update_all(embedded_at: nil)
+        self.class.signature_for(before) != self.class.signature_for(after)
       end
 
       def it_names_an_endpoint

@@ -69,7 +69,7 @@ class FeedReadingTest < ActiveSupport::TestCase
     ENV["URIS_INFERENCE_ORIGINS"] = server.origin
     PassageIndex.reset!
     toward = Array.new(SearchIndex::VECTOR_DIMENSIONS, 0.0).tap { |vector| vector[11] = 1.0 }
-    server.embeds_as("what if the roof leaks", toward)
+    server.embeds_as("search_query: what if the roof leaks", toward)
 
     Tenant.switch(@tenant) do
       Resource::OpenaiCompatible.create!(
