@@ -71,6 +71,10 @@ under the step `book`. The `text` step starts with those details and continues w
 text in reading order, one line per paragraph. A chapter listed in `META-INF/encryption.xml` is
 skipped, so a book sold with DRM is cataloged by its details alone.
 
+`Image` reads a photo's GPS coordinates from its EXIF into the step `location`. When a **Places**
+resource has **Name where photos were taken** on, it asks that resource for the address, records it
+under the step `place`, and tells the summary where the photo was taken.
+
 `Media` claims audio and video. The `probe` step records the length, streams, and tags such as
 title, artist, and album. For anything with a sound track, one `ffmpeg` pass records the `signal`
 step: integrated loudness and loudness range in LUFS, true peak, the silent spans, and the median
