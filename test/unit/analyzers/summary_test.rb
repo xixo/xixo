@@ -173,6 +173,32 @@ class SummaryTest < ActiveSupport::TestCase
     end
   end
 
+  test "a long text is summarized from summaries of its parts, all on the summary model" do
+    inference!
+    long = (1..350).map { |line| "Line #{line} of the long pelican report counts birds at the estuary." }.join("\n")
+    Tenant.switch(@tenant) { store("long.txt", long) }
+    sync
+
+    3.times { |part| @server.answer_json({ summary: "Part #{part + 1} counts pelicans." }) }
+    @server.answer_json({ summary: "A long pelican report." })
+    analyze "long.txt"
+
+    Tenant.switch(@tenant) do
+      steps = steps_at("long.txt")
+
+      assert_equal [ "Part 1 counts pelicans.", "Part 2 counts pelicans.", "Part 3 counts pelicans." ],
+                   steps.dig("sections", "result")
+      assert_equal "A long pelican report.", steps.dig("summary", "result", "summary")
+    end
+
+    assert_match(/part 1 of 3 of a file/, @server.prompts.first)
+    assert_match(/read in 3 parts.*1\. Part 1 counts pelicans\./m, @server.prompts.last)
+
+    analyze "long.txt"
+
+    assert_equal 4, @server.count_for("/v1/chat/completions"), "the parts are read once"
+  end
+
   test "a health check does not re-summarize the catalog" do
     inference!
     @server.answer_json({ summary: "first" })

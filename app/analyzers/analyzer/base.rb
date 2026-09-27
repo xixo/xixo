@@ -43,6 +43,8 @@ module Analyzer
     end
 
     SUMMARY_TEXT = 10_000
+    SECTIONS = 8
+    SECTION_TEXT = 20_000
     SUMMARY_KEYWORDS = 20
 
     def self.summary_role
@@ -120,7 +122,22 @@ module Analyzer
     end
 
     def summary_body
-      fenced(step_result(:text).to_s.strip)
+      parts = Array(step_result(:sections))
+      return fenced(step_result(:text).to_s.strip) if parts.empty?
+
+      said = parts.each_with_index.map { |part, index| "#{index + 1}. #{part}" }.join("\n")
+      fenced("It is long, so it was read in #{parts.size} parts. What each part says, in order:\n\n#{said}")
+    end
+
+    def section_prompt(part, number, total)
+      <<~PROMPT
+        This is part #{number} of #{total} of a #{summary_noun}. Say what this part sets out in two or
+        three sentences, naming the people, amounts, dates, terms and conditions in it rather than
+        their category. Say only what is in it.
+
+        #{fenced(part)}
+        Return ONLY valid JSON, no markdown and no explanation: {"summary": "..."}
+      PROMPT
     end
 
     def fenced(body)
@@ -278,11 +295,12 @@ module Analyzer
       def summarize!
         return if inference.nil?
 
-        prompt = summary_prompt
-        return if prompt.blank?
-
         role = self.class.summary_role
         model = inference.model_for(role)
+        sectioned!(role, model)
+
+        prompt = summary_prompt
+        return if prompt.blank?
 
         step(:summary,
              after: [ self.class.summary_after, inference.updated_at ].max,
@@ -292,6 +310,21 @@ module Analyzer
         end
       rescue Resource::Unusable => e
         raise Analyzer::Failed, e.message
+      end
+
+      def sectioned!(role, model)
+        text = step_result(:text).to_s
+        return if text.length <= SUMMARY_TEXT
+
+        size = [ (text.length / SECTIONS.to_f).ceil, SUMMARY_TEXT ].max.clamp(..SECTION_TEXT)
+        parts = text.scan(/.{1,#{size}}/m).first(SECTIONS)
+
+        step(:sections, digest: Digest::SHA256.hexdigest([ inference.key, model, size, text ].to_json)) do
+          parts.each_with_index.filter_map do |part, index|
+            answered = inference.summarize(section_prompt(part, index + 1, parts.size), role: role, analysis: analysis)
+            answered["summary"].to_s.strip.presence
+          end
+        end
       end
 
       def shaped(answer)
