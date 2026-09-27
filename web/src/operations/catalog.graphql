@@ -203,7 +203,9 @@ mutation NoteFeed($id: ID!, $note: String) {
 }
 
 mutation AskCatalog($question: String!, $feedId: ID, $aboutId: ID) {
-  askCatalog(input: { question: $question, feedId: $feedId, aboutId: $aboutId }) {
+  askCatalog(
+    input: { question: $question, feedId: $feedId, aboutId: $aboutId }
+  ) {
     feed {
       id
       title

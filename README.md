@@ -22,10 +22,10 @@ token.
 
 ## Interfaces
 
-| Path | Client | Authorization |
-| --- | --- | --- |
-| `/graphql` | The browser app, and [`@uris-to/client`](web/README.md) | A masks session, or a bearer token |
-| `/mcp` | An MCP client, such as Claude | A masks token, with typed tools and per-token grants |
+| Path       | Client                                                  | Authorization                                        |
+| ---------- | ------------------------------------------------------- | ---------------------------------------------------- |
+| `/graphql` | The browser app, and [`@uris-to/client`](web/README.md) | A masks session, or a bearer token                   |
+| `/mcp`     | An MCP client, such as Claude                           | A masks token, with typed tools and per-token grants |
 
 Both call the domain layer directly. uris does not expose GraphQL as an MCP tool, because a single
 passthrough tool cannot be partially granted. The Ruby schema is the source of truth, and the

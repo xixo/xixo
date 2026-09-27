@@ -168,7 +168,14 @@ services:
     volumes:
       - ./script/mcp_oauth_server.rb:/script/mcp_oauth_server.rb:ro
     healthcheck:
-      test: ["CMD", "ruby", "-rsocket", "-e", "TCPSocket.new('127.0.0.1', 8190).close"]
+      test:
+        [
+          "CMD",
+          "ruby",
+          "-rsocket",
+          "-e",
+          "TCPSocket.new('127.0.0.1', 8190).close",
+        ]
       interval: 5s
       timeout: 5s
       retries: 30
