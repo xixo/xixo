@@ -886,6 +886,14 @@ a.entry:hover {
   color: var(--tone);
 }
 
+.thumb-wave {
+  display: block;
+  height: 96px;
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+  background: var(--void);
+}
+
 .drop {
   position: fixed;
   inset: 0;

@@ -329,21 +329,38 @@ export function ItemDetail() {
 
       {viewable.length > 0 && (
         <Group align="flex-start" gap="var(--s4)">
-          {viewable.map((reference) => (
-            <a
-              key={reference.id}
-              href={reference.contentUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Thumb
-                url={reference.thumbnailUrl}
-                looked={item}
-                alt={reference.filename}
-                size={230}
-              />
-            </a>
-          ))}
+          {viewable.map((reference) =>
+            reference.contentType?.startsWith('audio/') ? (
+              <a
+                key={reference.id}
+                href={reference.contentUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{ maxWidth: '100%' }}
+              >
+                <img
+                  src={reference.thumbnailUrl ?? undefined}
+                  alt={reference.filename}
+                  loading="lazy"
+                  className="thumb-wave"
+                />
+              </a>
+            ) : (
+              <a
+                key={reference.id}
+                href={reference.contentUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Thumb
+                  url={reference.thumbnailUrl}
+                  looked={item}
+                  alt={reference.filename}
+                  size={230}
+                />
+              </a>
+            ),
+          )}
         </Group>
       )}
 
