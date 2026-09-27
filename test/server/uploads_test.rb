@@ -194,6 +194,38 @@ class UploadsTest < ActionDispatch::IntegrationTest
     assert_nil response.parsed_body["duplicate"]
   end
 
+  test "a file on someone else's personal resource is not revealed as a duplicate" do
+    Tenant.switch(@tenant) do
+      feed = Feed.create!(type: Feed::FILE, key: "theirs.txt", title: "theirs.txt")
+      private_store = Resource::Database.create!(key: "private-#{SecureRandom.hex(3)}", name: "Private",
+                                                 owner_subject: "someone-else")
+
+      Reference.create!(feed: feed, resource: private_store, locator_key: "theirs.txt", role: Reference::ORIGINAL,
+                        digest: Digest::SHA256.hexdigest("their secret"))
+    end
+
+    upload "probe.txt", "their secret"
+
+    assert_response :accepted
+    assert_nil response.parsed_body["duplicate"]
+  end
+
+  test "a file on an archived resource is not a duplicate" do
+    Tenant.switch(@tenant) do
+      feed = Feed.create!(type: Feed::FILE, key: "old.txt", title: "old.txt")
+      old = Resource::Database.create!(key: "old-#{SecureRandom.hex(3)}", name: "Old")
+
+      Reference.create!(feed: feed, resource: old, locator_key: "old.txt", role: Reference::ORIGINAL,
+                        digest: Digest::SHA256.hexdigest("archived bytes"))
+      old.update_columns(archived_at: Time.current)
+    end
+
+    upload "again.txt", "archived bytes"
+
+    assert_response :accepted
+    assert_nil response.parsed_body["duplicate"]
+  end
+
   test "a tenant with nowhere that accepts the file is told so rather than staging it" do
     Tenant.switch(@tenant) { @storage.update!(archived_at: Time.current) }
 

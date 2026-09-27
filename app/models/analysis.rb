@@ -109,9 +109,10 @@ class Analysis < ApplicationRecord
   end
 
   def cancel!
-    return false unless open?
+    moved = Analysis.where(id: id, status: OPEN).update_all(status: "cancelled", finished_at: Time.current)
+    return false if moved.zero?
 
-    update_columns(status: "cancelled", finished_at: Time.current)
+    reload
     publish!
     true
   end

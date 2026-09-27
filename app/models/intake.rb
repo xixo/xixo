@@ -9,7 +9,7 @@ class Intake
   end
 
   class << self
-    def write!(path:, body:, mime: nil, title: nil, source: nil, cause: "upload", unique: false)
+    def write!(path:, body:, mime: nil, title: nil, source: nil, cause: "upload", unique: false, grant: nil)
       key = key_for(path)
       type = mime.presence || MimeType.for_filename(key)
       size = body.is_a?(String) ? body.bytesize : body.size
@@ -19,15 +19,19 @@ class Intake
       end
 
       digest = Fingerprint.of(body)
-      twin = unique ? twin_of(digest) : nil
-
-      return Landed.new(feed: twin, duplicate: true) if twin
 
       feed, staged = ActiveRecord::Base.transaction do
+        alone!(digest) if unique
+
+        twin = unique ? twin_of(digest, grant) : nil
+        next [ twin, nil ] if twin
+
         held = already_at(key) || created(title.presence || File.basename(key))
 
         [ held, Staged.stage!(held, path: key, body: body, mime: type, source: source, digest: digest) ]
       end
+
+      return Landed.new(feed: feed, duplicate: true) if staged.nil?
 
       Landed.new(feed: feed, staged: staged, analysis: feed.analyze!(cause: cause))
     end
@@ -69,8 +73,16 @@ class Intake
         placed&.feed || waiting_at(key)
       end
 
-      def twin_of(digest)
-        placed = Reference.originals.where(digest: digest, gone_at: nil).order(:id).first
+      def alone!(digest)
+        lock = Zlib.crc32("#{Current.tenant&.id}:#{digest}")
+
+        ActiveRecord::Base.connection.execute("SELECT pg_advisory_xact_lock(#{lock.to_i})")
+      end
+
+      def twin_of(digest, grant)
+        placed = Reference.originals
+                          .where(digest: digest, gone_at: nil, resource: Resource.visible_to(grant))
+                          .order(:id).first
         return placed.feed if placed
 
         attachment = ActiveStorage::Attachment

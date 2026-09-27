@@ -25,6 +25,8 @@ module Mutations
         feeds.each { |feed| tagged ? feed.file_under!(key) : feed.take_out_of!(key) }
       end
 
+      feeds.each(&:reindex!)
+
       { feeds: feeds }
     end
   end

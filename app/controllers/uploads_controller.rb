@@ -9,7 +9,8 @@ class UploadsController < ApplicationController
     landed = Intake.write!(
       path: params[:path].presence || file.original_filename,
       body: file.tempfile,
-      unique: true
+      unique: true,
+      grant: grant
     )
 
     return already_there(landed.feed) if landed.duplicate

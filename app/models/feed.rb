@@ -214,13 +214,11 @@ class Feed < ApplicationRecord
 
   def file_under!(key)
     connect!(Feed.tag!(key))
-    index_for_search
   end
 
   def take_out_of!(key)
     held = Feed.tags.by_key(key).first
     disconnect!(held) if held
-    index_for_search
   end
 
   def destroy_if_empty!
