@@ -217,27 +217,6 @@ export function ItemDetail() {
 
         {!facet && (
           <Group gap="var(--s2)" wrap="nowrap">
-            <Button
-              radius="xl"
-              variant="default"
-              leftSection={<IconRefresh size={16} />}
-              loading={analyze.loading}
-              onClick={async () => {
-                const answered = await analyze.execute({ id: item.id })
-
-                if (!answered) return
-
-                say({
-                  text: item.asked
-                    ? 'Asking again.'
-                    : `Analyzing ${name} again.`,
-                })
-                refetch()
-              }}
-            >
-              {item.asked ? 'Ask again' : 'Re-analyze'}
-            </Button>
-
             {!item.asked && (
               <Button
                 radius="xl"
@@ -273,6 +252,24 @@ export function ItemDetail() {
                   onClick={() => setTaggerOpen(true)}
                 >
                   Tag
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconRefresh size={15} stroke={1.6} />}
+                  disabled={analyze.loading}
+                  onClick={async () => {
+                    const answered = await analyze.execute({ id: item.id })
+
+                    if (!answered) return
+
+                    say({
+                      text: item.asked
+                        ? 'Asking again.'
+                        : `Analyzing ${name} again.`,
+                    })
+                    refetch()
+                  }}
+                >
+                  {item.asked ? 'Ask again' : 'Re-analyze'}
                 </Menu.Item>
                 <Menu.Divider />
                 <Menu.Item
@@ -465,7 +462,7 @@ export function ItemDetail() {
       )}
 
       {(originals.length > 0 || item.staged) && (
-        <Section label="Where it lives" defaultOpen={item.staged}>
+        <Section label="Storage" defaultOpen={item.staged}>
           <div className="panel">
             {item.staged && (
               <div
