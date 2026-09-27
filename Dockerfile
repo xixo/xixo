@@ -22,7 +22,7 @@ WORKDIR /rails
 # working perfectly on a laptop that has them from the Brewfile.
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y \
-      curl libjemalloc2 libvips libvips-tools libraw-bin poppler-utils tesseract-ocr \
+      curl libjemalloc2 libvips libvips-tools libraw-bin libimage-exiftool-perl libarchive-zip-perl poppler-utils tesseract-ocr \
       ffmpeg \
       libreoffice-writer postgresql-client \
       chromium fonts-liberation fonts-noto-color-emoji && \

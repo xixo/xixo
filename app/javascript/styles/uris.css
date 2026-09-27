@@ -2011,3 +2011,91 @@ a.tag:hover {
   background: var(--lifted);
   color: var(--bad);
 }
+
+.readout {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: var(--s5);
+  padding: var(--s4) var(--s5);
+}
+
+.readout-group {
+  display: grid;
+  align-content: start;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+.readout-group[data-wide="true"] {
+  grid-column: 1 / -1;
+}
+
+.readout-name {
+  margin: 0;
+}
+
+.readout-list {
+  display: grid;
+  grid-template-columns: minmax(6rem, max-content) minmax(0, 1fr);
+  column-gap: var(--s4);
+  row-gap: var(--s1);
+  margin: 0;
+  font-size: var(--t-small);
+}
+
+.readout-row {
+  display: contents;
+}
+
+.readout-row dt {
+  color: var(--muted);
+}
+
+.readout-row dd {
+  margin: 0;
+  color: var(--soft);
+  overflow-wrap: anywhere;
+}
+
+.readout-row[data-starts="true"] dt,
+.readout-row[data-starts="true"] dd {
+  margin-top: var(--s2);
+  padding-top: var(--s2);
+  border-top: 1px solid var(--line);
+}
+
+.readout-more {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+
+.readout-more:hover {
+  color: var(--soft);
+}
+
+@media (max-width: 640px) {
+  .readout {
+    padding: var(--s3) var(--s4);
+  }
+
+  .readout-list {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 0;
+  }
+
+  .readout-row dd {
+    margin-bottom: var(--s2);
+  }
+
+  .readout-row[data-starts="true"] dd {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+}

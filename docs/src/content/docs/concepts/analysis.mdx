@@ -48,6 +48,12 @@ Four steps are bookkeeping: `placement`, `derived`, `answer`, and `drew_on`. The
 file went, which previews were rendered, what the agent said, and which feeds an answer used. The
 text a feed extracts leaves them out, so the search body does not index a storage path.
 
+A feed's `details` field turns the steps of its current analysis into labelled rows, grouped by
+the step that produced them, and the item page shows them under **Read out of it**. Nested values
+are flattened into one row each, a list of records such as attachments or events numbers each
+record, and a row an earlier step already showed is not repeated. Embedded metadata comes last.
+Text, the summary, the judges' verdicts, and the bookkeeping steps are left out.
+
 ## The analyzer
 
 `Analyzer.for` picks an analyzer by the feed's mime type. It walks `Analyzer.all` in order and takes
@@ -91,15 +97,23 @@ Every analyzer inherits the same sequence from `Analyzer::Base`:
 2. **Derive** a thumbnail and a preview for images, video, audio, PDFs, and pages. Audio gets a
    picture of its waveform. They are stored as
    references in the internal `derived` store, under the step `derived`.
-3. **Analyze** with the analyzer's own steps, such as `text`, `info`, or `listing`.
-4. **Summarize** with the inference [resource](/concepts/resources/) that serves the analyzer's role.
+3. **Describe** the file with `exiftool` under the step `metadata`: EXIF, XMP, and IPTC from photos,
+   camera and lens details, QuickTime and ID3 tags, PDF and Office document properties, and the
+   like. The step keeps up to 200 named values and drops file system details, maker notes, binary
+   blobs, and container plumbing such as byte offsets and header versions. It skips pages, entries,
+   plain text, JSON, and XML, whose content is their own metadata. `exiftool` stops after 30
+   seconds.
+4. **Analyze** with the analyzer's own steps, such as `text`, `info`, or `listing`. The download
+   made for the metadata is reused here, so the file is fetched once.
+5. **Summarize** with the inference [resource](/concepts/resources/) that serves the analyzer's role.
    A text longer than 10,000 characters is first read in up to eight parts, each summarized on the
    same model under the step `sections`, and the summary is written from those.
    The role is `smart` by default, `vision` for images and pages, and `fast` for email and the
    fallback. The prompt fences the file's text and tells the model to treat it as data. uris
    reduces the model's answer to a summary, up to 20 entities, and up to 20 keywords. It drops
-   stopwords and keywords longer than four words. If no resource serves the role, there is no
-   summary.
+   stopwords and keywords longer than four words. A feed's keywords combine both lists, without
+   the feed's own name and without any term of fewer than two letters or digits. If no resource
+   serves the role, there is no summary.
 
 If derive, analyze, or summarize fails, uris skips that part and continues. The reference is marked
 analyzed either way.

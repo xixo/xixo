@@ -6,6 +6,10 @@ module Analyzer
       feed.mime == MimeType::PAGE
     end
 
+    def self.carries_bytes?
+      false
+    end
+
     def self.summary_role
       :vision
     end

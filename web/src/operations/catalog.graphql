@@ -86,6 +86,13 @@ query FeedDetail($id: ID!) {
     note
     expiresAt
     keywords
+    details {
+      group
+      step
+      item
+      label
+      value
+    }
     connectedCount
     parent {
       id

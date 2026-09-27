@@ -72,6 +72,24 @@ class AnalyzerTest < ActiveSupport::TestCase
     end
   end
 
+  test "a file's embedded metadata is read once its bytes are down, and plain text is left alone" do
+    analyze_feed_at "photo.png"
+    analyze_feed_at "invoice.pdf"
+    analyze_feed_at "notes.txt"
+
+    Tenant.switch(@tenant) do
+      photo = steps_at("photo.png").dig("metadata", "result")
+
+      assert_equal "120x80", photo["ImageSize"]
+      assert_equal "Grayscale", photo["ColorType"]
+      assert_not photo.key?("ExifVersion")
+      assert_not photo.key?("FileName")
+
+      assert_equal 1, steps_at("invoice.pdf").dig("metadata", "result", "PageCount")
+      assert_not steps_at("notes.txt").key?("metadata")
+    end
+  end
+
   test "a csv yields its columns and row count" do
     analyze_feed_at "rows.csv"
 

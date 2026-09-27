@@ -169,7 +169,11 @@ class Analysis < ApplicationRecord
   end
 
   def keywords
-    summary_terms("keywords") + summary_terms("entities")
+    named = [ feed&.key, feed&.title ].compact.map(&:downcase)
+
+    (summary_terms("keywords") + summary_terms("entities"))
+      .reject { |word| named.include?(word.downcase) || word.scan(/[[:alnum:]]/).size < 2 }
+      .uniq(&:downcase)
   end
 
   def summary_terms(key)

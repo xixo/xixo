@@ -4,6 +4,10 @@ module Analyzer
       feed.mime == MimeType::ENTRY
     end
 
+    def self.carries_bytes?
+      false
+    end
+
     def analyze
       step(:entry) { entry_of(reference) }
       step(:text) { body_of(reference).truncate(MAX_TEXT) }

@@ -1,5 +1,6 @@
 brew "vips"
 brew "libraw"
+brew "exiftool"
 brew "poppler"
 brew "tesseract"
 brew "tesseract-lang"

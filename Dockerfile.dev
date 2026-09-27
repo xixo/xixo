@@ -27,7 +27,7 @@ WORKDIR /rails
 
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y \
-      build-essential curl git libjemalloc2 libpq-dev libvips libvips-tools libraw-bin \
+      build-essential curl git libjemalloc2 libpq-dev libvips libvips-tools libraw-bin libimage-exiftool-perl libarchive-zip-perl \
       libyaml-dev pkg-config poppler-utils postgresql-client tesseract-ocr ffmpeg \
       libreoffice-writer \
       chromium fonts-liberation fonts-noto-color-emoji && \

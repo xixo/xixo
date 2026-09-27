@@ -41,6 +41,7 @@ import { useTitle } from '../hooks/useTitle'
 import { hrefFor, lookOf, TYPE, toned } from '../looks'
 import { Conversation } from './Conversation'
 import { Passes, placementOf, why } from './Passes'
+import { Readout } from './Readout'
 import { Rows } from './Rows'
 import { useAloud, useSay } from './Say'
 import { Sure } from './Sure'
@@ -390,6 +391,13 @@ export function ItemDetail() {
               </div>
             )}
           </div>
+        </Stack>
+      )}
+
+      {!facet && !item.asked && item.details.length > 0 && (
+        <Stack gap="var(--s2)">
+          <div className="label">Read out of it</div>
+          <Readout details={item.details} />
         </Stack>
       )}
 

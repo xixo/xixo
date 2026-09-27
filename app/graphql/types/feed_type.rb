@@ -26,6 +26,9 @@ module Types
           description: "What a model made of it, or until one has, the start of the text read out of it."
     field :keywords, [ String ], null: false,
           description: "Search terms a model drew out of it."
+    field :details, [ Types::DetailType ], null: false,
+          description: "Everything its last analysis read out of it that has a name and a value, " \
+                       "such as embedded metadata, dimensions, and document info, grouped by where it came from."
     field :thumbnail_url, String
     field :created_at, GraphQL::Types::ISO8601DateTime, null: false
 
@@ -65,6 +68,10 @@ module Types
 
     def keywords
       object.keywords
+    end
+
+    def details
+      Details.of(object.analysis)
     end
 
     def connected_count = object.edges.count

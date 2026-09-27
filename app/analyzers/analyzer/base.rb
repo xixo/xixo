@@ -20,6 +20,10 @@ module Analyzer
       name.demodulize.underscore
     end
 
+    def self.carries_bytes?
+      true
+    end
+
     def run
       extract_children! if feed.depth < Feed::DEPTH
 
@@ -28,8 +32,11 @@ module Analyzer
       analysis&.update_columns(reference_id: reference&.id)
 
       begin
-        attempt { derive! } if reference && Thumbnail.available_for?(reference.mime)
-        attempt { analyze } if reference
+        keeping_download do
+          attempt { derive! } if reference && Thumbnail.available_for?(reference.mime)
+          attempt { describe! } if reference && self.class.carries_bytes? && Metadata.describes?(feed.mime)
+          attempt { analyze } if reference
+        end
         attempt { summarize! }
       ensure
         stamp_analyzed!
@@ -161,6 +168,14 @@ module Analyzer
       step(:derived) { Thumbnail.stored!(feed, reference) }
     rescue Thumbnail::Unavailable => e
       raise Analyzer::Failed, e.message
+    end
+
+    def describe!
+      step(:metadata, digest: Metadata::VERSION) do
+        with_tempfile { |path| Metadata.read(path) }
+      rescue Metadata::Unreadable => e
+        raise Analyzer::Failed, e.message
+      end
     end
 
     def preview
@@ -383,7 +398,37 @@ module Analyzer
         true
       end
 
-      def with_tempfile
+      def keeping_download
+        @keeping = true
+        yield
+      ensure
+        @keeping = false
+        @kept&.close!
+        @kept = nil
+      end
+
+      def with_tempfile(&block)
+        return yield(@kept.path) if @kept && @kept_for == reference
+        return downloaded(&block) unless @keeping
+
+        @kept&.close!
+        @kept = nil
+        file = Tempfile.new([ "feed", File.extname(reference.locator_key.to_s) ], binmode: true)
+
+        begin
+          IO.copy_stream(reference.download, file)
+          file.flush
+        rescue StandardError
+          file.close!
+          raise
+        end
+
+        @kept = file
+        @kept_for = reference
+        yield file.path
+      end
+
+      def downloaded
         Tempfile.create([ "feed", File.extname(reference.locator_key.to_s) ], binmode: true) do |file|
           IO.copy_stream(reference.download, file)
           file.flush
