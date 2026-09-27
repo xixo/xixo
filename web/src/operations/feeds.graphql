@@ -132,3 +132,13 @@ mutation DeleteFeed($id: ID!) {
     kept
   }
 }
+
+mutation CancelAnalysis($id: ID!) {
+  cancelAnalysis(input: { id: $id }) {
+    cancelled
+    analysis {
+      id
+      status
+    }
+  }
+}

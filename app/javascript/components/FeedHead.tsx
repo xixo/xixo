@@ -8,6 +8,7 @@ import {
 } from '@tabler/icons-react'
 import {
   AnalysisProgressedDocument,
+  CancelAnalysisDocument,
   DeleteFeedDocument,
   PauseFeedDocument,
   RunFeedDocument,
@@ -308,7 +309,37 @@ export function Progress({ pass, cap }: { pass: Pass; cap?: number | null }) {
     if (Array.isArray(streamed?.turns)) setTurns(agentTurns(streamed.turns))
   }, [streamed])
 
+  const cancel = useAloud(
+    CancelAnalysisDocument,
+    'That run could not be stopped.',
+  )
+  const say = useSay()
+  const [stopped, setStopped] = useState(false)
+
+  const stop = async () => {
+    const answered = await cancel.execute({ id: pass.id })
+
+    if (!answered) return
+
+    setStopped(true)
+    say({ text: 'The run was stopped.' })
+  }
+
+  const stopper = (
+    <Button
+      size="compact-xs"
+      variant="subtle"
+      color="red"
+      loading={cancel.loading}
+      onClick={stop}
+    >
+      Stop
+    </Button>
+  )
+
   const latest = turns[turns.length - 1]
+
+  if (stopped || status === 'cancelled') return null
 
   if (status === 'queued') {
     return (
@@ -320,6 +351,7 @@ export function Progress({ pass, cap }: { pass: Pass; cap?: number | null }) {
         <div className="run-card-head">
           <span className="tag">queued</span>
           <span className="eyebrow">asked {when(pass.createdAt)}</span>
+          {stopper}
         </div>
         <Text size="sm" className="run-card-said">
           Waiting for a worker. A run you ask for goes ahead of files still
@@ -339,6 +371,7 @@ export function Progress({ pass, cap }: { pass: Pass; cap?: number | null }) {
       <span className="thinking-line" key={line}>
         {line}
       </span>
+      {stopper}
     </div>
   )
 }
