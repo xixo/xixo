@@ -83,7 +83,7 @@ class WebdavResourceTest < ActiveSupport::TestCase
     end
   end
 
-  test "a collection, a missing file, or one outside the prefix is not kept" do
+  test "a collection, a missing file, or one outside the prefix is neither kept nor read" do
     Tenant.switch(@tenant) do
       assert_raises(Resource::Failed) { @resource.command(:keep, key: "invoices") }
       assert_raises(Resource::Failed) { @resource.command(:keep, key: "absent.txt") }
@@ -92,6 +92,8 @@ class WebdavResourceTest < ActiveSupport::TestCase
       @resource.update!(details: @resource.details.merge("prefix" => "photos"))
 
       assert_raises(ArgumentError) { @resource.command(:keep, key: "notes.txt") }
+      assert_raises(ArgumentError) { @resource.command(:get, key: "notes.txt") }
+      assert_raises(ArgumentError) { @resource.command(:list, prefix: "invoices") }
       assert_equal 0, Feed.files.count
     end
   end
@@ -168,8 +170,8 @@ class WebdavResourceTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       @resource.update!(details: { "url" => "https://dav.example.test/files/" })
 
-      @resource.command(:get, key: "moved.txt")
-      @resource.command(:get, key: "renamed.txt")
+      @resource.download("path" => "moved.txt").read
+      @resource.download("path" => "renamed.txt").read
     end
 
     assert_not carried[:elsewhere].key?("authorization"), "the password does not follow a redirect off the server"

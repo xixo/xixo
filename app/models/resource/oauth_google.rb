@@ -78,7 +78,7 @@ class Resource
     end
 
     def locator_key_for(file)
-      file.is_a?(Hash) ? file["name"].to_s : file.to_s
+      file.is_a?(Hash) ? file["id"].to_s : file.to_s
     end
 
     def download(locator)
@@ -122,11 +122,15 @@ class Resource
         file["mimeType"].to_s.start_with?("application/vnd.google-apps.")
       end
 
+      def quoted(value)
+        "'#{value.to_s.gsub(/[\\']/) { |said| "\\#{said}" }}'"
+      end
+
       def drive_query(query, folder)
         clauses = [ "trashed = false" ]
-        clauses << "name contains '#{query.gsub("'", "\\\\'")}'" if query.present?
-        clauses << "'#{folder.gsub("'", "\\\\'")}' in parents" if folder.present?
-        clauses << details["query"] if details["query"].present?
+        clauses << "name contains #{quoted(query)}" if query.present?
+        clauses << "#{quoted(folder)} in parents" if folder.present?
+        clauses << "(#{details['query']})" if details["query"].present?
 
         clauses.join(" and ")
       end

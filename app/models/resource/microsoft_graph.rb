@@ -6,7 +6,6 @@ class Resource
     DRIVE = "/me/drive".freeze
     MAX_DOWNLOAD = 512.megabytes
     ROOT = %r{\A/[^:]*:?/?}
-    ITEM_ID = /\A[A-Za-z0-9!_-]{1,200}\z/
 
     def self.api
       API
@@ -123,14 +122,14 @@ class Resource
     end
 
     def download(locator)
-      wanted = api_redirect("#{DRIVE}/items/#{locator.fetch('id')}/content")
+      wanted = api_redirect("#{item(locator.fetch('id'))}/content")
 
       StringIO.new(pulled(wanted))
     end
 
     def command_list(folder: nil, limit: nil)
-      wanted = folder.presence || self.folder
-      path = wanted.present? ? "#{DRIVE}/root:/#{wanted}:/children" : "#{DRIVE}/root/children"
+      wanted = within_folder(folder)
+      path = wanted.present? ? "#{DRIVE}/root:/#{escaped_path(wanted)}:/children" : "#{DRIVE}/root/children"
       found = api_get(path, "$top": (limit || PAGE).to_i.clamp(1, PAGE))
 
       { "folder" => wanted, "files" => Array(found["value"]).map { |entry| described(entry) } }
@@ -139,15 +138,13 @@ class Resource
     def command_keep(id:) = kept(id)
 
     def command_get(id:)
-      described(api_get(item(id)))
+      described(object_for(id))
     end
 
     private
 
       def item(id)
-        raise ArgumentError, "#{key}: #{id.inspect} is not a OneDrive item id" unless id.to_s.match?(ITEM_ID)
-
-        "#{DRIVE}/items/#{id}"
+        "#{DRIVE}/items/#{escaped_segment(id)}"
       end
 
       def delta(held, walk)
@@ -157,6 +154,14 @@ class Resource
 
         walk.start_over!
         api_get("#{DRIVE}/root/delta")
+      end
+
+      def within_folder(asked)
+        wanted = asked.to_s.delete_prefix("/").chomp("/")
+        return folder if wanted.blank?
+        return wanted if folder.blank? || wanted.casecmp?(folder) || wanted.downcase.start_with?("#{folder.downcase}/")
+
+        raise ArgumentError, "#{key}: #{asked} is outside #{folder}"
       end
 
       def file?(entry)
@@ -197,7 +202,7 @@ class Resource
         return nil if id.blank?
 
         folders.fetch(id) do
-          found = api_get("#{DRIVE}/items/#{id}", "$select": "id,name,parentReference,root")
+          found = api_get(item(id), "$select": "id,name,parentReference,root")
           folders[id] = found.key?("root") ? "" : path_of(found)
         end
       end

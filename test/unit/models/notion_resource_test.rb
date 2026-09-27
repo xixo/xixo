@@ -117,12 +117,13 @@ class NotionResourceTest < ActiveSupport::TestCase
     end
   end
 
-  test "a database, a trashed page, or an id that is not one is not kept" do
+  test "a database, a trashed page, or an id that is not one is neither kept nor read" do
     stub_request(:get, "#{API}/pages/#{PAGE_ID}").to_return(json_response(page(PAGE_ID).merge(in_trash: true)))
 
     Tenant.switch(@tenant) do
       assert_raises(Resource::Api::Gone) { @resource.command(:keep, id: PAGE_ID) }
       assert_raises(ArgumentError) { @resource.command(:keep, id: "../users/me") }
+      assert_raises(ArgumentError) { @resource.command(:get, id: "../users/me") }
       assert_equal 0, Feed.count
     end
   end

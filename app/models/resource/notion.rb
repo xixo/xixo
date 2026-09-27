@@ -130,9 +130,9 @@ class Resource
     def command_keep(id:) = kept(id)
 
     def command_get(id:)
-      page = api_get("/pages/#{id}")
+      page = object_for(id)
 
-      described(page).merge("text" => written(id))
+      described(page).merge("text" => written(page["id"]))
     end
 
     private

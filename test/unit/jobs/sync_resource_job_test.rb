@@ -122,6 +122,8 @@ class SyncResourceJobTest < ActiveSupport::TestCase
       @resource.update!(details: @resource.details.merge("prefix" => "photos/"))
 
       assert_raises(ArgumentError) { @resource.command(:keep, key: "invoices/march.pdf") }
+      assert_raises(ArgumentError) { @resource.command(:get, key: "invoices/march.pdf") }
+      assert_raises(ArgumentError) { @resource.command(:list, prefix: "invoices/") }
       assert_equal 0, Feed.files.count
     end
   end

@@ -241,5 +241,12 @@ rest of what it found.
   within one upstream token lifetime. Masks has no way to tell uris sooner.
 - **The stand-in MCP server forgets its clients when it restarts**, so masks' registration with it
   goes stale. `./dev delegation` registers afresh on every run.
+- **Writes are not bounded by a prefix.** `put` on S3, WebDAV, and the filesystem writes anywhere in
+  the bucket or collection, because exports and snapshots write into storage under their own
+  paths. Reads are bounded; whether writes should be is undecided.
+- **IMAP reads any mailbox the account holds.** The mailbox field names what syncs, and `list`,
+  `get`, and `search` take another by name.
+- **A Google Drive `get` is not bounded by the resource's query.** Drive cannot test one file id
+  against a query, so `get` reaches any file the account can.
 - **Errors carry the address they failed on**, userinfo included for the types that do not refuse
   it.

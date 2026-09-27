@@ -81,10 +81,7 @@ class Resource
     def object_for(name)
       permitted_root!
 
-      path = lexical(name).relative_path_from(root.cleanpath).to_s
-      wanted = details["prefix"].presence
-
-      raise ArgumentError, "#{key}: #{path} is outside #{wanted}" if wanted && !path.start_with?(wanted)
+      path = within_prefix(lexical(name).relative_path_from(root.cleanpath).to_s)
 
       resolved = confine(path)
 
@@ -147,7 +144,7 @@ class Resource
     end
 
     def command_get(key:)
-      file = download("path" => key)
+      file = download(locator_for(object_for(key)))
 
       glimpse(key, file.read(GLIMPSE_BYTES), file.size)
     ensure
@@ -236,8 +233,15 @@ class Resource
         (path.to_s.split("/") <=> cursor.to_s.split("/")).to_i.positive?
       end
 
+      def within_prefix(asked)
+        wanted = details["prefix"].presence
+        return asked.presence || wanted if wanted.nil? || asked.to_s.start_with?(wanted)
+
+        raise ArgumentError, "#{key}: #{asked} is outside #{wanted}"
+      end
+
       def walk(prefix = nil)
-        wanted = prefix.presence || details["prefix"].presence
+        wanted = within_prefix(prefix)
 
         Enumerator.new do |yielder|
           descend(root, "", yielder)

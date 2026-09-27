@@ -144,11 +144,9 @@ class Resource
     def command_keep(key:) = kept(key)
 
     def command_get(key:)
-      channel, ts = key.to_s.split("/")
+      message = object_for(key)
 
-      raise ArgumentError, "#{key} is not channel/timestamp" if channel.blank? || ts.blank?
-
-      { "key" => key, "text" => download("channel" => channel, "ts" => ts).read }
+      { "key" => locator_key_for(message), "text" => download(locator_for(message)).read }
     end
 
     private

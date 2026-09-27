@@ -78,7 +78,7 @@ class Resource
       page = s3 do |client|
         client.list_objects_v2(
           bucket: bucket,
-          prefix: prefix.presence || details["prefix"],
+          prefix: within_prefix(prefix),
           continuation_token: continuation_token.presence,
           max_keys: 1000
         )
@@ -93,6 +93,8 @@ class Resource
     end
 
     def command_get(key:, version_id: nil)
+      within_prefix(key)
+
       object = s3 do |client|
         client.get_object(bucket: bucket, key: key, version_id: version_id.presence,
                           range: "bytes=0-#{GLIMPSE_BYTES - 1}")
@@ -133,9 +135,7 @@ class Resource
     end
 
     def object_for(name)
-      wanted = details["prefix"].presence
-
-      raise ArgumentError, "#{key}: #{name} is outside #{wanted}" if wanted && !name.to_s.start_with?(wanted)
+      within_prefix(name)
 
       head = s3 { |client| client.head_object(bucket: bucket, key: name.to_s) }
 
@@ -166,6 +166,13 @@ class Resource
     end
 
     private
+
+      def within_prefix(asked)
+        wanted = details["prefix"].presence
+        return asked.presence || wanted if wanted.nil? || asked.to_s.start_with?(wanted)
+
+        raise ArgumentError, "#{key}: #{asked} is outside #{wanted}"
+      end
 
       def connection
         endpoint = details.fetch("endpoint")

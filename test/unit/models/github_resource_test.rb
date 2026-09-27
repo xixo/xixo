@@ -176,6 +176,16 @@ class GithubResourceTest < ActiveSupport::TestCase
     assert_match(/Reproduced on 2\.1/, text)
   end
 
+  test "get and list read only the repositories it was attached with" do
+    Tenant.switch(@tenant) do
+      assert_raises(ArgumentError) { @resource.command(:get, key: "evil/secrets/issues/1") }
+      assert_raises(ArgumentError) { @resource.command(:get, key: "../../user/issues/1") }
+      assert_raises(ArgumentError) { @resource.command(:list, repo: "evil/secrets") }
+    end
+
+    assert_not_requested :get, %r{#{API}/(repos/evil|user)}
+  end
+
   test "a command reads one issue by its key" do
     stub_request(:get, "#{API}/repos/acme/widgets/issues/7")
       .to_return(json_response(number: 7, title: "Widget jams", body: "…", state: "open",

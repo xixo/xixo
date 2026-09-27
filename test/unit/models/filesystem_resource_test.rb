@@ -100,7 +100,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     end
   end
 
-  test "a file a sync would not walk is not kept, whether it climbs out, hides behind a symlink, or is a directory" do
+  test "a file a sync would not walk is neither kept nor read, whether it climbs out, hides behind a symlink, or is a directory" do
     secret = @allowed + "secret.txt"
     secret.write("not yours")
     File.symlink(secret, @root + "escape.txt")
@@ -109,6 +109,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       assert_raises(Resource::Filesystem::Escaped) { @resource.command(:keep, key: "../secret.txt") }
       assert_raises(Resource::Filesystem::Escaped) { @resource.command(:keep, key: "escape.txt") }
+      assert_raises(Resource::Filesystem::Escaped) { @resource.command(:get, key: "../secret.txt") }
       assert_raises(Resource::Failed) { @resource.command(:keep, key: "linked/march.pdf") }
       assert_raises(Resource::Failed) { @resource.command(:keep, key: "invoices") }
       assert_raises(Resource::Failed) { @resource.command(:keep, key: "absent.txt") }
@@ -116,6 +117,8 @@ class FilesystemResourceTest < ActiveSupport::TestCase
       @resource.update!(details: @resource.details.merge("prefix" => "photos"))
 
       assert_raises(ArgumentError) { @resource.command(:keep, key: "notes.txt") }
+      assert_raises(ArgumentError) { @resource.command(:get, key: "notes.txt") }
+      assert_raises(ArgumentError) { @resource.command(:list, prefix: "invoices") }
       assert_equal 0, Feed.files.count
     end
   end

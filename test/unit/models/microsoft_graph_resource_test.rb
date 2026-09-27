@@ -225,14 +225,30 @@ class MicrosoftGraphResourceTest < ActiveSupport::TestCase
     assert_equal "report.pdf", kept["title"]
   end
 
-  test "an id that would climb out of the items path is refused before it is sent" do
-    Tenant.switch(@tenant) do
-      assert_raises(ArgumentError) { @resource.command_keep(id: "../../users/someone") }
-      assert_raises(ArgumentError) { @resource.command_get(id: "..") }
-      assert_raises(ArgumentError) { @resource.command_get(id: "i1?$expand=children") }
-    end
+  test "an id is sent as one path segment, whatever it holds" do
+    stub_request(:get, "#{API}/me/drive/items/..%2F..%2Fusers%2Fsomeone").to_return(status: 404, body: "{}")
 
-    assert_not_requested :any, /graph\.microsoft\.com/
+    Tenant.switch(@tenant) do
+      assert_raises(Resource::Api::Gone) { @resource.command_keep(id: "../../users/someone") }
+      assert_raises(ArgumentError) { @resource.command_get(id: "..") }
+    end
+  end
+
+  test "get and list stay inside the folder it was attached with" do
+    Tenant.switch(@tenant) { @resource.update!(details: { "folder" => "Invoices" }) }
+
+    stub_request(:get, "#{API}/me/drive/items/i-holiday-jpg")
+      .to_return(json_response(file("holiday.jpg", path: "/drive/root:/Photos")))
+    stub_request(:get, "#{API}/me/drive/root:/invoices/2026%20Q1:/children")
+      .with(query: hash_including({})).to_return(json_response(value: []))
+
+    Tenant.switch(@tenant) do
+      assert_raises(ArgumentError) { @resource.command_get(id: "i-holiday-jpg") }
+      assert_raises(ArgumentError) { @resource.command_list(folder: "Photos") }
+      assert_raises(ArgumentError) { @resource.command_list(folder: "Invoices-old") }
+      assert_raises(Resource::Failed) { @resource.command_list(folder: "Invoices/../Photos") }
+      assert_equal "invoices/2026 Q1", @resource.command_list(folder: "invoices/2026 Q1")["folder"]
+    end
   end
 
   test "keep refuses a folder" do

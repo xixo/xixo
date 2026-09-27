@@ -15,7 +15,7 @@ the page that describes it in full.
 | A resource or a URL that points inside the network | Every address resolved, checked, and pinned | [Reaching addresses](#reaching-addresses) |
 | A page that attacks the browser rendering it | A locked-down Chrome behind a checking proxy | [Rendering pages](#rendering-pages) |
 | A stored file that runs script when opened | A sandbox, and downloads for anything active | [Serving files](#serving-files) |
-| A path that climbs out of its directory | Every key cleaned, every root checked | [Paths](#paths) |
+| A path or id that reaches past what a resource was attached to | Every key cleaned and encoded, every scope checked | [Paths](#paths) |
 | Text that gives a model instructions | Fenced prompts, narrow grants, and confined runs | [Models and prompt injection](#models-and-prompt-injection) |
 | A client that calls too often or runs too long | Rate limits, run budgets, and gates | [Limits](#limits) |
 | An action nobody can account for | An audit event for every call and refusal | [Audit](#audit) |
@@ -131,6 +131,12 @@ Active Storage's own routes are not drawn. Staged bytes are reached only through
 - A filesystem resource's root must be inside the tenant's own directory under
   `URIS_FILESYSTEM_ROOTS`. uris checks the real path, so a symlink cannot lead out, and a write never
   follows one.
+- A resource reads only what it was attached to. The prefix, folder, repositories, or channels
+  given when attaching it bound `get` and `list` as well as `keep` and a sync, even where its
+  credential reaches further.
+- An id or path a caller names is sent percent-encoded, one segment at a time, and a `.` or `..`
+  segment is refused before any request is made. A Google Drive search escapes its backslashes and
+  quotes, and the resource's own query clause is grouped so a search cannot widen it.
 
 See [staging](/concepts/adding/#staging) and [where resources come from](/concepts/resources/#where-they-come-from).
 

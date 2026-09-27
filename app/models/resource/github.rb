@@ -96,9 +96,8 @@ class Resource
 
     def object_for(named)
       repo, number = split(named)
-      held = repos.find { |listed| listed.casecmp?(repo) }
+      held = held_repo(repo)
 
-      raise ArgumentError, "#{key}: #{repo} is not one of the repositories it reads" if held.nil?
       raise ArgumentError, "#{named} names no issue number" unless number.to_s.match?(/\A\d+\z/)
 
       issue = api_get("/repos/#{held}/issues/#{number}").merge("repo" => held)
@@ -149,7 +148,7 @@ class Resource
     end
 
     def command_list(repo: nil, limit: nil)
-      wanted = repo.presence || repos.first
+      wanted = repo.present? ? held_repo(repo) : repos.first
       count = (limit || 30).to_i.clamp(1, PAGE)
 
       {
@@ -161,11 +160,10 @@ class Resource
     def command_keep(key:) = kept(key)
 
     def command_get(key:)
-      repo, number = split(key)
-      issue = api_get("/repos/#{repo}/issues/#{number}")
+      issue = object_for(key)
+      repo = issue.fetch("repo")
 
-      described(issue.merge("repo" => repo))
-        .merge("text" => written(repo, issue, comments(repo, number)))
+      described(issue).merge("text" => written(repo, issue, comments(repo, issue["number"])))
     end
 
     private
@@ -175,6 +173,11 @@ class Resource
           "Accept" => "application/vnd.github+json",
           "X-GitHub-Api-Version" => VERSION
         )
+      end
+
+      def held_repo(named)
+        repos.find { |listed| listed.casecmp?(named.to_s) } ||
+          raise(ArgumentError, "#{key}: #{named} is not one of the repositories it reads")
       end
 
       def readable?(repo)

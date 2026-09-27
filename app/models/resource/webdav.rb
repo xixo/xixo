@@ -75,16 +75,14 @@ class Resource
     end
 
     def object_for(name)
+      within_prefix(name)
       found = propfind(name, "0").first
-      under = details["prefix"].to_s.delete_prefix("/").chomp("/")
 
       if found.nil? || found.collection || !wanted?(found)
         raise Resource::Failed, "#{key}: nothing it catalogues at #{name}"
       end
 
-      if under.present? && !found.path.start_with?("#{under}/")
-        raise ArgumentError, "#{key}: #{found.path} is outside #{under}"
-      end
+      within_prefix(found.path)
 
       found
     end
@@ -132,7 +130,7 @@ class Resource
     end
 
     def command_get(key:)
-      bytes = download("path" => key).read
+      bytes = download(locator_for(object_for(key))).read
 
       glimpse(key, bytes, bytes.bytesize)
     end
@@ -145,12 +143,20 @@ class Resource
 
     private
 
+      def within_prefix(asked)
+        under = details["prefix"].to_s.delete_prefix("/").chomp("/")
+        held = asked.to_s.delete_prefix("/").chomp("/")
+        return held.presence || under if under.blank? || held == under || held.start_with?("#{under}/")
+
+        raise ArgumentError, "#{key}: #{asked} is outside #{under}"
+      end
+
       def wanted?(_entry)
         true
       end
 
       def walk(prefix = nil)
-        Enumerator.new { |yielder| descend(prefix.to_s.presence || details["prefix"].to_s, yielder) }.lazy
+        Enumerator.new { |yielder| descend(within_prefix(prefix).to_s, yielder) }.lazy
       end
 
       def after?(path, cursor)
@@ -220,15 +226,7 @@ class Resource
       end
 
       def url_for(path)
-        parts = path.to_s.split("/").reject(&:empty?)
-
-        if parts.intersect?(%w[. ..])
-          raise Resource::Failed, "#{key}: #{path} climbs out of the collection"
-        end
-
-        segments = parts.map { |part| ERB::Util.url_encode(part) }
-
-        URI.join(base, segments.join("/")).to_s
+        URI.join(base, escaped_path(path)).to_s
       end
 
       def ancestors_of(name)

@@ -154,13 +154,14 @@ class SlackResourceTest < ActiveSupport::TestCase
     end
   end
 
-  test "a reply, or a channel the bot is not in, is not kept" do
+  test "a reply, or a channel the bot is not in, is neither kept nor read" do
     stub_channels([ channel("C1", "general"), channel("C2", "secret", member: false) ])
     stub_history("C1", [ posted("2.0", "a reply", thread_ts: "1.0") ])
 
     Tenant.switch(@tenant) do
       assert_raises(Resource::Api::Gone) { @resource.command(:keep, key: "C1/2.0") }
       assert_raises(Resource::Api::Gone) { @resource.command(:keep, key: "C2/1.0") }
+      assert_raises(Resource::Api::Gone) { @resource.command(:get, key: "C2/1.0") }
       assert_raises(ArgumentError) { @resource.command(:keep, key: "C1") }
       assert_equal 0, Feed.count
     end

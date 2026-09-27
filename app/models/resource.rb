@@ -481,6 +481,22 @@ class Resource < ApplicationRecord
 
   private
 
+    def escaped_path(path)
+      parts = path.to_s.split("/").reject(&:empty?)
+
+      raise Resource::Failed, "#{key}: #{path} climbs out of the collection" if parts.intersect?(%w[. ..])
+
+      parts.map { |part| ERB::Util.url_encode(part) }.join("/")
+    end
+
+    def escaped_segment(value)
+      held = value.to_s
+
+      raise ArgumentError, "#{key}: #{value.inspect} does not name one thing" if held.empty? || held.in?(%w[. ..])
+
+      ERB::Util.url_encode(held)
+    end
+
     def kept(named)
       reference = keep!(object_for(named), cause: "keep")
 
