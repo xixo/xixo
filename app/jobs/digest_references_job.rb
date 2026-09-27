@@ -3,6 +3,9 @@ class DigestReferencesJob < ApplicationJob
   across_tenants!
 
   BATCH = 20
+  BUDGET = 45.seconds
+
+  limits_concurrency to: 1, key: ->(*) { "digest_references" }, duration: 10.minutes
 
   def perform
     Tenant.find_each { |tenant| Tenant.switch(tenant) { sweep } }
@@ -11,8 +14,12 @@ class DigestReferencesJob < ApplicationJob
   private
 
     def sweep
+      stop = BUDGET.from_now
+
       Reference.originals.where(digest: nil, gone_at: nil, resource: Resource.active)
                .order(:updated_at, :id).limit(BATCH).each do |reference|
+        break if Time.current > stop
+
         fingerprint(reference)
       end
     end

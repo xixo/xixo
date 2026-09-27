@@ -317,6 +317,11 @@ export function Progress({ pass }: { pass: Pass }) {
 
     if (!answered) return
 
+    if (!answered.cancelAnalysis?.cancelled) {
+      say({ text: 'That run had already finished.' })
+      return
+    }
+
     setStopped(true)
     say({ text: 'The run was stopped.' })
   }

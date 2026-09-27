@@ -79,14 +79,14 @@ class Feed < ApplicationRecord
   def to_param = tag? || address? ? key : id.to_s
 
   def self.tag!(key) = singleton!(TAG, key)
-
-  def self.reindex!(feeds)
-    SearchIndex.index_all(for_indexing.where(id: feeds.map { |held| held.respond_to?(:id) ? held.id : held }))
-  end
   def self.mime!(key) = singleton!(MIME, key)
 
   def self.singleton!(type, key)
     where(type: type).find_or_create_by!(key: key.to_s) { |feed| feed.title = key.to_s }
+  end
+
+  def self.reindex!(feeds)
+    SearchIndex.index_all(for_indexing.where(id: feeds.map(&:id)))
   end
 
   def self.address(key)
