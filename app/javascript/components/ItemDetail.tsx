@@ -106,6 +106,12 @@ export function ItemDetail() {
     (reference) => reference.role === 'original',
   )
   const viewable = originals.filter((reference) => reference.thumbnailUrl)
+  const waveforms = viewable.filter((reference) =>
+    reference.contentType?.startsWith('audio/'),
+  )
+  const pictured = viewable.filter(
+    (reference) => !reference.contentType?.startsWith('audio/'),
+  )
   const filed = item.connected.filter((held) => FACETS.has(held.type))
 
   const untag = async (key: string) => {
@@ -327,40 +333,40 @@ export function ItemDetail() {
         </Text>
       )}
 
-      {viewable.length > 0 && (
+      {waveforms.map((reference) => (
+        <a
+          key={reference.id}
+          href={reference.contentUrl}
+          target="_blank"
+          rel="noreferrer"
+          style={{ display: 'block' }}
+        >
+          <img
+            src={reference.thumbnailUrl ?? undefined}
+            alt={reference.filename}
+            loading="lazy"
+            className="thumb-wave"
+          />
+        </a>
+      ))}
+
+      {pictured.length > 0 && (
         <Group align="flex-start" gap="var(--s4)">
-          {viewable.map((reference) =>
-            reference.contentType?.startsWith('audio/') ? (
-              <a
-                key={reference.id}
-                href={reference.contentUrl}
-                target="_blank"
-                rel="noreferrer"
-                style={{ maxWidth: '100%' }}
-              >
-                <img
-                  src={reference.thumbnailUrl ?? undefined}
-                  alt={reference.filename}
-                  loading="lazy"
-                  className="thumb-wave"
-                />
-              </a>
-            ) : (
-              <a
-                key={reference.id}
-                href={reference.contentUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Thumb
-                  url={reference.thumbnailUrl}
-                  looked={item}
-                  alt={reference.filename}
-                  size={230}
-                />
-              </a>
-            ),
-          )}
+          {pictured.map((reference) => (
+            <a
+              key={reference.id}
+              href={reference.contentUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Thumb
+                url={reference.thumbnailUrl}
+                looked={item}
+                alt={reference.filename}
+                size={230}
+              />
+            </a>
+          ))}
         </Group>
       )}
 
@@ -426,7 +432,7 @@ export function ItemDetail() {
         <Stack gap="var(--s2)">
           <div className="label">Summary</div>
           <div className="panel" style={{ padding: 'var(--s4) var(--s5)' }}>
-            <Text size="sm" style={{ lineHeight: 1.6, maxWidth: '72ch' }}>
+            <Text size="sm" style={{ lineHeight: 1.6 }}>
               {item.summary}
             </Text>
           </div>
