@@ -1513,12 +1513,14 @@ a.entry:hover {
 
 .one-line-more {
   flex: none;
-  padding: 2px var(--s2);
+  padding: 3px 10px;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: var(--soft);
   font: inherit;
+  font-size: var(--t-micro);
+  font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
 }
