@@ -31,6 +31,17 @@ class PhotoPlaceTest < ActiveSupport::TestCase
     Geotag.jpeg(PHOTO.binread, latitude: 43.6545, longitude: -79.4005)
   end
 
+  def tagged_raw(*tags)
+    Tempfile.create([ "raw", ".nef" ], binmode: true) do |file|
+      file.write(PHOTO.dirname.join("photo.nef").binread)
+      file.flush
+      _, status = Open3.capture2e("exiftool", "-q", "-overwrite_original", *tags, file.path)
+      raise "exiftool could not tag #{file.path}" unless status.success?
+
+      File.binread(file.path)
+    end
+  end
+
   test "a photo's coordinates are read from its exif, and a photo without them has none" do
     steps, = analyzed(geotagged)
 
@@ -39,6 +50,17 @@ class PhotoPlaceTest < ActiveSupport::TestCase
 
     plain, = analyzed(PHOTO.binread, name: "plain.jpg")
     assert_nil plain["location"]
+  end
+
+  test "a raw photo's coordinates are read too, and a GPS block with no position in it is none" do
+    steps, = analyzed(tagged_raw("-GPSLatitude=43.6545", "-GPSLatitudeRef=N", "-GPSLongitude=79.4005",
+                                 "-GPSLongitudeRef=W"), name: "market.nef")
+
+    assert_in_delta 43.6545, steps["location"]["latitude"], 0.0001
+    assert_in_delta(-79.4005, steps["location"]["longitude"], 0.0001)
+
+    empty, = analyzed(tagged_raw("-GPSVersionID=2.3.0.0"), name: "no-fix.nef")
+    assert_nil empty["location"]
   end
 
   test "coordinates go nowhere unless a places resource has been told to name photos" do

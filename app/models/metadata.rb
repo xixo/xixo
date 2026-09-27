@@ -52,6 +52,19 @@ class Metadata
     raise Unreadable, "exiftool is not installed"
   end
 
+  def self.location(path)
+    stdout, = exiftool("-json", "-n", "-Composite:GPSLatitude", "-Composite:GPSLongitude", path)
+    latitude, longitude = JSON.parse(stdout).first.to_h.values_at("GPSLatitude", "GPSLongitude")
+    return nil unless latitude.is_a?(Numeric) && longitude.is_a?(Numeric)
+    return nil if latitude.zero? && longitude.zero?
+
+    { "latitude" => latitude.round(6), "longitude" => longitude.round(6) }
+  rescue JSON::ParserError
+    nil
+  rescue Errno::ENOENT
+    raise Unreadable, "exiftool is not installed"
+  end
+
   def self.exiftool(*args)
     Open3.popen3("exiftool", *args) do |stdin, stdout, stderr, waiter|
       stdin.close

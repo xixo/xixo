@@ -3,6 +3,7 @@ module Analyzer
     SLIVER = 10
     FLAT = 1.0
     OCR_CONTEXT = 4_000
+    LOCATED_BY = "exiftool".freeze
 
     def self.handles?(feed)
       MimeType.image?(feed.mime)
@@ -24,7 +25,7 @@ module Analyzer
 
           step(:deviation) { run_command("vips", "deviate", path).strip.to_f }
 
-          at = step(:location) { located(original) }
+          at = step(:location, digest: LOCATED_BY) { located(original) }
           placed(at) if at.present?
 
           step(:ocr) { read(path).strip.truncate(MAX_TEXT) }
@@ -55,26 +56,9 @@ module Analyzer
     private
 
       def located(path)
-        said = run_command("vipsheader", "-a", path).lines.grep(/GPS/).to_h do |line|
-          name, value = line.split(":", 2)
-          [ name.to_s.split("-").last.strip, value.to_s.strip ]
-        end
-
-        latitude = degrees(said["GPSLatitude"], said["GPSLatitudeRef"], "S")
-        longitude = degrees(said["GPSLongitude"], said["GPSLongitudeRef"], "W")
-        return nil if latitude.nil? || longitude.nil?
-
-        { "latitude" => latitude, "longitude" => longitude }
-      rescue Analyzer::Failed
+        Metadata.location(path)
+      rescue Metadata::Unreadable
         nil
-      end
-
-      def degrees(value, ref, negative)
-        parts = value.to_s.scan(%r{(\d+)/(\d+)}).first(3).map { |top, bottom| bottom.to_i.zero? ? 0.0 : top.to_f / bottom.to_i }
-        return nil unless parts.size == 3
-
-        held = (parts[0] + (parts[1] / 60) + (parts[2] / 3600)).round(6)
-        ref.to_s.start_with?(negative) ? -held : held
       end
 
       def placed(at)
