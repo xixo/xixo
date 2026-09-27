@@ -29,104 +29,92 @@ What exists to build on:
 
 ## Decisions
 
-Each has the answer this plan assumes. Change one and the phase that depends on it changes.
+Decided 2026-09-27, and built the same day.
 
-- [ ] **A file's identity is its bytes and its owner.** Two originals share a feed exactly when
+- [x] **A file's identity is its bytes and its owner.** Two originals share a feed exactly when
       they have the same join key, `(resources.owner_subject, digest)`. A tenant resource joins
       tenant resources, and a person's own resource joins only that person's. A feed never lists a
       personal place beside a shared one, so joining cannot tell others that a file sits in
       somebody's own Drive. The key stays a display name, and proposals do not come back.
-- [ ] **One rule decides membership, in one place.** `Reference#settle!` runs when a digest is
-      written and when a sync sees a new version. A reference with a digest joins the oldest feed
-      holding its join key. A reference whose version just changed, on a feed with other
-      originals, leaves for a feed of its own before anything analyzes it.
-- [ ] **Joining is automatic, and splitting is the undo.** A place split off by hand is marked
+- [x] **Membership is decided where the digest changes.** `Reference#settle!` joins, and runs
+      wherever a digest is written. `Reference#leave!` runs where a sync sees a new version: an
+      original on a feed with other originals leaves for a feed of its own before anything
+      analyzes it.
+- [x] **Joining is automatic, and splitting is the undo.** A place split off by hand is marked
       `kept_apart` and is not joined again until its bytes change.
-- [ ] **The oldest feed survives.** Before its originals move, the absorbed feed's edges are added
+- [x] **The oldest feed survives.** Before its originals move, the absorbed feed's edges are added
       to the survivor, its note is appended by `keep_note_from`, and the later expiry is kept, with
       forever beating any date. Its analyses, passages, derived references, and children are
-      destroyed with it, because they describe the bytes the survivor already describes.
-- [ ] **Empty files, gone references, and archived resources do not join.** All three are left out
-      of the join key, which is one scope, `Reference.joinable`.
-- [ ] **Near duplicates are out of scope.** A re-encoded photo, a PDF and the DOCX it came from, and
+      destroyed with it, because they describe the bytes the survivor already describes. A
+      survivor with no finished analysis and none open is analyzed.
+- [x] **Connections are one rule both ways.** A join takes the union of the edges, and a split,
+      by hand or on a new version, copies them all to the new feed along with the note and expiry.
+- [x] **Empty files, gone references, archived resources, and uris' own stores do not join.** All
+      four are left out of one scope, `Reference.joinable`. The internal `children` store holds the
+      originals of files extracted from an archive, and without this a member of a zip would join a
+      copy elsewhere and leave its archive.
+- [x] **A feed with an analysis open is not absorbed** by anyone but that analysis, which settles
+      its own feed before it reads and stops if the feed joins another.
+- [x] **Near duplicates are out of scope.** A re-encoded photo, a PDF and the DOCX it came from, and
       two files with one name and different bytes are related. They are a later plan, likely an
       edge found through embeddings.
 
 ## Phase 1: one join key, one lock
 
-- [ ] `Fingerprint.lock!(digest)`, moved out of `Intake#alone!`, which requires a transaction
-- [ ] `Reference#fingerprint!(io = download)`, moved out of `DigestReferencesJob#fingerprint`, with
-      the same version guard
-- [ ] `Reference.joinable`: originals, not gone, on active resources, with a digest that is not the
-      empty file's, and not `kept_apart`
-- [ ] `Intake#twin_of` finds its twin through `Reference.joinable` with the tenant's owner. Today it
-      takes any resource the uploader can see, so an upload can land on a feed whose only place is
-      the uploader's personal resource, and placing it in tenant storage puts a shared place beside
-      a personal one
+- [x] `Fingerprint.lock!(digest)`, moved out of `Intake#alone!`, refuses to run outside a
+      transaction
+- [x] `Reference#fingerprint!`, moved out of `DigestReferencesJob#fingerprint`, with the same
+      version guard
+- [x] `Reference.joinable`, and `Resource.external` for everything but uris' own stores
+- [x] `Intake#twin_of` finds its twin through `Reference.joinable` on the tenant's shared
+      resources. It used to take any resource the uploader could see, so an upload could land on a
+      feed whose only place was the uploader's personal resource
 
 ## Phase 2: join
 
-- [ ] `Reference#settle!`, under `Fingerprint.lock!`. It finds the oldest feed with a joinable
-      original on the same join key, adds the absorbed feed's edges, note, and expiry to it, moves
-      the absorbed originals in one `update_all`, destroys the emptied feed, and reindexes the
-      survivor once with `Feed.reindex!`. `move_to!` per row would reindex per row and clear the
-      survivor's `embedded_at`, so a join of identical bytes would embed it again
-- [ ] `fingerprint!` and `Placement#recorded` call `settle!` after writing the digest
-- [ ] Each join writes `AuditEvent.record(channel: "job")`, as `ForgetExpiredJob` does, naming the
-      survivor, the absorbed feeds, and the digest
-- [ ] What the catalog already holds: a job enqueued once by the migration that adds `kept_apart`
-      settles one reference per joinable digest held by more than one feed, per tenant
-- [ ] Tests: two resources, one file, one feed; three copies across two owners make two feeds;
-      empty files stay apart; a join never crosses tenants; edges survive the absorbed feed's
-      `forget_edges`; note and expiry follow the rules above; the search index holds the survivor
-      and not the absorbed feed; the survivor keeps its `embedded_at`
+- [x] `Reference#settle!` under `Fingerprint.lock!`, and `Feed#absorb!`, which moves the originals
+      in one `update_all` so the survivor is reindexed once with `Feed.reindex!` and keeps its
+      `embedded_at`
+- [x] `DigestReferencesJob` settles what it fingerprints. `Placement` does not settle: the upload
+      it places belongs to a feed still being analyzed, so the analysis settles its originals once
+      it has filed them
+- [x] Each join writes a `join_feeds` audit event naming the survivor, the absorbed feed, and the
+      digest
+- [x] `SettleTwinsJob`, enqueued once by the migration that adds `kept_apart`, settles what the
+      catalog already holds
 
 ## Phase 3: leave, and keep apart
 
-- [ ] `Resource#keep!` calls `settle!` after `Reference.discover!` has saved, and before `analyze!`.
-      A reference whose version changed in that discover, on a feed with other originals, `split!`s
-      into a feed that `connect!`s to everything the old feed connects to and takes its note.
-      Edges are the same rule both ways: a join takes the union, and a leave copies them all.
-      `note_version!` stays a setter
-- [ ] `feed_references.kept_apart`. `Mutations::SplitReference` sets it; `note_version!` clears it
-      where it clears the digest. The split in `keep!` does not set it
-- [ ] The Split button in `ItemDetail.tsx` becomes "Keep apart", its toast says the place stays
-      apart until its bytes change, and the places list says a place was joined because the bytes
-      are the same
-- [ ] Tests: an edited copy leaves with every edge and the note, and is analyzed alone; a kept-apart place stays apart through a
-      settle and joins again after an edit
+- [x] `Resource#keep!` calls `leave!` when `discover!` saw a new version, before `analyze!`
+- [x] `feed_references.kept_apart`. `splitReference` sets it; `note_version!` clears it where it
+      clears the digest
+- [x] The Split button is "Keep apart", and a place with the same bytes as another says so
 
 ## Phase 4: analysis settles what it reads
 
-A sync analyzes a new or changed file straight away, and `DigestReferencesJob` reaches it later,
-twenty at a time. Without this phase, each duplicate is analyzed before it joins, and a file
-touched with the same bytes leaves, is analyzed, and joins again.
-
-- [ ] In its reading phase, the analyzer hashes the tempfile `keeping_download` already holds with
-      `fingerprint!` when the original has no digest, so the digest costs no second download. If
-      `settle!` absorbs the feed, the analysis writes one step naming the survivor with
-      `write_step!`, as `Placement#noted` does, and finishes without running the rest
-- [ ] Holdings, the catalog counts, and export count feeds. Check each one reads right as joins
-      land
-- [ ] Tests: a second resource holding an analyzed file adds a reference and runs no analysis
-      steps; a touched file with the same bytes rejoins without analysis
+- [x] `AnalyzeFeedJob` fingerprints the original before it reads, when it has no digest, and
+      settles it. If the feed joins an older one, the analysis finishes and goes with the feed,
+      and the audit event records where it went. The fingerprint is a download of its own; it
+      replaces the one `DigestReferencesJob` would otherwise make, so no file is read more times
+      than before. Hashing the analyzer's kept tempfile instead would save that download and is
+      not done
+- [x] Holdings, the catalog counts, and export count feeds, so they count a joined file once
 
 ## Phase 5: say so
 
-- [ ] `docs/src/content/docs/concepts/references.mdx` gains a section on joining: the join key,
-      what survives, leaving, and keeping apart. "Moving between feeds" stops saying that sync and
-      export are the only things that move references
-- [ ] `splitReference` gets a description, `ReferenceType` gains a described `digest` field, and
-      `bin/rails docs:reference` regenerates the GraphQL reference
+- [x] `docs/src/content/docs/concepts/references.mdx` covers joining, leaving, and keeping apart
+- [x] `splitReference`'s argument and `ReferenceType.digest` are described, and the GraphQL
+      reference is regenerated
 
 ## Verification
 
-- The suite, with each phase's tests, plus these mutations each caught by a test: dropping the
-  owner from the join key, dropping the empty-file rule, joining a kept-apart reference, and
-  skipping the lock while analysis and the digest job settle the same digest
+- `test/unit/models/twins_test.rb` and an upload case in `test/server/uploads_test.rb`. Each of
+  these mutations is caught: dropping the owner from the join key, dropping the empty-file rule,
+  joining a kept-apart reference, joining uris' own stores, skipping the join before an analysis
+  reads, and skipping the leave. Skipping the lock is not caught; no test races two settles
 - Live in the dev stack: attach two filesystem resources over one folder, sync both, and watch one
   feed per file appear with two places; edit one file and watch it leave; keep a place apart and
-  sync again
+  sync again. Not yet run
 
 ## Decisions carried
 
