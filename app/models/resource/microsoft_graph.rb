@@ -77,9 +77,10 @@ class Resource
         entries = Array(found["value"]).select { |entry| entry.is_a?(Hash) }
         entries.each { |entry| learn(entry) }
 
-        walk&.gone(entries.reject { |entry| entry.key?("folder") || kept?(entry) }.pluck("id"))
+        kept, other = entries.reject { |entry| entry.key?("folder") }.partition { |entry| kept?(entry) }
+        walk.gone(other.pluck("id")) if walk && !walk.full?
 
-        batch = entries.select { |entry| kept?(entry) && under?(entry, prefix) }
+        batch = kept.select { |entry| prefix.blank? || inside?(path_of(entry), prefix) }
         held = found["@odata.nextLink"]
         walk&.reached({ "delta" => found["@odata.deltaLink"] }) if found["@odata.deltaLink"].present?
 
@@ -93,7 +94,7 @@ class Resource
       entry = api_get(item(id))
 
       raise ArgumentError, "#{key}: #{id} is not a file" unless file?(entry)
-      raise ArgumentError, "#{key}: #{id} is outside #{folder}" unless under?(entry, folder)
+      raise ArgumentError, "#{key}: #{id} is outside #{folder}" unless inside?(path_of(entry), folder)
 
       entry
     end
@@ -159,7 +160,7 @@ class Resource
       def within_folder(asked)
         wanted = asked.to_s.delete_prefix("/").chomp("/")
         return folder if wanted.blank?
-        return wanted if folder.blank? || wanted.casecmp?(folder) || wanted.downcase.start_with?("#{folder.downcase}/")
+        return wanted if wanted.casecmp?(folder.to_s) || inside?(wanted, folder)
 
         raise ArgumentError, "#{key}: #{asked} is outside #{folder}"
       end
@@ -169,13 +170,13 @@ class Resource
       end
 
       def kept?(entry)
-        file?(entry) && under?(entry, folder)
+        file?(entry) && inside?(path_of(entry), folder)
       end
 
-      def under?(entry, within)
+      def inside?(path, within)
         wanted = within.to_s.delete_prefix("/").chomp("/")
 
-        wanted.blank? || path_of(entry).downcase.start_with?("#{wanted.downcase}/")
+        wanted.blank? || path.downcase.start_with?("#{wanted.downcase}/")
       end
 
       def learn(entry)

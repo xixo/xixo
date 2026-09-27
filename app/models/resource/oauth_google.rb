@@ -63,10 +63,22 @@ class Resource
     end
 
     def command_get(id:)
-      file = api_get("/files/#{escaped_segment(id)}", fields: FIELDS, supportsAllDrives: true)
-      within_query!(file)
+      file = object_for(id)
 
       describe(file).merge(text_for(file))
+    end
+
+    def object_for(id)
+      file = api_get("/files/#{escaped_segment(id)}", fields: FIELDS, supportsAllDrives: true)
+      return file if details["query"].blank?
+
+      narrowed = [ drive_query(nil, file["parents"]&.first), "name = #{quoted(file['name'])}" ].join(" and ")
+      found = api_get("/files", q: narrowed, fields: "files(id)", pageSize: PAGE,
+                                supportsAllDrives: true, includeItemsFromAllDrives: true)
+
+      return file if Array(found["files"]).any? { |held| held["id"] == file["id"] }
+
+      raise ArgumentError, "#{key}: #{file['name']} is outside what it reads"
     end
 
     def locator_for(file)
@@ -121,18 +133,6 @@ class Resource
 
       def native?(file)
         file["mimeType"].to_s.start_with?("application/vnd.google-apps.")
-      end
-
-      def within_query!(file)
-        return if details["query"].blank?
-
-        narrowed = [ drive_query(nil, file["parents"]&.first), "name = #{quoted(file['name'])}" ].join(" and ")
-        found = api_get("/files", q: narrowed, fields: "files(id)", pageSize: PAGE,
-                                  supportsAllDrives: true, includeItemsFromAllDrives: true)
-
-        return if Array(found["files"]).any? { |held| held["id"] == file["id"] }
-
-        raise ArgumentError, "#{key}: #{file['name']} is outside what it reads"
       end
 
       def quoted(value)

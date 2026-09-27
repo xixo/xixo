@@ -489,6 +489,17 @@ class Resource < ApplicationRecord
       parts.map { |part| ERB::Util.url_encode(part) }.join("/")
     end
 
+    def within_prefix(asked, bounded: false)
+      wanted = details["prefix"].to_s
+      held = asked.to_s
+      wanted, held = [ wanted, held ].map { |path| path.delete_prefix("/").chomp("/") } if bounded
+
+      return wanted.presence if held.blank?
+      return held if wanted.blank? || held == wanted || held.start_with?(bounded ? "#{wanted}/" : wanted)
+
+      raise ArgumentError, "#{key}: #{asked} is outside #{wanted}"
+    end
+
     def escaped_segment(value)
       held = value.to_s
 

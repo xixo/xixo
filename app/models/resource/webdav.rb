@@ -75,14 +75,14 @@ class Resource
     end
 
     def object_for(name)
-      within_prefix(name)
+      within_prefix(name, bounded: true)
       found = propfind(name, "0").first
 
       if found.nil? || found.collection || !wanted?(found)
         raise Resource::Failed, "#{key}: nothing it catalogues at #{name}"
       end
 
-      within_prefix(found.path)
+      within_prefix(found.path, bounded: true)
 
       found
     end
@@ -138,25 +138,18 @@ class Resource
     def command_keep(key:) = kept(key)
 
     def command_put(key:, body:)
-      upload(within_prefix(key), body)
+      upload(within_prefix(key, bounded: true), body)
     end
 
     private
 
-      def within_prefix(asked)
-        under = details["prefix"].to_s.delete_prefix("/").chomp("/")
-        held = asked.to_s.delete_prefix("/").chomp("/")
-        return held.presence || under if under.blank? || held == under || held.start_with?("#{under}/")
-
-        raise ArgumentError, "#{key}: #{asked} is outside #{under}"
-      end
 
       def wanted?(_entry)
         true
       end
 
       def walk(prefix = nil)
-        Enumerator.new { |yielder| descend(within_prefix(prefix).to_s, yielder) }.lazy
+        Enumerator.new { |yielder| descend(within_prefix(prefix, bounded: true).to_s, yielder) }.lazy
       end
 
       def after?(path, cursor)

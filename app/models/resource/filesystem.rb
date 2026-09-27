@@ -79,9 +79,7 @@ class Resource
     end
 
     def object_for(name)
-      permitted_root!
-
-      path = within_prefix(lexical(name).relative_path_from(root.cleanpath).to_s)
+      path = scoped(name)
 
       resolved = confine(path)
 
@@ -154,13 +152,17 @@ class Resource
     def command_keep(key:) = kept(key)
 
     def command_put(key:, body:)
-      permitted_root!
-      upload(within_prefix(lexical(key).relative_path_from(root.cleanpath).to_s), body)
+      upload(scoped(key), body)
     end
 
     private
 
       Entry = Data.define(:path, :size, :modified_at)
+
+      def scoped(name)
+        permitted_root!
+        within_prefix(lexical(name).relative_path_from(root.cleanpath).to_s)
+      end
 
       def entry(path)
         stat = confine(path).lstat
@@ -234,12 +236,6 @@ class Resource
         (path.to_s.split("/") <=> cursor.to_s.split("/")).to_i.positive?
       end
 
-      def within_prefix(asked)
-        wanted = details["prefix"].presence
-        return asked.presence || wanted if wanted.nil? || asked.to_s.start_with?(wanted)
-
-        raise ArgumentError, "#{key}: #{asked} is outside #{wanted}"
-      end
 
       def walk(prefix = nil)
         wanted = within_prefix(prefix)

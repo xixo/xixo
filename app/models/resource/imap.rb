@@ -126,34 +126,32 @@ class Resource
     end
 
     def command_list(limit: nil)
-      name = mailbox
       count = (limit || LISTED).to_i.clamp(1, 500)
 
       connect do |imap|
-        validity = examine(imap, name)
+        validity = examine(imap)
         uids = imap.uid_search([ "ALL" ]).last(count)
 
         {
-          "mailbox" => name,
+          "mailbox" => mailbox,
           "uidvalidity" => validity,
-          "messages" => summaries(imap, uids, validity, name)
+          "messages" => summaries(imap, uids, validity, mailbox)
         }
       end
     end
 
     def command_get(uid:)
-      name = mailbox
       wanted = Integer(uid)
 
       connect do |imap|
-        validity = examine(imap, name)
+        validity = examine(imap)
         data = imap.uid_fetch(wanted, [ "RFC822.SIZE", "BODY.PEEK[]<0.#{GLIMPSE_BYTES}>" ]).to_a.first
-        raise Resource::Failed, "#{key}: no message at UID #{wanted} in #{name}" if data.nil?
+        raise Resource::Failed, "#{key}: no message at UID #{wanted} in #{mailbox}" if data.nil?
 
         head = data.attr.find { |attribute, _| attribute.start_with?("BODY[]") }&.last
 
         {
-          "mailbox" => name,
+          "mailbox" => mailbox,
           "uidvalidity" => validity,
           "uid" => wanted,
           "size" => data.attr["RFC822.SIZE"],
@@ -163,17 +161,15 @@ class Resource
     end
 
     def command_search(query:)
-      name = mailbox
-
       connect do |imap|
-        validity = examine(imap, name)
+        validity = examine(imap)
         uids = imap.uid_search([ "TEXT", query.to_s ]).last(LISTED)
 
         {
-          "mailbox" => name,
+          "mailbox" => mailbox,
           "uidvalidity" => validity,
           "query" => query,
-          "messages" => summaries(imap, uids, validity, name)
+          "messages" => summaries(imap, uids, validity, mailbox)
         }
       end
     end
