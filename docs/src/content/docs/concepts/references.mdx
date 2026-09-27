@@ -13,11 +13,13 @@ describes what they have in common.
 | Role | What it points to |
 | --- | --- |
 | `original` | the file or record itself, wherever it was synced from or placed |
-| `preview` | a large JPEG render, 1024 pixels wide, which the image analyzer reads so it does not render the file again |
-| `thumbnail` | a 320-pixel JPEG for the catalog |
+| `preview` | the hi-res JPEG, no longer on its longest edge than the **Hi-res size** setting, which a thumbnail opens and the image and page analyzers read so they do not render the file again |
+| `thumbnail` | a JPEG as wide as the **Thumbnail width** setting, for the catalog |
 
-`preview` and `thumbnail` are derived. An analysis renders both once for images, video, PDFs, and
-captured pages, and stores them in the internal `derived` store, keyed `<feed id>/<role>.jpg`. That
+`preview` and `thumbnail` are derived. An analysis renders both once for images, video, audio,
+PDFs, and captured pages, and stores them in the internal `derived` store, keyed
+`<feed id>/<role>.jpg`. Audio renders as a picture of its waveform. See
+[derive](/concepts/analysis/#the-analyzer) for the sizes. That
 store and the `children` store are listed in `Resource::INTERNAL`. uris keeps them for itself and
 never offers them as a place to store a file. Serving a thumbnail reads the bytes of the thumbnail
 reference, so it passes the same grant check as any other bytes.
@@ -101,8 +103,11 @@ leaves with `split!` before anything analyzes it. The analysis that follows comp
 so a file saved again with the same bytes joins its old feed and is not analyzed, and a file whose
 bytes changed stays on its own.
 
-`splitReference` marks the original `kept_apart`, and a kept-apart original never joins. A new
-version clears the mark, so the original joins again once its bytes match something.
+On the item page, **Storage** lists each original, and one whose digest matches another original of
+the same feed says **the same bytes as another place**. **Keep apart** on an original calls
+`splitReference`, which moves it to a feed of its own and marks it `kept_apart`. A kept-apart
+original never joins. A new version clears the mark, so the original joins again once its bytes
+match something. **Keep apart** appears only on a feed with more than one original.
 
 ## What uris deletes
 

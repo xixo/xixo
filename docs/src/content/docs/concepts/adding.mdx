@@ -34,6 +34,14 @@ ignores the content type the client declared. The request is refused with `422` 
 - nothing usable is left of the path after cleaning, or the path is longer than 900 bytes;
 - no active store accepts that mime type at that size.
 
+`POST /uploads` computes the SHA-256 of the file before it stages anything. When an original on one
+of the tenant's shared resources has the same digest, or another upload with the same digest is
+still staged, the file is not staged again. The request answers `200` with `duplicate: true`, the
+matching feed's id as `feed_id`, and that feed's path or title as `twin`. The name does not matter,
+so the same bytes under another name are a match. An original that is gone or kept apart is not a
+match. A recurring job computes the digest of originals that do not have one yet, up to 20 a
+minute in each tenant.
+
 A path that is already stored or already staged uses the existing feed. `addNote` refuses an empty
 body and a body over one megabyte. It names an untitled note after its first line.
 

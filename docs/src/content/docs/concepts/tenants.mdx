@@ -58,6 +58,32 @@ class SweepAuditEventsJob < ApplicationJob
 end
 ```
 
+## Settings
+
+A setting is a named value from a fixed list of choices. Each setting has a level that decides who
+it belongs to and which scope changes it.
+
+| Level | Belongs to | Read with | Changed with |
+| --- | --- | --- | --- |
+| `personal` | the person signed in | `uris:settings:read` | `uris:settings:write` |
+| `shared` | everyone in the tenant | `uris:settings:read` | `uris:settings:write` |
+| `server` | everyone in the tenant | `uris:settings:admin` | `uris:settings:admin` |
+
+A setting that was never changed reads as its default.
+
+| Setting | Level | Choices | Default |
+| --- | --- | --- | --- |
+| **How the catalog opens** (`catalog_view`) | `personal` | `list`, `cards` | `list` |
+| **Thumbnail width** (`thumbnail_size`) | `shared` | 160, 240, 320, 480, or 640 pixels | 320 |
+| **Hi-res size** (`hires_size`) | `shared` | 1024, 1500, 2048, or 3072 pixels | 1500 |
+
+The two image sizes decide how [analysis](/concepts/analysis/#the-analyzer) renders thumbnails and
+hi-res images. An item rendered before a change keeps its old images until it is analyzed again.
+
+The `settings` query lists every setting the token may read, with its value, default, and choices.
+`setSetting` takes a `key` and a `value`, and refuses a value outside the choices. The browser app
+shows them under **Settings**, then **Account**. See the [GraphQL reference](/reference/graphql/).
+
 ## Signing in
 
 Each uris tenant is a client of a masks tenant. `MASKS_ISSUER_TEMPLATE` sets the issuer URL, with

@@ -23,6 +23,10 @@ which count as settled, or as `cancelled` or `gated`, which do not. When an anal
 marks the feed's embedding as stale and indexes the feed again for [search](/concepts/search/).
 Each log line and each status change is published on `analysisProgressed`.
 
+`cancelAnalysis` moves a queued or running analysis to `cancelled`, and the job stops at its next
+check. It returns `cancelled: false` for an analysis that had already ended. The item page shows
+**Stop** beside an analysis in progress.
+
 An analysis gets a deadline when it opens: `URIS_RUN_DEADLINE_HOURS` from then, 6 by default, or no
 deadline when it is 0. This deadline applies only while the analysis is queued. `ExpireOverdueJob`
 runs every ten minutes and cancels a queued analysis past its deadline, with the error
@@ -49,7 +53,7 @@ file went, which previews were rendered, what the agent said, and which feeds an
 text a feed extracts leaves them out, so the search body does not index a storage path.
 
 A feed's `details` field turns the steps of its current analysis into labelled rows, grouped by
-the step that produced them, and the item page shows them under **Read out of it**. Nested values
+the step that produced them, and the item page shows them under **Details**. Nested values
 are flattened into one row each, a list of records such as attachments or events numbers each
 record, and a row an earlier step already showed is not repeated. Embedded metadata comes last.
 Text, the summary, the judges' verdicts, and the bookkeeping steps are left out.
@@ -77,9 +81,12 @@ under the step `book`. The `text` step starts with those details and continues w
 text in reading order, one line per paragraph. A chapter listed in `META-INF/encryption.xml` is
 skipped, so a book sold with DRM is cataloged by its details alone.
 
-`Image` reads a photo's GPS coordinates from its EXIF into the step `location`. When a **Places**
-resource has **Name where photos were taken** on, it asks that resource for the address, records it
-under the step `place`, and tells the summary where the photo was taken.
+`Image` asks `exiftool` for a photo's GPS coordinates and records them under the step `location`.
+`exiftool` also reads the GPS block of a raw photo, such as a Nikon NEF. A GPS block
+with no position in it, which some cameras write on every frame, reads as latitude 0 and longitude 0,
+and uris treats it as no location. When a **Places** resource has **Name where photos were taken**
+on, `Image` asks that resource for the address, records it under the step `place`, and tells the
+summary where the photo was taken.
 
 `Media` claims audio and video. The `probe` step records the length, streams, and tags such as
 title, artist, and album. For anything with a sound track, one `ffmpeg` pass records the `signal`
@@ -96,10 +103,11 @@ Every analyzer inherits the same sequence from `Analyzer::Base`:
    child finishes, uris analyzes the parent again.
 2. **Derive** a thumbnail and a hi-res image for images, video, audio, PDFs, and pages. Audio gets a
    picture of its waveform. They are stored as
-   references in the internal `derived` store, under the step `derived`. Two settings shared by
-   everyone in the tenant size them. **Thumbnail width** is 320 pixels by default, and a page
-   capture's thumbnail is the top of the page, cut square. **Hi-res size** bounds the longest edge,
-   1,500 pixels by default, and a page capture keeps its full length at that width. A PDF's first page
+   references in the internal `derived` store, under the step `derived`. Two
+   [settings](/concepts/tenants/#settings) shared by everyone in the tenant size them.
+   **Thumbnail width** is 320 pixels by default, and a page capture's thumbnail is the top of the
+   page, cut square. **Hi-res size** bounds the longest edge, 1,500 pixels by default, and a page
+   capture keeps its full length at that width. A PDF's first page
    is drawn at both sizes, so it stays sharp at any setting. A photo or a video frame is never made
    larger than it is. The hi-res image is what a thumbnail opens and what the vision
    model reads. Changing either setting renders an item's images again the next time it is
@@ -116,8 +124,11 @@ Every analyzer inherits the same sequence from `Analyzer::Base`:
    A text longer than 10,000 characters is first read in up to eight parts, each summarized on the
    same model under the step `sections`, and the summary is written from those.
    The role is `smart` by default, `vision` for images and pages, and `fast` for email and the
-   fallback. The prompt fences the file's text and tells the model to treat it as data. uris
-   reduces the model's answer to a summary, up to 20 entities, and up to 20 tags. It drops
+   fallback. The prompt fences the file's text and tells the model to treat it as data. It asks
+   for tags the way a person would label a folder: a topic, the kind of thing the file is, or the
+   name of a person, company, product, or place, and never an amount, a date, an address, or an
+   account or reference number. uris reduces the model's answer to a summary, up to 20 entities,
+   and up to 20 tags. It drops
    stopwords and tags longer than four words. When the analysis finishes, the feed is
    [filed under](/concepts/feeds/) the tags and the entities as tags of its own. If no resource
    serves the role, there is no summary and no tags.
