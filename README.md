@@ -13,7 +13,6 @@ app/              the Rails app       GraphQL, MCP, analyzers, resources, and jo
 app/javascript/   the browser app     React, urql, and the generated types
 web/              @uris-to/client     the GraphQL and Action Cable client, on npm
 docs/             the site above      Astro + Starlight
-deploy/           an Ansible role     the Compose project for one host
 ```
 
 uris signs people in through [masks](https://github.com/masksrb/masks). Each uris tenant is a client

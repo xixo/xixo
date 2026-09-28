@@ -108,8 +108,8 @@ Read the destination with any client for its type.
 
 - For `s3`, list or copy the bucket with the provider's tools, for example
   `aws s3 sync s3://archive ./archive --endpoint-url https://s3.example.com`.
-- For `filesystem`, copy the directory from the server. In the Ansible deployment it is inside the
-  `files` volume, at `<uris_filesystem_root>/<tenant>/`.
+- For `filesystem`, copy the directory from the server. In the example Compose project it is inside
+  the `files` volume, at `/data/files/<tenant>/`.
 - For `webdav`, use any WebDAV client.
 
 ## Move the files to another uris
