@@ -1,6 +1,6 @@
 {
   "name": "@uris-to/client",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A GraphQL and Action Cable client for uris.",
   "license": "MIT",
   "homepage": "https://uris.pages.dev",
