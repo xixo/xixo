@@ -226,6 +226,21 @@ class AskingTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) { assert_equal "Acme invoice total", Feed.find(asked.dig("feed", "id")).title }
   end
 
+  test "once answered, a note is titled again with what the answer found" do
+    scout("Find the Acme invoice's total") { @server.answer("It is $4,200 [feed #{@invoice.id}].") }
+    @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
+    10.times { @server.answer_json(answered: true, useful: true, why: "it says so") }
+    @server.answer_json(title: "Acme invoice total")
+    @server.answer_json(title: "Acme invoice total: $4,200")
+
+    asked = ask("How much is the Acme invoice?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    retitled = @server.prompts.find { |prompt| prompt.include?("Title the note") }
+    assert_match(/Asked: How much is the Acme invoice\?\s+Answered: The Acme invoice is for \$4,200/, retitled)
+    Tenant.switch(@tenant) { assert_equal "Acme invoice total: $4,200", Feed.find(asked.dig("feed", "id")).title }
+  end
+
   test "a follow-up waits for the question before it to be answered" do
     first = ask("How much is the Acme invoice?")
     refused = execute(FOLLOW_UP, id: first.dig("feed", "id"), question: "When is it due?")

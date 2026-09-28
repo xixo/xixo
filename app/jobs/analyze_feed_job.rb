@@ -137,6 +137,7 @@ class AnalyzeFeedJob < ApplicationJob
       verified(asking, answered)
       asking.title!(later: true)
       Analyzer::Conversation.new(feed, analysis: analysis).roll_up!
+      asking.retitle!(answered.said)
 
       finish
     rescue Agent::Refused, Resource::Unusable => e
