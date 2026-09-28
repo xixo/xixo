@@ -3,6 +3,7 @@ import {
   Button,
   Group,
   Loader,
+  Menu,
   NumberInput,
   Stack,
   Text,
@@ -12,6 +13,7 @@ import {
   IconArchive,
   IconArchiveOff,
   IconCheck,
+  IconDots,
   IconPencil,
   IconPlugConnected,
   IconPlus,
@@ -228,17 +230,14 @@ export function Resources() {
           <div
             key={resource.id}
             ref={resource.id === landed ? arrived : undefined}
-            className="entry"
-            data-spine="true"
+            className="resource"
             data-landed={resource.id === landed}
             style={{ '--tone': toneFor(resource) } as CSSProperties}
           >
-            <div style={{ minWidth: 0 }}>
-              <Group gap="var(--s2)" wrap="wrap">
+            <div className="resource-main">
+              <div className="resource-name">
                 <span className="entry-title">{resource.key}</span>
-                <span className="tag" data-dot="false">
-                  {resource.type}
-                </span>
+                <span className="resource-type">{resource.type}</span>
                 <Tooltip
                   label={
                     resource.checkError ??
@@ -247,261 +246,267 @@ export function Resources() {
                       : 'not checked yet')
                   }
                 >
-                  <span
-                    className="tag"
-                    style={{ '--tone': toneFor(resource) } as CSSProperties}
-                  >
-                    {standing(resource)}
-                  </span>
+                  <span className="resource-state">{standing(resource)}</span>
                 </Tooltip>
-                {resource.personal && (
-                  <span className="tag" data-dot="false">
-                    only you
-                  </span>
-                )}
-                {resource.defaultStorage && (
-                  <span
-                    className="tag"
-                    style={{ '--tone': 'var(--brass)' } as CSSProperties}
-                  >
-                    drops land here
-                  </span>
-                )}
-                {resource.defaultInference && (
-                  <span
-                    className="tag"
-                    style={{ '--tone': 'var(--brass)' } as CSSProperties}
-                  >
-                    answers questions
-                  </span>
-                )}
-              </Group>
+              </div>
 
-              <Text size="sm" c="dimmed" mt="var(--s2)">
+              <div className="resource-facts">
                 {resource.name ?? '—'} ·{' '}
                 <span className="figure">
                   {resource.itemsCount.toLocaleString()}
                 </span>{' '}
                 items · {resource.capabilities.join(', ')}
-              </Text>
+              </div>
 
-              <Text size="xs" c="dimmed" mt="var(--s1)">
+              {(resource.personal ||
+                resource.defaultStorage ||
+                resource.defaultInference) && (
+                <div className="resource-roles">
+                  {resource.personal && (
+                    <span className="tag" data-dot="false">
+                      only you
+                    </span>
+                  )}
+                  {resource.defaultStorage && (
+                    <span
+                      className="tag"
+                      style={{ '--tone': 'var(--brass)' } as CSSProperties}
+                    >
+                      drops land here
+                    </span>
+                  )}
+                  {resource.defaultInference && (
+                    <span
+                      className="tag"
+                      style={{ '--tone': 'var(--brass)' } as CSSProperties}
+                    >
+                      answers questions
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="resource-when">
                 {schedule(resource)}
                 {resource.syncedAt &&
                   ` · last ${new Date(resource.syncedAt).toLocaleString()}`}
-              </Text>
+              </div>
 
               {resource.checkError && (
-                <Text size="xs" mt="var(--s2)" style={{ color: 'var(--bad)' }}>
-                  {resource.checkError}
-                </Text>
+                <div className="resource-error">{resource.checkError}</div>
               )}
             </div>
 
             {resource.archivedAt ? (
-              <Button
-                size="xs"
-                radius="xl"
-                variant="default"
-                leftSection={<IconArchiveOff size={14} />}
-                loading={putting === resource.id}
-                onClick={() => putAway(resource, false)}
-              >
-                Put back
-              </Button>
+              <div className="resource-actions">
+                <Button
+                  size="xs"
+                  radius="xl"
+                  variant="default"
+                  leftSection={<IconArchiveOff size={14} />}
+                  loading={putting === resource.id}
+                  onClick={() => putAway(resource, false)}
+                >
+                  Put back
+                </Button>
+              </div>
             ) : (
-              <Stack gap="var(--s2)" align="flex-end">
-                <Group gap="var(--s2)" wrap="nowrap">
-                  {resource.delegated && resource.connectUrl && (
-                    <Button
-                      component="a"
-                      href={resource.connectUrl}
-                      size="xs"
-                      radius="xl"
-                      color={resource.needsConnect ? 'chalk' : 'gray'}
-                      variant={resource.needsConnect ? 'filled' : 'subtle'}
-                      leftSection={<IconPlugConnected size={14} />}
-                    >
-                      {resource.needsConnect
-                        ? resource.connectedBy
-                          ? 'Reconnect'
-                          : 'Connect'
-                        : 'Connect again'}
-                    </Button>
-                  )}
+              <div className="resource-actions">
+                {resource.delegated && resource.connectUrl && (
+                  <Button
+                    component="a"
+                    href={resource.connectUrl}
+                    size="xs"
+                    radius="xl"
+                    color={resource.needsConnect ? 'chalk' : 'gray'}
+                    variant={resource.needsConnect ? 'filled' : 'subtle'}
+                    leftSection={<IconPlugConnected size={14} />}
+                  >
+                    {resource.needsConnect
+                      ? resource.connectedBy
+                        ? 'Reconnect'
+                        : 'Connect'
+                      : 'Connect again'}
+                  </Button>
+                )}
+                <Button
+                  size="xs"
+                  radius="xl"
+                  variant="default"
+                  leftSection={<IconCheck size={14} />}
+                  onClick={async () => {
+                    const answered = await check.execute({ id: resource.id })
+
+                    if (!answered) return
+
+                    say(
+                      answered.checkResource?.ok
+                        ? { text: `${resource.key} answers.` }
+                        : {
+                            text:
+                              answered.checkResource?.resource.checkError ??
+                              `${resource.key} did not answer.`,
+                            wrong: true,
+                          },
+                    )
+                    refetch()
+                  }}
+                >
+                  Check
+                </Button>
+                {resource.syncable && (
                   <Button
                     size="xs"
                     radius="xl"
-                    variant="default"
-                    leftSection={<IconCheck size={14} />}
+                    color="chalk"
+                    leftSection={<IconRefresh size={14} />}
+                    disabled={resource.syncing}
                     onClick={async () => {
-                      const answered = await check.execute({ id: resource.id })
+                      const answered = await sync.execute({
+                        id: resource.id,
+                      })
 
                       if (!answered) return
 
-                      say(
-                        answered.checkResource?.ok
-                          ? { text: `${resource.key} answers.` }
-                          : {
-                              text:
-                                answered.checkResource?.resource.checkError ??
-                                `${resource.key} did not answer.`,
-                              wrong: true,
-                            },
-                      )
+                      say({ text: `${resource.key} is syncing.` })
                       refetch()
                     }}
                   >
-                    Check
+                    Sync
                   </Button>
-                  {resource.syncable && (
-                    <Button
-                      size="xs"
-                      radius="xl"
-                      color="chalk"
-                      leftSection={<IconRefresh size={14} />}
-                      disabled={resource.syncing}
-                      onClick={async () => {
-                        const answered = await sync.execute({
-                          id: resource.id,
-                        })
+                )}
 
-                        if (!answered) return
-
-                        say({ text: `${resource.key} is syncing.` })
-                        refetch()
-                      }}
-                    >
-                      Sync
-                    </Button>
-                  )}
-                  {resource.capabilities.includes('storage') && (
+                <Menu position="bottom-end" width={220}>
+                  <Menu.Target>
                     <Button
                       size="xs"
                       radius="xl"
                       variant="subtle"
                       color="gray"
-                      disabled={resource.defaultStorage}
-                      leftSection={
-                        resource.defaultStorage ? (
-                          <IconStarFilled size={14} />
-                        ) : (
-                          <IconStar size={14} />
-                        )
-                      }
-                      onClick={async () => {
-                        const answered = await takeDrops.execute({
-                          id: resource.id,
-                        })
-
-                        if (!answered) return
-
-                        say({ text: `Drops land in ${resource.key} now.` })
-                        refetch()
-                      }}
+                      px="var(--s2)"
+                      aria-label={`More for ${resource.key}`}
                     >
-                      Take drops
+                      <IconDots size={16} stroke={1.8} />
                     </Button>
-                  )}
-                  {resource.capabilities.includes('inference') && (
-                    <Button
-                      size="xs"
-                      radius="xl"
-                      variant="subtle"
-                      color="gray"
-                      disabled={resource.defaultInference}
-                      leftSection={<IconSparkles size={14} />}
-                      onClick={async () => {
-                        const answered = await takeQuestions.execute({
-                          id: resource.id,
-                        })
-
-                        if (!answered) return
-
-                        say({ text: `${resource.key} answers questions now.` })
-                        refetch()
-                      }}
-                    >
-                      Take questions
-                    </Button>
-                  )}
-                </Group>
-
-                <Group gap="var(--s2)" wrap="nowrap">
-                  {resource.syncable && (
-                    <>
-                      <NumberInput
-                        size="xs"
-                        w={110}
-                        min={1}
-                        radius="xl"
-                        placeholder="minutes"
-                        value={
-                          minutes[resource.id] ??
-                          (resource.syncInterval
-                            ? resource.syncInterval / 60
-                            : '')
+                  </Menu.Target>
+                  <Menu.Dropdown>
+                    {resource.capabilities.includes('storage') && (
+                      <Menu.Item
+                        disabled={resource.defaultStorage}
+                        leftSection={
+                          resource.defaultStorage ? (
+                            <IconStarFilled size={15} />
+                          ) : (
+                            <IconStar size={15} />
+                          )
                         }
-                        onChange={(value) =>
-                          setMinutes((current) => ({
-                            ...current,
-                            [resource.id]: value,
-                          }))
-                        }
-                      />
-                      <Button
-                        size="xs"
-                        radius="xl"
-                        variant="default"
                         onClick={async () => {
-                          const value = Number(minutes[resource.id])
-                          const seconds =
-                            value > 0 ? Math.round(value * 60) : null
-                          const answered = await setInterval.execute({
+                          const answered = await takeDrops.execute({
                             id: resource.id,
-                            seconds,
+                          })
+
+                          if (!answered) return
+
+                          say({ text: `Drops land in ${resource.key} now.` })
+                          refetch()
+                        }}
+                      >
+                        Take drops
+                      </Menu.Item>
+                    )}
+                    {resource.capabilities.includes('inference') && (
+                      <Menu.Item
+                        disabled={resource.defaultInference}
+                        leftSection={<IconSparkles size={15} />}
+                        onClick={async () => {
+                          const answered = await takeQuestions.execute({
+                            id: resource.id,
                           })
 
                           if (!answered) return
 
                           say({
-                            text: seconds
-                              ? `${resource.key} syncs every ${Math.round(seconds / 60)} minutes.`
-                              : `${resource.key} syncs on demand only.`,
+                            text: `${resource.key} answers questions now.`,
                           })
                           refetch()
                         }}
                       >
-                        Schedule
-                      </Button>
-                    </>
-                  )}
-
-                  {resource.changeable && (
-                    <Button
-                      size="xs"
-                      radius="xl"
-                      variant="subtle"
-                      color="gray"
-                      leftSection={<IconPencil size={14} />}
-                      onClick={() => setEditing(resource)}
+                        Take questions
+                      </Menu.Item>
+                    )}
+                    {resource.changeable && (
+                      <Menu.Item
+                        leftSection={<IconPencil size={15} />}
+                        onClick={() => setEditing(resource)}
+                      >
+                        Change
+                      </Menu.Item>
+                    )}
+                    <Menu.Item
+                      leftSection={<IconArchive size={15} />}
+                      onClick={() => putAway(resource, true)}
                     >
-                      Change
-                    </Button>
-                  )}
-                  <Button
-                    size="xs"
-                    radius="xl"
-                    variant="subtle"
-                    color="gray"
-                    leftSection={<IconArchive size={14} />}
-                    loading={putting === resource.id}
-                    onClick={() => putAway(resource, true)}
-                  >
-                    Put away
-                  </Button>
-                </Group>
-              </Stack>
+                      Put away
+                    </Menu.Item>
+                  </Menu.Dropdown>
+                </Menu>
+              </div>
+            )}
+
+            {resource.syncable && !resource.archivedAt && (
+              <form
+                className="resource-every"
+                onSubmit={async (event) => {
+                  event.preventDefault()
+
+                  const value = Number(minutes[resource.id])
+                  const seconds = value > 0 ? Math.round(value * 60) : null
+                  const answered = await setInterval.execute({
+                    id: resource.id,
+                    seconds,
+                  })
+
+                  if (!answered) return
+
+                  say({
+                    text: seconds
+                      ? `${resource.key} syncs every ${Math.round(seconds / 60)} minutes.`
+                      : `${resource.key} syncs on demand only.`,
+                  })
+                  refetch()
+                }}
+              >
+                <span>Sync every</span>
+                <NumberInput
+                  size="xs"
+                  w={84}
+                  min={1}
+                  radius="xl"
+                  hideControls
+                  placeholder="—"
+                  aria-label={`Minutes between syncs of ${resource.key}`}
+                  value={
+                    minutes[resource.id] ??
+                    (resource.syncInterval ? resource.syncInterval / 60 : '')
+                  }
+                  onChange={(value) =>
+                    setMinutes((current) => ({
+                      ...current,
+                      [resource.id]: value,
+                    }))
+                  }
+                />
+                <span>minutes</span>
+                <Button
+                  type="submit"
+                  size="compact-xs"
+                  radius="xl"
+                  variant="subtle"
+                  color="gray"
+                >
+                  Keep
+                </Button>
+              </form>
             )}
           </div>
         ))}

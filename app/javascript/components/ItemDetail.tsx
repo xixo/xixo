@@ -12,6 +12,7 @@ import {
 import {
   IconArrowLeft,
   IconArrowRight,
+  IconChevronDown,
   IconCut,
   IconDots,
   IconEraser,
@@ -36,6 +37,7 @@ import {
 import { useQuery } from '@uris-to/client/react'
 import {
   type CSSProperties,
+  Fragment,
   type ReactNode,
   useCallback,
   useEffect,
@@ -139,26 +141,14 @@ export function ItemDetail() {
 
   return (
     <Stack gap="var(--s5)">
-      <Button
-        component={Link}
-        to="/"
-        variant="subtle"
-        color="gray"
-        size="compact-sm"
-        w="fit-content"
-        leftSection={<IconArrowLeft size={15} />}
-      >
+      <Link to="/" className="back">
+        <IconArrowLeft size={15} stroke={1.8} />
         Catalog
-      </Button>
+      </Link>
 
-      <Group justify="space-between" align="flex-start" gap="var(--s4)">
-        <Group
-          gap="var(--s4)"
-          align="stretch"
-          wrap="nowrap"
-          style={{ minWidth: 'min(100%, 16rem)', flex: 1 }}
-        >
-          {facet && <Thumb looked={item} alt="" size={48} />}
+      <header className="item-head">
+        <div className="item-lead">
+          {facet && <Thumb looked={item} alt="" size={56} />}
           {!facet && pictured.length > 0 && (
             <button
               type="button"
@@ -178,7 +168,7 @@ export function ItemDetail() {
               />
             </button>
           )}
-          <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="item-copy">
             {facet ? (
               <h1 className="page-title mono-title">{item.key}</h1>
             ) : (
@@ -198,7 +188,7 @@ export function ItemDetail() {
                 }}
               />
             )}
-            <Group gap="var(--s3)" mt="var(--s3)">
+            <div className="item-meta">
               <TypeBadge type={item.type} mime={item.mime} />
               <span className="eyebrow">
                 {standing(
@@ -238,16 +228,17 @@ export function ItemDetail() {
                   </Button>
                 </>
               )}
-            </Group>
+            </div>
           </div>
-        </Group>
+        </div>
 
         {!facet && (
-          <Group gap="var(--s2)" wrap="nowrap">
+          <div className="item-actions">
             {!item.asked && (
               <Button
                 radius="xl"
                 color="chalk"
+                className="item-ask"
                 leftSection={<IconSparkles size={16} />}
                 aria-expanded={asking}
                 onClick={() => setAsking((held) => !held)}
@@ -260,8 +251,8 @@ export function ItemDetail() {
               <Menu.Target>
                 <Button
                   radius="xl"
-                  variant="subtle"
-                  color="gray"
+                  variant="default"
+                  px="var(--s3)"
                   aria-label={`More for ${name}`}
                 >
                   <IconDots size={16} stroke={1.8} />
@@ -308,9 +299,9 @@ export function ItemDetail() {
                 </Menu.Item>
               </Menu.Dropdown>
             </Menu>
-          </Group>
+          </div>
         )}
-      </Group>
+      </header>
 
       {asking && (
         <AskAboutThis
@@ -445,14 +436,7 @@ export function ItemDetail() {
       {item.asked && <Conversation feedId={item.id} onChanged={settled} />}
 
       {!facet && !item.asked && item.summary && (
-        <Stack gap="var(--s2)">
-          <div className="label">Summary</div>
-          <div className="panel" style={{ padding: 'var(--s4) var(--s5)' }}>
-            <Text size="sm" style={{ lineHeight: 1.6 }}>
-              {item.summary}
-            </Text>
-          </div>
-        </Stack>
+        <p className="item-summary">{item.summary}</p>
       )}
 
       {item.children.length > 0 && (
@@ -619,20 +603,18 @@ function Section({
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <Stack gap="var(--s3)">
-      <Group justify="space-between" align="baseline">
-        <div className="label">{label}</div>
-        <button
-          type="button"
-          className="plain-toggle"
-          aria-expanded={open}
-          onClick={() => setOpen(!open)}
-        >
-          {open ? 'Hide' : 'Show'}
-        </button>
-      </Group>
-      {open && children}
-    </Stack>
+    <section className="fold" data-open={open}>
+      <button
+        type="button"
+        className="fold-head"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        <span className="label">{label}</span>
+        <IconChevronDown size={16} stroke={1.8} className="fold-chevron" />
+      </button>
+      {open && <div className="fold-body">{children}</div>}
+    </section>
   )
 }
 
@@ -664,6 +646,24 @@ function standing(
     : 'never analyzed'
 
   return where ? `${where} · ${when}` : when
+}
+
+function breakable(title: string) {
+  let offset = 0
+
+  return title.split(/(?<=[_./-])/).map((part) => {
+    const at = offset
+    offset += part.length
+
+    return at === 0 ? (
+      part
+    ) : (
+      <Fragment key={at}>
+        <wbr />
+        {part}
+      </Fragment>
+    )
+  })
 }
 
 function Naming({
@@ -699,7 +699,9 @@ function Naming({
           setNaming(true)
         }}
       >
-        <h1 className="page-title page-title-line">{title || 'Untitled'}</h1>
+        <h1 className="page-title page-title-line">
+          {title ? breakable(title) : 'Untitled'}
+        </h1>
         <IconPencil size={17} stroke={1.7} />
       </button>
     )

@@ -61,5 +61,22 @@ export const theme = createTheme({
     Code: {
       defaultProps: { color: 'var(--void)' },
     },
+    Menu: {
+      defaultProps: {
+        radius: 'md',
+        shadow: 'xl',
+        transitionProps: { transition: 'pop-top-right', duration: 140 },
+      },
+    },
+    Modal: {
+      defaultProps: {
+        radius: 'lg',
+        overlayProps: { backgroundOpacity: 0.6, blur: 6 },
+        transitionProps: { transition: 'pop', duration: 180 },
+      },
+    },
+    Tooltip: {
+      defaultProps: { radius: 'sm', openDelay: 250 },
+    },
   },
 })

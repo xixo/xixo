@@ -1,4 +1,5 @@
 import { Button, Loader, Tooltip } from '@mantine/core'
+import { useMediaQuery } from '@mantine/hooks'
 import type { Account } from '@masks/client'
 import { IconLink, IconSearch } from '@tabler/icons-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -138,23 +139,28 @@ function Shell({
     <div className="shell">
       <header className="shell-head">
         <Link to="/" className="mark-link" aria-label="Catalog">
-          <Mark />
+          <Mark size={24} />
+          <span className="mark-word" aria-hidden="true">
+            uris
+          </span>
         </Link>
 
         <Hunt />
 
-        <Tooltip label={who} openDelay={400}>
-          <Link
-            to="/settings"
-            className="head-icon head-face"
-            aria-label={`${who} — settings`}
-            aria-current={
-              location.pathname.startsWith('/settings') ? 'page' : undefined
-            }
-          >
-            <Face account={account} />
-          </Link>
-        </Tooltip>
+        <div className="head-end">
+          <Tooltip label={who} openDelay={400}>
+            <Link
+              to="/settings"
+              className="head-icon head-face"
+              aria-label={`${who} — settings`}
+              aria-current={
+                location.pathname.startsWith('/settings') ? 'page' : undefined
+              }
+            >
+              <Face account={account} size={30} />
+            </Link>
+          </Tooltip>
+        </div>
       </header>
 
       <main className="shell-main">
@@ -210,6 +216,7 @@ function Hunt() {
   const [said, setSaid] = useState<string | null>(null)
   const box = useRef<HTMLInputElement | null>(null)
   const sought = useRef(term)
+  const narrow = useMediaQuery('(max-width: 640px)')
 
   useEffect(() => {
     if (term === sought.current) return
@@ -339,7 +346,9 @@ function Hunt() {
             setWanted(intent === 'snapshot' ? 'fetch' : 'snapshot')
           }
         }}
-        placeholder="Search, ask, or paste an address"
+        placeholder={
+          narrow ? 'Search or ask' : 'Search, ask, or paste an address'
+        }
         aria-label="Search everything you own, or paste an address"
       />
 

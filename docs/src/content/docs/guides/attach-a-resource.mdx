@@ -91,27 +91,27 @@ uris also checks every resource on its own every six hours.
 
 A tenant has one default storage and one default inference resource.
 
-- Choose **Take drops** on a storage resource. Its row then reads **drops land here**. Uploads that
-  no agent placed land there, and so do snapshots from the web.
-- Choose **Take questions** on a model backend. Its row then reads **answers questions**. uris
-  prefers it when more than one resource could serve a role.
+- Choose **Take drops** from the **⋯** menu on a storage resource's row. The row then reads
+  **drops land here**. Uploads that no agent placed land there, and so do snapshots from the web.
+- Choose **Take questions** from the **⋯** menu on a model backend's row. The row then reads
+  **answers questions**. uris prefers it when more than one resource could serve a role.
 
 Making one resource the default clears the flag on the previous one. A personal resource cannot be
 a default.
 
 ## Schedule syncs
 
-A resource that can sync has a **Sync** button and a minutes field.
+A resource that can sync has a **Sync** button, and a **Sync every** field under its details.
 
 1. Enter a number of minutes in the field. The minimum is one.
-2. Choose **Schedule**.
+2. Choose **Keep**.
 
-Clearing the field and choosing **Schedule** sets the resource to sync on demand only. Choose
+Clearing the field and choosing **Keep** sets the resource to sync on demand only. Choose
 **Sync** to start one now. See [syncing](/concepts/resources/#syncing).
 
 ## Change it
 
-1. Choose **Change** on the resource's row.
+1. Choose **Change** from the **⋯** menu on the resource's row.
 2. Edit **Called** or any field under **Connection**. A secret left empty keeps the value it holds.
 3. Choose **Save it**.
 
@@ -125,7 +125,7 @@ it syncs, and what such an agent writes, is still cataloged for everyone in the 
 
 ## Put it away
 
-Choose **Put away** on the resource's row. The resource stops syncing and is no longer a default or
+Choose **Put away** from the **⋯** menu on the resource's row. The resource stops syncing and is no longer a default or
 a place for uploads. What it cataloged stays searchable. To bring it back, choose **Put away** at the
 top of the list to show put-away resources, then **Put back** on its row.
 

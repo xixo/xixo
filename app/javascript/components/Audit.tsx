@@ -13,6 +13,7 @@ import {
 } from '../activity'
 import { usePages } from '../hooks/usePages'
 import { useTitle } from '../hooks/useTitle'
+import { ago } from '../when'
 
 const PAGE = 50
 
@@ -41,16 +42,6 @@ const WRAPPED: CSSProperties = {
   display: 'block',
   whiteSpace: 'normal',
   overflowWrap: 'anywhere',
-}
-
-function ago(at: string) {
-  const seconds = Math.round((Date.now() - new Date(at).getTime()) / 1000)
-
-  if (seconds < 60) return 'just now'
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
-
-  return `${Math.floor(seconds / 86400)}d ago`
 }
 
 function who(event: Happening) {
@@ -235,7 +226,7 @@ function When({
       <Text
         size="xs"
         c="dimmed"
-        className="figure"
+        className="when"
         title={new Date(at).toLocaleString()}
       >
         {ago(at)}

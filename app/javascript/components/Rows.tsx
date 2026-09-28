@@ -1,9 +1,9 @@
 import { Checkbox } from '@mantine/core'
 import type { RowFragment } from '@uris-to/client'
 import { Link } from 'react-router-dom'
-import { hrefFor } from '../looks'
+import { hrefFor, lookOf, toned } from '../looks'
+import { dated } from '../when'
 import { Cover, Thumb } from './Thumb'
-import { TypeBadge } from './TypeBadge'
 
 export type Row = RowFragment
 
@@ -34,6 +34,19 @@ function Gist({ row, className }: { row: Row; className: string }) {
   return null
 }
 
+function Side({ row }: { row: Row }) {
+  const { tone, label } = lookOf(row)
+
+  return (
+    <div className="entry-side" style={toned(tone)}>
+      <span className="entry-kind">{label}</span>
+      <time className="entry-when" dateTime={row.createdAt}>
+        {dated(row.createdAt)}
+      </time>
+    </div>
+  )
+}
+
 function named(row: Row) {
   return row.title ?? row.key ?? 'Untitled'
 }
@@ -60,7 +73,7 @@ export function Rows({
                   <Within row={row} />
                   <Gist row={row} className="card-summary" />
                   <div className="card-foot">
-                    <TypeBadge type={row.type} mime={row.mime} />
+                    <Side row={row} />
                   </div>
                 </div>
               </Link>
@@ -89,13 +102,13 @@ function Entry({ row, pick }: { row: Row; pick?: Pick }) {
       className="entry"
       data-picked={pick?.chosen.has(row.id) || undefined}
     >
-      <Thumb url={row.thumbnailUrl} looked={row} alt={named(row)} size={48} />
-      <div style={{ minWidth: 0 }}>
+      <Thumb url={row.thumbnailUrl} looked={row} alt="" size={44} />
+      <div className="entry-copy">
         <div className="entry-title">{named(row)}</div>
         <Within row={row} />
         <Gist row={row} className="entry-summary" />
       </div>
-      <TypeBadge type={row.type} mime={row.mime} />
+      <Side row={row} />
     </Link>
   )
 
