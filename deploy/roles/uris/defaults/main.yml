@@ -14,7 +14,7 @@ uris_opensearch_image: opensearchproject/opensearch:2.11.0
 uris_opensearch_heap: 512m
 uris_opensearch_memory: 1500m
 
-uris_s3_image: minio/minio
+uris_s3_image: cgr.dev/chainguard/minio@sha256:6a1d0b45c8669726bba580ced0bfa4cb9fdeed1ed636dfabd81d1577beb6937b
 uris_s3_region: us-east-1
 uris_s3_access_key_id: uris
 
