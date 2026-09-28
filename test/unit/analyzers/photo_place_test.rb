@@ -7,6 +7,8 @@ class PhotoPlaceTest < ActiveSupport::TestCase
             address: { neighbourhood: "Kensington Market", city: "Toronto", country: "Canada" } }.freeze
 
   setup do
+    skip "no corpus on disk — see test/fixtures/corpus/README.md" unless PHOTO.exist? && PHOTO.dirname.join("photo.nef").exist?
+
     Resource::Places.spacing = 0
     @tenant = Tenant.create!(subdomain: "photo-#{SecureRandom.hex(4)}", name: "Photos")
     Tenant.switch(@tenant) { @storage = Resource::Database.create!(key: "roll", name: "Camera roll") }

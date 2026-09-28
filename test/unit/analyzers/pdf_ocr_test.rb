@@ -4,6 +4,8 @@ class PdfOcrTest < ActiveSupport::TestCase
   CORPUS = Rails.root.join("test/fixtures/corpus/pdf")
 
   setup do
+    skip "no corpus on disk — see test/fixtures/corpus/README.md" unless CORPUS.exist?
+
     @tenant = Tenant.create!(subdomain: "ocr-#{SecureRandom.hex(4)}", name: "Scans")
     Tenant.switch(@tenant) { @storage = Resource::Database.create!(key: "scans", name: "Scans") }
   end

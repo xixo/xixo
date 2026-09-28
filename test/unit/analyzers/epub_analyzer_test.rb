@@ -45,6 +45,8 @@ class EpubAnalyzerTest < ActiveSupport::TestCase
   end
 
   test "an epub is read by its own analyzer, not as a zip" do
+    skip "no corpus on disk — see test/fixtures/corpus/README.md" unless CORPUS.exist?
+
     steps = read("book.epub", CORPUS.binread) { |analyzer| assert_instance_of Analyzer::Epub, analyzer }
 
     assert_equal "Shed Diaries", steps["book"]["title"]
