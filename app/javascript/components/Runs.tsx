@@ -10,6 +10,7 @@ import { usePages } from '../hooks/usePages'
 import { useTitle } from '../hooks/useTitle'
 import { RUN_OPEN, RUN_TONES, RunLog } from './RunLog'
 import { useAloud, useSay } from './Say'
+import { Intro } from './Settings'
 
 const PAGE = 50
 
@@ -47,10 +48,10 @@ export function Runs() {
 
   return (
     <Stack gap="var(--s5)">
-      <div className="eyebrow">
-        Work that outlives a single request — a sync, an export, a feed
-        thinking. Anything still open reports itself as it goes.
-      </div>
+      <Intro
+        title="Runs"
+        lead="Work that outlives a single request — a sync, an export, a feed thinking. Anything still open reports itself as it goes."
+      />
 
       <Group gap="var(--s2)">
         <button
@@ -167,112 +168,116 @@ function Ledger({ status }: { status: string | null }) {
   return (
     <Stack gap="var(--s4)">
       <div className="panel">
-        <Table verticalSpacing="sm" horizontalSpacing="lg">
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Work</Table.Th>
-              <Table.Th>Status</Table.Th>
-              <Table.Th>Resource</Table.Th>
-              <Table.Th>Processed</Table.Th>
-              <Table.Th>Elapsed</Table.Th>
-              <Table.Th />
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {rows.flatMap((run) => [
-              <Table.Tr key={run.id}>
-                <Table.Td>
-                  <Group gap="var(--s2)" wrap="nowrap">
-                    {run.lines > 0 && (
-                      <button
-                        type="button"
-                        className="tag"
-                        data-dot="false"
-                        data-on={open === run.id}
-                        aria-expanded={open === run.id}
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => setOpen(open === run.id ? null : run.id)}
-                      >
-                        {open === run.id ? 'hide' : `${run.lines} lines`}
-                      </button>
+        <Table.ScrollContainer minWidth={620} type="native">
+          <Table verticalSpacing="sm" horizontalSpacing="lg">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Work</Table.Th>
+                <Table.Th>Status</Table.Th>
+                <Table.Th>Resource</Table.Th>
+                <Table.Th>Processed</Table.Th>
+                <Table.Th>Elapsed</Table.Th>
+                <Table.Th />
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {rows.flatMap((run) => [
+                <Table.Tr key={run.id}>
+                  <Table.Td>
+                    <Group gap="var(--s2)" wrap="nowrap">
+                      {run.lines > 0 && (
+                        <button
+                          type="button"
+                          className="tag"
+                          data-dot="false"
+                          data-on={open === run.id}
+                          aria-expanded={open === run.id}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() =>
+                            setOpen(open === run.id ? null : run.id)
+                          }
+                        >
+                          {open === run.id ? 'hide' : `${run.lines} lines`}
+                        </button>
+                      )}
+                      <Text fw={600} size="sm">
+                        {run.kind}
+                      </Text>
+                    </Group>
+                    {run.error && (
+                      <Text size="xs" style={{ color: 'var(--bad)' }}>
+                        {run.error}
+                      </Text>
                     )}
-                    <Text fw={600} size="sm">
-                      {run.kind}
-                    </Text>
-                  </Group>
-                  {run.error && (
-                    <Text size="xs" style={{ color: 'var(--bad)' }}>
-                      {run.error}
-                    </Text>
-                  )}
-                </Table.Td>
-                <Table.Td>
-                  <span
-                    className="tag"
-                    style={
-                      {
-                        '--tone': RUN_TONES[run.status] ?? 'var(--edge)',
-                      } as CSSProperties
-                    }
-                  >
-                    {run.status}
-                  </span>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm" c="dimmed">
-                    {run.resource?.key ?? '—'}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  <span className="figure">
-                    {run.processed.toLocaleString()}
-                  </span>
-                </Table.Td>
-                <Table.Td>
-                  <span className="figure" style={{ color: 'var(--muted)' }}>
-                    {elapsed(run.startedAt, run.finishedAt)}
-                  </span>
-                </Table.Td>
-                <Table.Td>
-                  {RUN_OPEN.has(run.status) && (
-                    <Button
-                      size="compact-xs"
-                      radius="xl"
-                      variant="subtle"
-                      color="red"
-                      onClick={async () => {
-                        const answered = await cancel.execute({ id: run.id })
-
-                        if (!answered) return
-
-                        const settled =
-                          answered.cancelRun?.run.status ?? 'cancelled'
-
-                        setRows((held) =>
-                          held.map((row) =>
-                            row.id === run.id
-                              ? { ...row, status: settled }
-                              : row,
-                          ),
-                        )
-                        say({ text: `The ${run.kind} run was cancelled.` })
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  )}
-                </Table.Td>
-              </Table.Tr>,
-              open === run.id ? (
-                <Table.Tr key={`${run.id}-log`}>
-                  <Table.Td colSpan={6} style={{ paddingTop: 0 }}>
-                    <RunLog id={run.id} live={live} />
                   </Table.Td>
-                </Table.Tr>
-              ) : null,
-            ])}
-          </Table.Tbody>
-        </Table>
+                  <Table.Td>
+                    <span
+                      className="tag"
+                      style={
+                        {
+                          '--tone': RUN_TONES[run.status] ?? 'var(--edge)',
+                        } as CSSProperties
+                      }
+                    >
+                      {run.status}
+                    </span>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm" c="dimmed">
+                      {run.resource?.key ?? '—'}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <span className="figure">
+                      {run.processed.toLocaleString()}
+                    </span>
+                  </Table.Td>
+                  <Table.Td>
+                    <span className="figure" style={{ color: 'var(--muted)' }}>
+                      {elapsed(run.startedAt, run.finishedAt)}
+                    </span>
+                  </Table.Td>
+                  <Table.Td>
+                    {RUN_OPEN.has(run.status) && (
+                      <Button
+                        size="compact-xs"
+                        radius="xl"
+                        variant="subtle"
+                        color="red"
+                        onClick={async () => {
+                          const answered = await cancel.execute({ id: run.id })
+
+                          if (!answered) return
+
+                          const settled =
+                            answered.cancelRun?.run.status ?? 'cancelled'
+
+                          setRows((held) =>
+                            held.map((row) =>
+                              row.id === run.id
+                                ? { ...row, status: settled }
+                                : row,
+                            ),
+                          )
+                          say({ text: `The ${run.kind} run was cancelled.` })
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                  </Table.Td>
+                </Table.Tr>,
+                open === run.id ? (
+                  <Table.Tr key={`${run.id}-log`}>
+                    <Table.Td colSpan={6} style={{ paddingTop: 0 }}>
+                      <RunLog id={run.id} live={live} />
+                    </Table.Td>
+                  </Table.Tr>
+                ) : null,
+              ])}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
       </div>
 
       {page?.hasMore && (

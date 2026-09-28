@@ -1,19 +1,20 @@
 import {
+  ActionIcon,
   Alert,
   Button,
-  Group,
   Loader,
   Menu,
   NumberInput,
-  Stack,
-  Text,
+  Popover,
   Tooltip,
 } from '@mantine/core'
 import {
   IconArchive,
   IconArchiveOff,
   IconCheck,
+  IconClock,
   IconDots,
+  IconLock,
   IconPencil,
   IconPlugConnected,
   IconPlus,
@@ -32,11 +33,19 @@ import {
   SyncResourceDocument,
 } from '@uris-to/client'
 import { useQuery } from '@uris-to/client/react'
-import { type CSSProperties, useEffect, useRef, useState } from 'react'
+import {
+  type CSSProperties,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { useParams } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
-import { Attach, type Editing } from './Attach'
+import { ago, dated } from '../when'
+import { Attach, type Editing, glyphFor } from './Attach'
 import { useAloud, useSay } from './Say'
+import { Intro } from './Settings'
 
 interface Resource {
   id: string
@@ -81,18 +90,6 @@ function standing(resource: Resource) {
   if (!resource.checkedAt) return 'never checked'
 
   return resource.healthy ? 'reachable' : 'failing'
-}
-
-function schedule(resource: Resource) {
-  if (!resource.syncable) return 'nothing to enumerate'
-  if (!resource.syncInterval) return 'on demand only'
-
-  const every = `every ${Math.round(resource.syncInterval / 60)} min`
-  const next = resource.nextSyncAt
-    ? new Date(resource.nextSyncAt).toLocaleTimeString()
-    : '—'
-
-  return `${every} · next ${next}`
 }
 
 export function Resources() {
@@ -147,10 +144,9 @@ export function Resources() {
     })
     refetch()
   }
-  const [minutes, setMinutes] = useState<Record<string, number | string>>({})
   const [attaching, setAttaching] = useState(false)
   const [editing, setEditing] = useState<Editing | null>(null)
-  const arrived = useRef<HTMLDivElement | null>(null)
+  const arrived = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     if (landed) arrived.current?.scrollIntoView({ block: 'center' })
@@ -160,9 +156,72 @@ export function Resources() {
   if (error) return <Alert color="red">{error.message}</Alert>
 
   const resources = (data?.resources ?? []) as Resource[]
+  const shelves = SHELVES.map((shelf) => ({
+    ...shelf,
+    held: resources.filter((resource) => shelfOf(resource) === shelf.key),
+  })).filter((shelf) => shelf.held.length > 0)
+
+  const acts: Acts = {
+    check: async (resource) => {
+      const answered = await check.execute({ id: resource.id })
+
+      if (!answered) return
+
+      say(
+        answered.checkResource?.ok
+          ? { text: `${resource.key} answers.` }
+          : {
+              text:
+                answered.checkResource?.resource.checkError ??
+                `${resource.key} did not answer.`,
+              wrong: true,
+            },
+      )
+      refetch()
+    },
+    sync: async (resource) => {
+      const answered = await sync.execute({ id: resource.id })
+
+      if (!answered) return
+
+      say({ text: `${resource.key} is syncing.` })
+      refetch()
+    },
+    takeDrops: async (resource) => {
+      const answered = await takeDrops.execute({ id: resource.id })
+
+      if (!answered) return
+
+      say({ text: `Drops land in ${resource.key} now.` })
+      refetch()
+    },
+    takeQuestions: async (resource) => {
+      const answered = await takeQuestions.execute({ id: resource.id })
+
+      if (!answered) return
+
+      say({ text: `${resource.key} answers questions now.` })
+      refetch()
+    },
+    schedule: async (resource, seconds) => {
+      const answered = await setInterval.execute({ id: resource.id, seconds })
+
+      if (!answered) return false
+
+      say({
+        text: seconds
+          ? `${resource.key} syncs every ${Math.round(seconds / 60)} minutes.`
+          : `${resource.key} syncs on demand only.`,
+      })
+      refetch()
+      return true
+    },
+    change: (resource) => setEditing(resource),
+    putAway,
+  }
 
   return (
-    <Stack gap="var(--s5)">
+    <div className="settings-page">
       {connectError && (
         <Alert
           color="red"
@@ -177,36 +236,44 @@ export function Resources() {
         </Alert>
       )}
 
-      <Group justify="space-between" align="flex-end">
-        <div className="eyebrow">
-          {shelved
-            ? 'Put away, and still holding everything they ever catalogued'
-            : 'The places your items live, and what each one can be asked to do'}
-        </div>
-
-        <Group gap="var(--s2)">
+      <Intro
+        title="Resources"
+        lead={
+          shelved
+            ? 'Put away, and still holding everything they ever catalogued.'
+            : 'The places your items live, the models that read them, and the tools agents reach for.'
+        }
+      >
+        <div className="switcher" data-wide="true">
           <button
             type="button"
-            className="tag"
-            data-dot="false"
+            data-on={!shelved}
+            aria-pressed={!shelved}
+            onClick={() => setShelved(false)}
+          >
+            In use
+          </button>
+          <button
+            type="button"
             data-on={shelved}
             aria-pressed={shelved}
-            style={{ cursor: 'pointer' }}
-            onClick={() => setShelved(!shelved)}
+            onClick={() => setShelved(true)}
           >
-            {shelved ? 'In use' : 'Put away'}
+            Put away
           </button>
+        </div>
 
-          {!shelved && (
-            <Button
-              leftSection={<IconPlus size={16} stroke={2} />}
-              onClick={() => setAttaching(true)}
-            >
-              Attach one
-            </Button>
-          )}
-        </Group>
-      </Group>
+        {!shelved && (
+          <Button
+            radius="xl"
+            color="chalk"
+            leftSection={<IconPlus size={16} stroke={2} />}
+            onClick={() => setAttaching(true)}
+          >
+            Attach
+          </Button>
+        )}
+      </Intro>
 
       {attaching && (
         <Attach
@@ -225,300 +292,379 @@ export function Resources() {
         />
       )}
 
-      <div className="panel">
-        {resources.map((resource) => (
-          <div
-            key={resource.id}
-            ref={resource.id === landed ? arrived : undefined}
-            className="resource"
-            data-landed={resource.id === landed}
-            style={{ '--tone': toneFor(resource) } as CSSProperties}
-          >
-            <div className="resource-main">
-              <div className="resource-name">
-                <span className="entry-title">{resource.key}</span>
-                <span className="resource-type">{resource.type}</span>
-                <Tooltip
-                  label={
-                    resource.checkError ??
-                    (resource.checkedAt
-                      ? `checked ${new Date(resource.checkedAt).toLocaleString()}`
-                      : 'not checked yet')
-                  }
-                >
-                  <span className="resource-state">{standing(resource)}</span>
-                </Tooltip>
-              </div>
-
-              <div className="resource-facts">
-                {resource.name ?? '—'} ·{' '}
-                <span className="figure">
-                  {resource.itemsCount.toLocaleString()}
-                </span>{' '}
-                items · {resource.capabilities.join(', ')}
-              </div>
-
-              {(resource.personal ||
-                resource.defaultStorage ||
-                resource.defaultInference) && (
-                <div className="resource-roles">
-                  {resource.personal && (
-                    <span className="tag" data-dot="false">
-                      only you
-                    </span>
-                  )}
-                  {resource.defaultStorage && (
-                    <span
-                      className="tag"
-                      style={{ '--tone': 'var(--brass)' } as CSSProperties}
-                    >
-                      drops land here
-                    </span>
-                  )}
-                  {resource.defaultInference && (
-                    <span
-                      className="tag"
-                      style={{ '--tone': 'var(--brass)' } as CSSProperties}
-                    >
-                      answers questions
-                    </span>
-                  )}
-                </div>
-              )}
-
-              <div className="resource-when">
-                {schedule(resource)}
-                {resource.syncedAt &&
-                  ` · last ${new Date(resource.syncedAt).toLocaleString()}`}
-              </div>
-
-              {resource.checkError && (
-                <div className="resource-error">{resource.checkError}</div>
-              )}
-            </div>
-
-            {resource.archivedAt ? (
-              <div className="resource-actions">
-                <Button
-                  size="xs"
-                  radius="xl"
-                  variant="default"
-                  leftSection={<IconArchiveOff size={14} />}
-                  loading={putting === resource.id}
-                  onClick={() => putAway(resource, false)}
-                >
-                  Put back
-                </Button>
-              </div>
-            ) : (
-              <div className="resource-actions">
-                {resource.delegated && resource.connectUrl && (
-                  <Button
-                    component="a"
-                    href={resource.connectUrl}
-                    size="xs"
-                    radius="xl"
-                    color={resource.needsConnect ? 'chalk' : 'gray'}
-                    variant={resource.needsConnect ? 'filled' : 'subtle'}
-                    leftSection={<IconPlugConnected size={14} />}
-                  >
-                    {resource.needsConnect
-                      ? resource.connectedBy
-                        ? 'Reconnect'
-                        : 'Connect'
-                      : 'Connect again'}
-                  </Button>
-                )}
-                <Button
-                  size="xs"
-                  radius="xl"
-                  variant="default"
-                  leftSection={<IconCheck size={14} />}
-                  onClick={async () => {
-                    const answered = await check.execute({ id: resource.id })
-
-                    if (!answered) return
-
-                    say(
-                      answered.checkResource?.ok
-                        ? { text: `${resource.key} answers.` }
-                        : {
-                            text:
-                              answered.checkResource?.resource.checkError ??
-                              `${resource.key} did not answer.`,
-                            wrong: true,
-                          },
-                    )
-                    refetch()
-                  }}
-                >
-                  Check
-                </Button>
-                {resource.syncable && (
-                  <Button
-                    size="xs"
-                    radius="xl"
-                    color="chalk"
-                    leftSection={<IconRefresh size={14} />}
-                    disabled={resource.syncing}
-                    onClick={async () => {
-                      const answered = await sync.execute({
-                        id: resource.id,
-                      })
-
-                      if (!answered) return
-
-                      say({ text: `${resource.key} is syncing.` })
-                      refetch()
-                    }}
-                  >
-                    Sync
-                  </Button>
-                )}
-
-                <Menu position="bottom-end" width={220}>
-                  <Menu.Target>
-                    <Button
-                      size="xs"
-                      radius="xl"
-                      variant="subtle"
-                      color="gray"
-                      px="var(--s2)"
-                      aria-label={`More for ${resource.key}`}
-                    >
-                      <IconDots size={16} stroke={1.8} />
-                    </Button>
-                  </Menu.Target>
-                  <Menu.Dropdown>
-                    {resource.capabilities.includes('storage') && (
-                      <Menu.Item
-                        disabled={resource.defaultStorage}
-                        leftSection={
-                          resource.defaultStorage ? (
-                            <IconStarFilled size={15} />
-                          ) : (
-                            <IconStar size={15} />
-                          )
-                        }
-                        onClick={async () => {
-                          const answered = await takeDrops.execute({
-                            id: resource.id,
-                          })
-
-                          if (!answered) return
-
-                          say({ text: `Drops land in ${resource.key} now.` })
-                          refetch()
-                        }}
-                      >
-                        Take drops
-                      </Menu.Item>
-                    )}
-                    {resource.capabilities.includes('inference') && (
-                      <Menu.Item
-                        disabled={resource.defaultInference}
-                        leftSection={<IconSparkles size={15} />}
-                        onClick={async () => {
-                          const answered = await takeQuestions.execute({
-                            id: resource.id,
-                          })
-
-                          if (!answered) return
-
-                          say({
-                            text: `${resource.key} answers questions now.`,
-                          })
-                          refetch()
-                        }}
-                      >
-                        Take questions
-                      </Menu.Item>
-                    )}
-                    {resource.changeable && (
-                      <Menu.Item
-                        leftSection={<IconPencil size={15} />}
-                        onClick={() => setEditing(resource)}
-                      >
-                        Change
-                      </Menu.Item>
-                    )}
-                    <Menu.Item
-                      leftSection={<IconArchive size={15} />}
-                      onClick={() => putAway(resource, true)}
-                    >
-                      Put away
-                    </Menu.Item>
-                  </Menu.Dropdown>
-                </Menu>
-              </div>
-            )}
-
-            {resource.syncable && !resource.archivedAt && (
-              <form
-                className="resource-every"
-                onSubmit={async (event) => {
-                  event.preventDefault()
-
-                  const value = Number(minutes[resource.id])
-                  const seconds = value > 0 ? Math.round(value * 60) : null
-                  const answered = await setInterval.execute({
-                    id: resource.id,
-                    seconds,
-                  })
-
-                  if (!answered) return
-
-                  say({
-                    text: seconds
-                      ? `${resource.key} syncs every ${Math.round(seconds / 60)} minutes.`
-                      : `${resource.key} syncs on demand only.`,
-                  })
-                  refetch()
-                }}
-              >
-                <span>Sync every</span>
-                <NumberInput
-                  size="xs"
-                  w={84}
-                  min={1}
-                  radius="xl"
-                  hideControls
-                  placeholder="—"
-                  aria-label={`Minutes between syncs of ${resource.key}`}
-                  value={
-                    minutes[resource.id] ??
-                    (resource.syncInterval ? resource.syncInterval / 60 : '')
-                  }
-                  onChange={(value) =>
-                    setMinutes((current) => ({
-                      ...current,
-                      [resource.id]: value,
-                    }))
-                  }
-                />
-                <span>minutes</span>
-                <Button
-                  type="submit"
-                  size="compact-xs"
-                  radius="xl"
-                  variant="subtle"
-                  color="gray"
-                >
-                  Keep
-                </Button>
-              </form>
-            )}
+      {shelves.map((shelf) => (
+        <section key={shelf.key} className="shelf-group">
+          <div className="shelf-group-head">
+            <h2 className="label">{shelf.title}</h2>
+            <span className="shelf-group-note">{shelf.note}</span>
           </div>
-        ))}
-      </div>
+
+          <div className="rcards" data-compact={shelf.key === 'tools'}>
+            {shelf.held.map((resource) => (
+              <ResourceCard
+                key={resource.id}
+                resource={resource}
+                landed={resource.id === landed}
+                landedRef={resource.id === landed ? arrived : undefined}
+                putting={putting === resource.id}
+                acts={acts}
+              />
+            ))}
+          </div>
+        </section>
+      ))}
 
       {resources.length === 0 && (
-        <Text c="dimmed" size="sm" maw="58ch">
+        <div className="settings-empty">
           {shelved
             ? 'Nothing has been put away. A resource you stop using goes here rather than being deleted, and what it catalogued stays searchable.'
             : 'No resources are attached yet. Attach one and its contents become items you can search.'}
-        </Text>
+        </div>
       )}
-    </Stack>
+    </div>
+  )
+}
+
+interface Acts {
+  check: (resource: Resource) => void
+  sync: (resource: Resource) => void
+  takeDrops: (resource: Resource) => void
+  takeQuestions: (resource: Resource) => void
+  schedule: (resource: Resource, seconds: number | null) => Promise<boolean>
+  change: (resource: Resource) => void
+  putAway: (resource: Resource, archived: boolean) => void
+}
+
+const SHELVES = [
+  {
+    key: 'storage',
+    title: 'Storage',
+    note: 'Where your items live',
+    tone: 'var(--k-text)',
+  },
+  {
+    key: 'models',
+    title: 'Models',
+    note: 'What reads and answers',
+    tone: 'var(--k-image)',
+  },
+  {
+    key: 'tools',
+    title: 'Tools',
+    note: 'What agents can reach for',
+    tone: 'var(--k-data)',
+  },
+] as const
+
+type Shelf = (typeof SHELVES)[number]['key']
+
+function shelfOf(resource: Resource): Shelf {
+  if (resource.capabilities.includes('storage')) return 'storage'
+  if (resource.capabilities.includes('inference')) return 'models'
+
+  return 'tools'
+}
+
+function ResourceCard({
+  resource,
+  landed,
+  landedRef,
+  putting,
+  acts,
+}: {
+  resource: Resource
+  landed: boolean
+  landedRef?: RefObject<HTMLElement | null>
+  putting: boolean
+  acts: Acts
+}) {
+  const Glyph = glyphFor(resource.type)
+  const shelf = shelfOf(resource)
+  const tone = SHELVES.find((held) => held.key === shelf)?.tone
+  const storage = shelf === 'storage'
+
+  return (
+    <article
+      ref={landedRef}
+      className="rcard"
+      data-landed={landed}
+      data-failing={Boolean(resource.checkError || resource.needsConnect)}
+      style={{ '--tone': tone, '--state': toneFor(resource) } as CSSProperties}
+    >
+      <div className="rcard-top">
+        <span className="rcard-icon">
+          <Glyph size={20} stroke={1.6} />
+        </span>
+
+        <Tooltip
+          label={
+            resource.checkError ??
+            (resource.checkedAt
+              ? `checked ${ago(resource.checkedAt)}`
+              : 'not checked yet')
+          }
+        >
+          <span className="rcard-state" data-busy={resource.syncing}>
+            {standing(resource)}
+          </span>
+        </Tooltip>
+      </div>
+
+      <div className="rcard-name">
+        <h3 className="rcard-key">{resource.key}</h3>
+        <div className="rcard-kind">
+          {resource.name && resource.name !== resource.key && (
+            <>{resource.name} · </>
+          )}
+          <span className="mono">{resource.type}</span>
+        </div>
+      </div>
+
+      {storage && (
+        <div className="rcard-figure">
+          <span className="rcard-count">
+            {resource.itemsCount.toLocaleString()}
+          </span>
+          <span className="rcard-unit">
+            {resource.itemsCount === 1 ? 'item' : 'items'}
+          </span>
+        </div>
+      )}
+
+      {(resource.defaultStorage ||
+        resource.defaultInference ||
+        resource.personal) && (
+        <div className="rcard-roles">
+          {resource.defaultStorage && (
+            <span className="rcard-role">
+              <IconStarFilled size={12} /> Drops land here
+            </span>
+          )}
+          {resource.defaultInference && (
+            <span className="rcard-role">
+              <IconSparkles size={12} /> Answers questions
+            </span>
+          )}
+          {resource.personal && (
+            <span className="rcard-role" data-plain="true">
+              <IconLock size={12} /> Only you
+            </span>
+          )}
+        </div>
+      )}
+
+      {resource.checkError && (
+        <div className="rcard-error">{resource.checkError}</div>
+      )}
+
+      <footer className="rcard-foot">
+        {resource.archivedAt ? (
+          <>
+            <span className="rcard-when">
+              put away {dated(resource.archivedAt)}
+            </span>
+            <Button
+              size="compact-sm"
+              radius="xl"
+              variant="default"
+              leftSection={<IconArchiveOff size={14} />}
+              loading={putting}
+              onClick={() => acts.putAway(resource, false)}
+            >
+              Put back
+            </Button>
+          </>
+        ) : (
+          <>
+            {resource.syncable ? (
+              <Every resource={resource} onKeep={acts.schedule} />
+            ) : (
+              <span className="rcard-when">
+                {resource.capabilities.join(' · ')}
+              </span>
+            )}
+
+            <div className="rcard-actions">
+              {resource.delegated && resource.connectUrl && (
+                <Button
+                  component="a"
+                  href={resource.connectUrl}
+                  size="compact-sm"
+                  radius="xl"
+                  color={resource.needsConnect ? 'chalk' : 'gray'}
+                  variant={resource.needsConnect ? 'filled' : 'subtle'}
+                  leftSection={<IconPlugConnected size={14} />}
+                >
+                  {resource.needsConnect
+                    ? resource.connectedBy
+                      ? 'Reconnect'
+                      : 'Connect'
+                    : 'Connect again'}
+                </Button>
+              )}
+
+              {resource.syncable && (
+                <Tooltip label="Sync now">
+                  <ActionIcon
+                    size={32}
+                    radius="xl"
+                    variant="default"
+                    aria-label={`Sync ${resource.key}`}
+                    loading={resource.syncing}
+                    onClick={() => acts.sync(resource)}
+                  >
+                    <IconRefresh size={16} stroke={1.8} />
+                  </ActionIcon>
+                </Tooltip>
+              )}
+
+              <Menu position="bottom-end" width={220}>
+                <Menu.Target>
+                  <ActionIcon
+                    size={32}
+                    radius="xl"
+                    variant="subtle"
+                    color="gray"
+                    aria-label={`More for ${resource.key}`}
+                  >
+                    <IconDots size={16} stroke={1.8} />
+                  </ActionIcon>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Item
+                    leftSection={<IconCheck size={15} />}
+                    onClick={() => acts.check(resource)}
+                  >
+                    Check
+                  </Menu.Item>
+                  {resource.capabilities.includes('storage') && (
+                    <Menu.Item
+                      disabled={resource.defaultStorage}
+                      leftSection={<IconStar size={15} />}
+                      onClick={() => acts.takeDrops(resource)}
+                    >
+                      Take drops
+                    </Menu.Item>
+                  )}
+                  {resource.capabilities.includes('inference') && (
+                    <Menu.Item
+                      disabled={resource.defaultInference}
+                      leftSection={<IconSparkles size={15} />}
+                      onClick={() => acts.takeQuestions(resource)}
+                    >
+                      Take questions
+                    </Menu.Item>
+                  )}
+                  {resource.changeable && (
+                    <Menu.Item
+                      leftSection={<IconPencil size={15} />}
+                      onClick={() => acts.change(resource)}
+                    >
+                      Change
+                    </Menu.Item>
+                  )}
+                  <Menu.Divider />
+                  <Menu.Item
+                    leftSection={<IconArchive size={15} />}
+                    disabled={putting}
+                    onClick={() => acts.putAway(resource, true)}
+                  >
+                    Put away
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+            </div>
+          </>
+        )}
+      </footer>
+    </article>
+  )
+}
+
+function Every({
+  resource,
+  onKeep,
+}: {
+  resource: Resource
+  onKeep: (resource: Resource, seconds: number | null) => Promise<boolean>
+}) {
+  const [open, setOpen] = useState(false)
+  const [minutes, setMinutes] = useState<number | string>(
+    resource.syncInterval ? resource.syncInterval / 60 : '',
+  )
+  const [busy, setBusy] = useState(false)
+
+  const said = resource.syncing
+    ? 'syncing now'
+    : [
+        resource.syncInterval
+          ? `every ${Math.round(resource.syncInterval / 60)} min`
+          : 'on demand',
+        resource.syncedAt ? `synced ${dated(resource.syncedAt)}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+
+  return (
+    <Popover
+      opened={open}
+      onChange={setOpen}
+      position="top-start"
+      width={260}
+      shadow="xl"
+      radius="md"
+      trapFocus
+    >
+      <Popover.Target>
+        <button
+          type="button"
+          className="rcard-when rcard-every"
+          aria-label={`Sync schedule for ${resource.key}: ${said}`}
+          onClick={() => setOpen((held) => !held)}
+        >
+          <IconClock size={13} stroke={1.8} />
+          {said}
+        </button>
+      </Popover.Target>
+      <Popover.Dropdown>
+        <form
+          className="every-form"
+          onSubmit={async (event) => {
+            event.preventDefault()
+
+            const value = Number(minutes)
+            const seconds = value > 0 ? Math.round(value * 60) : null
+
+            setBusy(true)
+            const kept = await onKeep(resource, seconds).finally(() =>
+              setBusy(false),
+            )
+
+            if (kept) setOpen(false)
+          }}
+        >
+          <div className="label">Sync every</div>
+          <div className="every-row">
+            <NumberInput
+              min={1}
+              hideControls
+              placeholder="on demand"
+              aria-label={`Minutes between syncs of ${resource.key}`}
+              value={minutes}
+              onChange={setMinutes}
+              rightSection={<span className="every-unit">min</span>}
+              rightSectionWidth={44}
+              style={{ flex: 1 }}
+            />
+            <Button type="submit" color="chalk" loading={busy}>
+              Keep
+            </Button>
+          </div>
+          <div className="every-note">
+            Leave it empty to sync on demand only.
+          </div>
+        </form>
+      </Popover.Dropdown>
+    </Popover>
   )
 }

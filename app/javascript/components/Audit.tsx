@@ -14,6 +14,7 @@ import {
 import { usePages } from '../hooks/usePages'
 import { useTitle } from '../hooks/useTitle'
 import { ago } from '../when'
+import { Intro } from './Settings'
 
 const PAGE = 50
 
@@ -105,11 +106,10 @@ export function Audit() {
 
   return (
     <Stack gap="var(--s5)">
-      <div className="eyebrow">
-        Everything anyone asked uris to do that needed permission: who asked,
-        what they asked for, and whether it was allowed. Newest first. An
-        agent's run is one entry, with its steps in the order it took them.
-      </div>
+      <Intro
+        title="Activity"
+        lead="Everything anyone asked uris to do that needed permission: who asked, what they asked for, and whether it was allowed. Newest first. An agent's run is one entry, with its steps in the order it took them."
+      />
 
       <Group gap="var(--s4)" align="center" wrap="wrap">
         <Chips

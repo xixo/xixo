@@ -9,6 +9,7 @@ import {
 } from '@tabler/icons-react'
 import { SetSettingDocument, SettingsDocument } from '@uris-to/client'
 import { useQuery } from '@uris-to/client/react'
+import type { ReactNode } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
 import { Face } from './Face'
@@ -45,6 +46,26 @@ export function Settings() {
   )
 }
 
+export function Intro({
+  title,
+  lead,
+  children,
+}: {
+  title: string
+  lead: ReactNode
+  children?: ReactNode
+}) {
+  return (
+    <header className="settings-intro">
+      <div>
+        <h1 className="settings-title">{title}</h1>
+        <p className="settings-lead">{lead}</p>
+      </div>
+      {children && <div className="settings-intro-actions">{children}</div>}
+    </header>
+  )
+}
+
 export function SignedIn({
   account,
   who,
@@ -70,8 +91,11 @@ export function SignedIn({
   ].filter(Boolean)
 
   return (
-    <Stack gap="var(--s5)">
-      <div className="eyebrow">Who you are signed in as</div>
+    <div className="settings-page">
+      <Intro
+        title="Account"
+        lead="Who you are signed in as, and how uris behaves for you."
+      />
 
       <div className="profile">
         <Face account={account} size={56} />
@@ -130,7 +154,7 @@ export function SignedIn({
       </div>
 
       <Preferences />
-    </Stack>
+    </div>
   )
 }
 
@@ -149,7 +173,7 @@ function Preferences() {
 
   return (
     <Stack gap="var(--s5)">
-      <div className="eyebrow">How uris behaves for you</div>
+      <h2 className="section-title">How uris behaves for you</h2>
 
       {error &&
         (stale ? (
@@ -173,7 +197,7 @@ function Preferences() {
 
         return (
           <Stack key={level} gap="var(--s3)">
-            {heading && <div className="eyebrow">{heading}</div>}
+            {heading && <h2 className="section-title">{heading}</h2>}
             <div className="panel">
               {held.map((setting) => (
                 <div className="setting" key={setting.key}>

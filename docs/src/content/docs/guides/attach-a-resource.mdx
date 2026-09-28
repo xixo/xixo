@@ -8,8 +8,8 @@ You need to be signed in with `uris:resources:command`, which the browser app as
 
 ## Attach it
 
-1. Choose your avatar in the top right corner, then the **Resources** tab.
-2. Choose **Attach one**. The **Attach a resource** dialog lists every type this server offers.
+1. Choose your avatar in the top right corner, then **Resources** in the sidebar.
+2. Choose **Attach**. The **Attach a resource** dialog lists every type this server offers.
 3. Choose a card. The cards are grouped under **Where your files live**, **The web**, **Mail,
    calendars and contacts**, **Models and tools**, and **Where you work**.
 4. Under **Name it**, fill in the first field. For most types it is labeled **A name for it**. For
@@ -79,11 +79,12 @@ When the account stops working, it shows **needs reconnecting** and a **Reconnec
 
 ## Check it
 
-Each resource row shows its state: **reachable**, **failing**, **never checked**, **syncing**, or one
-of the connection states above.
+**Resources** groups resources under **Storage**, **Models**, and **Tools**, one card each. Each
+card shows its state: **reachable**, **failing**, **never checked**, **syncing**, or one of the
+connection states above.
 
-1. Choose **Check** on the resource's row.
-2. uris reports that the resource answers, or shows the error under the row.
+1. Choose **Check** from the **⋯** menu on the resource's card.
+2. uris reports that the resource answers, or shows the error on the card.
 
 uris also checks every resource on its own every six hours.
 
@@ -91,27 +92,29 @@ uris also checks every resource on its own every six hours.
 
 A tenant has one default storage and one default inference resource.
 
-- Choose **Take drops** from the **⋯** menu on a storage resource's row. The row then reads
-  **drops land here**. Uploads that no agent placed land there, and so do snapshots from the web.
-- Choose **Take questions** from the **⋯** menu on a model backend's row. The row then reads
-  **answers questions**. uris prefers it when more than one resource could serve a role.
+- Choose **Take drops** from the **⋯** menu on a storage resource's card. The card then reads
+  **Drops land here**. Uploads that no agent placed land there, and so do snapshots from the web.
+- Choose **Take questions** from the **⋯** menu on a model backend's card. The card then reads
+  **Answers questions**. uris prefers it when more than one resource could serve a role.
 
 Making one resource the default clears the flag on the previous one. A personal resource cannot be
 a default.
 
 ## Schedule syncs
 
-A resource that can sync has a **Sync** button, and a **Sync every** field under its details.
+A resource that can sync shows its schedule at the foot of its card, such as **on demand** or
+**every 30 min**, beside a sync button.
 
-1. Enter a number of minutes in the field. The minimum is one.
-2. Choose **Keep**.
+1. Choose the schedule. A **Sync every** field opens.
+2. Enter a number of minutes. The minimum is one.
+3. Choose **Keep**.
 
-Clearing the field and choosing **Keep** sets the resource to sync on demand only. Choose
-**Sync** to start one now. See [syncing](/concepts/resources/#syncing).
+Clearing the field and choosing **Keep** sets the resource to sync on demand only. Choose the
+sync button to start one now. See [syncing](/concepts/resources/#syncing).
 
 ## Change it
 
-1. Choose **Change** from the **⋯** menu on the resource's row.
+1. Choose **Change** from the **⋯** menu on the resource's card.
 2. Edit **Called** or any field under **Connection**. A secret left empty keeps the value it holds.
 3. Choose **Save it**.
 
@@ -119,15 +122,15 @@ The type and the name cannot be changed. The resource is checked again after sav
 
 ## A personal resource
 
-Choose **Only me** under **Who can use it** while attaching. The row shows **only you**. Nobody else
+Choose **Only me** under **Who can use it** while attaching. The card shows **Only you**. Nobody else
 sees the resource or reaches it through a tool, and an agent uses it only in a run you started. What
 it syncs, and what such an agent writes, is still cataloged for everyone in the tenant. This choice cannot be changed after attaching.
 
 ## Put it away
 
-Choose **Put away** from the **⋯** menu on the resource's row. The resource stops syncing and is no longer a default or
+Choose **Put away** from the **⋯** menu on the resource's card. The resource stops syncing and is no longer a default or
 a place for uploads. What it cataloged stays searchable. To bring it back, choose **Put away** at the
-top of the list to show put-away resources, then **Put back** on its row.
+top of the page to show put-away resources, then **Put back** on its card.
 
 ## Over GraphQL
 

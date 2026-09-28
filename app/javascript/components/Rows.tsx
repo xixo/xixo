@@ -100,6 +100,7 @@ function Entry({ row, pick }: { row: Row; pick?: Pick }) {
     <Link
       to={hrefFor(row)}
       className="entry"
+      style={toned(lookOf(row).tone)}
       data-picked={pick?.chosen.has(row.id) || undefined}
     >
       <Thumb url={row.thumbnailUrl} looked={row} alt="" size={44} />

@@ -146,7 +146,7 @@ export function ItemDetail() {
         Catalog
       </Link>
 
-      <header className="item-head">
+      <header className="item-head" style={toned(lookOf(item).tone)}>
         <div className="item-lead">
           {facet && <Thumb looked={item} alt="" size={56} />}
           {!facet && pictured.length > 0 && (

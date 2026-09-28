@@ -14,7 +14,6 @@ import {
 import {
   IconAddressBook,
   IconArrowLeft,
-  IconArrowRight,
   IconBrandGithub,
   IconBrandGoogleDrive,
   IconBrandNotion,
@@ -24,6 +23,7 @@ import {
   IconCalendar,
   IconCloud,
   IconCpu,
+  IconDatabase,
   IconFolders,
   IconGitBranch,
   IconMail,
@@ -43,7 +43,7 @@ import {
   UpdateResourceDocument,
 } from '@uris-to/client'
 import { useMutation, useQuery } from '@uris-to/client/react'
-import { useState } from 'react'
+import { type CSSProperties, useState } from 'react'
 
 type Attaching = ResourceTypesQuery['resourceTypes'][number]
 
@@ -63,6 +63,7 @@ export interface Editing {
 type Glyph = typeof IconPuzzle
 
 const GLYPHS: Record<string, Glyph> = {
+  database: IconDatabase,
   s3: IconBucket,
   webdav: IconServer2,
   filesystem: IconFolders,
@@ -85,24 +86,45 @@ const GLYPHS: Record<string, Glyph> = {
   git: IconGitBranch,
 }
 
-const GROUPS: { title: string; types: string[] }[] = [
+const GROUPS: {
+  title: string
+  short: string
+  tone: string
+  types: string[]
+}[] = [
   {
     title: 'Where your files live',
+    short: 'Files',
+    tone: 'var(--k-text)',
     types: ['s3', 'webdav', 'filesystem', 'oauth-google', 'microsoft-graph'],
   },
   {
     title: 'The web',
+    short: 'Web',
+    tone: 'var(--k-data)',
     types: ['search', 'curl', 'web', 'rss', 'weather', 'places'],
   },
   {
     title: 'Mail, calendars and contacts',
+    short: 'Mail',
+    tone: 'var(--k-email)',
     types: ['imap', 'caldav', 'carddav'],
   },
-  { title: 'Models and tools', types: ['openai-compatible', 'mcp'] },
-  { title: 'Where you work', types: ['github', 'notion', 'slack', 'git'] },
+  {
+    title: 'Models and tools',
+    short: 'Models',
+    tone: 'var(--k-image)',
+    types: ['openai-compatible', 'mcp'],
+  },
+  {
+    title: 'Where you work',
+    short: 'Work',
+    tone: 'var(--k-page)',
+    types: ['github', 'notion', 'slack', 'git'],
+  },
 ]
 
-function glyphFor(type: string): Glyph {
+export function glyphFor(type: string): Glyph {
   return GLYPHS[type] ?? IconPuzzle
 }
 
@@ -116,15 +138,23 @@ function grouped(types: readonly Attaching[]) {
   const placed = new Set(GROUPS.flatMap((group) => group.types))
   const sections = GROUPS.map((group) => ({
     title: group.title,
+    short: group.short,
+    tone: group.tone,
     types: group.types.flatMap((name) =>
       types.filter((held) => held.type === name),
     ),
   }))
   const rest = types.filter((held) => !placed.has(held.type))
 
-  return [...sections, { title: 'Everything else', types: rest }].filter(
-    (section) => section.types.length > 0,
-  )
+  return [
+    ...sections,
+    {
+      title: 'Everything else',
+      short: 'Other',
+      tone: 'var(--k-file)',
+      types: rest,
+    },
+  ].filter((section) => section.types.length > 0)
 }
 
 function asked(field: Field, typed: Typed) {
@@ -176,6 +206,19 @@ export function Attach({
 
   const types = data?.resourceTypes ?? []
   const type = types.find((held) => held.type === chosen) ?? null
+  const [find, setFind] = useState('')
+  const [shelf, setShelf] = useState<string | null>(null)
+  const needle = find.trim().toLowerCase()
+  const everything = grouped(types)
+  const sections = grouped(
+    needle
+      ? types.filter((held) =>
+          `${held.label} ${held.type} ${held.blurb}`
+            .toLowerCase()
+            .includes(needle),
+        )
+      : types,
+  ).filter((section) => shelf === null || section.short === shelf)
 
   if (editing && type && seededFor !== editing.id) {
     setTyped(seeded(type, editing))
@@ -298,54 +341,95 @@ export function Attach({
       {loading && !data ? (
         <Loader size="sm" color="var(--brass)" />
       ) : !type ? (
-        <Stack gap="var(--s5)">
-          <Text c="dimmed" size="sm" maw="60ch">
-            A resource is somewhere uris reads from, writes to, or asks
-            something of. Pick what you want to connect.
-          </Text>
+        <div className="attach-picker">
+          <div className="attach-intro">
+            <TextInput
+              size="md"
+              radius="xl"
+              autoFocus
+              leftSection={<IconSearch size={16} stroke={1.8} />}
+              placeholder="Find a kind of resource"
+              aria-label="Find a kind of resource"
+              value={find}
+              onChange={(event) => setFind(event.currentTarget.value)}
+            />
 
-          {grouped(types).map((section) => (
-            <section key={section.title} className="attach-group">
-              <div className="label">{section.title}</div>
+            <div className="shelf attach-shelves">
+              <button
+                type="button"
+                className="chip"
+                data-on={shelf === null}
+                aria-pressed={shelf === null}
+                onClick={() => setShelf(null)}
+              >
+                All
+              </button>
+              {everything.map((section) => (
+                <button
+                  key={section.short}
+                  type="button"
+                  className="chip"
+                  data-on={shelf === section.short}
+                  aria-pressed={shelf === section.short}
+                  style={{ '--tone': section.tone } as CSSProperties}
+                  onClick={() =>
+                    setShelf(shelf === section.short ? null : section.short)
+                  }
+                >
+                  <span className="attach-dot" />
+                  {section.short}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {sections.map((section) => (
+            <section
+              key={section.title}
+              className="attach-group"
+              style={{ '--tone': section.tone } as CSSProperties}
+            >
+              <h3 className="attach-group-title">{section.title}</h3>
               <div className="attach-grid">
                 {section.types.map((held) => {
                   const Icon = glyphFor(held.type)
+                  const meta = held.delegated
+                    ? 'Account'
+                    : held.fields.length === 0
+                      ? 'Instant'
+                      : held.syncs
+                        ? 'Syncs'
+                        : null
 
                   return (
                     <button
                       key={held.type}
                       type="button"
                       className="attach-card"
+                      title={held.blurb}
                       onClick={() => pick(held)}
                     >
-                      <span className="attach-icon">
-                        <Icon size={22} stroke={1.6} />
-                      </span>
-                      <span className="attach-copy">
-                        <span className="attach-name">{held.label}</span>
-                        <span className="attach-gist">{gist(held.blurb)}</span>
-                        <span className="attach-meta">
-                          {held.delegated
-                            ? 'Connect with your account'
-                            : held.fields.length === 0
-                              ? 'Nothing to fill in'
-                              : held.syncs
-                                ? 'Syncs on a schedule'
-                                : null}
+                      <span className="attach-card-top">
+                        <span className="attach-icon">
+                          <Icon size={20} stroke={1.7} />
                         </span>
+                        {meta && <span className="attach-meta">{meta}</span>}
                       </span>
-                      <IconArrowRight
-                        className="attach-go"
-                        size={16}
-                        stroke={1.8}
-                      />
+                      <span className="attach-name">{held.label}</span>
+                      <span className="attach-gist">{gist(held.blurb)}</span>
                     </button>
                   )
                 })}
               </div>
             </section>
           ))}
-        </Stack>
+
+          {sections.length === 0 && (
+            <div className="attach-none">
+              Nothing matches {find.trim() || 'that'}.
+            </div>
+          )}
+        </div>
       ) : (
         <Stack gap="var(--s5)">
           <div className="attach-head">

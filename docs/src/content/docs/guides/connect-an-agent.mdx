@@ -82,7 +82,7 @@ feeds with their ids. Then ask it to list resources, which calls `resource` with
 
 - **The client never opens masks.** Dynamic registration is off in the masks tenant.
 - **`401` after signing in.** uris refused the token, for example because masks issued it for a
-  different tenant. uris records each refusal with its reason on the **Activity** tab in Settings.
+  different tenant. uris records each refusal with its reason on the **Activity** page in Settings.
 - **`503` from `/mcp` or `/.well-known/oauth-protected-resource`.** masks is not answering, or
   `MASKS_ISSUER_TEMPLATE` is not set. The response body says which.
 - **A tool is missing.** The token does not hold the scope for it. Authenticate again and approve
