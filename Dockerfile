@@ -120,7 +120,8 @@ COPY --from=whisper /usr/local/bin/whisper-cli /usr/local/bin/whisper-cli
 
 # Run and own only the runtime files as a non-root user for security
 RUN groupadd --system --gid 1000 rails && \
-    useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash
+    useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash && \
+    mkdir -p /data/files && chown rails:rails /data/files
 USER 1000:1000
 
 # Copy built artifacts: gems, application
