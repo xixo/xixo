@@ -1,14 +1,14 @@
 class McpController < ApplicationController
   include ActionController::Live
 
+  around_action :within_tenant
+
   rate_limit to: Rails.configuration.uris.mcp_limit, within: 1.minute,
              by: -> { caller_key }, with: -> { too_many }
 
   include Granted
 
   skip_forgery_protection
-
-  around_action :within_tenant
 
   def handle
     status, headers, body = transport.call(request.env)
