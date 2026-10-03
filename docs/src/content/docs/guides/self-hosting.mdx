@@ -305,7 +305,7 @@ requests, and so the two scale separately. To run jobs inside the web process on
 Syncs and exports checkpoint as they go, so a worker restarted during one resumes from its last
 checkpoint. Set `URIS_ITERATORS_DISABLED=true` to stop every iterating job in every tenant.
 
-Follow job progress in the app under **Runs** in settings, and in the worker's log:
+Follow job progress in the worker's log:
 
 ```sh
 docker compose logs -f worker
