@@ -23,6 +23,7 @@ class FakeModelServer
     @counts = Hash.new(0)
     @authorizations = Hash.new { |hash, key| hash[key] = [] }
     @hang = 0
+    @trickle = 0
     @embedded = []
     @width = WIDTH
     @vectors = {}
@@ -53,6 +54,7 @@ class FakeModelServer
       @counts = Hash.new(0)
       @authorizations = Hash.new { |hash, key| hash[key] = [] }
       @hang = 0
+      @trickle = 0
       @embedded = []
       @width = WIDTH
       @vectors = {}
@@ -125,6 +127,11 @@ class FakeModelServer
     self
   end
 
+  def trickle(seconds)
+    @lock.synchronize { @trickle = seconds }
+    self
+  end
+
   def drain!(within: 2)
     deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + within
 
@@ -184,15 +191,19 @@ class FakeModelServer
       length = headers["content-length"].to_i
       body = length.positive? ? socket.read(length).to_s : ""
 
-      pause = @lock.synchronize do
+      pause, gap = @lock.synchronize do
         @counts[path] += 1
         @authorizations[path] << headers["authorization"]
-        @hang
+        [ @hang, @trickle ]
       end
 
       sleep(pause) if pause.positive?
 
-      socket.print(route(path, body))
+      Array(route(path, body)).each_with_index do |part, at|
+        sleep(gap) if at.positive? && gap.positive?
+        socket.print(part)
+        socket.flush
+      end
     rescue Errno::EPIPE, IOError
       nil
     ensure
@@ -251,12 +262,45 @@ class FakeModelServer
     def completion(body)
       record_prompt(body)
       queued = @lock.synchronize { @answers.shift }
+      return streamed(queued) if streaming?(body) && !queued.to_h.key?(:status)
 
       return rendered(200, JSON.generate(completion_payload(""))) if queued.nil?
       return rendered(queued[:status], queued[:body]) if queued.key?(:status)
       return rendered(200, JSON.generate(tool_call_payload(queued[:tool_calls]))) if queued[:tool_calls]
 
       rendered(200, JSON.generate(completion_payload(queued[:content])))
+    end
+
+    def streaming?(body)
+      JSON.parse(body)["stream"] == true
+    rescue JSON::ParserError
+      false
+    end
+
+    def streamed(queued)
+      deltas = if queued.nil? then [ { "content" => "" } ]
+      elsif queued[:tool_calls] then queued[:tool_calls].each_with_index.flat_map { |call, at| fragments(call, at) }
+      else queued[:content].to_s.scan(/\S+\s*|\s+/).presence&.map { |word| { "content" => word } } || [ { "content" => "" } ]
+      end
+
+      events = deltas.map { |delta| "data: #{JSON.generate('choices' => [ { 'index' => 0, 'delta' => delta } ])}\n\n" }
+
+      [
+        [ "HTTP/1.1 200 OK", "Content-Type: text/event-stream", "Connection: close", "", "" ].join("\r\n"),
+        *events,
+        "data: [DONE]\n\n"
+      ]
+    end
+
+    def fragments(call, at)
+      arguments = call.dig("function", "arguments").to_s
+      half = arguments.length / 2
+
+      [
+        { "tool_calls" => [ { "index" => at, "id" => call["id"], "type" => "function",
+                              "function" => { "name" => call.dig("function", "name"), "arguments" => arguments[0, half] } } ] },
+        { "tool_calls" => [ { "index" => at, "function" => { "arguments" => arguments[half..] } } ] }
+      ]
     end
 
     def completion_payload(content)

@@ -438,4 +438,71 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
       assert_predicate @resource.reload, :healthy?
     end
   end
+
+  test "an agent turn streams, so a model that thinks past the read timeout is waited for while it speaks" do
+    @server.answer("Four Korken jars hold a kilo of flour each.").trickle(0.4)
+
+    Tenant.switch(@tenant) do
+      @resource.update!(details: @resource.details.merge("read_timeout" => 1))
+
+      said = @resource.converse(messages: [ { role: "user", content: "How many jars?" } ], role: "fast")
+
+      assert_equal "Four Korken jars hold a kilo of flour each.", said["content"]
+    end
+  end
+
+  test "an agent turn that goes silent past the read timeout fails as retryable" do
+    @server.answer("never heard").hang(2)
+
+    Tenant.switch(@tenant) do
+      @resource.update!(details: @resource.details.merge("read_timeout" => 1))
+
+      failed = assert_raises(Resource::Failed) do
+        @resource.converse(messages: [ { role: "user", content: "How many jars?" } ], role: "fast")
+      end
+
+      assert_match(/did not answer in 1s/, failed.message)
+    end
+  end
+
+  test "a streamed tool call is put back together from its fragments" do
+    @server.answer_tool_calls([ [ "search", { query: "korken" } ], [ "feed", { id: "65" } ] ])
+
+    said = Tenant.switch(@tenant) do
+      @resource.converse(messages: [ { role: "user", content: "Find it." } ], tools: [ Resource::OpenaiCompatible::CHAIN_TOOL ], role: "fast")
+    end
+
+    assert_equal %w[search feed], said["tool_calls"].map { |call| call.dig("function", "name") }
+    assert_equal({ "query" => "korken" }, JSON.parse(said["tool_calls"][0].dig("function", "arguments")))
+    assert_equal({ "id" => "65" }, JSON.parse(said["tool_calls"][1].dig("function", "arguments")))
+    assert_equal "call_0_0", said["tool_calls"][0]["id"]
+  end
+
+  test "a streamed error event fails the turn rather than passing for an empty answer" do
+    gathering = Resource::OpenaiCompatible::Gathering.new(streamed: true)
+
+    failed = assert_raises(Resource::Failed) do
+      gathering << %(data: {"error": {"message": "model ran out of memory"}}\n\n)
+    end
+
+    assert_equal "model ran out of memory", failed.message
+  end
+
+  test "a backend that ignores stream and answers in one piece is still read" do
+    gathering = Resource::OpenaiCompatible::Gathering.new(streamed: false)
+    gathering << %({"choices": [{"message": {"role": "assistant", "content": "four"}}]})
+
+    assert_equal "four", gathering.message["content"]
+  end
+
+  test "reasoning streamed apart from the answer is kept for the record" do
+    gathering = Resource::OpenaiCompatible::Gathering.new(streamed: true)
+    gathering << %(data: {"choices": [{"delta": {"reasoning": "Each jar holds "}}]}\n\ndata: {"choices": [{"del)
+    gathering << %(ta": {"reasoning": "one litre."}}]}\n\ndata: {"choices": [{"delta": {"content": "Four."}}]}\n\ndata: [DONE]\n\n)
+
+    said = gathering.message
+
+    assert_equal "Each jar holds one litre.", said["reasoning"]
+    assert_equal "Four.", said["content"]
+  end
 end

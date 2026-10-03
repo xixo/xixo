@@ -120,8 +120,8 @@ class Asking
   TEXT
 
   UNSCOUTED = <<~TEXT.squish.freeze
-    You have not sent a scout, so nothing has been looked at yet. Call scout with a task first, like
-    {"task": "Search the catalog for the question's key words and report what you find."}
+    You have not sent a scout, so nothing has been looked at yet. Call scout first, with a task that
+    names the things this question is about, in its own words, and what to bring back about them.
   TEXT
 
   UNSCOUTED_FOLLOWING = <<~TEXT.squish.freeze

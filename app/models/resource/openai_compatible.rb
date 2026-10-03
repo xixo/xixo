@@ -284,8 +284,8 @@ class Resource
       started = Time.current
 
       begin
-        answered = post("/chat/completions", {
-          model: model, stream: false, max_tokens: agent_max_tokens, temperature: temperature,
+        message = streamed("/chat/completions", {
+          model: model, stream: true, max_tokens: agent_max_tokens, temperature: temperature,
           messages: messages, tools: tools, reasoning_effort: effort
         }.compact_blank, timeout: read_timeout)
       rescue StandardError => e
@@ -294,7 +294,6 @@ class Resource
         raise
       end
 
-      message = answered.dig("choices", 0, "message") || {}
       noted(analysis, role: role, model: model, number: turn, request: request,
             started_at: started, content: recorded(message),
             calls: Array(message["tool_calls"]).filter_map { |call| call.dig("function", "name") })
@@ -527,6 +526,28 @@ class Resource
         end
       end
 
+      def streamed(path, body, timeout:)
+        uri = dial(path)
+        gathering = nil
+
+        response = exchange(uri, timeout, reading: lambda { |held|
+          next unless held.is_a?(Net::HTTPSuccess)
+
+          gathering = Gathering.new(streamed: held.content_type == "text/event-stream")
+          held.read_body { |chunk| gathering << chunk }
+        }) do |at|
+          request = Net::HTTP::Post.new(at, headers)
+          request.body = JSON.generate(body)
+          request
+        end
+
+        return gathering.message if gathering
+
+        refused!(response, uri)
+      rescue JSON::ParserError
+        raise Resource::Unusable, "#{key}: #{uri.host} did not answer with JSON"
+      end
+
       def headers
         base = { "Content-Type" => "application/json", "User-Agent" => "uris" }
         token = credentials["api_key"].presence
@@ -543,26 +564,30 @@ class Resource
 
       def answer(uri, timeout, &build)
         response = exchange(uri, timeout, &build)
+        return JSON.parse(response.body.to_s) if response.is_a?(Net::HTTPSuccess)
 
+        refused!(response, uri)
+      rescue JSON::ParserError
+        raise Resource::Unusable, "#{key}: #{uri.host} did not answer with JSON"
+      end
+
+      def refused!(response, uri)
         case response
-        when Net::HTTPSuccess then JSON.parse(response.body.to_s)
         when Net::HTTPTooManyRequests then raise Resource::Failed, "#{key}: #{uri.host} is busy"
         when Net::HTTPServerError then raise Resource::Failed, "#{key}: #{uri.host} answered #{response.code}"
         else
           raise Resource::Unusable,
                 "#{key}: #{uri.host} answered #{response.code} — #{response.body.to_s.truncate(200)}"
         end
-      rescue JSON::ParserError
-        raise Resource::Unusable, "#{key}: #{uri.host} did not answer with JSON"
       end
 
-      def exchange(uri, timeout, &build)
+      def exchange(uri, timeout, reading: nil, &build)
         http = Net::HTTP.new(uri.host, uri.port)
         http.ipaddr = transported_address!(uri.hostname) if via.present?
         http.use_ssl = uri.scheme == "https"
         http.open_timeout = OPEN_TIMEOUT
         http.read_timeout = timeout
-        http.start { |held| held.request(build.call(uri)) }
+        http.start { |held| held.request(build.call(uri)) { |response| reading&.call(response) } }
       rescue Net::OpenTimeout, Net::ReadTimeout
         raise Resource::Failed, "#{key}: #{uri.host} did not answer in #{timeout}s"
       rescue SocketError, SystemCallError, OpenSSL::SSL::SSLError, IOError => e
