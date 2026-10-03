@@ -179,7 +179,7 @@ listens on `HTTP_PORT` and forwards to Puma on `TARGET_PORT`.
 
 | Variable | Default | |
 | --- | --- | --- |
-| `RAILS_MAX_THREADS` | `3` | Puma threads per process. Also the size of each database connection pool, which is `5` when this is unset. The worker reads it too, and a pool smaller than a worker's threads makes jobs wait for a connection. |
+| `RAILS_MAX_THREADS` | `3` | Puma threads per process. Each database connection pool holds this many connections, or enough for an `analysis` process's threads and the scouts each one runs, `ANALYSIS_THREADS` × (`URIS_SCOUTS_AT_ONCE` + 1) + 5, whichever is more, so setting it for Puma never starves the worker. |
 | `WEB_CONCURRENCY` | `0` | Puma worker processes. `0` runs one process without forking. Read by Puma. |
 | `PORT` | `3000` | The port Puma listens on. Thruster sets it to `TARGET_PORT`. |
 | `PIDFILE` | none | Where Puma writes its process ID. |

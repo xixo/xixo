@@ -2,7 +2,7 @@ default: &default
   adapter: postgresql
   encoding: unicode
   gssencmode: disable
-  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { ENV.fetch("ANALYSIS_THREADS", 4).to_i * (ENV.fetch("URIS_SCOUTS_AT_ONCE", 2).to_i + 1) + 5 } %>
+  pool: <%= [ ENV.fetch("RAILS_MAX_THREADS", 3).to_i, ENV.fetch("ANALYSIS_THREADS", 4).to_i * (ENV.fetch("URIS_SCOUTS_AT_ONCE", 2).to_i.clamp(1, 6) + 1) + 5 ].max %>
 
 development:
   primary: &primary_development
