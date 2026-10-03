@@ -23,7 +23,7 @@ import type { CSSProperties } from 'react'
 export const TYPE = {
   file: 'uris:file',
   note: 'uris:note',
-  feed: 'uris:feed',
+  address: 'uris:address',
   tag: 'uris:tag',
   mime: 'uris:mime',
 } as const
@@ -35,7 +35,7 @@ export const KEPT: string[] = [TYPE.file, TYPE.note]
 const PLURAL: Record<Short, string> = {
   file: 'files',
   note: 'notes',
-  feed: 'feeds',
+  address: 'addresses',
   tag: 'tags',
   mime: 'content types',
 }
@@ -75,21 +75,21 @@ const GLYPHS: Record<string, typeof IconFile> = {
   pkpass: IconTicket,
   file: IconFile,
   [TYPE.note]: IconNote,
-  [TYPE.feed]: IconRadar,
+  [TYPE.address]: IconRadar,
   [TYPE.tag]: IconTag,
   [TYPE.mime]: IconBraces,
 }
 
 const TONES: Record<string, string> = {
   [TYPE.note]: 'var(--k-text)',
-  [TYPE.feed]: 'var(--brass)',
+  [TYPE.address]: 'var(--brass)',
   [TYPE.tag]: 'var(--soft)',
   [TYPE.mime]: 'var(--muted)',
 }
 
 const LABELS: Record<string, string> = {
   [TYPE.note]: 'note',
-  [TYPE.feed]: 'feed',
+  [TYPE.address]: 'address',
   [TYPE.tag]: 'tag',
   [TYPE.mime]: 'content type',
 }
@@ -181,7 +181,7 @@ export function hrefFor(feed: {
   type: string
   key?: string | null
 }) {
-  if (feed.type === TYPE.feed && feed.key)
+  if (feed.type === TYPE.address && feed.key)
     return `/${feed.key.replace(/^\//, '')}`
 
   return `/items/${feed.id}`

@@ -7,7 +7,7 @@ import { TYPE } from '../looks'
 import { type Row, Rows } from './Rows'
 
 const PAGE = 40
-const LINKED: string[] = [TYPE.file, TYPE.note, TYPE.feed]
+const LINKED: string[] = [TYPE.file, TYPE.note, TYPE.address]
 
 export function Connections({
   id,

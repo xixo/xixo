@@ -27,7 +27,7 @@ Search the whole catalog at once — every resource that has been synced, not on
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
 | `query` | string |  | Words or a question. Matches the words, and what they mean. |
-| `type` | string |  | Leave it off to search everything. Restricts to one type: uris:file for files, uris:note, uris:feed for saved searches only, uris:tag, uris:mime. |
+| `type` | string |  | Leave it off to search everything. Restricts to one type: uris:file, uris:note, uris:address, uris:tag, uris:mime. |
 | `limit` | integer, 1–200 |  |  |
 
 
@@ -42,10 +42,10 @@ One feed: everything known about it, every place it lives, what analysis drew ou
 | `id` | string |  | The feed's id, as returned by search. |
 | `key` | string |  | An address, as /buy, instead of an id. |
 | `do` | string, one of `get` `note` `rename` `analyze` `create` `place` `last` |  | What to do. Defaults to get. |
-| `type` | string |  | For create: uris:note, uris:feed or uris:tag. |
+| `type` | string |  | For create: uris:note, uris:address or uris:tag. |
 | `title` | string |  |  |
 | `note` | string |  | For note: what to write about it. |
-| `prompt` | string |  | For create of a uris:feed: what it should find. |
+| `prompt` | string |  | For create of a uris:address: what it should find. |
 | `resource` | string |  | For place: the key of the resource to store it in. |
 | `reason` | string |  | For place: why it belongs there, in one sentence. |
 | `from` | integer |  | For get: where in its text to start reading, as a character offset. Each get returns up to 8000 characters and says where the next part starts. |

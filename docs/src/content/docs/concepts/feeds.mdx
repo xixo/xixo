@@ -14,7 +14,7 @@ The type comes from a small, fixed list. The browser app renders each feed accor
 | --- | --- | --- |
 | `uris:file` | Bytes stored in a resource, or staged until a resource accepts them. | No |
 | `uris:note` | Text written directly into the catalog. | No |
-| `uris:feed` | An address, such as `/buy`, that can run on a schedule. | Yes |
+| `uris:address` | An address, such as `/buy`, that can run on a schedule. | Yes |
 | `uris:tag` | A label that a person, an agent, or an analysis filed something under. | Yes |
 | `uris:mime` | A content type, keyed by its name, such as `text/markdown`. | Yes |
 
@@ -95,7 +95,7 @@ place, when [the same bytes join](/concepts/references/), takes its edges with t
 
 An address has no bytes to read, so its work is described by a prompt. Its `schedule` holds the
 prompt, the number of turns the agent may take (six by default), and an interval in seconds. Only a
-`uris:feed` can have a schedule, and it has at most one.
+`uris:address` can have a schedule, and it has at most one.
 
 | Field | |
 | --- | --- |

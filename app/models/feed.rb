@@ -3,7 +3,7 @@ class Feed < ApplicationRecord
 
   FILE = "uris:file".freeze
   NOTE = "uris:note".freeze
-  ADDRESS = "uris:feed".freeze
+  ADDRESS = "uris:address".freeze
   TAG = "uris:tag".freeze
   MIME = "uris:mime".freeze
 

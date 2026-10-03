@@ -1,5 +1,5 @@
 query Feeds {
-  feeds(type: "uris:feed", limit: 200) {
+  feeds(type: "uris:address", limit: 200) {
     nodes {
       id
       key

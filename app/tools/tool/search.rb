@@ -16,8 +16,8 @@ module Tool
         query: { type: "string", description: "Words or a question. Matches the words, and what they mean." },
         type: {
           type: "string",
-          description: "Leave it off to search everything. Restricts to one type: uris:file for files, " \
-                       "uris:note, uris:feed for saved searches only, uris:tag, uris:mime."
+          description: "Leave it off to search everything. Restricts to one type: uris:file, uris:note, " \
+                       "uris:address, uris:tag, uris:mime."
         },
         limit: { type: "integer", minimum: 1, maximum: 200 }
       }

@@ -63,7 +63,7 @@ const FACETS = new Set<string>([TYPE.tag, TYPE.mime])
 
 const ABOUT: Record<string, string> = {
   [TYPE.tag]: 'Everything filed under this tag.',
-  [TYPE.feed]: 'What this feed has kept.',
+  [TYPE.address]: 'What this address has kept.',
 }
 
 export function ItemDetail() {

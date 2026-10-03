@@ -388,7 +388,7 @@ class AskingTest < ActionDispatch::IntegrationTest
       @server.answer_tool_call("feed", do: "rename", id: @invoice.id.to_s, title: "wiped")
       @server.answer_tool_call("connect", a: @invoice.id.to_s, b: @other.id.to_s)
       @server.answer_tool_call("search", query: "invoice")
-      @server.answer_tool_call("feed", do: "create", type: "uris:feed", title: "every hour", prompt: "spend")
+      @server.answer_tool_call("feed", do: "create", type: "uris:address", title: "every hour", prompt: "spend")
       @server.answer("I could not.")
     end
     @server.answer("I could not.")

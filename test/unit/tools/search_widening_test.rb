@@ -37,7 +37,7 @@ class SearchWideningTest < ActiveSupport::TestCase
     reply = searched(query: "Kilner", type: Feed::ADDRESS)
 
     assert reply["widened"]
-    assert_match(/Nothing of type uris:feed matched.*Leave type off/, reply["note"])
+    assert_match(/Nothing of type uris:address matched.*Leave type off/, reply["note"])
     assert_includes reply["feeds"].map { |held| held["id"] }, @plan.id.to_s
   end
 

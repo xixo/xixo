@@ -36,10 +36,10 @@ module Tool
           enum: READ + WRITE,
           description: "What to do. Defaults to get."
         },
-        type: { type: "string", description: "For create: uris:note, uris:feed or uris:tag." },
+        type: { type: "string", description: "For create: uris:note, uris:address or uris:tag." },
         title: { type: "string" },
         note: { type: "string", description: "For note: what to write about it." },
-        prompt: { type: "string", description: "For create of a uris:feed: what it should find." },
+        prompt: { type: "string", description: "For create of a uris:address: what it should find." },
         resource: { type: "string", description: "For place: the key of the resource to store it in." },
         reason: { type: "string", description: "For place: why it belongs there, in one sentence." },
         from: {

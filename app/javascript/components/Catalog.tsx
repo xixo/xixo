@@ -351,7 +351,7 @@ function Shelf({
   )
 }
 
-const MENU: Short[] = ['file', 'note', 'feed', 'tag', 'mime']
+const MENU: Short[] = ['file', 'note', 'address', 'tag', 'mime']
 
 function Types() {
   const [params] = useSearchParams()
