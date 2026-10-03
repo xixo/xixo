@@ -4,6 +4,23 @@ The plan that made the same bytes one feed has landed. The
 [references concept page](docs/src/content/docs/concepts/references.mdx) describes joining, leaving,
 and keeping apart. This file lists what is still open.
 
+## Next
+
+- **Inference falls back on health.** `Resource.best_inference` takes the default inference
+  resource, or else the first, without asking whether it answers. A model server on a machine that
+  sleeps stops analysis until it wakes. Prefer a healthy resource.
+- **A resource behind a transport that comes and goes.** A peer that is off fails each check with a
+  connection error. Read the peer's state from tailscaled, report the resource as offline for that
+  reason, and resume its syncs when the peer returns.
+- **An agent.** A program on each machine that enrolls with uris as a masks client, dials uris, and
+  reports the machine's health. It then offers the machine's folders and model server as resources
+  reached through it, and later pulls analysis jobs, so a file is read where it lives and only its
+  text reaches uris. It runs natively on macOS, where a container cannot see the GPU or the real
+  disks, and may run in a container on Linux.
+- **Installing uris on a phone.** A web manifest, an icon, and a share target.
+- **Discovery.** A transport offers what it can reach as resources to attach, such as a tailnet's
+  nodes from tailscaled's status.
+
 ## Not yet verified
 
 - **Joining has not been run live.** Attach two filesystem resources over one folder, sync both, and
