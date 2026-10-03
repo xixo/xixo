@@ -15,11 +15,11 @@ class TimeoutTest < ActionDispatch::IntegrationTest
     connect!(@tenant)
   end
 
-  test "a feed nobody has set runs for five minutes, and one set runs for as long as it was given" do
+  test "a feed nobody has set runs for ten minutes, and one set runs for as long as it was given" do
     fresh = execute(SET, variables: { id: @feed.id })
 
     assert_nil fresh.dig("data", "setFeedTimeout", "feed", "timeout")
-    assert_equal 300, fresh.dig("data", "setFeedTimeout", "feed", "timeAllowed")
+    assert_equal 600, fresh.dig("data", "setFeedTimeout", "feed", "timeAllowed")
 
     set = execute(SET, variables: { id: @feed.id, seconds: 3600 })
 

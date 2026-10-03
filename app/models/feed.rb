@@ -15,7 +15,7 @@ class Feed < ApplicationRecord
   MAX_KEY = 900
   MONTHS = "jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec".freeze
   DATED = %r{\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}|\b(#{MONTHS})[a-z]*\.?,?\s+\d|\d(st|nd|rd|th)?\s+(#{MONTHS})}i
-  TIMEOUT = 5.minutes
+  TIMEOUT = 10.minutes
   MIN_TIMEOUT = 1.minute
   MAX_TIMEOUT = 1.day
   GIST = %w[title note].freeze

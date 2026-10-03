@@ -43,8 +43,8 @@ class ClockTest < ActiveSupport::TestCase
       travel 20.minutes do
         queued.running!
 
-        assert_in_delta 5.minutes.from_now, queued.deadline, 1
-        assert_in_delta 5.minutes.from_now, queued.reload.deadline, 1
+        assert_in_delta Feed::TIMEOUT.from_now, queued.deadline, 1
+        assert_in_delta Feed::TIMEOUT.from_now, queued.reload.deadline, 1
       end
 
       @feed.update!(timeout: 2.hours.to_i)
@@ -62,7 +62,7 @@ class ClockTest < ActiveSupport::TestCase
       answered = run_agent(analysis)
 
       assert_equal "Done.", answered.said
-      assert_in_delta 35.minutes.from_now, analysis.reload.deadline, 5
+      assert_in_delta (Feed::TIMEOUT + 30.minutes).from_now, analysis.reload.deadline, 5
       assert_match(/more_time.*30 minutes.*forty pages/, analysis.logs)
     end
   end
