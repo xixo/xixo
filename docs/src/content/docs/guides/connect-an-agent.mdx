@@ -12,8 +12,10 @@ An MCP client registers itself with masks the first time it connects. The masks 
 that.
 
 1. Open the masks tenant's settings.
-2. Under **Dynamic registration**, choose **On**, or **On, limited to these scopes** and list the
-   `uris:` scopes a client may hold.
+2. Under **Dynamic registration**, choose **On**, or **On, limited to these scopes**.
+3. If you limit it, list `openid`, `profile`, `email`, `offline_access`, and every scope in the
+   [table below](#choose-the-scopes). A client asks for every scope uris offers, and masks refuses
+   the whole request with `invalid_scope` when one of them is beyond the limit.
 
 `MASKS_DYNAMIC_REGISTRATION` on the masks deployment overrides the tenant's choice. See
 [registering a client](https://masks.pages.dev/guides/client-features/#registering-a-client) in the masks docs.
@@ -30,10 +32,16 @@ that.
 3. The browser opens masks. Sign in, and approve the scopes the client asks for.
 4. Back in Claude Code, `/mcp` lists `uris` as connected, with its tools.
 
-## Claude Desktop and other clients
+## Claude and other clients
 
 Any MCP client that speaks OAuth and registers itself dynamically can connect. Give it the `/mcp`
-URL, such as `https://uris.example.com/mcp`. In Claude Desktop, add it as a custom connector.
+URL, such as `https://uris.example.com/mcp`. The address without `/mcp` answers `404`, and the
+resource the metadata names is the `/mcp` URL, which a client checks against the address it was
+given.
+
+In Claude, open **Settings → Connectors**, choose **Add custom connector**, and enter a name and the
+`/mcp` URL. Claude sends you to masks to sign in and approve, and then lists the uris tools under the
+connector, where you choose which ones it may call without asking.
 
 :::note
 Claude Desktop reaches a custom connector from Anthropic's servers, so the address has to be public.
@@ -68,8 +76,9 @@ left out of `tools/list`.
 | `uris:web:keep` | `resource` `snapshot` on a `web` resource, without `uris:resources:command` |
 | `uris:mcp:call` | the tools of every MCP server attached as a resource |
 
-To keep every self-registered client read-only, choose **On, limited to these scopes** in masks and
-list only `uris:catalog:read`. The full list is in the
+uris offers each of these scopes, and a client asks for all of them. A masks limit narrower than
+this table refuses every such client, so limit a client in the client instead, such as Claude's
+per-tool permissions. The full list is in the
 [scopes reference](/reference/scopes/), and each tool's arguments are in the
 [MCP reference](/reference/mcp/).
 
@@ -77,6 +86,16 @@ list only `uris:catalog:read`. The full list is in the
 
 Ask the agent to search the catalog for a word you know is in it. It calls `search` and returns
 feeds with their ids. Then ask it to list resources, which calls `resource` with no key.
+
+## If it does not connect
+
+The masks log shows each step the client took.
+
+| What you see | Why |
+| --- | --- |
+| The client never opens masks | The masks metadata at `/.well-known/oauth-authorization-server` has no `registration_endpoint`, so dynamic registration is off. |
+| masks redirects back with `invalid_scope` and `this client may not request` | The tenant's limit leaves out a scope uris offers. Add the scopes it names. |
+| The client gets `404` | The address is missing `/mcp`. |
 
 ## If it doesn't work
 
