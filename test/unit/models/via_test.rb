@@ -7,6 +7,14 @@ class Resource
       [ :transport ]
     end
 
+    def self.routable?
+      true
+    end
+
+    def covers
+      [ IPAddr.new("127.0.0.0/8") ]
+    end
+
     def check!
       true
     end

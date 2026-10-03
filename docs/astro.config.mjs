@@ -47,6 +47,7 @@ export default defineConfig({
           label: "How-to guides",
           items: [
             { label: "Attach a resource", slug: "guides/attach-a-resource" },
+            { label: "Reach a tailnet", slug: "guides/tailnet" },
             { label: "Connect an agent", slug: "guides/connect-an-agent" },
             { label: "Ask the catalog", slug: "guides/ask" },
             { label: "Tag items", slug: "guides/tag" },

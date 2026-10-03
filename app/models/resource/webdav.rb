@@ -32,6 +32,10 @@ class Resource
     serves :storage
     accepts "*/*"
 
+    def self.routable?
+      true
+    end
+
     def self.attaching
       {
         label: "WebDAV",

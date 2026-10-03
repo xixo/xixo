@@ -9,6 +9,8 @@ module Mutations
              description: "One entry per field the type declares. Anything else is dropped."
     argument :personal, Boolean, required: false,
              description: "Only whoever attaches it can see and use it. Left off, everyone here can."
+    argument :via, String, required: false,
+             description: "The key of a transport to reach it through, such as a tailnet. Left off, it is reached directly."
 
     field :resource, Types::ResourceType, null: false
     field :check_error, String, description: "What the first check said, if it did not pass."
@@ -16,7 +18,7 @@ module Mutations
           description: "Where to send the browser to connect it through masks, for a type that connects " \
                        "that way. Nothing is reachable until somebody does."
 
-    def resolve(type:, key:, name: nil, settings: nil, personal: false)
+    def resolve(type:, key:, name: nil, settings: nil, personal: false, via: nil)
       klass = attachable!(type)
 
       named = key.to_s.strip
@@ -24,6 +26,7 @@ module Mutations
                            owner_subject: personal ? context[:grant]&.subject : nil)
 
       settle(resource, klass, settings)
+      resource.via = transport!(via) if via.present?
 
       refused(resource.errors.full_messages.to_sentence) unless resource.save
 
@@ -61,8 +64,9 @@ module Mutations
           told: "attached #{resource.key}, a #{klass.sti_name} resource",
           arguments: {
             "type" => klass.sti_name, "key" => resource.key,
-            "set" => ((settings || {}).keys & klass.attaching[:fields].map { |f| f[:name] }).join(", ")
-          }
+            "set" => ((settings || {}).keys & klass.attaching[:fields].map { |f| f[:name] }).join(", "),
+            "via" => resource.via&.key
+          }.compact
         )
       end
   end

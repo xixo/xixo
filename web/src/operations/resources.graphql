@@ -25,6 +25,8 @@ query Resources($archived: Boolean) {
     needsConnect
     connectedBy
     connectUrl
+    via
+    routable
   }
 }
 
@@ -111,6 +113,7 @@ query ResourceTypes {
     capabilities
     syncs
     delegated
+    routable
     fields {
       name
       label
@@ -138,6 +141,7 @@ mutation AttachResource(
   $name: String
   $settings: JSON
   $personal: Boolean
+  $via: String
 ) {
   attachResource(
     input: {
@@ -146,6 +150,7 @@ mutation AttachResource(
       name: $name
       settings: $settings
       personal: $personal
+      via: $via
     }
   ) {
     resource {
@@ -159,12 +164,20 @@ mutation AttachResource(
   }
 }
 
-mutation UpdateResource($id: ID!, $name: String, $settings: JSON) {
-  updateResource(input: { id: $id, name: $name, settings: $settings }) {
+mutation UpdateResource(
+  $id: ID!
+  $name: String
+  $settings: JSON
+  $via: String
+) {
+  updateResource(
+    input: { id: $id, name: $name, settings: $settings, via: $via }
+  ) {
     resource {
       id
       key
       name
+      via
     }
     checkError
   }

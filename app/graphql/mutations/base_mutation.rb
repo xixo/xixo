@@ -18,6 +18,11 @@ module Mutations
           raise(GraphQL::ExecutionError, "no resource with id #{id}")
       end
 
+      def transport!(key)
+        Resource.capable_of(:transport).reachable_by(context[:grant]).find_by(key: key.to_s) ||
+          refused("#{key} is not a transport here")
+      end
+
       def run!(id)
         Run.visible_to(context[:grant]).find_by(id: id) || raise(GraphQL::ExecutionError, "no run with id #{id}")
       end

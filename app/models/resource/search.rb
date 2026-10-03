@@ -21,6 +21,10 @@ class Resource
 
     serves :search
 
+    def self.routable?
+      true
+    end
+
     def self.attaching
       {
         label: "Web search",
@@ -188,7 +192,7 @@ class Resource
       end
 
       def pinned!(target)
-        PublicAddress.pinned!(target, allow_private: self.class.named?(target))
+        PublicAddress.pinned!(reached(target), allow_private: self.class.named?(target), through: through)
       rescue PublicAddress::Blocked => e
         raise PublicFetch::Blocked, "#{key}: #{e.message}"
       rescue PublicAddress::Unresolvable => e

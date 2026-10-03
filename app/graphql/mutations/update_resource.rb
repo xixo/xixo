@@ -6,11 +6,14 @@ module Mutations
     argument :name, String, required: false
     argument :settings, GraphQL::Types::JSON, required: false,
              description: "One entry per field the type declares. A secret left empty keeps what it held."
+    argument :via, String, required: false,
+             description: "The key of a transport to reach it through. An empty string reaches it directly, " \
+                          "and leaving it off keeps what it had."
 
     field :resource, Types::ResourceType, null: false
     field :check_error, String, description: "What the check after the change said, if it did not pass."
 
-    def resolve(id:, name: nil, settings: nil)
+    def resolve(id:, name: nil, settings: nil, via: nil)
       resource = resource!(id)
       klass = resource.class
 
@@ -18,6 +21,7 @@ module Mutations
 
       resource.name = name.strip if name.present?
       settle(resource, klass, settings) unless settings.nil?
+      resource.via = via.empty? ? nil : transport!(via) unless via.nil?
 
       refused(resource.errors.full_messages.to_sentence) unless resource.save
 
@@ -52,8 +56,9 @@ module Mutations
           told: "changed the settings of #{resource.key}",
           arguments: {
             "type" => resource.class.sti_name, "key" => resource.key,
-            "set" => (settings.to_h.reject { |_, value| value.to_s.strip.empty? }.keys & declared).join(", ")
-          }
+            "set" => (settings.to_h.reject { |_, value| value.to_s.strip.empty? }.keys & declared).join(", "),
+            "via" => resource.via&.key
+          }.compact
         )
       end
   end

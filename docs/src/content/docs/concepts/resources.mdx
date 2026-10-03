@@ -140,12 +140,27 @@ anything.
 
 ## Reaching through another resource
 
-A resource has a `via` column for a transport, which would be a resource that serves `transport` and
-implements `reach!`. An OpenAI-compatible endpoint with a `via` dials its base URL through the
-transport. No shipped type serves `transport` yet, so `via` cannot be set to anything today.
+A resource can name a transport in its `via` column. A transport is a resource that serves
+`transport`. It lists the addresses it reaches in `covers`, and `reach!` can rewrite a URL before it
+is dialed. The shipped transport is `tailnet`, which covers the Tailscale ranges `100.64.0.0/10` and
+`fd7a:115c:a1e0::/48`. See [reach a tailnet](/guides/tailnet/).
 
-The validations are in place for when a transport type exists. They refuse a `via` that does not
-serve `transport`, that belongs to another tenant, that points at the resource itself, that forms a
+A resource with a `via` connects only to addresses its transport covers. The address check runs as
+it always does, with the transport's ranges in place of the public internet, so a public address is
+refused as firmly as a loopback one. `URIS_ALLOW_PRIVATE_FETCH` and the `_ORIGINS` lists do not widen
+it. Where uris resolves a name itself, it connects to the address it checked. An `s3` resource also
+checks the address of the peer that answers, since the AWS SDK resolves names on its own.
+
+These types can name a `via`: `webdav`, `caldav`, `carddav`, `s3`, `mcp`, `search`, `curl`, `rss`,
+`imap`, `git`, and `openai-compatible`. Every other type refuses one. A `git` resource behind a
+transport takes only an `http` or `https` URL, since the address check does not apply to `ssh`.
+
+Checking a resource with a `via` checks the transport first. If the transport fails, the resource
+fails with `<key> is reached through <transport>, which is down`, followed by the transport's error.
+
+`via` is set by the `via` argument of `attachResource` and `updateResource`, by the "Reached through"
+field when a resource is attached or changed in the app, or by a `via` key in `config/resources.yml`.
+The validations refuse a `via` that does not serve `transport`, that belongs to another tenant, that points at the resource itself, that forms a
 loop, or that is more than four hops from a resource that answers. The foreign key is composite:
 `(via_id, tenant_id)` references `(id, tenant_id)`, so the database refuses a link to another
 tenant's resource even if the application does not. A transport cannot be archived while an active

@@ -51,6 +51,10 @@ class Resource
 
     serves :inference
 
+    def self.routable?
+      true
+    end
+
     def self.attaching
       {
         label: "A model backend",
@@ -155,7 +159,7 @@ class Resource
     def json_mode? = details.fetch("json_mode", true)
 
     def base_url
-      permitted!(via.present? ? via.reach!(configured_url) : configured_url)
+      permitted!(reached(configured_url))
     end
 
     def check!
@@ -543,10 +547,12 @@ class Resource
       end
 
       def exchange(uri, timeout, &build)
-        Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
-                                            open_timeout: OPEN_TIMEOUT, read_timeout: timeout) do |http|
-          http.request(build.call(uri))
-        end
+        http = Net::HTTP.new(uri.host, uri.port)
+        http.ipaddr = transported_address!(uri.hostname) if via.present?
+        http.use_ssl = uri.scheme == "https"
+        http.open_timeout = OPEN_TIMEOUT
+        http.read_timeout = timeout
+        http.start { |held| held.request(build.call(uri)) }
       rescue Net::OpenTimeout, Net::ReadTimeout
         raise Resource::Failed, "#{key}: #{uri.host} did not answer in #{timeout}s"
       rescue SocketError, SystemCallError, OpenSSL::SSL::SSLError, IOError => e
@@ -554,7 +560,7 @@ class Resource
       end
 
       def permitted!(target)
-        return target if via.present?
+        return transported!(target) if via.present?
 
         allowed = self.class.permitted_origins
 
@@ -570,6 +576,19 @@ class Resource
         raise Resource::Unusable, "#{key}: #{origin} is not one of URIS_INFERENCE_ORIGINS"
       rescue URI::InvalidURIError
         raise Resource::Unusable, "#{key}: #{target} is not a url"
+      end
+
+      def transported!(target)
+        transported_address!(URI.parse(target.to_s).hostname)
+        target
+      end
+
+      def transported_address!(host)
+        PublicAddress.address_for!(host, through: through)
+      rescue PublicAddress::Blocked => e
+        raise Resource::Unusable, "#{key}: #{e.message}"
+      rescue PublicAddress::Unresolvable => e
+        raise Resource::Failed, "#{key}: #{e.message}"
       end
   end
 end

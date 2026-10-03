@@ -33,6 +33,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | [`git`](#git) | — | yes |
 | [`weather`](#weather) | `weather` |  |
 | [`places`](#places) | `places` |  |
+| [`tailnet`](#tailnet) | `transport` |  |
 
 ## s3
 
@@ -45,6 +46,7 @@ Object storage. One bucket over the S3 API. AWS, R2, B2, Wasabi, MinIO and Garag
 | Up to | — |
 | Syncs | yes |
 | Connected through masks | no |
+| Reached through a transport | yes |
 | Attached from the app | yes |
 
 ### Fields
@@ -78,6 +80,7 @@ A directory. A directory on the machine running uris, inside this tenant's own d
 | Up to | — |
 | Syncs | yes |
 | Connected through masks | no |
+| Reached through a transport | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -107,6 +110,7 @@ WebDAV. A WebDAV collection — Nextcloud, ownCloud, or anything else speaking i
 | Up to | — |
 | Syncs | yes |
 | Connected through masks | no |
+| Reached through a transport | yes |
 | Attached from the app | yes |
 
 ### Fields
@@ -138,6 +142,7 @@ Calendars. A CalDAV collection. Only the events in it are catalogued.
 | Up to | — |
 | Syncs | yes |
 | Connected through masks | no |
+| Reached through a transport | yes |
 | Attached from the app | yes |
 
 ### Fields
@@ -168,6 +173,7 @@ Contacts. A CardDAV collection. Only the cards in it are catalogued.
 | Up to | — |
 | Syncs | yes |
 | Connected through masks | no |
+| Reached through a transport | yes |
 | Attached from the app | yes |
 
 ### Fields
@@ -198,6 +204,7 @@ A mailbox. One IMAP mailbox. Messages are catalogued, and their attachments beco
 | Up to | — |
 | Syncs | yes |
 | Connected through masks | no |
+| Reached through a transport | yes |
 | Attached from the app | yes |
 
 ### Fields
@@ -230,6 +237,7 @@ A feed. An RSS or Atom feed. Each entry becomes an item.
 | Up to | — |
 | Syncs | yes |
 | Connected through masks | no |
+| Reached through a transport | yes |
 | Attached from the app | yes |
 
 ### Fields
@@ -256,6 +264,7 @@ The web. What renders an address into a page you keep. One is enough for a tenan
 | Up to | — |
 | Syncs | no |
 | Connected through masks | no |
+| Reached through a transport | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -283,6 +292,7 @@ A model backend. Anything speaking the OpenAI chat API — ollama, LM Studio, ll
 | Up to | — |
 | Syncs | no |
 | Connected through masks | no |
+| Reached through a transport | yes |
 | Attached from the app | yes |
 
 ### Fields
@@ -318,6 +328,7 @@ Google Drive. Connected through masks with your Google account. masks keeps the 
 | Up to | — |
 | Syncs | no |
 | Connected through masks | yes |
+| Reached through a transport | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -340,6 +351,7 @@ None.
 | Up to | 64 MB |
 | Syncs | yes |
 | Connected through masks | no |
+| Reached through a transport | no |
 | Attached from the app | no |
 
 ### Commands
@@ -361,6 +373,7 @@ Web search. Somewhere to look when the answer is not in the catalog. Exa, Brave 
 | Up to | — |
 | Syncs | no |
 | Connected through masks | no |
+| Reached through a transport | yes |
 | Attached from the app | yes |
 
 ### Fields
@@ -388,6 +401,7 @@ Fetch a page. Reads one address over HTTP, the way curl would, so an agent can r
 | Up to | — |
 | Syncs | no |
 | Connected through masks | no |
+| Reached through a transport | yes |
 | Attached from the app | yes |
 
 ### Fields
@@ -411,6 +425,7 @@ An MCP server. Somebody else's tools, offered beside the catalog's own. Checking
 | Up to | — |
 | Syncs | no |
 | Connected through masks | no |
+| Reached through a transport | yes |
 | Attached from the app | yes |
 
 ### Fields
@@ -444,6 +459,7 @@ GitHub. Issues and pull requests from the repositories you name, each one an ite
 | Up to | — |
 | Syncs | yes |
 | Connected through masks | no |
+| Reached through a transport | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -473,6 +489,7 @@ Notion. Every page the integration has been shared with, each one an item carryi
 | Up to | — |
 | Syncs | yes |
 | Connected through masks | no |
+| Reached through a transport | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -501,6 +518,7 @@ Slack. Threads from the channels the app has been invited to, each one an item. 
 | Up to | — |
 | Syncs | yes |
 | Connected through masks | no |
+| Reached through a transport | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -529,6 +547,7 @@ OneDrive. Connected through masks with your Microsoft account. masks keeps the t
 | Up to | — |
 | Syncs | yes |
 | Connected through masks | yes |
+| Reached through a transport | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -556,6 +575,7 @@ A git repository. Every file at the tip of one branch, each one an item. The clo
 | Up to | — |
 | Syncs | yes |
 | Connected through masks | no |
+| Reached through a transport | yes |
 | Attached from the app | yes |
 
 ### Fields
@@ -585,6 +605,7 @@ Weather. Current conditions and the forecast for any place, looked up when asked
 | Up to | — |
 | Syncs | no |
 | Connected through masks | no |
+| Reached through a transport | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -612,6 +633,7 @@ Places. Addresses, coordinates, and what is nearby, from OpenStreetMap. It answe
 | Up to | — |
 | Syncs | no |
 | Connected through masks | no |
+| Reached through a transport | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -630,3 +652,15 @@ Places. Addresses, coordinates, and what is nearby, from OpenStreetMap. It answe
 | `find` | `query: string` `limit: integer?` |
 | `reverse` | `latitude: number` `longitude: number` |
 | `nearby` | `kind: string` `place: string?` `latitude: number?` `longitude: number?` `radius: integer?` |
+
+## tailnet
+
+|  |  |
+| --- | --- |
+| Serves | `transport` |
+| Accepts | — |
+| Up to | — |
+| Syncs | no |
+| Connected through masks | no |
+| Reached through a transport | no |
+| Attached from the app | no |

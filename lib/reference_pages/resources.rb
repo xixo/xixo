@@ -64,6 +64,7 @@ module ReferencePages
           [ "Up to", klass.up_to ? ActiveSupport::NumberHelper.number_to_human_size(klass.up_to) : "—" ],
           [ "Syncs", klass.method_defined?(:each_page) ? "yes" : "no" ],
           [ "Connected through masks", klass.delegated? ? "yes" : "no" ],
+          [ "Reached through a transport", klass.routable? ? "yes" : "no" ],
           [ "Attached from the app", klass.attaching ? "yes" : "no" ]
         ]
 

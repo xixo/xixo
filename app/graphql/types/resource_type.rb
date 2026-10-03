@@ -38,12 +38,24 @@ module Types
           description: "The subject of whoever connected it."
     field :connect_url, String, method: :connect_path,
           description: "Where to send the browser to connect it, for a resource that connects through masks."
+    field :via, String,
+          description: "The key of the transport it is reached through. Empty for a resource reached directly."
+    field :routable, Boolean, null: false,
+          description: "Whether it can be reached through a transport, such as a tailnet."
     field :held_credentials, [ String ], null: false,
           description: "The names of the encrypted fields that hold something, so a form can say " \
                        "one is set without saying what it is."
 
     def capabilities
       object.capabilities.map(&:to_s)
+    end
+
+    def via
+      object.via&.key
+    end
+
+    def routable
+      object.class.routable?
     end
 
     def settings

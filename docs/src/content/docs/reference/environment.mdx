@@ -116,7 +116,8 @@ and a URL matches when all three match. See [addresses](/concepts/adding/#addres
 | `URIS_S3_ORIGINS` | none | S3 endpoints an `s3` resource may reach at a private address, such as a MinIO container. |
 | `URIS_MCP_ORIGINS` | none | MCP servers an `mcp` resource may reach at a private address. |
 | `URIS_SEARCH_ORIGINS` | none | Search endpoints a `search` resource may reach at a private address, such as a self-hosted SearXNG. `URIS_ALLOW_PRIVATE_FETCH` does not apply to `search` resources. |
-| `URIS_INFERENCE_ORIGINS` | none | Every origin an `openai_compatible` resource may reach, public or private, such as `https://api.openai.com,http://ollama:11434`. A resource whose base URL is outside the list is unusable, and with the list empty every one is, unless it is reached through another resource. |
+| `URIS_INFERENCE_ORIGINS` | none | Every origin an `openai_compatible` resource may reach, public or private, such as `https://api.openai.com,http://ollama:11434`. A resource whose base URL is outside the list is unusable, and with the list empty every one is, unless it is reached through a transport. |
+| `URIS_TAILSCALE_SOCKET` | none | The socket of a tailscaled that uris shares a network with, such as `/var/run/tailscale/tailscaled.sock`. Set, uris declares a `tailnet` resource in every tenant beside those in `config/resources.yml`, and resources reached through it may connect to addresses on the tailnet. See [reach a tailnet](/guides/tailnet/). |
 | `URIS_ALLOW_PRIVATE_FETCH` | `false` | Lifts the address check for downloads, snapshots, and every resource that fetches URLs. The scheme check stays. |
 | `URIS_GIT_PROTOCOLS` | `https` | The transports `git` resources may use, separated by commas, such as `https,ssh`. uris passes the list to git as `GIT_ALLOW_PROTOCOL`. Only `http` and `https` URLs go through the address check. |
 

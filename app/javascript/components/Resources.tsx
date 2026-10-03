@@ -73,6 +73,7 @@ interface Resource {
   needsConnect: boolean
   connectedBy?: string | null
   connectUrl?: string | null
+  via?: string | null
 }
 
 function toneFor(resource: Resource) {
@@ -156,6 +157,9 @@ export function Resources() {
   if (error) return <Alert color="red">{error.message}</Alert>
 
   const resources = (data?.resources ?? []) as Resource[]
+  const transports = resources
+    .filter((resource) => resource.capabilities.includes('transport'))
+    .map((resource) => resource.key)
   const shelves = SHELVES.map((shelf) => ({
     ...shelf,
     held: resources.filter((resource) => shelfOf(resource) === shelf.key),
@@ -278,6 +282,7 @@ export function Resources() {
       {attaching && (
         <Attach
           opened
+          transports={transports}
           onClose={() => setAttaching(false)}
           onAttached={refetch}
         />
@@ -286,6 +291,7 @@ export function Resources() {
       {editing && (
         <Attach
           opened
+          transports={transports}
           editing={editing}
           onClose={() => setEditing(null)}
           onAttached={refetch}
@@ -354,6 +360,12 @@ const SHELVES = [
     note: 'What agents can reach for',
     tone: 'var(--k-data)',
   },
+  {
+    key: 'networks',
+    title: 'Networks',
+    note: 'What uris reaches the others through',
+    tone: 'var(--k-email)',
+  },
 ] as const
 
 type Shelf = (typeof SHELVES)[number]['key']
@@ -361,6 +373,7 @@ type Shelf = (typeof SHELVES)[number]['key']
 function shelfOf(resource: Resource): Shelf {
   if (resource.capabilities.includes('storage')) return 'storage'
   if (resource.capabilities.includes('inference')) return 'models'
+  if (resource.capabilities.includes('transport')) return 'networks'
 
   return 'tools'
 }
@@ -417,6 +430,12 @@ function ResourceCard({
             <>{resource.name} · </>
           )}
           <span className="mono">{resource.type}</span>
+          {resource.via && (
+            <>
+              {' '}
+              · via <span className="mono">{resource.via}</span>
+            </>
+          )}
         </div>
       </div>
 

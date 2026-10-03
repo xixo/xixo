@@ -15,6 +15,10 @@ class Resource
       false
     end
 
+    def self.routable?
+      true
+    end
+
     def self.attaching
       {
         label: "A feed",

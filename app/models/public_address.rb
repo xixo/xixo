@@ -23,24 +23,24 @@ module PublicAddress
       Switch.on?("URIS_ALLOW_PRIVATE_FETCH")
     end
 
-    def permitted!(target, allow_private: allowed?)
+    def permitted!(target, allow_private: allowed?, through: nil)
       uri = http!(target)
-      return uri if allow_private
+      return uri if allow_private && through.nil?
 
-      vetted(uri.hostname)
+      vetted(uri.hostname, through)
       uri
     end
 
-    def pinned!(target, allow_private: allowed?)
+    def pinned!(target, allow_private: allowed?, through: nil)
       uri = http!(target)
 
-      Pinned.new(uri: uri, address: address_for!(uri.hostname, allow_private: allow_private))
+      Pinned.new(uri: uri, address: address_for!(uri.hostname, allow_private: allow_private, through: through))
     end
 
-    def address_for!(host, allow_private: allowed?)
+    def address_for!(host, allow_private: allowed?, through: nil)
       raise Blocked, "no host was named" if host.blank?
 
-      found = allow_private ? addresses(host) : vetted(host)
+      found = allow_private && through.nil? ? addresses(host) : vetted(host, through)
 
       found.min_by { |address| address.ipv4? ? 0 : 1 }.to_s
     end
@@ -80,6 +80,16 @@ module PublicAddress
       RESERVED.any? { |block| block.include?(native) }
     end
 
+    def covered?(address, ranges)
+      native = address.ipv4_mapped? ? address.native : address
+
+      Array(ranges).any? { |block| block.include?(native) }
+    end
+
+    def admitted?(address, through)
+      through.nil? ? !reserved?(address) : covered?(address, through)
+    end
+
     def addresses(host)
       literal = numeric(host)
       return [ literal ] if literal
@@ -102,11 +112,12 @@ module PublicAddress
         uri
       end
 
-      def vetted(host)
+      def vetted(host, through = nil)
         addresses(host).each do |address|
-          next unless reserved?(address)
+          next if admitted?(address, through)
 
-          raise Blocked, "#{host} resolves to #{address}, which is not a public address"
+          refusal = through.nil? ? "is not a public address" : "is not an address its transport reaches"
+          raise Blocked, "#{host} resolves to #{address}, which #{refusal}"
         end
       end
 

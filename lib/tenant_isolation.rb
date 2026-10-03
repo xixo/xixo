@@ -11,5 +11,4 @@ module TenantIsolation
         WITH CHECK (tenant_id = NULLIF(current_setting('#{SETTING}', true), '')::bigint);
     SQL
   end
-
 end

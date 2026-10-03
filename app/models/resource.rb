@@ -27,7 +27,7 @@ class Resource < ApplicationRecord
 
   TYPES = %w[
     s3 filesystem webdav caldav carddav imap rss web openai-compatible oauth-google database
-    search curl mcp github notion slack microsoft-graph git weather places
+    search curl mcp github notion slack microsoft-graph git weather places tailnet
   ].freeze
 
   validates :key, presence: true,
@@ -40,6 +40,7 @@ class Resource < ApplicationRecord
   validate :only_a_syncable_resource_keeps_a_schedule
   validate :a_default_is_a_resource_that_can_be_one
   validate :via_is_a_transport
+  validate :via_is_honored
   validate :via_is_this_tenants
   validate :via_leads_somewhere
   validate :a_transport_in_use_is_not_archived
@@ -131,6 +132,14 @@ class Resource < ApplicationRecord
       false
     end
 
+    def routable?
+      false
+    end
+
+    def declared_only?
+      false
+    end
+
     def field(name, label, kind: "string", required: false, secret: false, held: nil,
               value: nil, help: nil, placeholder: nil, options: nil, shown_when: nil)
       {
@@ -183,11 +192,9 @@ class Resource < ApplicationRecord
     end
 
     def declarations
-      return {} unless DECLARATIONS.exist?
+      held = DECLARATIONS.exist? ? YAML.safe_load(ERB.new(DECLARATIONS.read).result, aliases: true).to_h : {}
 
-      held = YAML.safe_load(ERB.new(DECLARATIONS.read).result, aliases: true).to_h
-
-      held[Rails.env].to_h
+      Tailnet.declared.merge(held[Rails.env].to_h)
     end
 
     # Reconciles what the deployment declares, never what somebody attached — a
@@ -203,11 +210,12 @@ class Resource < ApplicationRecord
     end
 
     def settled(resource, klass, spec)
-      details, credentials = Settings.for(klass, spec["settings"])
+      details, credentials = klass.declared_only? ? [ {}, {} ] : Settings.for(klass, spec["settings"])
 
       resource.name = spec["name"].presence || key_titled(resource.key)
       resource.details = details
       resource.credentials = credentials
+      resource.via = spec["via"].present? ? Resource.capable_of(:transport).find_by!(key: spec["via"].to_s) : nil
       resource.sync_interval = spec["sync_interval"] if spec.key?("sync_interval")
       resource.save!
 
@@ -302,6 +310,18 @@ class Resource < ApplicationRecord
     raise NotImplementedError, "#{self.class.sti_name} is not a transport"
   end
 
+  def covers
+    []
+  end
+
+  def reached(target)
+    via.present? ? via.reach!(target) : target
+  end
+
+  def through
+    via&.covers
+  end
+
   def make_default_for!(capability)
     column = DEFAULTABLE.fetch(capability)
 
@@ -351,6 +371,7 @@ class Resource < ApplicationRecord
   end
 
   def check
+    through!
     check!
     record_check(nil)
     true
@@ -582,6 +603,18 @@ class Resource < ApplicationRecord
       return if via.nil? || via.transport?
 
       errors.add(:via, "#{via.key} is not a transport — nothing can be reached through it")
+    end
+
+    def via_is_honored
+      return if via_id.nil? || self.class.routable?
+
+      errors.add(:via, "cannot be set on #{self.class.sti_name}, which dials its own way")
+    end
+
+    def through!
+      via&.check!
+    rescue StandardError => e
+      raise Failed, "#{key} is reached through #{via.key}, which is down: #{e.message}"
     end
 
     def via_is_this_tenants

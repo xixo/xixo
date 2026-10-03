@@ -98,7 +98,8 @@ module Types
           type: klass.sti_name,
           capabilities: klass.capabilities.map(&:to_s),
           syncs: klass.method_defined?(:each_page),
-          delegated: klass.delegated?
+          delegated: klass.delegated?,
+          routable: klass.routable?
         )
       end
     end

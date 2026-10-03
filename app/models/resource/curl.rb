@@ -17,6 +17,10 @@ class Resource
 
     serves :fetch
 
+    def self.routable?
+      true
+    end
+
     def self.attaching
       {
         label: "Fetch a page",

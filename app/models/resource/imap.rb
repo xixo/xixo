@@ -21,6 +21,10 @@ class Resource
         end
     end
 
+    def self.routable?
+      true
+    end
+
     def self.attaching
       {
         label: "A mailbox",
@@ -187,7 +191,7 @@ class Resource
       end
 
       def address
-        PublicAddress.address_for!(host)
+        PublicAddress.address_for!(host, through: through)
       rescue PublicAddress::Blocked => e
         raise PublicFetch::Blocked, "#{key}: #{e.message}"
       rescue PublicAddress::Unresolvable => e

@@ -3,25 +3,37 @@ require "aws-sdk-s3"
 class Resource
   class S3 < Resource
     class PublicOnly < Seahorse::Client::Plugin
+      option(:uris_through, default: nil)
+
       class Pool < Seahorse::Client::NetHttp::ConnectionPool
         @pools = {}
         @pools_mutex = Mutex.new
 
+        attr_accessor :through
+
+        def self.for(options = {}, through: nil)
+          held = pool_options(options)
+
+          @pools_mutex.synchronize do
+            @pools[[ held, through ]] ||= new(held).tap { |pool| pool.through = through }
+          end
+        end
+
         def start_session(endpoint)
           super.tap do |session|
             peer = IPAddr.new(session.__getobj__.instance_variable_get(:@socket).io.to_io.remote_address.ip_address)
-            next unless PublicAddress.reserved?(peer)
+            next if PublicAddress.admitted?(peer, through)
 
             session.finish
-            raise PublicFetch::Blocked,
-                  "#{URI.parse(endpoint.to_s).host} answered from #{peer}, which is not a public address"
+            refusal = through.nil? ? "is not a public address" : "is not an address its transport reaches"
+            raise PublicFetch::Blocked, "#{URI.parse(endpoint.to_s).host} answered from #{peer}, which #{refusal}"
           end
         end
       end
 
       class Handler < Seahorse::Client::NetHttp::Handler
         def pool_for(config)
-          Pool.for(pool_options(config))
+          Pool.for(pool_options(config), through: config.uris_through)
         end
       end
 
@@ -35,6 +47,10 @@ class Resource
 
     serves :storage
     accepts "*/*"
+
+    def self.routable?
+      true
+    end
 
     def self.attaching
       {
@@ -167,17 +183,19 @@ class Resource
 
 
       def connection
-        endpoint = details.fetch("endpoint")
-        inside = PublicAddress.allowed? || self.class.named?(endpoint)
-        PublicAddress.permitted!(endpoint, allow_private: inside)
+        endpoint = reached(details.fetch("endpoint"))
+        inside = via.nil? && (PublicAddress.allowed? || self.class.named?(endpoint))
+        PublicAddress.permitted!(endpoint, allow_private: inside, through: through)
 
-        (inside ? Aws::S3::Client : PublicClient).new(
+        options = {
           endpoint: endpoint,
           region: details.fetch("region", "us-east-1"),
           access_key_id: credentials.fetch("access_key_id"),
           secret_access_key: credentials.fetch("secret_access_key"),
           force_path_style: details.fetch("force_path_style", true)
-        )
+        }
+
+        inside ? Aws::S3::Client.new(**options) : PublicClient.new(**options, uris_through: through)
       rescue PublicAddress::Blocked => e
         raise PublicFetch::Blocked, "#{key}: #{e.message}"
       rescue PublicAddress::Unresolvable => e

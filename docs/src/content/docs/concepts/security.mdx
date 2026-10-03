@@ -89,6 +89,10 @@ ones included. `URIS_ALLOW_PRIVATE_FETCH` lifts the range check for downloads, s
 resources other than search, and still refuses other schemes. See
 [outbound connections](/reference/environment/#outbound-connections).
 
+A resource reached through a transport, such as a tailnet, connects only to addresses the transport
+covers. None of the settings above widen that. See
+[reaching through another resource](/concepts/resources/#reaching-through-another-resource).
+
 A git resource accepts only the protocols in `URIS_GIT_PROTOCOLS`, `https` by default. It runs git
 with `protocol.file.allow=never`, no credential helper, no global or system config, and no redirects,
 and refuses a URL with a name or token in it.

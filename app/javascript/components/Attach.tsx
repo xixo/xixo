@@ -28,6 +28,7 @@ import {
   IconGitBranch,
   IconMail,
   IconMapPin,
+  IconNetwork,
   IconPlug,
   IconPuzzle,
   IconRss,
@@ -58,7 +59,10 @@ export interface Editing {
   name?: string | null
   settings: Record<string, unknown>
   heldCredentials: string[]
+  via?: string | null
 }
+
+const DIRECT = ' directly'
 
 type Glyph = typeof IconPuzzle
 
@@ -84,6 +88,7 @@ const GLYPHS: Record<string, Glyph> = {
   notion: IconBrandNotion,
   slack: IconBrandSlack,
   git: IconGitBranch,
+  tailnet: IconNetwork,
 }
 
 const GROUPS: {
@@ -185,11 +190,13 @@ export function Attach({
   onClose,
   onAttached,
   editing,
+  transports = [],
 }: {
   opened: boolean
   onClose: () => void
   onAttached: () => void
   editing?: Editing
+  transports?: string[]
 }) {
   const { data, loading } = useQuery(ResourceTypesDocument, {})
   const attach = useMutation(AttachResourceDocument)
@@ -203,6 +210,7 @@ export function Attach({
   const [refused, setRefused] = useState<string | null>(null)
   const [warned, setWarned] = useState<string | null>(null)
   const [personal, setPersonal] = useState(false)
+  const [via, setVia] = useState(editing?.via ?? DIRECT)
 
   const types = data?.resourceTypes ?? []
   const type = types.find((held) => held.type === chosen) ?? null
@@ -244,6 +252,7 @@ export function Attach({
       field.required && !kept(field) && !`${typed[field.name] ?? ''}`.trim(),
   )
   const ready = key.trim().length > 0 && missing.length === 0
+  const routed = Boolean(type?.routable) && transports.length > 0
 
   async function save() {
     if (!type || !editing) return
@@ -257,6 +266,7 @@ export function Attach({
       settings: Object.fromEntries(
         shown.map((field) => [field.name, typed[field.name]]),
       ),
+      via: routed ? (via === DIRECT ? '' : via) : null,
     })
 
     if (!answered?.updateResource?.resource) {
@@ -288,6 +298,7 @@ export function Attach({
       settings: Object.fromEntries(
         shown.map((field) => [field.name, typed[field.name]]),
       ),
+      via: routed && via !== DIRECT ? via : null,
     })
 
     if (!answered?.attachResource?.resource) {
@@ -503,6 +514,20 @@ export function Attach({
                   }
                 />
               ))}
+              {routed && (
+                <Select
+                  size="md"
+                  label="Reached through"
+                  description="A network uris dials it over. Through one, only addresses on that network are reached."
+                  allowDeselect={false}
+                  value={via}
+                  onChange={(next) => setVia(next ?? DIRECT)}
+                  data={[
+                    { value: DIRECT, label: 'Directly' },
+                    ...transports.map((held) => ({ value: held, label: held })),
+                  ]}
+                />
+              )}
             </Stack>
           )}
 

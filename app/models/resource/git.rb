@@ -13,6 +13,10 @@ class Resource
 
     Entry = Data.define(:path, :sha, :size)
 
+    def self.routable?
+      true
+    end
+
     def self.attaching
       {
         label: "A git repository",
@@ -252,9 +256,13 @@ class Resource
                 "(#{self.class.protocols.join(', ')})"
         end
 
-        return nil unless uri.is_a?(URI::HTTP)
+        unless uri.is_a?(URI::HTTP)
+          return nil if via.nil?
 
-        PublicAddress.pinned!(url)
+          raise Resource::Unusable, "#{key}: only an http or https url is reached through #{via.key}"
+        end
+
+        PublicAddress.pinned!(url, through: through)
       rescue URI::InvalidURIError
         raise Resource::Unusable, "#{key}: #{url} is not a url"
       rescue PublicAddress::Blocked => e
