@@ -20,7 +20,7 @@ class Resource
 
       raise Refused, resource.errors.full_messages.to_sentence unless resource.save
 
-      resource.check unless resource.delegated?
+      resource.check_on_arrival unless resource.delegated?
       resource
     rescue Settings::Missing => e
       raise Refused, e.message

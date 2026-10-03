@@ -26,7 +26,7 @@ module Mutations
       refused(resource.errors.full_messages.to_sentence) unless resource.save
 
       noted(resource, settings)
-      resource.check
+      resource.check_on_arrival
 
       { resource: resource, check_error: resource.check_error }
     end

@@ -2,6 +2,8 @@ require "test_helper"
 require_relative "../../support/fake_model_server"
 
 class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   MODELS = { "fast" => "gemma3:4b", "smart" => "llama3.1:8b" }.freeze
 
   setup do
@@ -398,6 +400,42 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       assert @resource.check!
       assert_equal 0, @server.count_for("/v1/chat/completions")
+    end
+  end
+
+  test "on arrival a model that must be probed is only listed, and the probe waits for a job" do
+    @server.serves(*MODELS.values, "qwen3:8b")
+
+    Tenant.switch(@tenant) do
+      @resource.update!(details: @resource.details.merge("models" => MODELS.merge("agent" => "qwen3:8b")))
+
+      assert_enqueued_with(job: CheckResourceJob, args: [ @resource.id ]) { assert @resource.check_on_arrival }
+      assert_equal 0, @server.count_for("/v1/chat/completions")
+      assert_predicate @resource.reload, :checking?
+
+      2.times { @server.answer_tool_call("search", query: "invoice") }
+      perform_enqueued_jobs(only: CheckResourceJob)
+
+      assert_predicate @resource.reload, :healthy?
+    end
+  end
+
+  test "on arrival a model never pulled is refused at once, with nothing left to probe" do
+    @server.serves(*MODELS.values)
+
+    Tenant.switch(@tenant) do
+      @resource.update!(details: @resource.details.merge("models" => MODELS.merge("agent" => "qwen3:8b")))
+
+      assert_no_enqueued_jobs(only: CheckResourceJob) { assert_not @resource.check_on_arrival }
+      assert_match(/does not serve qwen3:8b/, @resource.reload.check_error)
+      assert_not @resource.checking?
+    end
+  end
+
+  test "on arrival a resource with nothing to probe is checked whole" do
+    Tenant.switch(@tenant) do
+      assert_no_enqueued_jobs(only: CheckResourceJob) { assert @resource.check_on_arrival }
+      assert_predicate @resource.reload, :healthy?
     end
   end
 end

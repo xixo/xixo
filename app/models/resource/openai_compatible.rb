@@ -163,6 +163,18 @@ class Resource
     end
 
     def check!
+      answers!
+
+      TOOL_ROLES.select { |role| models.key?(role) }.map { |role| model_for(role) }.uniq.each do |model|
+        chains!(model)
+        roomy!(model)
+      end
+      embeds! if models.key?(EMBEDDING_ROLE)
+
+      true
+    end
+
+    def answers!
       served = model_names
       wanted = models.values.uniq
       missing = wanted.reject { |name| served.include?(name) || served.include?("#{name}:latest") }
@@ -176,13 +188,11 @@ class Resource
               "#{key}: #{base_url} does not serve #{missing.join(', ')} — it serves #{served.first(8).join(', ').presence || 'nothing'}"
       end
 
-      TOOL_ROLES.select { |role| models.key?(role) }.map { |role| model_for(role) }.uniq.each do |model|
-        chains!(model)
-        roomy!(model)
-      end
-      embeds! if models.key?(EMBEDDING_ROLE)
-
       true
+    end
+
+    def probes?
+      TOOL_ROLES.any? { |role| models.key?(role) } || models.key?(EMBEDDING_ROLE)
     end
 
     def roomy!(model = model_for(AGENT_ROLE))

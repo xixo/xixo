@@ -380,6 +380,35 @@ class Resource < ApplicationRecord
     false
   end
 
+  def answers!
+    check!
+  end
+
+  def probes?
+    false
+  end
+
+  def check_on_arrival
+    through!
+    answers!
+
+    if probes?
+      update_columns(checked_at: nil, check_error: nil)
+      CheckResourceJob.perform_later(id)
+    else
+      record_check(nil)
+    end
+
+    true
+  rescue NotImplementedError, StandardError => e
+    record_check("#{e.class}: #{e.message}")
+    false
+  end
+
+  def checking?
+    checked_at.nil? && check_error.nil?
+  end
+
   def healthy?
     checked_at.present? && check_error.nil?
   end

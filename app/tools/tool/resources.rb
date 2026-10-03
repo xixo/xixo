@@ -192,7 +192,8 @@ module Tool
 
       {
         key: resource.key, type: resource.class.sti_name, via: resource.via&.key,
-        healthy: resource.delegated? ? nil : resource.healthy?, error: resource.check_error,
+        healthy: resource.delegated? || resource.checking? ? nil : resource.healthy?, error: resource.check_error,
+        checking: (true if !resource.delegated? && resource.checking?),
         connect_url: (("#{Current.origin}#{resource.connect_path}") if resource.delegated?)
       }.compact
     end
