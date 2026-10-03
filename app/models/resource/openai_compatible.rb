@@ -84,8 +84,8 @@ class Resource
                 help: "How hard a reasoning model thinks while filing what arrives. Sent as reasoning_effort. " \
                       "Ollama takes none, and OpenAI minimal or low. Questions always think as the model likes."),
           field("time_allowed", "Time per ask", kind: "integer",
-                help: "Minutes an ask answered by this backend gets when its item sets no timeout. The agent " \
-                      "can ask for more as it works. Left off, ten minutes."),
+                help: "Minutes an ask answered by this backend starts with when its item sets no timeout. " \
+                      "The agent and its scouts ask for more as they need it. Left off, two minutes."),
           field("api_key", "API key", secret: true, help: "Left off where the backend wants none.")
         ]
       }

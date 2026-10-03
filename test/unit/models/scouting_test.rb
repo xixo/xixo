@@ -79,7 +79,7 @@ class ScoutingTest < ActiveSupport::TestCase
   end
 
   test "a scout stands down with time still on the clock, so the lead has room to answer" do
-    Tenant.switch(@tenant) { @analysis.update_columns(deadline: 60.seconds.from_now) }
+    Tenant.switch(@tenant) { @analysis.update_columns(started_at: 10.minutes.ago, deadline: 60.seconds.from_now) }
 
     report = within { scouting.call_all([ raw("find it") ]).first }
 

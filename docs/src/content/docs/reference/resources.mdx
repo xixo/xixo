@@ -309,7 +309,7 @@ A model backend. Anything speaking the OpenAI chat API — ollama, LM Studio, ll
 | `embedding_prefixes.query` | Query prefix | string |  |  |  | Put before a search when it is embedded. Left off, uris uses what nomic-embed-text, e5, mxbai and bge were trained with, and nothing for any other model. |
 | `embedding_prefixes.document` | Document prefix | string |  |  |  | Put before what is catalogued when it is embedded. Left off, as above. |
 | `routine_effort` | Effort on routine work | choice of `` `none` `minimal` `low` `medium` `high` |  |  |  | How hard a reasoning model thinks while filing what arrives. Sent as reasoning_effort. Ollama takes none, and OpenAI minimal or low. Questions always think as the model likes. |
-| `time_allowed` | Time per ask | integer |  |  |  | Minutes an ask answered by this backend gets when its item sets no timeout. The agent can ask for more as it works. Left off, ten minutes. |
+| `time_allowed` | Time per ask | integer |  |  |  | Minutes an ask answered by this backend starts with when its item sets no timeout. The agent and its scouts ask for more as they need it. Left off, two minutes. |
 | `api_key` | API key | string |  | encrypted |  | Left off where the backend wants none. |
 
 ### Commands

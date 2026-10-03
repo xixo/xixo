@@ -16,6 +16,11 @@ class Agent
     tool itself, then answer from what it returns.
   TEXT
 
+  CLOSING_TURN = <<~TEXT.freeze
+    You are almost out of time. Answer now from what you have already read, or call more_time if the
+    request needs longer.
+  TEXT
+
   LAST_TURN = <<~TEXT.freeze
     You have no turns left and no tools. Answer the request from what you have already
     read, in one or two sentences. If you never found it, say so plainly.
@@ -64,11 +69,12 @@ class Agent
       return finished(:halted) if @halted&.call || @clock.spent?
 
       @turns_taken = index + 1
-      last = @turns_taken == @turns || @clock.closing?
-      message = spoke(transcript, last: last)
+      last = @turns_taken == @turns
+      closing = !last && @clock.closing?
+      message = spoke(transcript, last: last, closing: closing)
       requested = Array(message["tool_calls"])
 
-      if requested.blank? && !last && (pushed = pressed(message))
+      if requested.blank? && !last && !closing && (pushed = pressed(message))
         transcript.said(message)
         transcript.closing(pushed)
         @analysis&.log_info(@label, "turn #{@turns_taken}", "pressed", pushed.truncate(200))
@@ -91,12 +97,13 @@ class Agent
 
   private
 
-    def spoke(transcript, last:)
+    def spoke(transcript, last:, closing:)
       transcript.closing(LAST_TURN) if last
+      transcript.closing(CLOSING_TURN) if closing
 
       @inference.converse(
         messages: transcript.messages,
-        tools: last ? [] : declared,
+        tools: if last then [] elsif closing then @clock.declared else declared end,
         role: @role,
         analysis: @analysis,
         turn: @turns_taken,

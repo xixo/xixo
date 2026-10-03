@@ -2,6 +2,7 @@ class Verifier
   RUNS = ENV.fetch("ASK_VERIFICATIONS", 10).to_i
   ROLE = "smart"
   TEMPERATURE = 0.8
+  LEAVES = 1.minute
   EACH = 6_000
   EVIDENCE = 24_000
   YES = [ true, "true", "yes" ].freeze
@@ -91,7 +92,8 @@ class Verifier
     end
 
     def out_of_time?
-      @analysis&.deadline.present? && Time.current >= @analysis.deadline
+      left = @analysis&.time_left
+      !left.nil? && left < LEAVES
     end
 
     def share(votes, name)

@@ -61,8 +61,10 @@ schedule sets, up to 32. Each turn asks the model for a reply.
   `halted`.
 - A run with an analysis is told how much time it has, and is offered `more_time`. The loop answers
   `more_time` itself. Given a number of minutes and a reason, it moves the deadline later, up to one
-  day from the start. The lead and its scouts share one deadline, and each request adds to it. When less than a minute is left, the next turn is the last, so the model
-  answers from what it has before the deadline passes.
+  day from the start. The lead and its scouts share one deadline, and each request adds to it. The
+  clock tells the model to answer as soon as it has what the request needs and to ask early when it
+  needs longer. When less than a minute is left, or a fifth of the time it was given if that is
+  shorter, the next turn asks for an answer now and offers only `more_time`.
 
 The run returns an `Answer` with the reply, the reason the run stopped, the turns taken, and every
 call made.
@@ -124,7 +126,7 @@ same grant, for up to eight turns. Scouts sent in the same turn run in parallel,
 `URIS_SCOUTS_AT_ONCE` at a time (two by default). Each runs in its own thread, which enters the
 tenant on its own database connection. A scout uses the inference resource that declares the `scout`
 role, or the agent's model when none does. A scout is told how much time it has and can ask for more
-with `more_time`, which moves the deadline for the whole run. It stops 90 seconds before the deadline, so the lead still has time to answer. Its report is
+with `more_time`, which moves the deadline for the whole run. It stops 90 seconds before the deadline, or a quarter of the time given if that is shorter, so the lead still has time to answer. Its report is
 truncated to 1,500 characters. uris keeps the calls it made for the judges and the connections.
 
 Scouts are told only about the resources the tenant has attached. With a search resource, a scout

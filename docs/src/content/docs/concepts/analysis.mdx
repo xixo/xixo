@@ -157,10 +157,12 @@ the lead and its scouts instead, then the judges, and then rolls the conversatio
 [Asking](/concepts/agents/#asking) describes each part.
 
 An analysis runs for its feed's timeout, counted from when it starts. `setFeedTimeout`, or the feed
-form, sets any value from one minute to one day. A feed with no timeout set runs for the time per ask
-of the model backend that serves the `agent` role, and for ten minutes when that is not set either. The agent and its scouts can ask for more time while they run,
-up to one day from the start. `ExpireOverdueJob`
-cancels an analysis that runs past its deadline.
+form, sets any value from one minute to one day. A feed with no timeout set runs for ten minutes. An
+`ask` on such a feed starts small instead: the time per ask of the model backend that serves the
+`agent` role, or two minutes when that is not set. The agent and its scouts ask for more time while
+they run, up to one day from the start. Once the lead answers, the run has at least three more
+minutes for the judges, the title, and the conversation's summary, and the judges stop voting a
+minute before the deadline. `ExpireOverdueJob` cancels an analysis that runs past its deadline.
 
 Analysis jobs run on the `analysis` queue, with at most `ANALYSIS_PER_TENANT` (2 by default) running
 per tenant. A `Resource::Failed` error is retried five times with increasing waits, and the analysis

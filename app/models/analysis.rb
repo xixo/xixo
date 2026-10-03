@@ -2,6 +2,7 @@ class Analysis < ApplicationRecord
   CAUSES = %w[upload sync keep schedule manual ask].freeze
   STATUSES = %w[queued running done failed cancelled gated].freeze
   OPEN = %w[queued running].freeze
+  WRAP_UP = 3.minutes
   SETTLED = %w[done failed].freeze
   BOOKKEEPING = %w[placement derived answer drew_on].freeze
   BULK = %w[sync].freeze
@@ -51,7 +52,7 @@ class Analysis < ApplicationRecord
 
   def running!
     started = started_at || Time.current
-    due = started + feed.time_allowed
+    due = started + allowed
     moved = Analysis.where(id: id, status: OPEN).update_all(status: "running", started_at: started, deadline: due)
     return moved if moved.zero?
 
@@ -60,6 +61,17 @@ class Analysis < ApplicationRecord
     self.deadline = due
     clear_attribute_changes(%i[status started_at deadline])
     moved
+  end
+
+  def allowed
+    return feed.time_allowed if cause != "ask" || feed.timeout.present?
+
+    Resource.for_role(Resource::OpenaiCompatible::AGENT_ROLE)&.time_allowed || Feed::ASK_TIMEOUT
+  end
+
+  def wrapping_up!
+    Analysis.where(id: id).update_all([ "deadline = GREATEST(deadline, now() + make_interval(secs => ?))", WRAP_UP.to_i ])
+    held_deadline
   end
 
   def more_time!(wanted)

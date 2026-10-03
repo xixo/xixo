@@ -81,16 +81,60 @@ class ClockTest < ActiveSupport::TestCase
     end
   end
 
-  test "an analysis gets the backend's time per ask, unless its feed sets a timeout" do
+  test "an ask starts with two minutes or the backend's time per ask, and other analyses keep the feed's timeout" do
     Tenant.switch(@tenant) do
-      Resource.find_by!(key: "ollama").update!(details: Resource.find_by!(key: "ollama").details.merge("time_allowed" => 25))
+      assert_in_delta Feed::ASK_TIMEOUT.from_now, Analysis.open!(feed: @feed, cause: "ask").tap(&:running!).deadline, 1
+      assert_in_delta Feed::TIMEOUT.from_now, opened.deadline, 1
 
-      assert_equal 25.minutes, @feed.time_allowed
-      assert_in_delta 25.minutes.from_now, opened.deadline, 1
+      ollama = Resource.find_by!(key: "ollama")
+      ollama.update!(details: ollama.details.merge("time_allowed" => 5))
 
-      @feed.update!(timeout: 2.minutes.to_i)
+      assert_in_delta 5.minutes.from_now, Analysis.open!(feed: @feed, cause: "ask").tap(&:running!).deadline, 1
+      assert_in_delta Feed::TIMEOUT.from_now, opened.deadline, 1, "a transcription cannot ask for more, so it keeps ten minutes"
 
-      assert_equal 2.minutes, @feed.time_allowed
+      @feed.update!(timeout: 30.minutes.to_i)
+
+      assert_in_delta 30.minutes.from_now, Analysis.open!(feed: @feed, cause: "ask").tap(&:running!).deadline, 1
+    end
+  end
+
+  test "a minute is enough for a scout to start, because the margins shrink with the budget" do
+    Tenant.switch(@tenant) do
+      ask = Analysis.open!(feed: @feed, cause: "ask").tap(&:running!)
+      ask.update_columns(deadline: 1.minute.from_now)
+      clock = Agent::Clock.new(ask, reserve: Scouting::RESERVE)
+
+      assert_not clock.closing?
+      assert_not clock.spent?
+      assert_match(/about \d+ seconds for this\. Answer as soon as you have what the request needs/, clock.told)
+    end
+  end
+
+  test "an agent short of time is still offered more_time, and takes it rather than answering at once" do
+    @server.answer_tool_call("more_time", minutes: 5, reason: "two sheets left to read")
+    @server.answer("Done.")
+
+    Tenant.switch(@tenant) do
+      analysis = opened
+      analysis.update_columns(started_at: 10.minutes.ago, deadline: 20.seconds.from_now)
+      answered = run_agent(analysis)
+
+      assert_equal "Done.", answered.said
+      assert_operator analysis.reload.deadline, :>, 5.minutes.from_now
+      assert_match(/almost out of time.*call more_time/m, @server.prompts.first)
+    end
+  end
+
+  test "once the lead has answered, the run has time to wrap up whatever was left on the clock" do
+    Tenant.switch(@tenant) do
+      ask = Analysis.open!(feed: @feed, cause: "ask").tap(&:running!)
+      ask.update_columns(deadline: 5.seconds.from_now)
+
+      assert_in_delta Analysis::WRAP_UP.from_now, ask.wrapping_up!, 2
+
+      ask.update_columns(deadline: 1.hour.from_now)
+
+      assert_in_delta 1.hour.from_now, ask.wrapping_up!, 2, "wrapping up never shortens a deadline"
     end
   end
 
@@ -121,18 +165,18 @@ class ClockTest < ActiveSupport::TestCase
     end
   end
 
-  test "with under a minute left, the next turn is the last, and it answers rather than being cut off" do
+  test "with under a minute left, the next turn asks for an answer now, and it answers rather than being cut off" do
     @server.answer("From what I had.")
 
     Tenant.switch(@tenant) do
       analysis = opened
-      analysis.update_columns(deadline: 30.seconds.from_now)
+      analysis.update_columns(started_at: 10.minutes.ago, deadline: 30.seconds.from_now)
 
       answered = run_agent(analysis)
 
       assert_equal :answered, answered.reason
       assert_equal 1, answered.turns
-      assert_match(/no turns left and no tools/, @server.prompts.last)
+      assert_match(/almost out of time\. Answer now/, @server.prompts.last)
     end
   end
 

@@ -16,6 +16,7 @@ class Feed < ApplicationRecord
   MONTHS = "jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec".freeze
   DATED = %r{\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}|\b(#{MONTHS})[a-z]*\.?,?\s+\d|\d(st|nd|rd|th)?\s+(#{MONTHS})}i
   TIMEOUT = 10.minutes
+  ASK_TIMEOUT = 2.minutes
   MIN_TIMEOUT = 1.minute
   MAX_TIMEOUT = 1.day
   GIST = %w[title note].freeze
@@ -196,9 +197,7 @@ class Feed < ApplicationRecord
   ].freeze
 
   def time_allowed
-    return timeout.seconds if timeout.present?
-
-    Resource.for_role(Resource::OpenaiCompatible::AGENT_ROLE)&.time_allowed || TIMEOUT
+    (timeout.presence || TIMEOUT.to_i).seconds
   end
 
   def grant(scopes: AGENT_SCOPES, speaking_for: nil)

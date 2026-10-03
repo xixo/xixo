@@ -32,12 +32,13 @@ class Agent
     def told
       return nil unless running?
 
-      "You have about #{minutes_left} minutes for this. If the work needs longer, call #{NAME} with " \
-        "how many more minutes and why; a run never lasts more than a day."
+      "You have about #{left} for this. Answer as soon as you have what the request needs. If the work " \
+        "needs longer, call #{NAME} early, before you run short, with how many more minutes and why; a run " \
+        "never lasts more than a day."
     end
 
     def closing?
-      running? && @analysis.time_left < CLOSING + @reserve
+      running? && @analysis.time_left < closing_margin + reserve
     end
 
     def declared
@@ -49,7 +50,7 @@ class Agent
     end
 
     def spent?
-      running? && @reserve.positive? && @analysis.time_left < @reserve
+      running? && @reserve.positive? && @analysis.time_left < reserve
     end
 
     def call_all(raws)
@@ -71,15 +72,28 @@ class Agent
 
       Dispatch::Result.new(
         name: NAME, arguments: arguments, ok: true, error: nil,
-        content: { minutes_left: minutes_left, deadline: granted.iso8601,
+        content: { left: left, deadline: granted.iso8601,
                    capped: capped ? "a run never lasts more than a day, so this is all the time there is" : nil }.compact.to_json
       )
     end
 
     private
 
-      def minutes_left
-        ([ @analysis.time_left - @reserve, 0 ].max / 60.0).floor
+      def left
+        seconds = [ @analysis.time_left - reserve, 0 ].max
+        seconds < 2.minutes ? "#{seconds.round} seconds" : "#{(seconds / 60).floor} minutes"
+      end
+
+      def span
+        @analysis.deadline - (@analysis.started_at || @analysis.created_at)
+      end
+
+      def reserve
+        [ @reserve.to_f, span / 4 ].min
+      end
+
+      def closing_margin
+        [ CLOSING.to_f, span / 5 ].min
       end
 
       def parsed(raw)
