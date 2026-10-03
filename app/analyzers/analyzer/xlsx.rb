@@ -17,9 +17,42 @@ module Analyzer
     end
 
     def analyze
-      sheets = step(:sheets) { with_workbook { |workbook| shape_of(workbook) } }
+      step(:sheets) { with_workbook { |workbook| shape_of(workbook) } }
 
-      step(:text) { flatten(sheets).truncate(MAX_TEXT) }
+      written = nil
+      writing = -> { written ||= with_workbook { |workbook| self.class.written_out(workbook) } }
+      step(:outline) { writing.call.last }
+      step(:text) { writing.call.first }
+    end
+
+    def self.written_out(workbook)
+      text = +""
+      outline = []
+
+      workbook.sheets.each do |name|
+        break if text.length >= MAX_TEXT
+
+        text << "\n\n" unless text.empty?
+        sheet = workbook.sheet(name)
+        outline << { "name" => name, "rows" => sheet.last_row.to_i, "from" => text.length }
+        text << name
+
+        rows = sheet.first_row ? (sheet.first_row..sheet.last_row) : []
+        columns = [ sheet.last_column.to_i, MAX_COLUMNS ].min
+
+        rows.each do |row|
+          break if text.length >= MAX_TEXT
+
+          line = (1..columns).filter_map { |column| cell(sheet.cell(row, column)) }.join(" | ")
+          text << "\n" << line unless line.empty?
+        end
+      end
+
+      [ text.truncate(MAX_TEXT), outline ]
+    end
+
+    def self.cell(value)
+      value.is_a?(String) ? value.truncate(CELL) : value
     end
 
     def summary_prompt
@@ -80,18 +113,7 @@ module Analyzer
       end
 
       def cells(sheet, row, columns)
-        (1..columns).map do |column|
-          value = sheet.cell(row, column)
-          value.is_a?(String) ? value.truncate(CELL) : value
-        end
-      end
-
-      def flatten(sheets)
-        sheets.map do |sheet|
-          rows = [ sheet["headers"], *sheet["sample"] ]
-
-          ([ sheet["name"] ] + rows.map { |row| row.compact.join(" | ") }).join("\n")
-        end.join("\n\n")
+        (1..columns).map { |column| self.class.cell(sheet.cell(row, column)) }
       end
   end
 end

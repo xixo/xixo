@@ -3,7 +3,7 @@ module Tool
     tool_name "feed"
     scope "uris:catalog:read"
 
-    EXCERPT = 8_000
+    EXCERPT = 6_000
     STEP_TEXT = 600
     PASSAGES = 8
     AROUND = 500
@@ -17,11 +17,13 @@ module Tool
     ].freeze
 
     description <<~TEXT
-      One feed: everything known about it, every place it lives, what analysis drew out of
-      each, and an excerpt of its text. With `do` it also acts — note it, rename it, analyze
-      it again, set how long it lasts, or place a file that is staged and waiting for somewhere
-      to live. A feed is a reference, not the bytes; the originals stay in the resources they
-      came from.
+      One feed: a part of its text, or with find the passages that answer what was asked, then
+      an outline of where each sheet or section starts, everything known about it, every place
+      it lives, and what analysis drew out of each. Read a table or a section whole, from where
+      the outline says it starts, before counting or adding anything up. With `do` it also acts:
+      note it, rename it, analyze it again, set how long it lasts, or place a file that is staged
+      and waiting for somewhere to live. A feed is a reference, not the bytes; the originals stay
+      in the resources they came from.
     TEXT
 
     READ = %w[get].freeze
@@ -168,18 +170,26 @@ module Tool
         accepted_by: Placement.candidates(feed).pluck(:key) }
     end
 
+    SHOWN_ELSEWHERE = %w[text outline sheets].freeze
+
     def self.told(feed, from: nil, find: nil)
-      summarize(feed).merge(
-        note: feed.note,
-        summary: feed.summary,
-        tags: feed.tags.map(&:key),
-        mimes: feed.mimes.map(&:key),
-        staged: staged(feed),
-        connected: feed.connected.limit(50).map { |held| { id: held.id.to_s, key: held.key } },
-        steps: feed.analysis&.steps.to_h.transform_values { |step|
-          step.key?("error") ? { "error" => step["error"]["message"] } : gist(step["result"])
-        }
-      ).merge(find.present? ? found_in(feed, find) : part_of(feed, from))
+      steps = feed.analysis&.steps.to_h
+
+      { id: feed.id.to_s, title: feed.title }
+        .merge(find.present? ? found_in(feed, find) : part_of(feed, from))
+        .merge({ outline: steps.dig("outline", "result") }.compact)
+        .merge(summarize(feed))
+        .merge(
+          note: feed.note,
+          summary: feed.summary,
+          tags: feed.tags.map(&:key),
+          mimes: feed.mimes.map(&:key),
+          staged: staged(feed),
+          connected: feed.connected.limit(50).map { |held| { id: held.id.to_s, key: held.key } },
+          steps: steps.except(*SHOWN_ELSEWHERE).transform_values { |step|
+            step.key?("error") ? { "error" => step["error"]["message"] } : gist(step["result"])
+          }
+        )
     end
 
     def self.found_in(feed, find)
@@ -197,11 +207,20 @@ module Tool
 
       {
         found: ranked.size,
-        passages: ranked.first(PASSAGES).sort_by(&:first).map do |start, finish, by|
+        text_part: { of: body.length },
+        passages: fitted(ranked).sort_by(&:first).map do |start, finish, by|
           { from: start, matched_by: by.join(" and "), text: body[start...finish] }
-        end,
-        text_part: { of: body.length }
+        end
       }
+    end
+
+    def self.fitted(ranked)
+      used = 0
+
+      ranked.first(PASSAGES).take_while do |start, finish, _|
+        used += finish - start
+        used <= EXCERPT || used == finish - start
+      end
     end
 
     def self.worded(body, find)
@@ -241,9 +260,9 @@ module Tool
       finish = start + part.length
 
       {
-        text: part,
         text_part: { from: start, to: finish, of: body.length,
-                     next: ({ id: feed.id.to_s, from: finish } if finish < body.length) }.compact
+                     next: ({ id: feed.id.to_s, from: finish } if finish < body.length) }.compact,
+        text: part
       }
     end
 

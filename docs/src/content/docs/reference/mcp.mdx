@@ -35,7 +35,7 @@ Search the whole catalog at once — every resource that has been synced, not on
 
 Needs `uris:catalog:read`.
 
-One feed: everything known about it, every place it lives, what analysis drew out of each, and an excerpt of its text. With `do` it also acts — note it, rename it, analyze it again, set how long it lasts, or place a file that is staged and waiting for somewhere to live. A feed is a reference, not the bytes; the originals stay in the resources they came from.
+One feed: a part of its text, or with find the passages that answer what was asked, then an outline of where each sheet or section starts, everything known about it, every place it lives, and what analysis drew out of each. Read a table or a section whole, from where the outline says it starts, before counting or adding anything up. With `do` it also acts: note it, rename it, analyze it again, set how long it lasts, or place a file that is staged and waiting for somewhere to live. A feed is a reference, not the bytes; the originals stay in the resources they came from.
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -48,7 +48,7 @@ One feed: everything known about it, every place it lives, what analysis drew ou
 | `prompt` | string |  | For create of a uris:address: what it should find. |
 | `resource` | string |  | For place: the key of the resource to store it in. |
 | `reason` | string |  | For place: why it belongs there, in one sentence. |
-| `from` | integer |  | For get: where in its text to start reading, as a character offset. Each get returns up to 8000 characters and says where the next part starts. |
+| `from` | integer |  | For get: where in its text to start reading, as a character offset. Each get returns up to 6000 characters and says where the next part starts. |
 | `find` | string |  | For get: what to look for in its text, in words or as a question. Instead of a part of the text, get returns the passages that mention those words or mean what was asked, each with where it starts, so a long document can be searched without reading all of it. |
 | `lasts` | string |  | For create and last: "forever", or how many days it lasts before it is forgotten. What is made while answering a question lasts 30 days unless this says otherwise. |
 

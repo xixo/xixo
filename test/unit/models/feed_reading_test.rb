@@ -45,11 +45,11 @@ class FeedReadingTest < ActiveSupport::TestCase
     assert_nil part.dig("text_part", "next")
   end
 
-  test "the text is not handed over a second time inside the steps" do
-    step = opened["steps"]["text"]
+  test "the text is not handed over a second time inside the steps, and the part asked for comes first" do
+    read = opened
 
-    assert_operator step.length, :<, 1_000
-    assert_match(/#{LONG.length} characters in all/, step)
+    assert_nil read["steps"]["text"]
+    assert_equal %w[id title text_part text], read.keys.first(4)
   end
 
   test "words looked for in a long text come back as the passages that mention them, wherever they are" do
