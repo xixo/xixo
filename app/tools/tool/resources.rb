@@ -3,9 +3,9 @@ module Tool
     tool_name "resource"
     scope "uris:resources:read"
 
-    READ = %w[list describe runs get parameters search forecast find reverse nearby].freeze
+    READ = %w[list types describe runs get parameters search forecast find reverse nearby].freeze
     PLACES = %w[find reverse nearby].freeze
-    WRITE = %w[check sync keep export cancel put snapshot].freeze
+    WRITE = %w[attach check sync keep export cancel put snapshot].freeze
     RUNS = %w[sync export].freeze
 
     KEEPING = %w[snapshot].freeze
@@ -22,8 +22,11 @@ module Tool
       with do=get and input {"url": "https://..."}, and one that serves weather takes
       do=forecast with input {"place": "Toronto"}, and one that knows places takes do=find with input
       {"query": "..."}, do=reverse with a latitude and longitude, or do=nearby with a kind such as
-      cafe and a place. Credentials never travel through here:
-      connecting a resource is a browser flow.
+      cafe and a place. do=types lists what can be attached and the settings each type takes, and
+      do=attach with a new key and input {"type": "...", "settings": {...}, "via": "..."} attaches
+      one, reached through the transport named in via if there is one. Credentials never travel
+      through here: a type that needs a password, a token, or a key is attached in the app, and one
+      that connects through masks comes back with the address a person opens to connect it.
     TEXT
 
     def self.for(grant)
@@ -61,12 +64,16 @@ module Tool
 
         permitted!(verb)
 
-        verb == "list" && key.blank? ? listed : acted(verb, key, given)
+        case verb
+        when "types" then typed
+        when "attach" then attached(key, given)
+        else verb == "list" && key.blank? ? listed : acted(verb, key, given)
+        end
       end
     end
 
     SAID = {
-      "list" => "listed the places", "describe" => "looked at", "runs" => "looked at the runs of",
+      "list" => "listed the places", "types" => "listed the types of place", "attach" => "attached", "describe" => "looked at", "runs" => "looked at the runs of",
       "check" => "checked", "sync" => "synced", "cancel" => "cancelled a run on", "export" => "exported to",
       "keep" => "kept a page through", "snapshot" => "snapshotted a page through", "put" => "stored a file in",
       "parameters" => "read the parameters of"
@@ -76,6 +83,7 @@ module Tool
       verb = arguments[:do].to_s
       given = arguments[:input].to_h.stringify_keys
       place = arguments[:key].presence
+      return SAID["types"] if verb == "types"
       return SAID["list"] if place.nil?
 
       case verb
@@ -138,6 +146,55 @@ module Tool
       end
 
       answered.merge("expires_at" => feed.expires_at)
+    end
+
+    def self.typed
+      transports = ::Resource.capable_of(:transport).reachable_by(Current.grant).pluck(:key)
+
+      types = ::Resource.attachable.map do |klass|
+        {
+          type: klass.sti_name, label: klass.attaching[:label], blurb: klass.attaching[:blurb],
+          capabilities: klass.capabilities, routable: klass.routable?, delegated: klass.delegated?,
+          fields: klass.attaching[:fields].map { |field| told_field(field) }
+        }
+      end
+
+      { transports: transports, types: types }
+    end
+
+    def self.told_field(field)
+      held = field[:secret] || field[:held] == :credentials
+
+      {
+        name: field[:name], label: field[:label], kind: field[:kind], required: field[:required],
+        credential: held, value: (field[:value] unless held), help: field[:help],
+        options: field[:options]&.map { |option| option[:value] }
+      }.compact
+    end
+
+    def self.attached(key, given)
+      raise ArgumentError, "attach takes the new resource's key" if key.blank?
+
+      given = given.to_h.deep_stringify_keys
+      settings = given["settings"].to_h
+      attaching = ::Resource::Attaching.new(given["type"], grant: Current.grant)
+      carried = settings.keys & attaching.credentials
+      wanted = attaching.always_needed & attaching.credentials
+
+      if carried.any? || wanted.any?
+        named = (carried | wanted).join(", ")
+        raise ArgumentError, "#{given['type']} takes #{named}, and credentials never travel through here. " \
+                             "Attach it in the app at #{Current.origin}/settings/resources"
+      end
+
+      resource = attaching.attach!(key: key, name: given["name"], settings: settings, via: given["via"],
+                                   personal: given["personal"] == true)
+
+      {
+        key: resource.key, type: resource.class.sti_name, via: resource.via&.key,
+        healthy: resource.delegated? ? nil : resource.healthy?, error: resource.check_error,
+        connect_url: (("#{Current.origin}#{resource.connect_path}") if resource.delegated?)
+      }.compact
     end
 
     def self.listed

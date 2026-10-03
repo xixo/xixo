@@ -19,41 +19,19 @@ module Mutations
                        "that way. Nothing is reachable until somebody does."
 
     def resolve(type:, key:, name: nil, settings: nil, personal: false, via: nil)
-      klass = attachable!(type)
+      attaching = Resource::Attaching.new(type, grant: context[:grant])
+      resource = attaching.attach!(key: key, name: name, settings: settings, via: via, personal: personal)
 
-      named = key.to_s.strip
-      resource = klass.new(key: named, name: name.presence&.strip || named,
-                           owner_subject: personal ? context[:grant]&.subject : nil)
-
-      settle(resource, klass, settings)
-      resource.via = transport!(via) if via.present?
-
-      refused(resource.errors.full_messages.to_sentence) unless resource.save
-
-      noted(klass, resource, settings)
+      noted(attaching.klass, resource, settings)
 
       return { resource: resource, connect_url: resource.connect_path } if resource.delegated?
 
-      resource.check
-
       { resource: resource, check_error: resource.check_error }
+    rescue Resource::Attaching::Refused => e
+      refused(e.message)
     end
 
     private
-
-      def attachable!(type)
-        klass = Resource.attachable.find { |held| held.sti_name == type.to_s }
-
-        klass || refused("#{type} is not a type that can be attached")
-      end
-
-      # Only what the type declares is read, so a caller cannot smuggle a key the
-      # form never offered into details or credentials.
-      def settle(resource, klass, given)
-        resource.details, resource.credentials = Resource::Settings.for(klass, given || {})
-      rescue Resource::Settings::Missing => e
-        refused(e.message)
-      end
 
       # The names of what was set, never the values — a credential does not belong
       # in the audit trail even redacted.
