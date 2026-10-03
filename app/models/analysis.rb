@@ -1,10 +1,10 @@
 class Analysis < ApplicationRecord
-  CAUSES = %w[upload sync keep edge schedule manual ask].freeze
+  CAUSES = %w[upload sync keep schedule manual ask].freeze
   STATUSES = %w[queued running done failed cancelled gated].freeze
   OPEN = %w[queued running].freeze
   SETTLED = %w[done failed].freeze
   BOOKKEEPING = %w[placement derived answer drew_on].freeze
-  BULK = %w[sync edge].freeze
+  BULK = %w[sync].freeze
   ASKED_PRIORITY = 0
 
   LOG_LIMIT = 256_000

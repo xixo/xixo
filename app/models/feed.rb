@@ -19,7 +19,6 @@ class Feed < ApplicationRecord
   MIN_TIMEOUT = 1.minute
   MAX_TIMEOUT = 1.day
   GIST = %w[title note].freeze
-  SELECTOR = %w[id type key mime tag resource_id query folder since before].freeze
 
   RESERVED = %w[
     mcp graphql graphiql auth connect references feeds resources runs settings
@@ -143,7 +142,6 @@ class Feed < ApplicationRecord
   end
 
   def self.tagged(key) = filed_under(TAG, key)
-  def self.mimed(key) = filed_under(MIME, key)
 
   def self.filed_under(type, key)
     held = where(type: type).by_key(key).first

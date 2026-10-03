@@ -10,7 +10,7 @@ class SweepRunsJobTest < ActiveSupport::TestCase
 
   def run_finished(tenant, status:, at:)
     Tenant.switch(tenant) do
-      run = Run.start!(kind: "analyze", selector: { "id" => 1 })
+      run = Run.start!(kind: "sync", selector: { "id" => 1 })
       run.update_columns(status: status, finished_at: at)
       run
     end
@@ -64,7 +64,7 @@ class SweepRunsJobTest < ActiveSupport::TestCase
 
   test "an open run still inside its deadline is left running" do
     working = Tenant.switch(@tenant) do
-      Run.start!(kind: "analyze", deadline: 1.hour.from_now).tap { |run| run.running! }
+      Run.start!(kind: "sync", deadline: 1.hour.from_now).tap { |run| run.running! }
     end
 
     SweepRunsJob.perform_now
@@ -73,7 +73,7 @@ class SweepRunsJobTest < ActiveSupport::TestCase
   end
 
   test "a run with no deadline at all is never reaped" do
-    forever = Tenant.switch(@tenant) { Run.start!(kind: "analyze", deadline: nil) }
+    forever = Tenant.switch(@tenant) { Run.start!(kind: "sync", deadline: nil) }
 
     Tenant.switch(@tenant) { forever.update_columns(deadline: nil) }
 
@@ -85,7 +85,7 @@ class SweepRunsJobTest < ActiveSupport::TestCase
   test "a run is given a deadline by default, so none can strand" do
     Tenant.switch(@tenant) do
       assert_in_delta Rails.configuration.uris.run_deadline.from_now,
-                      Run.start!(kind: "analyze").deadline, 5
+                      Run.start!(kind: "sync").deadline, 5
     end
   end
 

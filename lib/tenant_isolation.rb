@@ -12,10 +12,4 @@ module TenantIsolation
     SQL
   end
 
-  def without_row_level_security(*tables)
-    tables.each { |table| execute "ALTER TABLE #{table} NO FORCE ROW LEVEL SECURITY" }
-    yield
-  ensure
-    tables.each { |table| execute "ALTER TABLE #{table} FORCE ROW LEVEL SECURITY" }
-  end
 end

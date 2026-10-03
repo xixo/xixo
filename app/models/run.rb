@@ -1,9 +1,7 @@
 class Run < ApplicationRecord
-  class Cancelled < StandardError; end
-
   include TenantScoped
 
-  KINDS = %w[sync export analyze reindex dedupe snapshot fetch].freeze
+  KINDS = %w[sync export reindex snapshot fetch].freeze
   STATUSES = %w[queued running done failed cancelled gated].freeze
   OPEN = %w[queued running].freeze
 

@@ -16,7 +16,6 @@ so uris does not repeat work whose result is still valid.
 | `schedule` | an address feed's schedule coming due |
 | `manual` | `runFeed`, `analyzeFeed`, the `feed` tool's `analyze`, or a job started without an analysis |
 | `ask` | `askCatalog`, and `analyzeFeed` on a note that was asked, as described in [asking](/concepts/agents/#asking) |
-| `edge` | nothing yet |
 
 The status is `queued` or `running` while the analysis is open. It ends as `done` or `failed`,
 which count as settled, or as `cancelled` or `gated`, which do not. When an analysis settles, uris
@@ -168,9 +167,8 @@ fails if the last retry fails too. An `Analyzer::Failed` error, or a file with n
 discarded and fails the analysis. Any other error fails the analysis and is raised again.
 
 One question is still open. Connecting two feeds does not analyze the feed on the other side again.
-The `edge` cause exists, but nothing raises it yet. It needs a way to stop one change from
-triggering a chain of analyses, such as a cooldown, a depth limit, or a cause that cannot write
-edges.
+That needs a way to stop one change from triggering a chain of analyses, such as a cooldown, a depth
+limit, or a cause that cannot write edges.
 
 ## One model at a time
 
@@ -178,7 +176,7 @@ Loading a model is slow on a single machine, and two models that do not fit in m
 unload each other on every call. uris orders analysis work so that each model is used for as long as
 there is work for it.
 
-An analysis caused by `sync` or `edge` runs in two jobs. The reading job runs the analyzer and files
+An analysis caused by `sync` runs in two jobs. The reading job runs the analyzer and files
 the feed under its content type. It then puts the analysis back in `queued` and hands the feed to a
 filing job, which runs the agent and settles the file into storage. The analysis gets its timeout
 again when filing starts.

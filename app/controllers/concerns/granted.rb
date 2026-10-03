@@ -17,8 +17,6 @@ module Granted
       @grant ||= Grant.new(tenant: current_tenant, claims: masks_claims_from(credentials)).tap do |held|
         Current.grant = held
         Current.audit = audit_context
-        Current.credentials = credentials
-        Current.issuer = Tenant.issuer_url(request)
         Current.origin = Tenant.origin(request)
       end
     end

@@ -8,7 +8,6 @@ gem "graphql"
 
 gem "mcp"
 
-gem "jwt"
 
 masks_client = ENV["MASKS_CLIENT_PATH"].to_s
 
@@ -70,7 +69,6 @@ end
 gem "mission_control-jobs"
 
 group :test do
-  gem "capybara"
-  gem "selenium-webdriver"
+  gem "jwt"
   gem "webmock"
 end

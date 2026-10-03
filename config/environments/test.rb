@@ -18,10 +18,6 @@ Rails.application.configure do
 
   config.active_storage.service = :test
 
-  config.action_mailer.delivery_method = :test
-
-  config.action_mailer.default_url_options = { host: "example.com" }
-
   config.active_support.deprecation = :stderr
 
   config.action_controller.raise_on_missing_callback_actions = true

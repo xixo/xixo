@@ -56,20 +56,6 @@ class MimeFeedTest < ActiveSupport::TestCase
     end
   end
 
-  test "a content type gathers what was filed under it" do
-    Tenant.switch(@tenant) do
-      pdf = create_feed(mime: "application/pdf", title: "invoice.pdf", locator_key: "invoice.pdf")
-      text = create_feed(mime: "text/plain", title: "notes.txt", locator_key: "notes.txt")
-
-      pdf.connect!(Feed.mime!("application/pdf"))
-      text.connect!(Feed.mime!("text/plain"))
-
-      assert_equal [ pdf.id ], Feed.mimed("application/pdf").ids
-      assert_equal [ text.id ], Feed.mimed("text/plain").ids
-      assert_empty Feed.mimed("image/png")
-    end
-  end
-
   test "destroying a content type takes its edges and leaves what it held" do
     Tenant.switch(@tenant) do
       feed = create_feed(mime: "application/pdf", title: "invoice.pdf", locator_key: "invoice.pdf")

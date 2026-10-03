@@ -154,17 +154,6 @@ class AnalysisTagsTest < ActiveSupport::TestCase
     end
   end
 
-  test "the tags are found again by analyzing every file and note in every tenant" do
-    RetagFeedsJob.perform_now
-
-    enqueued = enqueued_jobs.select { |job| job["job_class"] == "AnalyzeFeedsJob" }
-    ours = enqueued.find { |job| job["arguments"].first == @tenant.id }
-
-    assert_equal Tenant.count, enqueued.size
-    assert_equal @tenant.subdomain, ours["tenant"]
-    assert_equal [ Feed::FILE, Feed::NOTE ], ours["arguments"].second["type"]
-  end
-
   def summarized(feed, tags: [], entities: [])
     analysis = Analysis.open!(feed: feed, cause: "manual")
     analysis.write_step!("summary", { "result" => { "summary" => "A scan.", "tags" => tags, "entities" => entities } })
