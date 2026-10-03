@@ -468,13 +468,12 @@ class Resource
           { role: "user", content: said(body, images) }
         ]
 
-        payload = { model: model, messages: messages, stream: false,
+        payload = { model: model, messages: messages, stream: true,
                     max_tokens: max_tokens, temperature: temperature || self.temperature }
         payload[:response_format] = { type: "json_object" } if json_mode?
 
-        answered = post("/chat/completions", payload,
-                        timeout: images.any? ? vision_timeout : read_timeout)
-        content = answered.dig("choices", 0, "message", "content").to_s
+        content = streamed("/chat/completions", payload,
+                           timeout: images.any? ? vision_timeout : read_timeout)["content"].to_s
 
         raise Resource::Unusable, "#{key}: #{model} answered with nothing" if content.blank?
 
@@ -510,42 +509,29 @@ class Resource
       end
 
       def turn(model, messages)
-        answered = post("/chat/completions", {
-          model: model, stream: false, max_tokens: max_tokens, temperature: temperature,
+        streamed("/chat/completions", {
+          model: model, stream: true, max_tokens: max_tokens, temperature: temperature,
           messages: messages, tools: [ CHAIN_TOOL ]
         }, timeout: CHAIN_TIMEOUT)
-
-        answered.dig("choices", 0, "message") || {}
       end
 
       def post(path, body, timeout: read_timeout)
-        answer(dial(path), timeout) do |uri|
-          request = Net::HTTP::Post.new(uri, headers)
-          request.body = JSON.generate(body)
-          request
-        end
+        answer(dial(path), timeout) { |uri| posting(uri, body) }
       end
 
       def streamed(path, body, timeout:)
         uri = dial(path)
-        gathering = nil
-
-        response = exchange(uri, timeout, reading: lambda { |held|
-          next unless held.is_a?(Net::HTTPSuccess)
-
-          gathering = Gathering.new(streamed: held.content_type == "text/event-stream")
-          held.read_body { |chunk| gathering << chunk }
-        }) do |at|
-          request = Net::HTTP::Post.new(at, headers)
-          request.body = JSON.generate(body)
-          request
-        end
-
-        return gathering.message if gathering
+        gathering = Gathering.new
+        response = exchange(uri, timeout, reading: gathering) { |at| posting(at, body) }
+        return gathering.message if response.is_a?(Net::HTTPSuccess)
 
         refused!(response, uri)
       rescue JSON::ParserError
         raise Resource::Unusable, "#{key}: #{uri.host} did not answer with JSON"
+      end
+
+      def posting(uri, body)
+        Net::HTTP::Post.new(uri, headers).tap { |request| request.body = JSON.generate(body) }
       end
 
       def headers
@@ -587,7 +573,9 @@ class Resource
         http.use_ssl = uri.scheme == "https"
         http.open_timeout = OPEN_TIMEOUT
         http.read_timeout = timeout
-        http.start { |held| held.request(build.call(uri)) { |response| reading&.call(response) } }
+        http.start do |held|
+          held.request(build.call(uri)) { |response| reading.read(response) if reading && response.is_a?(Net::HTTPSuccess) }
+        end
       rescue Net::OpenTimeout, Net::ReadTimeout
         raise Resource::Failed, "#{key}: #{uri.host} did not answer in #{timeout}s"
       rescue SocketError, SystemCallError, OpenSSL::SSL::SSLError, IOError => e

@@ -262,10 +262,10 @@ class FakeModelServer
     def completion(body)
       record_prompt(body)
       queued = @lock.synchronize { @answers.shift }
-      return streamed(queued) if streaming?(body) && !queued.to_h.key?(:status)
-
+      return rendered(queued[:status], queued[:body]) if queued&.key?(:status)
+      return streamed(queued) if streaming?(body)
       return rendered(200, JSON.generate(completion_payload(""))) if queued.nil?
-      return rendered(queued[:status], queued[:body]) if queued.key?(:status)
+
       return rendered(200, JSON.generate(tool_call_payload(queued[:tool_calls]))) if queued[:tool_calls]
 
       rendered(200, JSON.generate(completion_payload(queued[:content])))
@@ -278,10 +278,11 @@ class FakeModelServer
     end
 
     def streamed(queued)
-      deltas = if queued.nil? then [ { "content" => "" } ]
-      elsif queued[:tool_calls] then queued[:tool_calls].each_with_index.flat_map { |call, at| fragments(call, at) }
-      else queued[:content].to_s.scan(/\S+\s*|\s+/).presence&.map { |word| { "content" => word } } || [ { "content" => "" } ]
+      calls = queued.to_h[:tool_calls]
+      deltas = if calls then calls.each_with_index.flat_map { |call, at| fragments(call, at) }
+      else queued.to_h[:content].to_s.scan(/\S+\s*|\s+/).map { |word| { "content" => word } }
       end
+      deltas = [ { "content" => "" } ] if deltas.empty?
 
       events = deltas.map { |delta| "data: #{JSON.generate('choices' => [ { 'index' => 0, 'delta' => delta } ])}\n\n" }
 

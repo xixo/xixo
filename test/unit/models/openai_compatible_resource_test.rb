@@ -403,13 +403,13 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
     end
   end
 
-  test "on arrival a model that must be probed is only listed, and the probe waits for a job" do
+  test "a check of a model that must be probed only lists it, and the probe waits for a job" do
     @server.serves(*MODELS.values, "qwen3:8b")
 
     Tenant.switch(@tenant) do
       @resource.update!(details: @resource.details.merge("models" => MODELS.merge("agent" => "qwen3:8b")))
 
-      assert_enqueued_with(job: CheckResourceJob, args: [ @resource.id ]) { assert @resource.check_on_arrival }
+      assert_enqueued_with(job: CheckResourceJob, args: [ @resource.id ]) { assert @resource.check }
       assert_equal 0, @server.count_for("/v1/chat/completions")
       assert_predicate @resource.reload, :checking?
 
@@ -420,21 +420,21 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
     end
   end
 
-  test "on arrival a model never pulled is refused at once, with nothing left to probe" do
+  test "a check refuses a model never pulled at once, with nothing left to probe" do
     @server.serves(*MODELS.values)
 
     Tenant.switch(@tenant) do
       @resource.update!(details: @resource.details.merge("models" => MODELS.merge("agent" => "qwen3:8b")))
 
-      assert_no_enqueued_jobs(only: CheckResourceJob) { assert_not @resource.check_on_arrival }
+      assert_no_enqueued_jobs(only: CheckResourceJob) { assert_not @resource.check }
       assert_match(/does not serve qwen3:8b/, @resource.reload.check_error)
       assert_not @resource.checking?
     end
   end
 
-  test "on arrival a resource with nothing to probe is checked whole" do
+  test "a check of a resource with nothing to probe is whole" do
     Tenant.switch(@tenant) do
-      assert_no_enqueued_jobs(only: CheckResourceJob) { assert @resource.check_on_arrival }
+      assert_no_enqueued_jobs(only: CheckResourceJob) { assert @resource.check }
       assert_predicate @resource.reload, :healthy?
     end
   end

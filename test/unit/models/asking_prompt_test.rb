@@ -270,6 +270,11 @@ class AskingPromptTest < ActiveSupport::TestCase
       assert_match(/drew on \[feed #{plan.id}\] \(Dry Goods Storage Plan\.xlsx\)\. Open it with feed before searching again/, asking.prompt)
       assert_match(/drew on \[feed #{plan.id}\]/, asking.briefing("count the kilner jars"))
       assert_no_match(/Earlier answers in this conversation/, Asking.new(@question).prompt, "a first question has nothing drawn on")
+
+      again = Analysis.create!(feed: note, cause: "ask", question: "How many Korken containers do I need?", steps: {})
+
+      assert_no_match(/Earlier answers in this conversation/, Asking.new(note, analysis: again).prompt,
+                      "asking the same question again is answered afresh, without the replaced answer's feeds")
     end
   end
 

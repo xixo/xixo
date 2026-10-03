@@ -52,25 +52,20 @@ module Tool
         wanted = limit.to_i.clamp(1, 200)
         feeds = searched(query, type, wanted)
         widened = feeds.empty? && type.present? && query.present? ? searched(query, nil, wanted) : []
+        shown = widened.presence || feeds
+        passages = type.present? && widened.empty? ? {} : passages_for(query)
 
-        if widened.any?
-          {
-            count: widened.size, widened: true,
-            told: "Nothing of type #{type} matched, so these are every type that did. Leave type off to search everything.",
-            feeds: told(widened, passages_for(query))
-          }
-        else
-          { count: feeds.size, feeds: told(feeds, type.present? ? {} : passages_for(query)) }
-        end
+        {
+          count: shown.size,
+          widened: (true if widened.any?),
+          note: ("Nothing of type #{type} matched, so these are every type that did. Leave type off to search everything." if widened.any?),
+          feeds: shown.map { |feed| found(feed, passages[feed.id]) }
+        }.compact
       end
     end
 
     def self.searched(query, type, limit)
       Feed.search(query, type: type, limit: limit).reject { |feed| feed.id == Current.acting_for }
-    end
-
-    def self.told(feeds, passages)
-      feeds.map { |feed| found(feed, passages[feed.id]) }
     end
   end
 end

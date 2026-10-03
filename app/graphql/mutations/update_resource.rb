@@ -21,7 +21,7 @@ module Mutations
       noted(resource, settings, changing.declared)
 
       { resource: resource, check_error: resource.check_error }
-    rescue Resource::Changing::Refused => e
+    rescue Resource::Refused => e
       refused(e.message)
     end
 

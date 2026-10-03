@@ -1,6 +1,7 @@
 class Resource < ApplicationRecord
   class Failed < StandardError; end
   class Unusable < Failed; end
+  class Refused < ArgumentError; end
 
   include TenantScoped
 
@@ -66,6 +67,15 @@ class Resource < ApplicationRecord
   }
 
   class << self
+    def credential_fields
+      attaching[:fields].select { |field| field[:secret] || field[:held] == :credentials }.map { |field| field[:name] }
+    end
+
+    def transport!(key, grant)
+      capable_of(:transport).reachable_by(grant).find_by(key: key.to_s) ||
+        raise(Refused, "#{key} is not a transport here")
+    end
+
     def sti_name
       return super if self == Resource
 
@@ -337,6 +347,18 @@ class Resource < ApplicationRecord
     self
   end
 
+  def make_default!(named = nil)
+    served = DEFAULTABLE.keys & capabilities
+    raise ArgumentError, "#{key} serves neither storage nor inference, so it is no default" if served.empty?
+    raise ArgumentError, "#{key} serves #{served.to_sentence}; say which it is the default for" if named.blank? && served.many?
+
+    capability = named.present? ? served.find { |held| held.to_s == named.to_s } : served.first
+    raise ArgumentError, "#{key} does not serve #{named}" if capability.nil?
+
+    make_default_for!(capability)
+    capability
+  end
+
   def make_default_storage! = make_default_for!(:storage)
   def make_default_inference! = make_default_for!(:inference)
 
@@ -371,13 +393,20 @@ class Resource < ApplicationRecord
   end
 
   def check
-    through!
-    check!
-    record_check(nil)
-    true
-  rescue NotImplementedError, StandardError => e
-    record_check("#{e.class}: #{e.message}")
-    false
+    checked do
+      answers!
+      next record_check(nil) unless probes?
+
+      update_columns(checked_at: nil, check_error: nil)
+      CheckResourceJob.perform_later(id)
+    end
+  end
+
+  def probe
+    checked do
+      check!
+      record_check(nil)
+    end
   end
 
   def answers!
@@ -385,23 +414,6 @@ class Resource < ApplicationRecord
   end
 
   def probes?
-    false
-  end
-
-  def check_on_arrival
-    through!
-    answers!
-
-    if probes?
-      update_columns(checked_at: nil, check_error: nil)
-      CheckResourceJob.perform_later(id)
-    else
-      record_check(nil)
-    end
-
-    true
-  rescue NotImplementedError, StandardError => e
-    record_check("#{e.class}: #{e.message}")
     false
   end
 
@@ -594,6 +606,15 @@ class Resource < ApplicationRecord
 
     def mirror_what_it_serves
       self.serving = self.class.serving
+    end
+
+    def checked
+      through!
+      yield
+      true
+    rescue NotImplementedError, StandardError => e
+      record_check("#{e.class}: #{e.message}")
+      false
     end
 
     def record_check(error)

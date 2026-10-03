@@ -1,7 +1,5 @@
 class Resource
   class Attaching
-    class Refused < ArgumentError; end
-
     attr_reader :klass
 
     def initialize(type, grant:)
@@ -16,11 +14,11 @@ class Resource
                            owner_subject: personal ? @grant&.subject : nil)
 
       resource.details, resource.credentials = Settings.for(klass, settings || {})
-      resource.via = transport!(via) if via.present?
+      resource.via = Resource.transport!(via, @grant) if via.present?
 
       raise Refused, resource.errors.full_messages.to_sentence unless resource.save
 
-      resource.check_on_arrival unless resource.delegated?
+      resource.check unless resource.delegated?
       resource
     rescue Settings::Missing => e
       raise Refused, e.message
@@ -30,15 +28,6 @@ class Resource
       klass.attaching[:fields].select { |field| field[:required] && field[:shown_when].nil? }.map { |field| field[:name] }
     end
 
-    def credentials
-      klass.attaching[:fields].select { |field| field[:secret] || field[:held] == :credentials }.map { |field| field[:name] }
-    end
-
-    private
-
-      def transport!(key)
-        Resource.capable_of(:transport).reachable_by(@grant).find_by(key: key.to_s) ||
-          raise(Refused, "#{key} is not a transport here")
-      end
+    def credentials = klass.credential_fields
   end
 end

@@ -193,17 +193,19 @@ class Asking
   end
 
   def earlier
-    asked = asked_as(question)
-    held = feed.conversation(through: @analysis).reject do |turn|
-      turn.analysis == @analysis || turn.said.blank? || asked_as(turn.question) == asked
-    end
+    @earlier ||= begin
+      asked = asked_as(question)
+      held = feed.conversation(through: @analysis).reject do |turn|
+        turn.analysis == @analysis || turn.said.blank? || asked_as(turn.question) == asked
+      end
 
-    held.last(EARLIER)
+      held.last(EARLIER)
+    end
   end
 
   def prompt
     format(LEAD, question: question, can: can, before: before, holdings: "The catalog now: #{Holdings.said}",
-                 about: [ about_told, drawn_told ].compact.join("\n\n").then { |told| told.empty? ? "" : "\n\n#{told}" })
+                 about: anchors.map { |told| "\n\n#{told}" }.join)
   end
 
   def judged_question
@@ -215,7 +217,7 @@ class Asking
   end
 
   def briefing(task)
-    [ format(SCOUT, task: task, question: followed_question), about_told, drawn_told, beyond ].compact.join("\n\n")
+    [ format(SCOUT, task: task, question: followed_question), *anchors, beyond ].compact.join("\n\n")
   end
 
   def led(calls)
@@ -320,13 +322,17 @@ class Asking
         "says; for a long one, look through it with find."
     end
 
+    def anchors
+      [ about_told, drawn_told ].compact
+    end
+
     def drawn
       @drawn ||= begin
-        ids = feed.conversation(through: @analysis).reject { |turn| turn.analysis == @analysis }
-                  .flat_map { |turn| Array(turn.analysis.step_result("drew_on")) }
+        ids = earlier.reverse.flat_map { |turn| Array(turn.analysis.step_result("drew_on")).map(&:to_i) }.uniq
+        held = Feed.where(id: ids).where.not(id: [ feed.id, about&.id ].compact)
+                   .where.not(type: [ Feed::TAG, Feed::MIME ]).index_by(&:id)
 
-        Feed.where(id: ids.uniq).where.not(id: [ feed.id, about&.id ].compact)
-            .where.not(type: [ Feed::TAG, Feed::MIME ]).to_a
+        ids.filter_map { |id| held[id] }
       end
     end
 

@@ -60,7 +60,7 @@ module Tool
 
     def self.call(server_context:, key: nil, input: nil, **held)
       verb = (held[:do] || held["do"] || (key.present? ? "describe" : "list")).to_s
-      given = (input || {}).to_h
+      given = (input || {}).to_h.deep_stringify_keys
 
       respond(server_context, { key: key, do: verb, input: given }) do
         raise ArgumentError, "no such action '#{verb}'" unless (READ + WRITE).include?(verb)
@@ -111,7 +111,7 @@ module Tool
 
       case verb
       when "describe" then resource.describe.merge(healthy: resource.healthy?)
-      when "check" then { key: resource.key, healthy: resource.check, error: resource.check_error }
+      when "check" then checked(resource)
       when "change" then changed(resource, given)
       when "default" then defaulted(resource, given)
       when "sync" then started(resource)
@@ -181,60 +181,48 @@ module Tool
     def self.attached(key, given)
       raise ArgumentError, "attach takes the new resource's key" if key.blank?
 
-      given = given.to_h.deep_stringify_keys
       settings = given["settings"].to_h
       attaching = ::Resource::Attaching.new(given["type"], grant: Current.grant)
-      carried = settings.keys & attaching.credentials
-      wanted = attaching.always_needed & attaching.credentials
-
-      if carried.any? || wanted.any?
-        named = (carried | wanted).join(", ")
-        raise ArgumentError, "#{given['type']} takes #{named}, and credentials never travel through here. " \
-                             "Attach it in the app at #{Current.origin}/settings/resources"
-      end
+      uncarried!(given["type"], (settings.keys | attaching.always_needed) & attaching.credentials, "Attach")
 
       resource = attaching.attach!(key: key, name: given["name"], settings: settings, via: given["via"],
                                    personal: given["personal"] == true)
 
       {
         key: resource.key, type: resource.class.sti_name, via: resource.via&.key,
-        healthy: resource.delegated? || resource.checking? ? nil : resource.healthy?, error: resource.check_error,
-        checking: (true if !resource.delegated? && resource.checking?),
-        connect_url: (("#{Current.origin}#{resource.connect_path}") if resource.delegated?)
-      }.compact
+        **(resource.delegated? ? { connect_url: "#{Current.origin}#{resource.connect_path}" } : health(resource))
+      }
     end
 
     def self.changed(resource, given)
-      given = given.to_h.deep_stringify_keys
       changing = ::Resource::Changing.new(resource, grant: Current.grant)
-      carried = given["settings"].to_h.keys & changing.credentials
-
-      if carried.any?
-        raise ArgumentError, "#{resource.key} takes #{carried.join(', ')}, and credentials never travel through here. " \
-                             "Change it in the app at #{Current.origin}/settings/resources"
-      end
+      uncarried!(resource.key, given["settings"].to_h.keys & changing.credentials, "Change")
 
       changing.change!(name: given["name"], settings: given["settings"], via: given["via"])
 
-      {
-        key: resource.key, name: resource.name, via: resource.via&.key,
-        healthy: resource.checking? ? nil : resource.healthy?, error: resource.check_error,
-        checking: (true if resource.checking?)
-      }.compact
+      { key: resource.key, name: resource.name, via: resource.via&.key, **health(resource) }
+    end
+
+    def self.uncarried!(named, credentials, verb)
+      return if credentials.empty?
+
+      raise ArgumentError, "#{named} takes #{credentials.join(', ')}, and credentials never travel through here. " \
+                           "#{verb} it in the app at #{Current.origin}/settings/resources"
+    end
+
+    def self.checked(resource)
+      resource.check
+      { key: resource.key, **health(resource) }
+    end
+
+    def self.health(resource)
+      return { checking: true } if resource.checking?
+
+      { healthy: resource.healthy?, error: resource.check_error }.compact
     end
 
     def self.defaulted(resource, given)
-      served = ::Resource::DEFAULTABLE.keys & resource.capabilities
-      named = given.to_h.stringify_keys["for"].presence
-      raise ArgumentError, "#{resource.key} serves neither storage nor inference, so it is no default" if served.empty?
-      raise ArgumentError, "#{resource.key} serves #{served.join(' and ')}; name one with input {\"for\": \"...\"}" if named.nil? && served.many?
-
-      capability = named ? served.find { |held| held.to_s == named } : served.first
-      raise ArgumentError, "#{resource.key} does not serve #{named}" if capability.nil?
-
-      resource.make_default_for!(capability)
-
-      { key: resource.key, default_for: capability }
+      { key: resource.key, default_for: resource.make_default!(given["for"]) }
     end
 
     def self.listed

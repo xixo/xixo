@@ -3,13 +3,18 @@ require "json"
 class Resource
   class OpenaiCompatible
     class Gathering
-      def initialize(streamed:)
+      def initialize(streamed: false)
         @streamed = streamed
         @raw = +""
         @pending = +""
         @content = +""
         @reasoning = +""
         @calls = {}
+      end
+
+      def read(response)
+        @streamed = response.content_type == "text/event-stream"
+        response.read_body { |chunk| self << chunk }
       end
 
       def <<(chunk)

@@ -7,6 +7,6 @@ class CheckResourceJob < ApplicationJob
     resource = Resource.due_for_check.find_by(id: resource_id)
     return if resource.nil?
 
-    resource.check
+    resource.probe
   end
 end

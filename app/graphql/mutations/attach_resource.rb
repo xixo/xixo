@@ -27,7 +27,7 @@ module Mutations
       return { resource: resource, connect_url: resource.connect_path } if resource.delegated?
 
       { resource: resource, check_error: resource.check_error }
-    rescue Resource::Attaching::Refused => e
+    rescue Resource::Refused => e
       refused(e.message)
     end
 
