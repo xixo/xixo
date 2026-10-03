@@ -4,7 +4,6 @@ import {
   IconActivity,
   IconArrowUpRight,
   IconDatabase,
-  IconProgressCheck,
   IconUser,
 } from '@tabler/icons-react'
 import { SetSettingDocument, SettingsDocument } from '@uris-to/client'
@@ -18,7 +17,6 @@ import { useAloud } from './Say'
 const TABS = [
   { to: '/settings/account', label: 'Account', icon: IconUser },
   { to: '/settings/resources', label: 'Resources', icon: IconDatabase },
-  { to: '/settings/runs', label: 'Runs', icon: IconProgressCheck },
   { to: '/settings/activity', label: 'Activity', icon: IconActivity },
 ]
 

@@ -25,7 +25,6 @@ import { ItemDetail } from './ItemDetail'
 import { Lost } from './Lost'
 import { Mark } from './Mark'
 import { Resources } from './Resources'
-import { Runs } from './Runs'
 import { SayProvider } from './Say'
 import { Settings, SignedIn } from './Settings'
 import { UploadsProvider } from './Uploads'
@@ -184,7 +183,6 @@ function Shell({
               />
               <Route path="resources" element={<Resources />} />
               <Route path="resources/:id" element={<Resources />} />
-              <Route path="runs" element={<Runs />} />
               <Route path="activity" element={<Audit />} />
             </Route>
             <Route path="/:slug" element={<Catalog />} />

@@ -116,7 +116,7 @@ export function AddProvider({ children }: { children: ReactNode }) {
           key: run.id,
           label: where,
           detail: 'being rendered',
-          to: '/settings/runs',
+          to: '/',
         }
 
         remember(entry)
@@ -139,7 +139,7 @@ export function AddProvider({ children }: { children: ReactNode }) {
         key: run.id,
         label: where,
         detail: 'being fetched',
-        to: '/settings/runs',
+        to: '/',
       }
 
       remember(entry)

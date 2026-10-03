@@ -59,7 +59,7 @@ export function Export({ opened, onClose, type, term }: Props) {
     if (!answered) return
 
     onClose()
-    say({ text: 'The export is running. Watch it under Runs.' })
+    say({ text: 'The export is running in the background.' })
   }
 
   return (
@@ -67,7 +67,7 @@ export function Export({ opened, onClose, type, term }: Props) {
       <Stack gap="var(--s4)">
         <Text size="sm" c="dimmed">
           Writes a copy of everything that matches into a resource you can reach
-          from outside uris. It runs in the background and shows up under Runs.
+          from outside uris. It runs in the background.
         </Text>
 
         <Select
