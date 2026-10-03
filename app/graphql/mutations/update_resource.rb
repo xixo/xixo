@@ -15,41 +15,19 @@ module Mutations
 
     def resolve(id:, name: nil, settings: nil, via: nil)
       resource = resource!(id)
-      klass = resource.class
+      changing = Resource::Changing.new(resource, grant: context[:grant])
+      changing.change!(name: name, settings: settings, via: via)
 
-      refused("#{resource.key} has nothing that can be changed here") if klass.attaching.nil?
-
-      resource.name = name.strip if name.present?
-      settle(resource, klass, settings) unless settings.nil?
-      resource.via = via.empty? ? nil : transport!(via) unless via.nil?
-
-      refused(resource.errors.full_messages.to_sentence) unless resource.save
-
-      noted(resource, settings)
-      resource.check_on_arrival
+      noted(resource, settings, changing.declared)
 
       { resource: resource, check_error: resource.check_error }
+    rescue Resource::Changing::Refused => e
+      refused(e.message)
     end
 
     private
 
-      def settle(resource, klass, given)
-        declared = klass.attaching[:fields].map { |field| field[:name] }
-        details, credentials = Resource::Settings.for(klass, given, kept: resource.credentials)
-
-        resource.details = unowned(resource.details, declared).merge(details)
-        resource.credentials = unowned(resource.credentials, declared).merge(credentials)
-      rescue Resource::Settings::Missing => e
-        refused(e.message)
-      end
-
-      def unowned(held, declared)
-        held.to_h.reject { |name, _| declared.include?(name) || declared.any? { |field| field.start_with?("#{name}.") } }
-      end
-
-      def noted(resource, settings)
-        declared = resource.class.attaching[:fields].map { |field| field[:name] }
-
+      def noted(resource, settings, declared)
         AuditEvent.record(
           channel: "graphql", action: "update_resource", status: "ok",
           grant: context[:grant], context: { remote_ip: nil, request_id: nil },

@@ -62,12 +62,13 @@ module ReferencePages
         <<~TEXT
           ## Resource commands
 
-          What `resource` accepts as `do`. `list`, `types`, `attach`, `describe`, `check`, `runs`,
-          `sync`, `export` and `cancel` are answered by uris itself; the rest are passed to the
-          resource, and a type accepts only the ones its [reference entry](/reference/resources/)
-          lists. A command that starts a run counts against the token's hourly run budget. `attach`
-          refuses any field that holds a credential, and a type that always needs one is attached in
-          the app.
+          What `resource` accepts as `do`. `list`, `types`, `attach`, `change`, `default`, `describe`,
+          `check`, `runs`, `sync`, `export` and `cancel` are answered by uris itself; the rest are
+          passed to the resource, and a type accepts only the ones its
+          [reference entry](/reference/resources/) lists. A command that starts a run counts against
+          the token's hourly run budget. `attach` and `change` refuse any field that holds a
+          credential, and a type that always needs one is attached in the app. `change` keeps every
+          setting it is not given.
 
           #{table([ 'Command', 'Needs', 'Starts a run' ], rows)}
         TEXT

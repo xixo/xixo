@@ -5,7 +5,7 @@ module Tool
 
     READ = %w[list types describe runs get parameters search forecast find reverse nearby].freeze
     PLACES = %w[find reverse nearby].freeze
-    WRITE = %w[attach check sync keep export cancel put snapshot].freeze
+    WRITE = %w[attach change default check sync keep export cancel put snapshot].freeze
     RUNS = %w[sync export].freeze
 
     KEEPING = %w[snapshot].freeze
@@ -24,9 +24,12 @@ module Tool
       {"query": "..."}, do=reverse with a latitude and longitude, or do=nearby with a kind such as
       cafe and a place. do=types lists what can be attached and the settings each type takes, and
       do=attach with a new key and input {"type": "...", "settings": {...}, "via": "..."} attaches
-      one, reached through the transport named in via if there is one. Credentials never travel
-      through here: a type that needs a password, a token, or a key is attached in the app, and one
-      that connects through masks comes back with the address a person opens to connect it.
+      one, reached through the transport named in via if there is one. do=change with input {"name":
+      "...", "settings": {...}, "via": "..."} changes one, keeping every setting it is not given, and
+      an empty via reaches it directly. do=default makes one the default for what it serves, storage
+      or inference, named with input {"for": "..."} when it serves both. Credentials never travel
+      through here: a type that needs a password, a token, or a key is attached or changed in the app,
+      and one that connects through masks comes back with the address a person opens to connect it.
     TEXT
 
     def self.for(grant)
@@ -73,7 +76,7 @@ module Tool
     end
 
     SAID = {
-      "list" => "listed the places", "types" => "listed the types of place", "attach" => "attached", "describe" => "looked at", "runs" => "looked at the runs of",
+      "list" => "listed the places", "types" => "listed the types of place", "attach" => "attached", "change" => "changed", "describe" => "looked at", "runs" => "looked at the runs of",
       "check" => "checked", "sync" => "synced", "cancel" => "cancelled a run on", "export" => "exported to",
       "keep" => "kept a page through", "snapshot" => "snapshotted a page through", "put" => "stored a file in",
       "parameters" => "read the parameters of"
@@ -87,6 +90,7 @@ module Tool
       return SAID["list"] if place.nil?
 
       case verb
+      when "default" then "made #{place} the default#{" for #{given['for']}" if given['for'].present?}"
       when "search" then "searched the web for #{given['query']} through #{place}"
       when "get" then given["url"].present? ? "read #{given['url']} through #{place}" : "asked #{place} for something"
       when "keep", "snapshot" then "#{SAID[verb].delete_suffix(' through')} #{given['url']} through #{place}".squish
@@ -108,6 +112,8 @@ module Tool
       case verb
       when "describe" then resource.describe.merge(healthy: resource.healthy?)
       when "check" then { key: resource.key, healthy: resource.check, error: resource.check_error }
+      when "change" then changed(resource, given)
+      when "default" then defaulted(resource, given)
       when "sync" then started(resource)
       when "runs" then { runs: ::Run.where(resource: resource).newest_first.limit(20).map { |run| run_told(run) } }
       when "cancel" then cancelled(given)
@@ -196,6 +202,39 @@ module Tool
         checking: (true if !resource.delegated? && resource.checking?),
         connect_url: (("#{Current.origin}#{resource.connect_path}") if resource.delegated?)
       }.compact
+    end
+
+    def self.changed(resource, given)
+      given = given.to_h.deep_stringify_keys
+      changing = ::Resource::Changing.new(resource, grant: Current.grant)
+      carried = given["settings"].to_h.keys & changing.credentials
+
+      if carried.any?
+        raise ArgumentError, "#{resource.key} takes #{carried.join(', ')}, and credentials never travel through here. " \
+                             "Change it in the app at #{Current.origin}/settings/resources"
+      end
+
+      changing.change!(name: given["name"], settings: given["settings"], via: given["via"])
+
+      {
+        key: resource.key, name: resource.name, via: resource.via&.key,
+        healthy: resource.checking? ? nil : resource.healthy?, error: resource.check_error,
+        checking: (true if resource.checking?)
+      }.compact
+    end
+
+    def self.defaulted(resource, given)
+      served = ::Resource::DEFAULTABLE.keys & resource.capabilities
+      named = given.to_h.stringify_keys["for"].presence
+      raise ArgumentError, "#{resource.key} serves neither storage nor inference, so it is no default" if served.empty?
+      raise ArgumentError, "#{resource.key} serves #{served.join(' and ')}; name one with input {\"for\": \"...\"}" if named.nil? && served.many?
+
+      capability = named ? served.find { |held| held.to_s == named } : served.first
+      raise ArgumentError, "#{resource.key} does not serve #{named}" if capability.nil?
+
+      resource.make_default_for!(capability)
+
+      { key: resource.key, default_for: capability }
     end
 
     def self.listed
