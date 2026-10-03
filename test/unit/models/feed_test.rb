@@ -56,6 +56,7 @@ class FeedTest < ActiveSupport::TestCase
       assert_equal feed, analysis.feed
       assert_equal "schedule", analysis.cause
       assert analysis.open?
+      assert_in_delta Time.current, schedule.reload.ran_at, 5
     end
   end
 

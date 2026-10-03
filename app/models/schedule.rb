@@ -28,6 +28,7 @@ class Schedule < ApplicationRecord
   def resume! = update!(paused_at: nil)
 
   def run!
+    update_columns(ran_at: Time.current)
     feed.analyze!(cause: "schedule").tap { schedule_next! }
   end
 
