@@ -47,7 +47,7 @@ You do not configure any of this. It is listed so you can follow it in a log.
 1. The client calls `/mcp` without a token. uris answers `401` with a `WWW-Authenticate` header that
    names `/.well-known/oauth-protected-resource`.
 2. The client reads that document. It lists the `/mcp` URL as the resource, the masks issuer as the
-   authorization server, and every `uris:` scope with its description.
+   authorization server, and every `uris:` scope an MCP tool checks, with its description.
 3. The client registers with masks and sends you there to sign in and approve.
 4. The client calls `/mcp` again with the token masks issued.
 

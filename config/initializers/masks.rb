@@ -7,7 +7,7 @@ Rails.application.config.to_prepare do
     config.credentials = ->(request) { Tenant.resolve(request.host)&.masks_credentials }
     config.store = ->(request, registration) { Tenant.resolve!(request.host).connect!(registration) }
     config.forget = ->(request) { Tenant.resolve!(request.host).disconnect! }
-    config.resource_scopes = Grant::DESCRIBED
+    config.resource_scopes = Grant::OFFERED
     config.namespace = Grant::NAMESPACE
     config.scope = Masks::Client::Session::DEFAULT_SCOPE + [ "offline_access" ] + Grant::SIGN_IN
     config.after_sign_in = "/"

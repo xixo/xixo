@@ -34,7 +34,7 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
 
     assert_match(/\ABearer /, challenge)
     assert_includes challenge, %(resource_metadata="#{origin_for(@tenant)}/.well-known/oauth-protected-resource")
-    assert_includes challenge, %(scope="#{ALL.join(' ')}")
+    assert_includes challenge, %(scope="#{Grant::OFFERED.keys.join(' ')}")
   end
 
   test "the metadata the challenge points at names this tenant's issuer" do
@@ -46,9 +46,19 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
 
     assert_equal "#{origin_for(@tenant)}/mcp", metadata["resource"]
     assert_equal [ issuer.url_for(@tenant.subdomain) ], metadata["authorization_servers"]
-    assert_equal ALL, metadata["scopes_supported"]
-    assert_equal Grant::DESCRIBED, metadata["scope_descriptions"],
+    assert_equal Grant::OFFERED.keys, metadata["scopes_supported"]
+    assert_equal Grant::OFFERED, metadata["scope_descriptions"],
                  "an auth server has no other way to render these as sentences"
+  end
+
+  test "a client is offered the scopes its tools check, and never the settings ones" do
+    get "/.well-known/oauth-protected-resource", headers: host_for(@tenant)
+
+    offered = response.parsed_body["scopes_supported"]
+
+    assert_includes offered, "uris:resources:command"
+    assert_empty offered & Grant::SETTINGS,
+                 "an authorization server that bounds what clients register refuses the whole request over one of these"
   end
 
   test "a token minted for one tenant is refused by another" do

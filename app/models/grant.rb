@@ -20,6 +20,10 @@ class Grant
 
   ADMINISTRATIVE = %w[uris:settings:admin].freeze
 
+  SETTINGS = %w[uris:settings:read uris:settings:write uris:settings:admin].freeze
+
+  OFFERED = DESCRIBED.except(*SETTINGS).freeze
+
   SIGN_IN = (SCOPES - ADMINISTRATIVE).freeze
 
   attr_reader :tenant, :claims
