@@ -16,7 +16,8 @@ module Tool
         query: { type: "string", description: "Words or a question. Matches the words, and what they mean." },
         type: {
           type: "string",
-          description: "Restrict to one type: uris:file, uris:note, uris:feed, uris:tag, uris:mime."
+          description: "Leave it off to search everything. Restricts to one type: uris:file for files, " \
+                       "uris:note, uris:feed for saved searches only, uris:tag, uris:mime."
         },
         limit: { type: "integer", minimum: 1, maximum: 200 }
       }
@@ -48,13 +49,28 @@ module Tool
 
     def self.call(server_context:, query: nil, type: nil, limit: 50)
       respond(server_context, { query: query, type: type, limit: limit }) do
-        feeds = Feed.search(query, type: type, limit: limit.to_i.clamp(1, 200))
-                    .reject { |feed| feed.id == Current.acting_for }
+        wanted = limit.to_i.clamp(1, 200)
+        feeds = searched(query, type, wanted)
+        widened = feeds.empty? && type.present? && query.present? ? searched(query, nil, wanted) : []
 
-        passages = type.present? ? {} : passages_for(query)
-
-        { count: feeds.size, feeds: feeds.map { |feed| found(feed, passages[feed.id]) } }
+        if widened.any?
+          {
+            count: widened.size, widened: true,
+            told: "Nothing of type #{type} matched, so these are every type that did. Leave type off to search everything.",
+            feeds: told(widened, passages_for(query))
+          }
+        else
+          { count: feeds.size, feeds: told(feeds, type.present? ? {} : passages_for(query)) }
+        end
       end
+    end
+
+    def self.searched(query, type, limit)
+      Feed.search(query, type: type, limit: limit).reject { |feed| feed.id == Current.acting_for }
+    end
+
+    def self.told(feeds, passages)
+      feeds.map { |feed| found(feed, passages[feed.id]) }
     end
   end
 end
