@@ -203,7 +203,7 @@ class Asking
 
   def prompt
     format(LEAD, question: question, can: can, before: before, holdings: "The catalog now: #{Holdings.said}",
-                 about: about_told.then { |told| told ? "\n\n#{told}" : "" })
+                 about: [ about_told, drawn_told ].compact.join("\n\n").then { |told| told.empty? ? "" : "\n\n#{told}" })
   end
 
   def judged_question
@@ -215,7 +215,7 @@ class Asking
   end
 
   def briefing(task)
-    [ format(SCOUT, task: task, question: followed_question), about_told, beyond ].compact.join("\n\n")
+    [ format(SCOUT, task: task, question: followed_question), about_told, drawn_told, beyond ].compact.join("\n\n")
   end
 
   def led(calls)
@@ -318,6 +318,24 @@ class Asking
       named = [ about.title.presence || about.key, about.mime ].compact.join(", ")
       "The question is about [feed #{about.id}] (#{named}). Open it with feed first and answer from what it " \
         "says; for a long one, look through it with find."
+    end
+
+    def drawn
+      @drawn ||= begin
+        ids = feed.conversation(through: @analysis).reject { |turn| turn.analysis == @analysis }
+                  .flat_map { |turn| Array(turn.analysis.step_result("drew_on")) }
+
+        Feed.where(id: ids.uniq).where.not(id: [ feed.id, about&.id ].compact)
+            .where.not(type: [ Feed::TAG, Feed::MIME ]).to_a
+      end
+    end
+
+    def drawn_told
+      return nil if drawn.empty?
+
+      named = drawn.map { |held| "[feed #{held.id}] (#{held.title.presence || held.key})" }.to_sentence
+      "Earlier answers in this conversation drew on #{named}. Open #{drawn.one? ? 'it' : 'them'} with feed " \
+        "before searching again, and look through a long one with find: what was asked before is likely in there."
     end
 
     def asked_as(question)

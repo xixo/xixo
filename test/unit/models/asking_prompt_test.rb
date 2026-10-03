@@ -257,6 +257,22 @@ class AskingPromptTest < ActiveSupport::TestCase
     end
   end
 
+  test "a follow-up is sent to the feeds earlier answers drew on, before it searches again" do
+    Tenant.switch(@tenant) do
+      plan = Feed.create!(type: Feed::FILE, key: "Dry Goods Storage Plan.xlsx", title: "Dry Goods Storage Plan.xlsx")
+      note = Feed.create!(type: Feed::NOTE, key: "how many korken containers do i need")
+      Analysis.create!(feed: note, cause: "ask", question: "how many korken containers do i need", status: "done",
+                       steps: { "answer" => { "result" => { "said" => "The plan uses Kilner jars." } },
+                                "drew_on" => { "result" => [ plan.id ] } })
+      follow = Analysis.create!(feed: note, cause: "ask", question: "what about kilners", steps: {})
+      asking = Asking.new(note, analysis: follow)
+
+      assert_match(/drew on \[feed #{plan.id}\] \(Dry Goods Storage Plan\.xlsx\)\. Open it with feed before searching again/, asking.prompt)
+      assert_match(/drew on \[feed #{plan.id}\]/, asking.briefing("count the kilner jars"))
+      assert_no_match(/Earlier answers in this conversation/, Asking.new(@question).prompt, "a first question has nothing drawn on")
+    end
+  end
+
   test "asking the same question again answers it afresh, without the answer it is replacing" do
     Tenant.switch(@tenant) do
       note = Feed.create!(type: Feed::NOTE, key: "Notice period")
