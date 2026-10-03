@@ -13,26 +13,28 @@ seeded.each do |tenant|
       resource.name = "Default storage"
     end.make_default_storage!
 
-    storage = Resource::S3.find_or_initialize_by(key: "items-#{tenant.subdomain}")
-    storage.assign_attributes(
-      name: "Object storage",
-      details: {
-        "endpoint" => ENV.fetch("S3_ENDPOINT", "http://127.0.0.1:9000"),
-        "region" => ENV.fetch("S3_REGION", "us-east-1")
-      },
-      credentials: {
-        "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "items"),
-        "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "urisuris")
-      }
-    )
-    storage.save!
+    if (endpoint = ENV["S3_ENDPOINT"]).present?
+      storage = Resource::S3.find_or_initialize_by(key: "items-#{tenant.subdomain}")
+      storage.assign_attributes(
+        name: "Object storage",
+        details: {
+          "endpoint" => endpoint,
+          "region" => ENV.fetch("S3_REGION", "us-east-1")
+        },
+        credentials: {
+          "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "items"),
+          "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "urisuris")
+        }
+      )
+      storage.save!
 
-    begin
-      storage.client.create_bucket(bucket: storage.bucket)
-    rescue Aws::S3::Errors::BucketAlreadyOwnedByYou
-      nil
-    rescue Seahorse::Client::NetworkingError => e
-      warn "  storage unreachable (#{e.class}) — is docker compose running?"
+      begin
+        storage.client.create_bucket(bucket: storage.bucket)
+      rescue Aws::S3::Errors::BucketAlreadyOwnedByYou
+        nil
+      rescue Seahorse::Client::NetworkingError => e
+        warn "  storage unreachable (#{e.class}) — is docker compose running?"
+      end
     end
 
     Resource::Web.find_or_create_by!(key: "web") do |resource|
