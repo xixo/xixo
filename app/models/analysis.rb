@@ -64,16 +64,19 @@ class Analysis < ApplicationRecord
 
   def more_time!(wanted)
     ceiling = (started_at || created_at) + Feed::MAX_TIMEOUT
-    granted = [ [ deadline, Time.current ].compact.max + wanted, ceiling ].min
 
-    update_columns(deadline: granted)
-    granted
+    Analysis.where(id: id).update_all([
+      "deadline = LEAST(GREATEST(COALESCE(deadline, now()), now()) + make_interval(secs => ?), ?)",
+      wanted.to_i, ceiling
+    ])
+    held_deadline
   end
 
   def time_left
-    return nil if deadline.nil?
+    due = held_deadline
+    return nil if due.nil?
 
-    [ deadline - Time.current, 0 ].max
+    [ due - Time.current, 0 ].max
   end
 
   def finished!(error: nil)
@@ -130,10 +133,11 @@ class Analysis < ApplicationRecord
   end
 
   def expired?
-    return false if deadline.nil?
-    return false if Time.current < deadline
+    ended = { status: "cancelled", error: "deadline passed", finished_at: Time.current }
+    return false if Analysis.past_deadline.where(id: id).update_all(ended).zero?
 
-    update_columns(status: "cancelled", error: "deadline passed", finished_at: Time.current)
+    assign_attributes(ended)
+    clear_attribute_changes(ended.keys)
     true
   end
 
@@ -280,5 +284,13 @@ class Analysis < ApplicationRecord
 
     def current_status
       Analysis.where(id: id).pick(:status)
+    end
+
+    def held_deadline
+      return deadline unless persisted?
+
+      self.deadline = Analysis.where(id: id).pick(:deadline)
+      clear_attribute_changes(%i[deadline])
+      deadline
     end
 end

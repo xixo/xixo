@@ -156,9 +156,10 @@ An `ask` analysis skips all of this. It runs no analyzer, no filing, and no plac
 the lead and its scouts instead, then the judges, and then rolls the conversation up into the note.
 [Asking](/concepts/agents/#asking) describes each part.
 
-An analysis runs for its feed's timeout, counted from when it starts. A feed with no timeout set
-runs for ten minutes. `setFeedTimeout`, or the feed form, sets any value from one minute to one day.
-The agent can ask for more time while it runs, up to one day from the start. `ExpireOverdueJob`
+An analysis runs for its feed's timeout, counted from when it starts. `setFeedTimeout`, or the feed
+form, sets any value from one minute to one day. A feed with no timeout set runs for the time per ask
+of the model backend that serves the `agent` role, and for ten minutes when that is not set either. The agent and its scouts can ask for more time while they run,
+up to one day from the start. `ExpireOverdueJob`
 cancels an analysis that runs past its deadline.
 
 Analysis jobs run on the `analysis` queue, with at most `ANALYSIS_PER_TENANT` (2 by default) running

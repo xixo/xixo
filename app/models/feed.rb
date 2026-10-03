@@ -196,7 +196,9 @@ class Feed < ApplicationRecord
   ].freeze
 
   def time_allowed
-    (timeout.presence || TIMEOUT.to_i).seconds
+    return timeout.seconds if timeout.present?
+
+    Resource.for_role(Resource::OpenaiCompatible::AGENT_ROLE)&.time_allowed || TIMEOUT
   end
 
   def grant(scopes: AGENT_SCOPES, speaking_for: nil)

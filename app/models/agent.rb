@@ -35,7 +35,7 @@ class Agent
 
   def initialize(grant:, inference: nil, role: Resource::OpenaiCompatible::AGENT_ROLE, tools: nil, locals: [],
                  analysis: nil, turns: TURNS, halted: nil, unfinished: nil, system: SYSTEM, label: "agent",
-                 extendable: true, reserve: 0, routine: false)
+                 reserve: 0, routine: false)
     @grant = grant
     @role = role
     @inference = inference || Resource.for_role(role)
@@ -51,7 +51,7 @@ class Agent
     @turns_taken = 0
     @calls = []
     @flailed = 0
-    @clock = Clock.new(analysis, extendable: extendable, reserve: reserve)
+    @clock = Clock.new(analysis, reserve: reserve)
     @locals = [ @clock, *locals ]
   end
 

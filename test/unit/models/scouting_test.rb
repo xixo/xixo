@@ -66,16 +66,16 @@ class ScoutingTest < ActiveSupport::TestCase
     assert_equal %w[qwen3:8b gemma3:4b], Tenant.switch(@tenant) { @analysis.reload.turns.map { |turn| turn["model"] } }
   end
 
-  test "a scout is told how long it has but cannot ask for more" do
-    @server.answer_tool_call("more_time", minutes: 600, reason: "greedy")
+  test "a scout that needs longer asks for more time, and the whole run gets it" do
+    @server.answer_tool_call("more_time", minutes: 45, reason: "a long spreadsheet")
     @server.answer("Nothing.")
 
     before = @analysis.deadline
     held = scouting
-    within { held.call_all([ raw("take all day") ]) }
+    within { held.call_all([ raw("read the whole spreadsheet") ]) }
 
-    assert_not held.calls.first.ok
-    assert_in_delta before, Tenant.switch(@tenant) { @analysis.reload.deadline }, 1
+    assert held.calls.first.ok
+    assert_in_delta before + 45.minutes, Tenant.switch(@tenant) { @analysis.reload.deadline }, 5
   end
 
   test "a scout stands down with time still on the clock, so the lead has room to answer" do

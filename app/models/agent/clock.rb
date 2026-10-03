@@ -20,9 +20,8 @@ class Agent
       }
     }.freeze
 
-    def initialize(analysis, extendable: true, reserve: 0)
+    def initialize(analysis, reserve: 0)
       @analysis = analysis
-      @extendable = extendable
       @reserve = reserve
     end
 
@@ -32,7 +31,6 @@ class Agent
 
     def told
       return nil unless running?
-      return "You have about #{minutes_left} minutes for this." unless @extendable
 
       "You have about #{minutes_left} minutes for this. If the work needs longer, call #{NAME} with " \
         "how many more minutes and why; a run never lasts more than a day."
@@ -43,11 +41,11 @@ class Agent
     end
 
     def declared
-      running? && @extendable ? [ DECLARED ] : []
+      running? ? [ DECLARED ] : []
     end
 
     def handles?(raw)
-      running? && @extendable && raw.to_h.dig("function", "name") == NAME
+      running? && raw.to_h.dig("function", "name") == NAME
     end
 
     def spent?

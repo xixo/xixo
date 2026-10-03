@@ -67,6 +67,33 @@ class ClockTest < ActiveSupport::TestCase
     end
   end
 
+  test "agents asking for more time at once each add to the deadline, though each held an older one" do
+    Tenant.switch(@tenant) do
+      lead = opened
+      scout = Analysis.find(lead.id)
+
+      lead.more_time!(30.minutes)
+      scout.more_time!(10.minutes)
+
+      assert_in_delta (Feed::TIMEOUT + 40.minutes).from_now, lead.reload.deadline, 5
+      assert_in_delta lead.deadline, scout.deadline, 1
+      assert_in_delta 40.minutes + Feed::TIMEOUT, Analysis.find(lead.id).time_left, 5
+    end
+  end
+
+  test "an analysis gets the backend's time per ask, unless its feed sets a timeout" do
+    Tenant.switch(@tenant) do
+      Resource.find_by!(key: "ollama").update!(details: Resource.find_by!(key: "ollama").details.merge("time_allowed" => 25))
+
+      assert_equal 25.minutes, @feed.time_allowed
+      assert_in_delta 25.minutes.from_now, opened.deadline, 1
+
+      @feed.update!(timeout: 2.minutes.to_i)
+
+      assert_equal 2.minutes, @feed.time_allowed
+    end
+  end
+
   test "more time never runs past a day from the start, however it is asked for" do
     3.times { @server.answer_tool_call("more_time", minutes: 1_000, reason: "more") }
     @server.answer("Done.")

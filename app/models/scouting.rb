@@ -76,7 +76,7 @@ class Scouting
       held = @analysis && Analysis.find(@analysis.id)
       agent = Agent.new(grant: @grant, inference: inference, role: role, analysis: held, turns: TURNS,
                         halted: -> { held&.halted? }, unfinished: @unfinished, system: SYSTEM,
-                        label: "scout #{number}", extendable: false, reserve: RESERVE)
+                        label: "scout #{number}", reserve: RESERVE)
       answered = agent.call(@briefing.call(task))
 
       @lock.synchronize { @calls.concat(answered.calls) }

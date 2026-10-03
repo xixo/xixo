@@ -312,6 +312,10 @@ class Resource < ApplicationRecord
     false
   end
 
+  def time_allowed
+    nil
+  end
+
   def declares_role?(_role)
     false
   end

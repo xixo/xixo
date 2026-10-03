@@ -83,6 +83,9 @@ class Resource
                          EFFORTS.map { |effort| { value: effort, label: effort } },
                 help: "How hard a reasoning model thinks while filing what arrives. Sent as reasoning_effort. " \
                       "Ollama takes none, and OpenAI minimal or low. Questions always think as the model likes."),
+          field("time_allowed", "Time per ask", kind: "integer",
+                help: "Minutes an ask answered by this backend gets when its item sets no timeout. The agent " \
+                      "can ask for more as it works. Left off, ten minutes."),
           field("api_key", "API key", secret: true, help: "Left off where the backend wants none.")
         ]
       }
@@ -274,6 +277,11 @@ class Resource
     # and a model forced into a JSON object cannot emit a tool call.
     def routine_effort
       details.to_h["routine_effort"].presence
+    end
+
+    def time_allowed
+      minutes = details.to_h["time_allowed"].to_i
+      minutes.clamp(1, Feed::MAX_TIMEOUT.in_minutes.to_i).minutes if minutes.positive?
     end
 
     def converse(messages:, tools: [], role: AGENT_ROLE, analysis: nil, turn: 1, effort: nil)
