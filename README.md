@@ -26,21 +26,15 @@ token.
 | `/graphql` | The browser app, and [`@uris-to/client`](web/README.md) | A masks session, or a bearer token                   |
 | `/mcp`     | An MCP client, such as Claude                           | A masks token, with typed tools and per-token grants |
 
-Both call the domain layer directly. uris does not expose GraphQL as an MCP tool, because a single
-passthrough tool cannot be partially granted. The Ruby schema is the source of truth, and the
-TypeScript types are generated from it, so the type check fails when the browser app drifts from
-the API.
+Both call the domain layer directly. MCP has typed tools of its own so that each one can be granted
+separately. The TypeScript types are generated from the Ruby schema, so the type check fails when
+the browser app drifts from the API.
 
 ## Resources
 
 A resource is a place uris reads from or writes to, such as a bucket, a mailbox, a model backend, or
-an MCP server. Each type is a subclass of `Resource` in `app/models/resource/` that declares what it
-serves and accepts. The API types (`github`, `notion`, `slack`, `oauth-google`, and
-`microsoft-graph`) share `Resource::Api`, which makes the HTTPS request, checks the host, caps the
-response size, retries once after a 401 when the token has expired, and raises a failure on a 429
-that the job retries with backoff. Jobs that walk an unbounded number of records use
-[job-iteration](https://github.com/Shopify/job-iteration), and resume from their cursor after a
-deploy. [Resource types](https://uris.pages.dev/reference/resources/) lists every type.
+an MCP server. Each type is a subclass of `Resource` in `app/models/resource/`.
+[Resource types](https://uris.pages.dev/reference/resources/) lists every type.
 
 ## Running it
 
@@ -72,8 +66,8 @@ Sign-in needs masks running too. From a masks checkout beside this one, run `../
 installs. The [quickstart](https://uris.pages.dev/quickstart/) lists the models to pull.
 
 `./dev test server` runs one suite. The Rails suites clear `URIS_TENANT` and `URIS_TENANTS`, so
-they run against multiple tenants whichever way the stack was started. CI runs each suite the same
-way.
+they run against multiple tenants whichever way the stack was started. CI runs each suite through
+`./dev test`.
 
 `./dev reference` regenerates the reference pages under `docs/` from the code and checks the ENV
 vars page against every variable the code reads. CI fails when either is stale.
@@ -84,4 +78,4 @@ Nothing in this repository names a host, a domain, or a secret. uris reads all o
 environment. [ENV vars](https://uris.pages.dev/reference/environment/) lists every variable, and
 `.env.example` gives development values.
 
-`PLAN.md` holds the plan in progress. Prose follows [docs/STYLE.md](docs/STYLE.md).
+`PLAN.md` lists open work. Prose follows [docs/STYLE.md](docs/STYLE.md).
