@@ -14,6 +14,7 @@ class Feed < ApplicationRecord
   DEPTH = 4
   MAX_KEY = 900
   MONTHS = "jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec".freeze
+  UNTAGGABLE = %r{[@:/]|\A[\w-]+(\.[\w-]+)+\z|\Afeed\s*\d+\z}i
   DATED = %r{\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}|\b(#{MONTHS})[a-z]*\.?,?\s+\d|\d(st|nd|rd|th)?\s+(#{MONTHS})}i
   TIMEOUT = 10.minutes
   ASK_TIMEOUT = 2.minutes
@@ -96,7 +97,7 @@ class Feed < ApplicationRecord
     digits = characters.count { |character| character.match?(/\d/) }
 
     return false if characters.size < 2 || held.length > MAX_KEY
-    return false if digits * 2 > characters.size || held.match?(DATED)
+    return false if digits * 2 > characters.size || held.match?(DATED) || held.match?(UNTAGGABLE)
 
     feed.nil? || !feed.named_by?(held)
   end
@@ -361,6 +362,7 @@ class Feed < ApplicationRecord
 
   def reload(*)
     @family = nil
+    @outline = nil
     super
   end
 
@@ -423,16 +425,16 @@ class Feed < ApplicationRecord
     UrisSchema.subscriptions.trigger(:feed_analyzed, { id: id.to_s }, self, scope: tenant_id)
   end
 
-  def body_text(without: [])
-    strings = family.filter_map { |held| held.analysis&.extracted(without: without) }
+  def outline
+    @outline ||= Outline.of(analysis&.step_result("text"), stored: analysis&.step_result("outline"))
+  end
+
+  def readable_text
+    strings = family.filter_map { |held| held.analysis&.extracted }
 
     collected = []
     collect_strings(strings) { |value| collected << value }
     collected.uniq.join("\n").presence
-  end
-
-  def readable_text
-    body_text(without: [ :summary ])
   end
 
   def summaries

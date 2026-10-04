@@ -33,9 +33,16 @@ module Analyzer
     def analyze
       message = parse
 
-      step(:headers) { headers_of(message) }
+      headers = step(:headers) { headers_of(message) }
       step(:attachments) { attachments_of(message) }
-      step(:text) { body_of(message).truncate(MAX_TEXT) }
+      step(:text, digest: WRITTEN_AS) { [ headed(headers), body_of(message) ].compact_blank.join("\n\n").truncate(MAX_TEXT) }
+    end
+
+    WRITTEN_AS = "headers, then the body".freeze
+    SHOWN = %w[from to cc date subject].freeze
+
+    def headed(headers)
+      headers.to_h.slice(*SHOWN).map { |name, value| "#{name.capitalize}: #{value}" }.join("\n")
     end
 
     def summary_prompt

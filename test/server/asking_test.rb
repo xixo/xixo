@@ -145,7 +145,7 @@ class AskingTest < ActionDispatch::IntegrationTest
 
       assert_match(/Asked: How much is the Acme invoice\?.*\$4,200.*Asked: When is it due\?\nAnswered: It is due on 1 October/m, rolled)
       assert_equal [ @invoice.id, @other.id ].sort, Feed.find(first.dig("feed", "id")).connected.pluck(:id).sort
-      assert_includes Feed.find(first.dig("feed", "id")).body_text, "1 October"
+      assert_includes Feed.find(first.dig("feed", "id")).readable_text, "1 October"
     end
   end
 

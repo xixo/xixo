@@ -50,9 +50,7 @@ module Analyzer
     end
 
     SUMMARY_TEXT = 10_000
-    SECTIONS = 8
-    SECTION_TEXT = 20_000
-    SUMMARY_TAGS = 20
+    SUMMARY_TAGS = 8
 
     def self.summary_role
       :smart
@@ -131,22 +129,11 @@ module Analyzer
     end
 
     def summary_body
-      parts = Array(step_result(:sections))
-      return fenced(step_result(:text).to_s.strip) if parts.empty?
+      text = step_result(:text).to_s.strip
+      named = Outline.of(text, stored: step_result(:outline)).map { |part| part["name"] }.uniq
+      return fenced(text) if text.length <= SUMMARY_TEXT || named.empty?
 
-      said = parts.each_with_index.map { |part, index| "#{index + 1}. #{part}" }.join("\n")
-      fenced("It is long, so it was read in #{parts.size} parts. What each part says, in order:\n\n#{said}")
-    end
-
-    def section_prompt(part, number, total)
-      <<~PROMPT
-        This is part #{number} of #{total} of a #{summary_noun}. Say what this part sets out in two or
-        three sentences, naming the people, amounts, dates, terms and conditions in it rather than
-        their category. Say only what is in it.
-
-        #{fenced(part)}
-        Return ONLY valid JSON, no markdown and no explanation: {"summary": "..."}
-      PROMPT
+      fenced("Its sections: #{named.join('; ')}\n\n#{text}")
     end
 
     def fenced(body)
@@ -314,7 +301,6 @@ module Analyzer
 
         role = self.class.summary_role
         model = inference.model_for(role)
-        sectioned!(role, model)
 
         prompt = summary_prompt
         return if prompt.blank?
@@ -329,34 +315,21 @@ module Analyzer
         raise Analyzer::Failed, e.message
       end
 
-      def sectioned!(role, model)
-        text = step_result(:text).to_s
-        return if text.length <= SUMMARY_TEXT
-
-        size = [ (text.length / SECTIONS.to_f).ceil, SUMMARY_TEXT ].max.clamp(..SECTION_TEXT)
-        parts = text.scan(/.{1,#{size}}/m).first(SECTIONS)
-
-        step(:sections, digest: Digest::SHA256.hexdigest([ inference.key, model, size, text ].to_json)) do
-          parts.each_with_index.filter_map do |part, index|
-            answered = inference.summarize(section_prompt(part, index + 1, parts.size), role: role, analysis: analysis)
-            answered["summary"].to_s.strip.presence
-          end
-        end
-      end
-
       def shaped(answer)
         {
           "summary" => answer["summary"].to_s.strip.presence,
-          "entities" => terms(answer["entities"]),
+          "entities" => terms(answer["entities"]).first(ENTITIES),
           "tags" => tags(answer["tags"])
         }.compact_blank
       end
 
       TAG_WORDS = 4
+      ENTITIES = 40
 
       def tags(given)
         terms(given).reject { |word| STOPWORDS.include?(word.downcase) }
                     .reject { |word| word.split.length > TAG_WORDS }
+                    .first(SUMMARY_TAGS)
       end
 
       def terms(given)
@@ -365,7 +338,6 @@ module Analyzer
         list.map { |word| word.to_s.strip.squeeze(" ") }
             .compact_blank
             .uniq { |word| word.downcase }
-            .first(SUMMARY_TAGS)
       end
 
       def children_summaries

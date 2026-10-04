@@ -69,7 +69,7 @@ class AnalyzeFeedJobTest < ActiveSupport::TestCase
     end
   end
 
-  test "a sync reads, then hands filing to the agent's lane with a deadline of its own" do
+  test "a synced file is read and filed in one pass, with no agent" do
     analysis = Tenant.switch(@tenant) { @feed.analyze!(cause: "sync") }
 
     reading = enqueued_jobs.find { |job| job["job_class"] == "AnalyzeFeedJob" }
@@ -78,25 +78,29 @@ class AnalyzeFeedJobTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(*reading["arguments"]) }
 
+    assert_empty enqueued_jobs.select { |job| job["job_class"] == "AnalyzeFeedJob" }
     Tenant.switch(@tenant) do
-      waiting = analysis.reload
-      assert_equal "queued", waiting.status
-      assert_nil waiting.started_at
-      assert waiting.steps.key?("text")
-      assert @feed.reload.analyzed_at.present?
+      assert_equal "done", analysis.reload.status
+      assert analysis.steps.key?("text")
+      assert_nil analysis.steps["answer"]
+      assert_equal [ "text/plain" ], @feed.reload.mimes.map(&:key)
     end
+  end
+
+  test "a staged upload is read, then handed to the agent's lane to be placed" do
+    analysis = Tenant.switch(@tenant) do
+      staged = Feed.create!(type: Feed::FILE, key: "plan.txt", title: "plan.txt")
+      Staged.stage!(staged, path: "plan.txt", body: "a plan", mime: "text/plain")
+      staged.analyze!(cause: "sync")
+    end
+
+    reading = enqueued_jobs.find { |job| job["job_class"] == "AnalyzeFeedJob" }
+    clear_enqueued_jobs
+    Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(*reading["arguments"]) }
 
     filing = enqueued_jobs.find { |job| job["job_class"] == "AnalyzeFeedJob" }
     assert_equal AnalyzeFeedJob::FILING, filing["arguments"].last
-
-    travel 1.hour do
-      Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(*filing["arguments"]) }
-    end
-
-    Tenant.switch(@tenant) do
-      assert_equal "done", analysis.reload.status
-      assert_equal [ "text/plain" ], @feed.reload.mimes.map(&:key)
-    end
+    Tenant.switch(@tenant) { assert_equal "queued", analysis.reload.status }
   end
 
   test "a read whose analysis was cancelled hands nothing on" do

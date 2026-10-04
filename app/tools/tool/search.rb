@@ -27,7 +27,7 @@ module Tool
     PASSAGE = 500
 
     def self.found(feed, passage = nil)
-      told = summarize(feed).merge(gist: (feed.summary || feed.body_text)&.squish&.truncate(GIST))
+      told = summarize(feed).merge(gist: (feed.summary || feed.readable_text)&.squish&.truncate(GIST))
       return told if passage.nil?
 
       told.merge(passage: { from: passage.starts_at, text: passage.text.squish.truncate(PASSAGE) })

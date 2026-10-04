@@ -64,6 +64,34 @@ class PassageTest < ActiveSupport::TestCase
     assert_equal Passage::SIZE * 3, spans.last.last
   end
 
+  test "a passage ends where a section starts, and the next one starts there without overlap" do
+    bound = 1_000
+    spans = Passage.split(MANUAL, bounds: [ bound ])
+
+    assert_includes spans.map(&:last), bound
+    assert_includes spans.map(&:first), bound
+  end
+
+  test "a passage is embedded under its document's title and the section it sits in" do
+    sheets = (1..3).map { |sheet| "Sheet #{sheet}\n" + ("Kilner 1L | 11 | 8.0\n" * 60) }
+    body = sheets.join("\n\n")
+    starts = sheets.each_with_index.map { |_, index| sheets.first(index).sum { |sheet| sheet.length + 2 } }
+    outline = starts.each_with_index.map { |from, index| { "name" => "Sheet #{index + 1}", "from" => from } }
+
+    feed = manual_in(@tenant, body)
+    Tenant.switch(@tenant) do
+      feed.analysis.write_step!("outline", { "result" => outline, "finished_at" => Time.current.iso8601 })
+      Passage.sweep!
+    end
+
+    assert(@server.embedded.any? { |text| text.start_with?("search_document: Shed manual › Sheet 3\n") })
+    Tenant.switch(@tenant) do
+      Passage.where(feed: feed).find_each do |passage|
+        assert_empty(starts.select { |from| from > passage.starts_at && from < passage.ends_at })
+      end
+    end
+  end
+
   test "cutting is done once for a text, again when the text changes, and never for another tenant" do
     feed = manual_in(@tenant)
 

@@ -30,12 +30,13 @@ class RoutineEffortTest < ActiveSupport::TestCase
   end
 
   def filed
-    @server.answer("Filed it.")
-    analysis = Tenant.switch(@tenant) { @feed.analyze! }
-    Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, @feed.id, analysis.id) }
+    @server.answer("Found it.")
+    address = Tenant.switch(@tenant) { Feed.create!(type: Feed::ADDRESS, key: "/milk").tap { |held| held.create_schedule!(prompt: "find milk") } }
+    analysis = Tenant.switch(@tenant) { address.analyze! }
+    Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, address.id, analysis.id) }
   end
 
-  test "filing asks the model for the backend's routine effort" do
+  test "a routine run asks the model for the backend's routine effort" do
     backend("routine_effort" => "none")
 
     filed

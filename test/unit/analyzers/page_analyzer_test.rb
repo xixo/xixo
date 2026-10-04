@@ -51,7 +51,7 @@ class PageAnalyzerTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       analyzed
 
-      assert_match(/Rather a lot about pelicans/, @reference.feed.reload.body_text)
+      assert_match(/Rather a lot about pelicans/, @reference.feed.reload.readable_text)
     end
   end
 

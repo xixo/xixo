@@ -134,7 +134,7 @@ class EmbeddingTest < ActiveSupport::TestCase
       item.update_columns(embedding: [ 1.0 ], embedded_digest: "made the old way", embedded_at: Time.current)
       passage = Passage.create!(feed: item, position: 0, starts_at: 0, ends_at: 5, text: "March",
                                 embedding: [ 1.0 ], embedded_at: Time.current)
-      item.update_columns(passages_digest: Digest::SHA256.hexdigest(item.body_text(without: [ :summary ]).to_s).first(32))
+      item.update_columns(passages_digest: Digest::SHA256.hexdigest(item.readable_text.to_s).first(32))
 
       Embedding.sweep!
 

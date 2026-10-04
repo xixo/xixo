@@ -34,7 +34,7 @@ class AnalysisTagsTest < ActiveSupport::TestCase
         }
       })
 
-      assert_equal [ "Mortgage_Statement", "Form 1099-INT", "Q3 report", "Jennifer Korn", "MCAP" ], analysis.tags
+      assert_equal [ "Mortgage_Statement", "Form 1099-INT", "Q3 report" ], analysis.tags
     end
   end
 
@@ -43,7 +43,7 @@ class AnalysisTagsTest < ActiveSupport::TestCase
       acme = Feed.tag!("Acme")
       feed = Feed.create!(type: Feed::FILE, key: "scan.pdf")
 
-      summarized(feed, tags: [ "invoice" ], entities: [ "ACME" ])
+      summarized(feed, tags: [ "invoice", "ACME" ])
 
       assert_equal %w[Acme invoice], feed.tags.order(:key).pluck(:key)
       assert_equal [ acme.id ], Feed.tags.where("lower(key) = 'acme'").pluck(:id)
@@ -88,6 +88,11 @@ class AnalysisTagsTest < ActiveSupport::TestCase
       assert_not Feed.fit_tag?("June 2026", photo)
       assert_not Feed.fit_tag?("2 January 2024", photo)
       assert_not Feed.fit_tag?("2024-01-02", photo)
+      assert_not Feed.fit_tag?("priya@orchardlane.invalid", photo)
+      assert_not Feed.fit_tag?("orchardlane.invalid", photo)
+      assert_not Feed.fit_tag?("resource:places", photo)
+      assert_not Feed.fit_tag?("Feed27", photo)
+      assert Feed.fit_tag?("Kilner Square Clip Top", photo)
     end
   end
 

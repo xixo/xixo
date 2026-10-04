@@ -5,7 +5,7 @@ class Analysis < ApplicationRecord
   WRAP_UP = 3.minutes
   SETTLED = %w[done failed].freeze
   BOOKKEEPING = %w[placement derived answer drew_on].freeze
-  STRUCTURE = %w[sheets outline].freeze
+  SOURCE = %w[text ocr transcript conversation place].freeze
   BULK = %w[sync].freeze
   ASKED_PRIORITY = 0
 
@@ -177,10 +177,8 @@ class Analysis < ApplicationRecord
     held
   end
 
-  def extracted(without: [])
-    skipped = Array(without).map(&:to_s) + BOOKKEEPING + STRUCTURE
-
-    steps.except(*skipped).values.filter_map { |held| held["result"] }
+  def extracted
+    steps.slice(*SOURCE).values.filter_map { |held| held["result"] }
   end
 
   def summary
@@ -188,7 +186,7 @@ class Analysis < ApplicationRecord
   end
 
   def tags
-    (summary_terms("tags") + summary_terms("entities").grep_v(/\d/))
+    summary_terms("tags")
       .select { |word| Feed.fit_tag?(word, feed) }
       .uniq(&:downcase)
   end

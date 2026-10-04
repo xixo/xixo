@@ -42,7 +42,7 @@ class AnalyzeFeedJob < ApplicationJob
     return if phase != FILING && joined?(feed)
 
     read(feed) unless phase == FILING
-    return hand_off(feed) if phase == READING
+    return hand_off(feed) if phase == READING && agent_files?(feed)
 
     file(feed)
   end
@@ -78,8 +78,12 @@ class AnalyzeFeedJob < ApplicationJob
       filed(feed)
     end
 
+    def agent_files?(feed)
+      feed.address? || feed.reload.staged?
+    end
+
     def file(feed)
-      considered(feed)
+      considered(feed) if agent_files?(feed)
       Placement.new(feed, analysis: analysis).settled!
 
       finish

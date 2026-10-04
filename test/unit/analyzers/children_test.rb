@@ -77,8 +77,8 @@ class ChildrenTest < ActiveSupport::TestCase
 
       assert held.analyzed_at.present?
       assert held.children_ready?
-      assert_includes held.body_text, "the numbers are in the attachment"
-      assert_includes held.body_text, "Please see attached"
+      assert_includes held.readable_text, "the numbers are in the attachment"
+      assert_includes held.readable_text, "Please see attached"
     end
   end
 

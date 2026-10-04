@@ -14,7 +14,7 @@ class Passage < ApplicationRecord
   scope :unembedded, -> { where(embedded_at: nil) }
 
   class << self
-    def split(text)
+    def split(text, bounds: [])
       body = text.to_s
       return [] if body.length <= SIZE
 
@@ -22,11 +22,12 @@ class Passage < ApplicationRecord
       start = 0
 
       while start < body.length
-        finish = cut_point(body, start)
+        bound = bounds.find { |at| at > start && at <= start + SIZE }
+        finish = bound || cut_point(body, start)
         spans << [ start, finish ]
         break if finish >= body.length
 
-        start = resume_point(body, [ finish - OVERLAP, start + 1 ].max)
+        start = bound || resume_point(body, [ finish - OVERLAP, start + 1 ].max)
       end
 
       spans
@@ -37,7 +38,7 @@ class Passage < ApplicationRecord
       digest = Digest::SHA256.hexdigest(body).first(32)
       return false if feed.passages_digest == digest
 
-      spans = split(body)
+      spans = split(body, bounds: Outline.starts(feed.outline))
 
       transaction do
         where(feed_id: feed.id).delete_all
@@ -102,6 +103,7 @@ class Passage < ApplicationRecord
   end
 
   def embedded_text
-    [ feed.title, text ].compact_blank.join("\n")
+    [ [ feed.title.presence || feed.key, Outline.at(feed.outline, starts_at) ].compact_blank.join(" › "), text ]
+      .compact_blank.join("\n")
   end
 end

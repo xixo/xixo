@@ -118,8 +118,9 @@ class SummaryTest < ActiveSupport::TestCase
       assert_equal "llama3.1:8b", step["model"]
       assert_equal "smart", step["role"]
 
-      assert_not_includes feed_at("notes.txt").body_text, "llama3.1:8b"
-      assert_not_includes feed_at("notes.txt").body_text, "ollama"
+      assert_not_includes feed_at("notes.txt").readable_text, "llama3.1:8b"
+      assert_not_includes feed_at("notes.txt").readable_text, "ollama"
+      assert_not_includes feed_at("notes.txt").readable_text, "A pelican census.", "what a model wrote is not the text"
     end
   end
 
@@ -173,30 +174,24 @@ class SummaryTest < ActiveSupport::TestCase
     end
   end
 
-  test "a long text is summarized from summaries of its parts, all on the summary model" do
+  test "a long text is summarized in one call that names its sections first" do
     inference!
-    long = (1..350).map { |line| "Line #{line} of the long pelican report counts birds at the estuary." }.join("\n")
-    Tenant.switch(@tenant) { store("long.txt", long) }
+    long = (1..12).map { |part| "## Estuary count #{part}\n\n" + ("Pelicans were counted at the estuary. " * 30) }.join("\n\n")
+    Tenant.switch(@tenant) { store("long.md", long) }
     sync
 
-    3.times { |part| @server.answer_json({ summary: "Part #{part + 1} counts pelicans." }) }
     @server.answer_json({ summary: "A long pelican report." })
-    analyze "long.txt"
+    analyze "long.md"
 
     Tenant.switch(@tenant) do
-      steps = steps_at("long.txt")
+      steps = steps_at("long.md")
 
-      assert_equal [ "Part 1 counts pelicans.", "Part 2 counts pelicans.", "Part 3 counts pelicans." ],
-                   steps.dig("sections", "result")
+      assert_nil steps["sections"]
       assert_equal "A long pelican report.", steps.dig("summary", "result", "summary")
     end
 
-    assert_match(/part 1 of 3 of a file/, @server.prompts.first)
-    assert_match(/read in 3 parts.*1\. Part 1 counts pelicans\./m, @server.prompts.last)
-
-    analyze "long.txt"
-
-    assert_equal 4, @server.count_for("/v1/chat/completions"), "the parts are read once"
+    assert_equal 1, @server.count_for("/v1/chat/completions")
+    assert_match(/Its sections: Estuary count 1; Estuary count 2;.*Estuary count 12/, @server.prompts.last)
   end
 
   test "a health check does not re-summarize the catalog" do
