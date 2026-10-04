@@ -33,7 +33,7 @@ class Passage < ApplicationRecord
     end
 
     def cut!(feed)
-      body = feed.body_text(without: [ :summary ]).to_s
+      body = feed.readable_text.to_s
       digest = Digest::SHA256.hexdigest(body).first(32)
       return false if feed.passages_digest == digest
 

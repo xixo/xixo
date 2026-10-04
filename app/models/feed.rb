@@ -431,6 +431,10 @@ class Feed < ApplicationRecord
     collected.uniq.join("\n").presence
   end
 
+  def readable_text
+    body_text(without: [ :summary ])
+  end
+
   def summaries
     family.filter_map { |held| held.analysis&.summary }.uniq
   end

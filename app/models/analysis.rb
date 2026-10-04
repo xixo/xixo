@@ -5,6 +5,7 @@ class Analysis < ApplicationRecord
   WRAP_UP = 3.minutes
   SETTLED = %w[done failed].freeze
   BOOKKEEPING = %w[placement derived answer drew_on].freeze
+  STRUCTURE = %w[sheets outline].freeze
   BULK = %w[sync].freeze
   ASKED_PRIORITY = 0
 
@@ -177,7 +178,7 @@ class Analysis < ApplicationRecord
   end
 
   def extracted(without: [])
-    skipped = Array(without).map(&:to_s) + BOOKKEEPING
+    skipped = Array(without).map(&:to_s) + BOOKKEEPING + STRUCTURE
 
     steps.except(*skipped).values.filter_map { |held| held["result"] }
   end

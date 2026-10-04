@@ -278,6 +278,26 @@ class AskingPromptTest < ActiveSupport::TestCase
     end
   end
 
+  test "a follow-up is handed what the feeds it is anchored to say about the question, before any agent opens them" do
+    Tenant.switch(@tenant) do
+      plan = Feed.create!(type: Feed::FILE, key: "Storage Plan.xlsx", title: "Storage Plan.xlsx")
+      body = "Container System\n#{'Kilner Square Clip Top is the backbone. ' * 80}\n\nBuy List\n" \
+             "Container | Qty\nKilner Square Clip Top 1L | 11\nKilner Square Clip Top 3L | 13\nTOTAL | 63"
+      Analysis.create!(feed: plan, cause: "manual", status: "done", finished_at: Time.current,
+                       steps: { "text" => { "result" => body } })
+      note = Feed.create!(type: Feed::NOTE, key: "kilners")
+      Analysis.create!(feed: note, cause: "ask", question: "what about kilners", status: "done",
+                       steps: { "answer" => { "result" => { "said" => "The plan uses Kilner jars." } },
+                                "drew_on" => { "result" => [ plan.id ] } })
+      follow = Analysis.create!(feed: note, cause: "ask", question: "how many kilner jars total do i buy per size", steps: {})
+      asking = Asking.new(note, analysis: follow)
+
+      assert_match(/What \[feed #{plan.id}\] says that bears on the question.*Kilner Square Clip Top 1L \| 11.*TOTAL \| 63/m,
+                   asking.prompt)
+      assert_match(/Kilner Square Clip Top 3L \| 13/, asking.briefing("count the jars"))
+    end
+  end
+
   test "asking the same question again answers it afresh, without the answer it is replacing" do
     Tenant.switch(@tenant) do
       note = Feed.create!(type: Feed::NOTE, key: "Notice period")

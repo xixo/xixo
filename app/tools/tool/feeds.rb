@@ -192,8 +192,8 @@ module Tool
         )
     end
 
-    def self.found_in(feed, find)
-      body = feed.body_text.to_s
+    def self.found_in(feed, find, budget: EXCERPT)
+      body = feed.readable_text.to_s
       return { passages: [], text_part: { of: body.length } } if body.empty?
 
       ranked = (meant(feed, find) + worded(body, find)).each_with_object([]) do |(start, finish, by), held|
@@ -208,18 +208,18 @@ module Tool
       {
         found: ranked.size,
         text_part: { of: body.length },
-        passages: fitted(ranked).sort_by(&:first).map do |start, finish, by|
+        passages: fitted(ranked, budget).sort_by(&:first).map do |start, finish, by|
           { from: start, matched_by: by.join(" and "), text: body[start...finish] }
         end
       }
     end
 
-    def self.fitted(ranked)
+    def self.fitted(ranked, budget)
       used = 0
 
       ranked.first(PASSAGES).take_while do |start, finish, _|
         used += finish - start
-        used <= EXCERPT || used == finish - start
+        used <= budget || used == finish - start
       end
     end
 
@@ -252,7 +252,7 @@ module Tool
     end
 
     def self.part_of(feed, from)
-      body = feed.body_text.to_s
+      body = feed.readable_text.to_s
       return { text: nil } if body.empty?
 
       start = from.to_i.clamp(0, body.length)

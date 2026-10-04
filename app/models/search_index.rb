@@ -178,7 +178,7 @@ module SearchIndex
         note: feed.note,
         locator_key: originals(feed).map(&:locator_key).compact.join(" "),
         summary: feed.summaries.join("\n"),
-        body: feed.body_text(without: [ :summary ]),
+        body: feed.readable_text,
         resource_ids: originals(feed).map(&:resource_id),
         created_at: feed.created_at,
         embedding: feed.embedding.presence

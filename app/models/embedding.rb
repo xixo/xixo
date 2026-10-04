@@ -20,7 +20,7 @@ module Embedding
         feed.family_tags.join(", ").presence,
         feed.summaries.join("\n").presence,
         feed.note,
-        feed.body_text(without: [ :summary ])&.truncate(BODY_TEXT)
+        feed.readable_text&.truncate(BODY_TEXT)
       ].compact_blank.join("\n").strip.truncate(MAX_TEXT)
     end
 
