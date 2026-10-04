@@ -20,6 +20,10 @@ class Reach
     @forecasters ||= keys(:weather)
   end
 
+  def listeners
+    @listeners ||= keys(:feedback)
+  end
+
   def mappers
     @mappers ||= keys(:places)
   end
@@ -33,14 +37,13 @@ class Reach
   end
 
   def told
-    return nil unless web?
-
     [
+      (%(If nothing here can answer or do what is needed, say so with resource, do=ask, key #{quoted(listeners)}, input {"question": "...", "wanted": "what would have helped"}, and carry on.) if listeners.any?),
       (%(Search it with resource, do=search, key #{quoted(engines)}, input {"query": "..."}.) if engines.any?),
       (%(Read a page with resource, do=get, key #{quoted(fetchers)}, input {"url": "https://..."}.) if fetchers.any?),
       (%(Look up the weather with resource, do=forecast, key #{quoted(forecasters)}, input {"place": "..."}.) if forecasters.any?),
       (%(Find a place or address with resource, do=find, key #{quoted(mappers)}, input {"query": "..."}, and what is near it with do=nearby, input {"place": "...", "kind": "cafe"}.) if mappers.any?)
-    ].compact.join(" ")
+    ].compact.join(" ").presence
   end
 
   def keeping

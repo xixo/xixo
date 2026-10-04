@@ -34,6 +34,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | [`weather`](#weather) | `weather` |  |
 | [`places`](#places) | `places` |  |
 | [`tailnet`](#tailnet) | `transport` |  |
+| [`feedback`](#feedback) | `feedback` |  |
 
 ## s3
 
@@ -665,3 +666,28 @@ Places. Addresses, coordinates, and what is nearby, from OpenStreetMap. It answe
 | Connected through masks | no |
 | Reached through a transport | no |
 | Attached from the app | no |
+
+
+## feedback
+
+Feedback. Takes any question no tool here can answer, answers none of them, and keeps each as a note under the feedback tag: what was asked, what it was for, and what would have helped. Read the tag to see what agents and people needed.
+
+|  |  |
+| --- | --- |
+| Serves | `feedback` |
+| Accepts | — |
+| Up to | — |
+| Syncs | no |
+| Connected through masks | no |
+| Reached through a transport | no |
+| Attached from the app | yes |
+
+### Fields
+
+None.
+
+### Commands
+
+| Command | Arguments |
+| --- | --- |
+| `ask` | `question: string` `context: string?` `wanted: string?` |

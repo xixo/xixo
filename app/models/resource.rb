@@ -28,7 +28,7 @@ class Resource < ApplicationRecord
 
   TYPES = %w[
     s3 filesystem webdav caldav carddav imap rss web openai-compatible oauth-google database
-    search curl mcp github notion slack microsoft-graph git weather places tailnet
+    search curl mcp github notion slack microsoft-graph git weather places tailnet feedback
   ].freeze
 
   validates :key, presence: true,

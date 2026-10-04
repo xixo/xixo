@@ -235,11 +235,11 @@ class AnalyzeFeedJob < ApplicationJob
     end
 
     def searchable(feed)
-      reach = Reach.new((analysis || feed).grant).told
-      return nil if reach.nil?
+      reach = Reach.new((analysis || feed).grant)
+      return nil unless reach.web?
 
       <<~TEXT
-        Beyond the catalog you can look at the web. #{reach} Keep anything worth keeping: make a
+        Beyond the catalog you can look at the web. #{reach.told} Keep anything worth keeping: make a
         note with feed, do=create, type uris:note and a title naming it, write what it is and its
         address with feed, do=note, and connect the note to feed #{feed.id} with connect.
       TEXT

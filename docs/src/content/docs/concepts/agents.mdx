@@ -179,6 +179,20 @@ a file therefore has no effect. The run can create only notes, never a scheduled
 needs one end to be the question or a feed the run created. Snapshots are not confined, because the
 page decides what a snapshot contains.
 
+## Feedback
+
+A `feedback` resource answers nothing. Its one command, `ask`, takes a `question` and, optionally,
+the `context` it came up in and what was `wanted`. Every ask returns `answered: false` and the same
+sentence telling the caller to carry on, and is kept as a note titled "Wanted:" and the question. The
+note holds the question, its context, what would have helped, the grant's subject, and the feed the
+caller was working on, and it is connected to that feed and to the `feedback` tag. The tag is the
+feed of everything anyone wanted and could not get, for an agent or a person to read and act on.
+
+The `resource` tool tells every MCP client to use it for anything no tool could answer or do, and a
+tenant's [web agent](#asking) is told the same. When an answer from the catalog finds nothing, the
+model says what would have answered the question, and uris asks the tenant's feedback resource
+with it. A tenant without a feedback resource keeps nothing.
+
 ## Budgets and gates
 
 Work that can run for a long time spends from a budget. This covers `feed` with `do: analyze`, and

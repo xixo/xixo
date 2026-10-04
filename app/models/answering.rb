@@ -33,9 +33,10 @@ class Answering
     what the question asks about; when the question asks about fewer of the rows, such as one brand or
     one month, work it out over those rows. %<compute>sIf the parts do not
     answer the question, say plainly that the catalog does not have it, and set "world" to true when the
-    question is about the world as it is now, such as the weather, a price, or the news.
+    question is about the world as it is now, such as the weather, a price, or the news. When the parts
+    do not answer it, set "wanted" to what would have: a file, a resource, or a way of looking it up.
 
-    Respond with JSON: {"answer": "...", %<shape>s"world": false}
+    Respond with JSON: {"answer": "...", %<shape>s"world": false, "wanted": null}
   TEXT
 
   COMPUTE = <<~TEXT.squish.freeze
@@ -124,11 +125,21 @@ class Answering
       unsupported = unsupported_in(said, computed)
     end
 
+    heard(replied["wanted"])
+
     Answer.new(said: said, reason: replied["world"] == true ? :world : :answered, drew_on: drawn_on(said),
                unsupported: unsupported)
   end
 
   private
+
+    def heard(wanted)
+      return if wanted.blank? || !wanted.is_a?(String)
+
+      listener = ::Resource.capable_of(:feedback).first
+      listener&.command_ask(question: @question, context: "An answer from the catalog found nothing for it.",
+                            wanted: wanted)
+    end
 
     def searched
       [ @earlier.last&.question, @question ].compact.join(" ")

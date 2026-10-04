@@ -3,7 +3,7 @@ module Tool
     tool_name "resource"
     scope "uris:resources:read"
 
-    READ = %w[list types describe runs get parameters search forecast find reverse nearby].freeze
+    READ = %w[list types describe runs get parameters search forecast find reverse nearby ask].freeze
     PLACES = %w[find reverse nearby].freeze
     WRITE = %w[attach change default check sync keep export cancel put snapshot].freeze
     RUNS = %w[sync export].freeze
@@ -22,7 +22,9 @@ module Tool
       with do=get and input {"url": "https://..."}, and one that serves weather takes
       do=forecast with input {"place": "Toronto"}, and one that knows places takes do=find with input
       {"query": "..."}, do=reverse with a latitude and longitude, or do=nearby with a kind such as
-      cafe and a place. do=types lists what can be attached and the settings each type takes, and
+      cafe and a place. One that takes feedback takes do=ask with input {"question": "...", "context":
+      "...", "wanted": "..."}: use it for anything no tool here could answer or do, say what would have
+      helped, and carry on; it always answers that it cannot. do=types lists what can be attached and the settings each type takes, and
       do=attach with a new key and input {"type": "...", "settings": {...}, "via": "..."} attaches
       one, reached through the transport named in via if there is one. do=change with input {"name":
       "...", "settings": {...}, "via": "..."} changes one, keeping every setting it is not given, and
