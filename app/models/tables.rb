@@ -30,6 +30,10 @@ module Tables
       "#{table['name']}: #{table['columns'].join(', ')} (#{table['rows'].size} rows), such as #{shown.join(' and ')}"
     end
 
+    def shape(table)
+      [ described(table), "Across its rows, the values run #{spread(table, counted(table)).join('; ')}." ].join("\n")
+    end
+
     def spread(table, rows)
       table["columns"].each_with_index.filter_map do |name, at|
         values = rows.map { |row| row[at] }.compact
@@ -37,6 +41,9 @@ module Tables
 
         numbers = values.filter_map { |value| number(value) }
         next "#{name} from #{numbers.min} to #{numbers.max}" if numbers.size == values.size
+
+        texts = values.map(&:to_s)
+        next "#{name} from #{texts.min} to #{texts.max}" if values.size >= SPREAD && texts.uniq.size * 2 > texts.size
 
         common = values.tally.max_by(SPREAD) { |_, count| count }.map { |value, count| "#{value} (#{count})" }
         "#{name}: #{common.join(', ')}"

@@ -86,7 +86,10 @@ the log says how many pages were read that way.
 `Xlsx` writes every sheet into the text, each under its name, and records under `outline` where
 each sheet starts. `Xlsx`, and `Data` for a CSV or TSV file, also keep each sheet's rows under the
 step `tables`, up to 5,000 rows a sheet. The header is the widest of a sheet's first ten rows, so a
-title above it is left out. An answer works totals and counts out over these rows.
+title above it is left out. An answer works totals and counts out over these rows. A CSV or TSV file is summarized
+from its tables' shape: the columns, two example rows, the values each text column holds most often,
+and the range of each number column and of a column whose values are mostly different, such as a
+date. Its rows never reach the summary, so a long ledger summarizes as quickly as a short one.
 
 An EPUB is a zip too, and `Epub` claims it first. It follows `META-INF/container.xml` to the package
 document and records the title, creators, publisher, date, language, subjects, and chapter paths

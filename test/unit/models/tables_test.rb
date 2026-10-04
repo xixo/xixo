@@ -75,6 +75,16 @@ class TablesTest < ActiveSupport::TestCase
     assert_equal 2, Tables.compute([ ledger ], { op: "count", where: [ [ "Amount", "<", "-35" ] ] })["value"]
   end
 
+  test "a table's shape is its columns, two rows, and what its columns hold, never every row" do
+    shape = Tables.shape(Tables.framed("ledger.csv", LEDGER))
+
+    assert_includes shape, "ledger.csv: Date, Description, Amount (4 rows)"
+    assert_includes shape, "Description: Fernwood Grocers (3), Copperleaf Cafe (1)"
+    assert_includes shape, "Amount from -1060.25 to -4.5"
+    assert_includes shape, "Date from 2026-08-02 to 2026-09-01"
+    assert_not_includes shape, "2026-08-04 (1)"
+  end
+
   test "what cannot be worked out is refused with the reason" do
     ledger = Tables.framed("ledger.csv", LEDGER)
 
