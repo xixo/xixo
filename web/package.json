@@ -3,7 +3,7 @@
   "version": "0.3.0",
   "description": "A GraphQL and Action Cable client for xixo.",
   "license": "MIT",
-  "homepage": "https://xixo.pages.dev",
+  "homepage": "https://docs.xixo.network",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/xixo/xixo.git",

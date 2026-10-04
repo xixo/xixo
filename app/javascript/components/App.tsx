@@ -98,7 +98,7 @@ function Gate({
         </div>
 
         <p className="gate-line">
-          <span className="wordmark">xixo.to</span>/
+          <span className="wordmark">xixo.network</span>/
           <Cycle words={VERBS} onChange={setVerb} />
         </p>
 

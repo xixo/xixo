@@ -6,7 +6,7 @@ const clientPort = Number(process.env.DEV_CLIENT_PORT) || undefined;
 const allowedHosts = process.env.DEV_ALLOWED_HOSTS?.split(",").filter(Boolean);
 
 export default defineConfig({
-  site: process.env.DOCS_SITE || "https://xixo.pages.dev",
+  site: process.env.DOCS_SITE || "https://docs.xixo.network",
   image: { service: passthroughImageService() },
   server: allowedHosts ? { host: true, allowedHosts } : {},
   vite: clientPort

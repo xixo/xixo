@@ -6,7 +6,7 @@ An indexer for personal data. xixo reads the places your files and records live,
 searchable index across all of them with analysis attached, and can return the bytes as an export
 or a local copy.
 
-**Documentation: [xixo.pages.dev](https://xixo.pages.dev)**
+**Documentation: [docs.xixo.network](https://docs.xixo.network)**
 
 ```
 app/              the Rails app       GraphQL, MCP, analyzers, resources, and jobs
@@ -34,7 +34,7 @@ the browser app drifts from the API.
 
 A resource is a place xixo reads from or writes to, such as a bucket, a mailbox, a model backend, or
 an MCP server. Each type is a subclass of `Resource` in `app/models/resource/`.
-[Resource types](https://xixo.pages.dev/reference/resources/) lists every type.
+[Resource types](https://docs.xixo.network/reference/resources/) lists every type.
 
 ## Running it
 
@@ -45,7 +45,7 @@ The server ships as a container image. Every push to main is published as `:main
 docker pull ghcr.io/xixo/xixo:latest
 ```
 
-See [self-hosting](https://xixo.pages.dev/guides/self-hosting/) for an example `compose.yml`, the
+See [self-hosting](https://docs.xixo.network/guides/self-hosting/) for an example `compose.yml`, the
 secrets, and tenants.
 
 ## Development
@@ -63,7 +63,7 @@ resolves, so there is no `/etc/hosts` to edit.
 
 Sign-in needs masks running too. From a masks checkout beside this one, run `../masks/dev`.
 `MASKS_ISSUER` names the masks server. Models run on the host through Ollama, which `brew bundle`
-installs. The [quickstart](https://xixo.pages.dev/quickstart/) lists the models to pull.
+installs. The [quickstart](https://docs.xixo.network/quickstart/) lists the models to pull.
 
 `./dev test server` runs one suite. The Rails suites clear `XIXO_TENANT` and `XIXO_TENANTS`, so
 they run against multiple tenants whichever way the stack was started. CI runs each suite through
@@ -75,7 +75,7 @@ vars page against every variable the code reads. CI fails when either is stale.
 ## Configuration
 
 Nothing in this repository names a host, a domain, or a secret. xixo reads all of them from the
-environment. [ENV vars](https://xixo.pages.dev/reference/environment/) lists every variable, and
+environment. [ENV vars](https://docs.xixo.network/reference/environment/) lists every variable, and
 `.env.example` gives development values.
 
 `PLAN.md` lists open work. Prose follows [docs/STYLE.md](docs/STYLE.md).

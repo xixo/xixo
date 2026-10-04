@@ -18,7 +18,7 @@ concurrency:
 
 env:
   PAGES_PROJECT: xixo
-  PAGES_DOMAIN: xixo.pages.dev
+  DOCS_DOMAIN: docs.xixo.network
 
 jobs:
   deploy:
@@ -37,32 +37,6 @@ jobs:
           cache: npm
           cache-dependency-path: docs/package-lock.json
 
-      - name: Name the deploy after the branch it came from
-        id: target
-        env:
-          BRANCH: ${{ github.head_ref || github.ref_name }}
-        run: |
-          slug=$(echo "$BRANCH" \
-            | tr '[:upper:]' '[:lower:]' \
-            | sed -e 's/[^a-z0-9]/-/g' -e 's/^-*//' -e 's/-*$//' \
-            | cut -c1-28 | sed -e 's/-*$//')
-          echo "branch=$slug" >> "$GITHUB_OUTPUT"
-          if [ "${{ github.ref_name }}" = "main" ] && [ "${{ github.event_name }}" != "pull_request" ]; then
-            echo "site=https://$PAGES_DOMAIN" >> "$GITHUB_OUTPUT"
-          else
-            echo "site=https://$slug.$PAGES_DOMAIN" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Install
-        working-directory: docs
-        run: npm ci
-
-      - name: Build
-        working-directory: docs
-        env:
-          DOCS_SITE: ${{ steps.target.outputs.site }}
-        run: npm run build
-
       - name: Create the Pages project the first time
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -77,6 +51,44 @@ jobs:
           echo "$out"
           echo "$out" | grep -qiE 'already (exists|in use)|8000009' || exit 1
           echo "$PAGES_PROJECT already exists — nothing to create."
+
+      - name: Find the pages.dev address Cloudflare gave the project
+        id: pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          subdomain=$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PAGES_PROJECT" \
+            | jq -r '.result.subdomain')
+          [ -n "$subdomain" ] && [ "$subdomain" != null ] || { echo "no subdomain for $PAGES_PROJECT"; exit 1; }
+          echo "subdomain=$subdomain" >> "$GITHUB_OUTPUT"
+
+      - name: Name the deploy after the branch it came from
+        id: target
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          slug=$(echo "$BRANCH" \
+            | tr '[:upper:]' '[:lower:]' \
+            | sed -e 's/[^a-z0-9]/-/g' -e 's/^-*//' -e 's/-*$//' \
+            | cut -c1-28 | sed -e 's/-*$//')
+          echo "branch=$slug" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.ref_name }}" = "main" ] && [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "site=https://$DOCS_DOMAIN" >> "$GITHUB_OUTPUT"
+          else
+            echo "site=https://$slug.${{ steps.pages.outputs.subdomain }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install
+        working-directory: docs
+        run: npm ci
+
+      - name: Build
+        working-directory: docs
+        env:
+          DOCS_SITE: ${{ steps.target.outputs.site }}
+        run: npm run build
 
       - name: Deploy
         id: deploy
