@@ -39,7 +39,7 @@ describe('lookOf', () => {
 
   test('the other types look like what they are, whatever mime they carry', () => {
     expect(lookOf({ type: TYPE.tag, mime: 'text/plain' }).label).toBe('tag')
-    expect(lookOf({ type: TYPE.address }).tone).toBe('var(--brass)')
+    expect(lookOf({ type: TYPE.address }).tone).toBe('var(--accent)')
     expect(lookOf({ type: TYPE.mime }).label).toBe('content type')
     expect(lookOf({ type: TYPE.note }).label).toBe('note')
   })

@@ -112,7 +112,7 @@ export function Export({ opened, onClose, type, term }: Props) {
             Cancel
           </Button>
           <Button
-            color="chalk"
+            color="brand"
             loading={start.loading}
             disabled={!destination && !fallback}
             leftSection={<IconPackageExport size={16} />}

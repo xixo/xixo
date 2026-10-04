@@ -118,7 +118,7 @@ function Entry({ row, pick }: { row: Row; pick?: Pick }) {
   return (
     <div className="entry-pick">
       <Checkbox
-        color="chalk"
+        color="brand"
         checked={pick.chosen.has(row.id)}
         disabled={!pick.pickable(row)}
         onChange={() => pick.toggle(row.id)}

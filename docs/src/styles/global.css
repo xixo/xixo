@@ -8,19 +8,20 @@
    are declared here in the same names and mapped onto Starlight's below. */
 
 :root {
-  --void: #080d0f;
-  --base: #0d1417;
-  --raised: #131f23;
-  --lifted: #1a282d;
-  --line: #1e2d33;
-  --edge: #2b3f47;
-  --muted: #6f8b95;
-  --soft: #9db7bf;
-  --text: #d9e8eb;
-  --bright: #f3fbfc;
+  --void: #090a17;
+  --base: #0e0f1e;
+  --raised: #15172b;
+  --lifted: #1d1f38;
+  --line: #2a2d4a;
+  --edge: #3b3f66;
+  --muted: #9497b8;
+  --soft: #c3c5e0;
+  --text: #e8e9f7;
+  --bright: #f7f7ff;
 
-  --brass: #ffc247;
-  --brass-dim: #a97d1f;
+  --brand: #4a4be2;
+  --accent: #a5a6ff;
+  --accent-dim: #5d5ef0;
 
   --k-pdf: #e2705f;
   --k-email: #dd8a52;
@@ -44,9 +45,9 @@
    :root:root outranks Starlight's own :root defaults, which the bundler may
    emit after this file. */
 :root:root {
-  --sl-color-accent-low: #3a2c0c;
-  --sl-color-accent: var(--brass-dim);
-  --sl-color-accent-high: var(--brass);
+  --sl-color-accent-low: #1f2050;
+  --sl-color-accent: var(--brand);
+  --sl-color-accent-high: var(--accent);
 
   --sl-color-white: var(--bright);
   --sl-color-gray-1: var(--text);
@@ -62,26 +63,29 @@
   --sl-color-hairline-shade: var(--line);
 }
 
-/* Light reads off the same hues, darkened onto a warm-neutral ground rather
+/* Light reads off the same hues, darkened onto a cool-neutral ground rather
    than inverted, so the kind colours stay recognisable. */
 :root:root[data-theme="light"] {
-  --sl-color-accent-low: #f3e4bd;
-  --sl-color-accent: #7d5a11;
-  --sl-color-accent-high: #4a350a;
+  --sl-color-accent-low: #e3e3ff;
+  --sl-color-accent: var(--brand);
+  --sl-color-accent-high: #2e2f9f;
 
-  --sl-color-white: #0b1214;
-  --sl-color-gray-1: #162327;
-  --sl-color-gray-2: #33474e;
-  --sl-color-gray-3: #5c757e;
-  --sl-color-gray-4: #93a9b0;
-  --sl-color-gray-5: #d3dfe2;
-  --sl-color-gray-6: #eef3f4;
-  --sl-color-gray-7: #f7fafa;
+  --sl-color-white: #0e0f1e;
+  --sl-color-gray-1: #1b1d36;
+  --sl-color-gray-2: #3b3f66;
+  --sl-color-gray-3: #5e6290;
+  --sl-color-gray-4: #9497b8;
+  --sl-color-gray-5: #d9daf0;
+  --sl-color-gray-6: #eeeffa;
+  --sl-color-gray-7: #f7f7fd;
   --sl-color-black: #ffffff;
 
-  --sl-color-bg-nav: #f7fafa;
-  --sl-color-bg-sidebar: #f7fafa;
-  --sl-color-hairline-shade: #d3dfe2;
+  --sl-color-bg-nav: #f7f7fd;
+  --sl-color-bg-sidebar: #f7f7fd;
+  --sl-color-hairline-shade: #d9daf0;
+
+  --lifted: #e9e9fb;
+  --bright: #0e0f1e;
 
   --k-pdf: #b8452f;
   --k-email: #a85c1c;
@@ -117,9 +121,9 @@
   --sl-color-green: var(--k-contact);
   --sl-color-green-high: var(--k-contact);
 
-  --sl-color-orange-low: color-mix(in srgb, var(--brass) 12%, var(--sl-color-black));
-  --sl-color-orange: var(--brass);
-  --sl-color-orange-high: var(--brass);
+  --sl-color-orange-low: color-mix(in srgb, var(--k-email) 12%, var(--sl-color-black));
+  --sl-color-orange: var(--k-email);
+  --sl-color-orange-high: var(--k-email);
 
   --sl-color-red-low: color-mix(in srgb, var(--k-pdf) 12%, var(--sl-color-black));
   --sl-color-red: var(--k-pdf);
@@ -199,48 +203,20 @@ table code {
   font-weight: 700;
 }
 
-/* The eleven kinds, drawn as one bar — the same spectrum the app puts on its
-   Gate. It is the product's signature, so the docs wear it too rather than
-   leaving brass to carry every accent alone. */
-:root {
-  --spectrum: linear-gradient(
-    to right,
-    var(--k-pdf) 0 9.09%,
-    var(--k-email) 9.09% 18.18%,
-    var(--k-xlsx) 18.18% 27.27%,
-    var(--k-contact) 27.27% 36.36%,
-    var(--k-data) 36.36% 45.45%,
-    var(--k-calendar) 45.45% 54.54%,
-    var(--k-text) 54.54% 63.63%,
-    var(--k-doc) 63.63% 72.72%,
-    var(--k-image) 72.72% 81.81%,
-    var(--k-pkpass) 81.81% 90.9%,
-    var(--k-file) 90.9% 100%
-  );
-}
-
 header.header::after {
   content: "";
   position: absolute;
   inset: auto 0 0 0;
   height: 2px;
-  background: var(--spectrum);
+  background: var(--brand);
 }
 
-/* Each section of the sidebar takes the next kind in KIND_ORDER, so the
-   rainbow reads down the nav rather than sitting in one bar. */
 .sidebar-content summary .large {
-  color: var(--tone, var(--sl-color-white));
+  color: var(--sl-color-white);
 }
-
-ul.top-level > li:nth-of-type(1) summary .large { --tone: var(--k-pdf); }
-ul.top-level > li:nth-of-type(2) summary .large { --tone: var(--k-data); }
-ul.top-level > li:nth-of-type(3) summary .large { --tone: var(--k-text); }
-ul.top-level > li:nth-of-type(4) summary .large { --tone: var(--k-image); }
-ul.top-level > li:nth-of-type(5) summary .large { --tone: var(--k-contact); }
 
 /* The app marks the current nav item with a raised background, not a filled
-   accent. Match it, so brass stays a highlight rather than the loudest thing
+   accent. Match it, so the accent stays a highlight rather than the loudest thing
    on the page. */
 .sidebar-content a[aria-current="page"],
 .sidebar-content a[aria-current="page"]:hover {
@@ -304,16 +280,35 @@ ul.top-level > li:nth-of-type(5) summary .large { --tone: var(--k-contact); }
 
 /* ---- The splash -------------------------------------------------------- */
 
-[data-has-hero] .main-frame {
-  background: radial-gradient(
-    120% 70% at 50% 0%,
-    color-mix(in srgb, var(--brass) 7%, transparent) 0%,
-    transparent 62%
-  );
+.hero {
+  margin-top: clamp(0.5rem, 3vh, 2rem);
+  padding: clamp(2rem, 7vh, 4.5rem) clamp(1.25rem, 5vw, 3.5rem);
+  border-radius: clamp(20px, 3vw, 36px);
+  background: var(--brand);
+  color: #fff;
 }
 
-.hero {
-  padding-block: clamp(1.5rem, 7vh, 4.5rem) clamp(2rem, 6vh, 3.5rem);
+.hero h1,
+.hero .tagline {
+  color: #fff;
+}
+
+.hero .tagline {
+  opacity: 0.8;
+}
+
+.hero .sl-link-button.primary {
+  background: #fff;
+  border-color: #fff;
+  color: var(--brand);
+}
+
+.hero .sl-link-button.minimal {
+  color: #fff;
+}
+
+.hero :focus-visible {
+  outline-color: #fff;
 }
 
 .hero h1 {
@@ -329,7 +324,6 @@ ul.top-level > li:nth-of-type(5) summary .large { --tone: var(--k-contact); }
   line-height: 1.3;
   letter-spacing: -0.015em;
   max-width: 22ch;
-  color: var(--sl-color-gray-2);
 }
 
 .hero .mark {
@@ -343,7 +337,7 @@ ul.top-level > li:nth-of-type(5) summary .large { --tone: var(--k-contact); }
   font-family: var(--sl-font-mono);
   font-weight: 600;
   letter-spacing: -0.05em;
-  color: var(--sl-color-gray-3);
+  color: rgb(255 255 255 / 62%);
 }
 
 

@@ -103,7 +103,7 @@ export function ItemDetail() {
 
   useTitle(item?.title ?? item?.key ?? 'Item')
 
-  if (loading && !data) return <Loader size="sm" color="var(--brass)" />
+  if (loading && !data) return <Loader size="sm" color="var(--accent)" />
   if (error) return <Alert color="red">{error.message}</Alert>
 
   if (!item) return <Text c="dimmed">No such item.</Text>
@@ -237,7 +237,7 @@ export function ItemDetail() {
             {!item.asked && (
               <Button
                 radius="xl"
-                color="chalk"
+                color="brand"
                 className="item-ask"
                 leftSection={<IconSparkles size={16} />}
                 aria-expanded={asking}
@@ -467,7 +467,7 @@ export function ItemDetail() {
               <div
                 className="entry"
                 data-spine="true"
-                style={toned('var(--brass)')}
+                style={toned('var(--accent)')}
               >
                 <div style={{ minWidth: 0 }}>
                   <span className="entry-title">Not stored yet</span>
@@ -792,7 +792,7 @@ function Noting({
         <Button
           size="xs"
           radius="xl"
-          color="chalk"
+          color="brand"
           loading={busy}
           onClick={keep}
         >
@@ -850,7 +850,7 @@ function AskAboutThis({
         submit()
       }}
     >
-      <IconSparkles size={17} stroke={1.7} color="var(--brass)" />
+      <IconSparkles size={17} stroke={1.7} color="var(--accent)" />
       <input
         value={question}
         onChange={(event) => setQuestion(event.currentTarget.value)}
@@ -865,7 +865,7 @@ function AskAboutThis({
       <Button
         type="submit"
         radius="xl"
-        color="chalk"
+        color="brand"
         size="compact-md"
         loading={ask.loading}
         disabled={!question.trim()}

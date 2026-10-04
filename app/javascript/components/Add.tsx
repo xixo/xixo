@@ -285,7 +285,7 @@ export function AddProvider({ children }: { children: ReactNode }) {
               onClick={keep}
               loading={busy}
               disabled={!text.trim()}
-              color="chalk"
+              color="brand"
               radius="xl"
             >
               Keep it
@@ -337,7 +337,7 @@ function Reads({ text, found }: { text: string; found: URL | null }) {
 
   return (
     <Text size="xs" c="dimmed">
-      <span className="mono" style={{ color: 'var(--brass)' }}>
+      <span className="mono" style={{ color: 'var(--accent)' }}>
         {shortly(found)}
       </span>{' '}
       {intentFor(found) === 'fetch'

@@ -33,7 +33,7 @@ function DrewOn({ rows, onChanged }: { rows: Row[]; onChanged: () => void }) {
           <Button
             size="compact-xs"
             variant="subtle"
-            color="chalk"
+            color="brand"
             leftSection={<IconTag size={13} />}
             onClick={() => setChosen(new Set(held.map((row) => row.id)))}
           >
@@ -114,7 +114,7 @@ export function Conversation({
           submit()
         }}
       >
-        <IconSparkles size={17} stroke={1.7} color="var(--brass)" />
+        <IconSparkles size={17} stroke={1.7} color="var(--accent)" />
         <input
           value={question}
           onChange={(event) => setQuestion(event.currentTarget.value)}
@@ -130,7 +130,7 @@ export function Conversation({
         <Button
           type="submit"
           radius="xl"
-          color="chalk"
+          color="brand"
           size="compact-md"
           loading={ask.loading}
           disabled={!question.trim() || answering}

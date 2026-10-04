@@ -82,7 +82,7 @@ const GLYPHS: Record<string, typeof IconFile> = {
 
 const TONES: Record<string, string> = {
   [TYPE.note]: 'var(--k-text)',
-  [TYPE.address]: 'var(--brass)',
+  [TYPE.address]: 'var(--accent)',
   [TYPE.tag]: 'var(--soft)',
   [TYPE.mime]: 'var(--muted)',
 }

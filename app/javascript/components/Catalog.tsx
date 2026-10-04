@@ -94,7 +94,7 @@ export function Catalog() {
     ? (known.find((feed) => feed.key === `/${slug}`) ?? null)
     : null
 
-  if (slug && !feeds.data) return <Loader size="sm" color="var(--brass)" />
+  if (slug && !feeds.data) return <Loader size="sm" color="var(--accent)" />
   if (slug && !here) return <Lost />
 
   return (
@@ -265,7 +265,7 @@ function Listing({
       <Rows rows={rows} view={view} />
 
       {loading && rows.length === 0 && (
-        <Loader size="sm" color="var(--brass)" />
+        <Loader size="sm" color="var(--accent)" />
       )}
 
       {!loading && rows.length === 0 && (
@@ -519,7 +519,7 @@ function AskAbout({ term }: { term: string }) {
     >
       <span className="entry-ask-mark">
         {ask.loading ? (
-          <Loader size="xs" color="var(--brass)" />
+          <Loader size="xs" color="var(--accent)" />
         ) : (
           <IconSparkles size={20} stroke={1.7} />
         )}
@@ -618,7 +618,7 @@ function Empty({
       <Group justify="center" gap="var(--s3)" mt="var(--s5)">
         <Button
           radius="xl"
-          color="chalk"
+          color="brand"
           leftSection={<IconFilePlus size={16} />}
           onClick={() => picker.current?.click()}
         >

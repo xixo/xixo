@@ -4,19 +4,21 @@
 :root {
   color-scheme: dark;
 
-  --void: #080d0f;
-  --base: #0d1417;
-  --raised: #131f23;
-  --lifted: #1a282d;
-  --line: #22343b;
-  --edge: #334a53;
-  --muted: #86a2ac;
-  --soft: #b2c9cf;
-  --text: #e1eef0;
-  --bright: #f3fbfc;
+  --void: #090a17;
+  --base: #0e0f1e;
+  --raised: #15172b;
+  --lifted: #1d1f38;
+  --line: #2a2d4a;
+  --edge: #3b3f66;
+  --muted: #9497b8;
+  --soft: #c3c5e0;
+  --text: #e8e9f7;
+  --bright: #f7f7ff;
 
-  --brass: #ffc247;
-  --brass-dim: #a97d1f;
+  --brand: #4a4be2;
+  --brand-deep: #3a3bc4;
+  --accent: #a5a6ff;
+  --accent-dim: #5d5ef0;
 
   --k-pdf: #e2705f;
   --k-email: #dd8a52;
@@ -85,7 +87,7 @@
   --mantine-color-default-hover: var(--lifted);
   --mantine-color-default-color: var(--text);
   --mantine-color-default-border: var(--line);
-  --mantine-color-anchor: var(--brass);
+  --mantine-color-anchor: var(--accent);
   --mantine-color-error: var(--bad);
 }
 
@@ -103,13 +105,8 @@ html {
 body {
   background:
     radial-gradient(
-      60rem 28rem at 12% -6rem,
-      color-mix(in srgb, var(--k-text) 9%, transparent),
-      transparent 70%
-    ),
-    radial-gradient(
-      50rem 26rem at 88% -8rem,
-      color-mix(in srgb, var(--k-image) 8%, transparent),
+      70rem 30rem at 50% -10rem,
+      color-mix(in srgb, var(--brand) 16%, transparent),
       transparent 70%
     ),
     var(--base);
@@ -137,7 +134,7 @@ pre,
 }
 
 :focus-visible {
-  outline: 2px solid var(--brass);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 3px;
 }
@@ -353,18 +350,7 @@ pre,
   position: absolute;
   inset: 0 0 auto;
   height: 2px;
-  background: linear-gradient(
-    90deg,
-    var(--k-pdf),
-    var(--k-email) 16%,
-    var(--k-xlsx) 30%,
-    var(--k-data) 44%,
-    var(--k-text) 58%,
-    var(--k-doc) 70%,
-    var(--k-image) 84%,
-    var(--k-pkpass)
-  );
-  opacity: 0.85;
+  background: var(--brand);
 }
 
 .shell-head {
@@ -567,11 +553,11 @@ pre,
 }
 
 .hunt:focus-within {
-  border-color: color-mix(in srgb, var(--brass) 70%, var(--edge));
+  border-color: color-mix(in srgb, var(--accent) 70%, var(--edge));
   background: var(--lifted);
   box-shadow:
     var(--sheen),
-    0 0 0 4px color-mix(in srgb, var(--brass) 14%, transparent);
+    0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .hunt input {
@@ -652,7 +638,7 @@ pre,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--brass);
+  color: var(--accent);
   font-family: var(--mono);
   font-size: var(--t-micro);
 }
@@ -770,9 +756,9 @@ pre,
 }
 
 .chip[data-on="true"] {
-  border-color: var(--text);
-  background: var(--text);
-  color: var(--void);
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
   font-weight: 600;
 }
 
@@ -804,7 +790,7 @@ pre,
 }
 
 .chip[data-on="true"] .chip-note {
-  color: color-mix(in srgb, var(--void) 60%, transparent);
+  color: rgb(255 255 255 / 70%);
 }
 
 .chip-new {
@@ -929,10 +915,10 @@ pre,
 }
 
 .rcard[data-landed="true"] {
-  border-color: var(--brass-dim);
+  border-color: var(--accent-dim);
   box-shadow:
     var(--sheen),
-    0 0 0 3px color-mix(in srgb, var(--brass) 18%, transparent);
+    0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .rcard[data-failing="true"] {
@@ -1042,8 +1028,8 @@ pre,
   gap: 5px;
   padding: 2px 9px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--brass) 13%, transparent);
-  color: var(--brass);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  color: var(--accent);
   font-size: var(--t-micro);
   font-weight: 600;
 }
@@ -1226,7 +1212,7 @@ pre,
 }
 
 .subnav-link[aria-current="page"] svg {
-  color: var(--brass);
+  color: var(--accent);
 }
 
 @media (max-width: 900px) {
@@ -1266,7 +1252,7 @@ pre,
   }
 
   .subnav .subnav-link[aria-current="page"]::after {
-    background: var(--brass);
+    background: var(--accent);
   }
 
   .subnav .subnav-link svg {
@@ -1398,9 +1384,9 @@ pre,
   width: 44px;
   height: 44px;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--brass) 14%, var(--lifted));
-  color: var(--brass);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brass) 24%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--lifted));
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
 .entry:last-child {
@@ -1812,7 +1798,7 @@ a.entry:hover {
   content: "";
   position: absolute;
   inset: var(--s3);
-  border: 2px dashed var(--brass);
+  border: 2px dashed var(--accent);
   border-radius: var(--radius);
   pointer-events: none;
 }
@@ -1826,7 +1812,7 @@ a.entry:hover {
   letter-spacing: -0.03em;
   font-size: clamp(2rem, 6vw, 3.75rem);
   line-height: 1;
-  color: var(--brass);
+  color: var(--accent);
 }
 
 .drop-note {
@@ -1871,16 +1857,16 @@ a.entry:hover {
 .tray-bar span {
   display: block;
   height: 100%;
-  background: var(--brass);
+  background: var(--accent);
   transition: width 200ms ease;
 }
 
 .tray-bar[data-walking="true"] span {
   background: linear-gradient(
     90deg,
-    var(--brass-dim) 0%,
-    var(--brass) 50%,
-    var(--brass-dim) 100%
+    var(--accent-dim) 0%,
+    var(--accent) 50%,
+    var(--accent-dim) 100%
   );
   background-size: 220% 100%;
   animation: tray-sweep 1.1s linear infinite;
@@ -1939,13 +1925,8 @@ a.entry:hover {
   display: grid;
   place-items: center;
   padding: var(--s6);
-  background:
-    radial-gradient(
-      120% 90% at 50% 0%,
-      color-mix(in srgb, var(--brass) 7%, transparent) 0%,
-      transparent 62%
-    ),
-    var(--void);
+  background: var(--brand);
+  color: #fff;
 }
 
 .gate-inner {
@@ -2013,8 +1994,25 @@ a.entry:hover {
   margin-top: var(--s4);
   font-size: var(--t-lead);
   line-height: 1.5;
-  color: var(--soft);
+  color: rgb(255 255 255 / 78%);
   max-width: 36ch;
+}
+
+.gate .wordmark {
+  color: rgb(255 255 255 / 62%);
+}
+
+.gate-line {
+  color: #fff;
+}
+
+.gate .cycle > span:not(.offscreen),
+.gate .cycle-still > span {
+  color: #fff;
+}
+
+.gate :focus-visible {
+  outline-color: #fff;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2028,7 +2026,7 @@ a.entry:hover {
 
   .tray-bar[data-walking="true"] span {
     animation: none;
-    background: var(--brass-dim);
+    background: var(--accent-dim);
   }
 
   .say {
@@ -2079,7 +2077,7 @@ a.entry:hover {
   line-height: 1.65;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  border-left: 3px solid var(--brass);
+  border-left: 3px solid var(--accent);
   max-width: 72ch;
 }
 
@@ -2117,7 +2115,7 @@ a.entry:hover {
   min-width: 0;
   padding: 0;
   border: 0;
-  border-bottom: 2px solid var(--brass);
+  border-bottom: 2px solid var(--accent);
   outline: 0;
   background: none;
   color: var(--bright);
@@ -2211,7 +2209,7 @@ a.entry:hover {
   width: 7px;
   height: 7px;
   border-radius: 999px;
-  background: var(--brass);
+  background: var(--accent);
   animation: thinking-beat 1.4s ease-in-out infinite;
 }
 
@@ -2501,7 +2499,7 @@ a.tag:hover {
 }
 
 .ask-bar:focus-within {
-  border-color: var(--brass-dim);
+  border-color: var(--accent-dim);
 }
 
 .ask-bar input {
@@ -2554,14 +2552,14 @@ a.tag:hover {
   padding: 0 8px;
   border: 1px solid var(--edge);
   border-radius: 999px;
-  color: var(--brass);
+  color: var(--accent);
   font-size: var(--t-small);
   text-decoration: none;
   vertical-align: 1px;
 }
 
 .ask-cite:hover {
-  border-color: var(--brass-dim);
+  border-color: var(--accent-dim);
 }
 
 .answer {
@@ -2608,9 +2606,9 @@ a.tag:hover {
 }
 
 .answer a:not(.ask-cite) {
-  color: var(--brass);
+  color: var(--accent);
   text-decoration: underline;
-  text-decoration-color: var(--brass-dim);
+  text-decoration-color: var(--accent-dim);
   text-underline-offset: 3px;
   overflow-wrap: anywhere;
 }
@@ -2768,7 +2766,7 @@ a.tag:hover {
 }
 
 .attach-card:focus-visible {
-  box-shadow: 0 0 0 2px var(--brass-dim);
+  box-shadow: 0 0 0 2px var(--accent-dim);
 }
 
 .attach-card-top {
@@ -2873,7 +2871,7 @@ a.tag:hover {
 
 .tagger:focus-within {
   border-style: solid;
-  border-color: var(--brass-dim);
+  border-color: var(--accent-dim);
   background: var(--raised);
 }
 

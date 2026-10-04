@@ -1,34 +1,29 @@
-const LETTERS = [
-  {
-    d: 'M0.409 20.181 L4.045 5.636 L6.955 6.364 L3.319 20.909 A1.5 1.5 0 0 1 0.409 20.181 Z',
-    tone: 'var(--k-pdf)',
-  },
-  {
-    d: 'M6.045 21.636 L9.681 7.091 A1.5 1.5 0 0 1 11.5 6 L12.955 6.364 L8.955 22.364 Z',
-    tone: 'var(--k-contact)',
-  },
-  {
-    d: 'M12.045 21.636 L16.045 5.636 L18.955 6.364 L14.955 22.364 Z',
-    tone: 'var(--k-text)',
-  },
-  {
-    d: 'M18.045 21.636 L21.681 7.091 A1.5 1.5 0 0 1 23.5 6 L24.955 6.364 L21.319 20.909 A1.5 1.5 0 0 1 19.5 22 Z',
-    tone: 'var(--k-image)',
-  },
-]
+const STROKES = 'M109 160 L230 303 L351 160 M109 300 L230 157 L351 300'
 
-export function Mark({ size = 26 }: { size?: number }) {
+export function Mark({
+  size = 26,
+  bare = false,
+}: {
+  size?: number
+  bare?: boolean
+}) {
   return (
     <svg
-      width={(size * 25) / 28}
-      height={size}
-      viewBox="0 0 25 28"
+      width={size}
+      height={bare ? (size * 192) / 288 : size}
+      viewBox={bare ? '86 134 288 192' : '0 0 460 460'}
       role="img"
       aria-label="xixo"
     >
-      {LETTERS.map((letter) => (
-        <path key={letter.d} d={letter.d} fill={letter.tone} />
-      ))}
+      {!bare && <rect width="460" height="460" rx="96" fill="var(--brand)" />}
+      <path
+        d={STROKES}
+        fill="none"
+        stroke={bare ? 'currentColor' : '#fff'}
+        strokeWidth="46"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   )
 }

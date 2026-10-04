@@ -37,7 +37,7 @@ export function Connections({
   if (error) return <Alert color="red">{error.message}</Alert>
 
   if (shown.length === 0) {
-    if (loading) return <Loader size="sm" color="var(--brass)" />
+    if (loading) return <Loader size="sm" color="var(--accent)" />
 
     return facet ? (
       <Text size="sm" c="dimmed">

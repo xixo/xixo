@@ -29,7 +29,7 @@ const ACTORS: Record<string, string> = {
 
 const TONES: Record<string, string> = {
   ok: 'var(--ok)',
-  denied: 'var(--brass)',
+  denied: 'var(--accent)',
   error: 'var(--bad)',
 }
 
@@ -168,7 +168,7 @@ function Trail({
 
   if (error) return <Alert color="red">{error.message}</Alert>
   if (loading && kept.length === 0)
-    return <Loader size="sm" color="var(--brass)" />
+    return <Loader size="sm" color="var(--accent)" />
 
   if (kept.length === 0) {
     return (
@@ -310,7 +310,7 @@ function Status({ status }: { status: string }) {
 
 function FeedLink({ feed, children }: { feed: Named; children?: ReactNode }) {
   return (
-    <Link to={`/items/${feed.id}`} style={{ color: 'var(--brass)' }}>
+    <Link to={`/items/${feed.id}`} style={{ color: 'var(--accent)' }}>
       {children ?? title(feed)}
     </Link>
   )

@@ -1,47 +1,34 @@
 import { createTheme, type MantineColorsTuple } from '@mantine/core'
 
-const petrol: MantineColorsTuple = [
-  '#e6f1f3',
-  '#c8dbe0',
-  '#a6c2c9',
-  '#83a6af',
-  '#5f8590',
-  '#3d5d67',
-  '#1a282d',
-  '#131f23',
-  '#0d1417',
-  '#080d0f',
+const night: MantineColorsTuple = [
+  '#e8e9f7',
+  '#c3c5e0',
+  '#9497b8',
+  '#6b6e94',
+  '#4a4d72',
+  '#3b3f66',
+  '#1d1f38',
+  '#15172b',
+  '#0e0f1e',
+  '#090a17',
 ]
 
-const chalk: MantineColorsTuple = [
-  '#ffffff',
-  '#fbfefe',
-  '#f3fafb',
-  '#eaf4f6',
-  '#e2eff1',
-  '#dcebed',
-  '#d6e7ea',
-  '#c3d7db',
-  '#aec5ca',
-  '#98b2b8',
-]
-
-const brass: MantineColorsTuple = [
-  '#fff8e8',
-  '#fff0cf',
-  '#ffe0a0',
-  '#ffd06d',
-  '#ffc247',
-  '#f7b52f',
-  '#e9a520',
-  '#c1861a',
-  '#9a6a15',
-  '#74500f',
+const brand: MantineColorsTuple = [
+  '#eeeeff',
+  '#d9d9ff',
+  '#bdbeff',
+  '#a5a6ff',
+  '#8384f5',
+  '#6566ec',
+  '#4a4be2',
+  '#3a3bc4',
+  '#2e2f9f',
+  '#22237a',
 ]
 
 export const theme = createTheme({
-  colors: { dark: petrol, chalk, brass },
-  primaryColor: 'chalk',
+  colors: { dark: night, brand },
+  primaryColor: 'brand',
   primaryShade: { light: 6, dark: 6 },
   autoContrast: true,
   defaultRadius: 'md',

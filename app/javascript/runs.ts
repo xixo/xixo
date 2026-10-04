@@ -4,7 +4,7 @@ export const RUN_TONES: Record<string, string> = {
   done: 'var(--ok)',
   failed: 'var(--bad)',
   cancelled: 'var(--edge)',
-  gated: 'var(--brass)',
+  gated: 'var(--accent)',
 }
 
 export const RUN_OPEN = new Set(['queued', 'running'])

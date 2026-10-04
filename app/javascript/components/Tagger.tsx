@@ -49,7 +49,7 @@ export function Tagger({
         submit()
       }}
     >
-      <IconTag size={15} stroke={1.7} color="var(--brass)" />
+      <IconTag size={15} stroke={1.7} color="var(--accent)" />
       <Autocomplete
         className="tagger-field"
         variant="unstyled"
@@ -66,7 +66,7 @@ export function Tagger({
       <Button
         type="submit"
         size="compact-sm"
-        color="chalk"
+        color="brand"
         loading={tagging.loading}
         disabled={!name || ids.length === 0}
       >

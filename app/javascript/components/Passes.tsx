@@ -178,7 +178,7 @@ function Log({ id, live }: { id: string; live: string | null }) {
   const logs = live ?? data?.analysis?.logs ?? ''
   const lines = logs.split('\n').filter(Boolean)
 
-  if (loading && !data) return <Loader size="xs" color="var(--brass)" />
+  if (loading && !data) return <Loader size="xs" color="var(--accent)" />
   if (lines.length === 0) return null
 
   return (

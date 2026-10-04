@@ -48,7 +48,7 @@ export function App() {
   if (loading) {
     return (
       <div className="gate">
-        <Loader color="var(--brass)" />
+        <Loader color="var(--accent)" />
       </div>
     )
   }
@@ -94,7 +94,7 @@ function Gate({
     <div className="gate">
       <div className="gate-inner">
         <div className="gate-mark">
-          <Mark size={92} />
+          <Mark size={92} bare />
         </div>
 
         <p className="gate-line">
@@ -108,7 +108,8 @@ function Gate({
           mt="var(--s6)"
           size="md"
           radius="xl"
-          color="chalk"
+          color="#fff"
+          c="var(--brand)"
           onClick={enter}
           styles={{ root: { fontWeight: 600, paddingInline: 'var(--s5)' } }}
         >
@@ -305,7 +306,7 @@ function Hunt() {
       }}
     >
       {found ? (
-        <IconLink size={16} stroke={1.8} color="var(--brass)" />
+        <IconLink size={16} stroke={1.8} color="var(--accent)" />
       ) : (
         <IconSearch size={16} stroke={1.8} color="var(--muted)" />
       )}

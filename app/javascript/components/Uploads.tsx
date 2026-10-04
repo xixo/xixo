@@ -317,7 +317,7 @@ function Tray() {
   return (
     <aside className="tray" aria-live="polite">
       <div className="tray-head">
-        <IconArrowBarToDown size={17} stroke={1.6} color="var(--brass)" />
+        <IconArrowBarToDown size={17} stroke={1.6} color="var(--accent)" />
         <Text fw={600} size="sm" style={{ color: 'var(--bright)' }}>
           {running
             ? walking

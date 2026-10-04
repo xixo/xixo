@@ -153,7 +153,7 @@ export function Resources() {
     if (landed) arrived.current?.scrollIntoView({ block: 'center' })
   }, [landed])
 
-  if (loading && !data) return <Loader size="sm" color="var(--brass)" />
+  if (loading && !data) return <Loader size="sm" color="var(--accent)" />
   if (error) return <Alert color="red">{error.message}</Alert>
 
   const resources = (data?.resources ?? []) as Resource[]
@@ -270,7 +270,7 @@ export function Resources() {
         {!shelved && (
           <Button
             radius="xl"
-            color="chalk"
+            color="brand"
             leftSection={<IconPlus size={16} stroke={2} />}
             onClick={() => setAttaching(true)}
           >
@@ -510,7 +510,7 @@ function ResourceCard({
                   href={resource.connectUrl}
                   size="compact-sm"
                   radius="xl"
-                  color={resource.needsConnect ? 'chalk' : 'gray'}
+                  color={resource.needsConnect ? 'brand' : 'gray'}
                   variant={resource.needsConnect ? 'filled' : 'subtle'}
                   leftSection={<IconPlugConnected size={14} />}
                 >
@@ -675,7 +675,7 @@ function Every({
               rightSectionWidth={44}
               style={{ flex: 1 }}
             />
-            <Button type="submit" color="chalk" loading={busy}>
+            <Button type="submit" color="brand" loading={busy}>
               Keep
             </Button>
           </div>

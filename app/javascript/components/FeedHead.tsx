@@ -120,7 +120,7 @@ export function FeedHead({
         <Group gap="var(--s2)" wrap="nowrap">
           <Button
             radius="xl"
-            color="chalk"
+            color="brand"
             leftSection={<IconPlayerPlay size={15} />}
             loading={start.loading}
             disabled={Boolean(open)}

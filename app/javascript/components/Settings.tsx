@@ -117,7 +117,7 @@ export function SignedIn({
             target="_blank"
             rel="noreferrer"
             radius="xl"
-            color="chalk"
+            color="brand"
             rightSection={<IconArrowUpRight size={16} stroke={1.8} />}
           >
             Manage account
@@ -186,7 +186,7 @@ function Preferences() {
           <Alert color="red">{error.message}</Alert>
         ))}
 
-      {loading && !data && <Loader size="sm" color="var(--brass)" />}
+      {loading && !data && <Loader size="sm" color="var(--accent)" />}
 
       {GROUPS.map(({ level, heading }) => {
         const held = settings.filter((setting) => setting.level === level)

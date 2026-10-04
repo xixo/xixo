@@ -350,7 +350,7 @@ export function Attach({
       padding="var(--s5)"
     >
       {loading && !data ? (
-        <Loader size="sm" color="var(--brass)" />
+        <Loader size="sm" color="var(--accent)" />
       ) : !type ? (
         <div className="attach-picker">
           <div className="attach-intro">
@@ -553,7 +553,7 @@ export function Attach({
             <Button
               size="md"
               radius="xl"
-              color="chalk"
+              color="brand"
               onClick={editing ? save : connect}
               loading={attaching}
               disabled={editing ? missing.length > 0 : !ready}

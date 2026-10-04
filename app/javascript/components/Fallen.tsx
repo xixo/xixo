@@ -46,7 +46,7 @@ export class Fallen extends Component<Props, State> {
         <Group gap="var(--s3)" mt="var(--s5)">
           <Button
             radius="xl"
-            color="chalk"
+            color="brand"
             leftSection={<IconRefresh size={16} />}
             onClick={() => this.setState({ fell: null })}
           >

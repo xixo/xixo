@@ -35,7 +35,7 @@ export function Lost() {
             to={to}
             radius="xl"
             variant={to === '/' ? 'filled' : 'default'}
-            color="chalk"
+            color="brand"
             leftSection={<Icon size={16} stroke={1.6} />}
           >
             {label}
