@@ -2,7 +2,6 @@ class Analysis < ApplicationRecord
   CAUSES = %w[upload sync keep schedule manual ask].freeze
   STATUSES = %w[queued running done failed cancelled gated].freeze
   OPEN = %w[queued running].freeze
-  WRAP_UP = 3.minutes
   SETTLED = %w[done failed].freeze
   BOOKKEEPING = %w[placement derived answer drew_on].freeze
   SOURCE = %w[text ocr transcript conversation place].freeze
@@ -71,11 +70,6 @@ class Analysis < ApplicationRecord
     Resource.for_role(Resource::OpenaiCompatible::AGENT_ROLE)&.time_allowed || Feed::ASK_TIMEOUT
   end
 
-  def wrapping_up!
-    Analysis.where(id: id).update_all([ "deadline = GREATEST(deadline, now() + make_interval(secs => ?))", WRAP_UP.to_i ])
-    held_deadline
-  end
-
   def more_time!(wanted)
     ceiling = (started_at || created_at) + Feed::MAX_TIMEOUT
 
@@ -102,8 +96,11 @@ class Analysis < ApplicationRecord
       finished_at: Time.current
     )
 
-    feed.tag_with!(tags) if error.nil?
+    refiled!(tagged: error.nil?)
+  end
 
+  def refiled!(tagged: true)
+    feed.tag_with!(tags) if tagged
     Feed.where(id: feed_id).where.not(embedded_at: nil).update_all(embedded_at: nil)
     SearchIndex.index(feed.reload)
     publish!

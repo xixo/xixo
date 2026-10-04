@@ -125,19 +125,6 @@ class ClockTest < ActiveSupport::TestCase
     end
   end
 
-  test "once the lead has answered, the run has time to wrap up whatever was left on the clock" do
-    Tenant.switch(@tenant) do
-      ask = Analysis.open!(feed: @feed, cause: "ask").tap(&:running!)
-      ask.update_columns(deadline: 5.seconds.from_now)
-
-      assert_in_delta Analysis::WRAP_UP.from_now, ask.wrapping_up!, 2
-
-      ask.update_columns(deadline: 1.hour.from_now)
-
-      assert_in_delta 1.hour.from_now, ask.wrapping_up!, 2, "wrapping up never shortens a deadline"
-    end
-  end
-
   test "more time never runs past a day from the start, however it is asked for" do
     3.times { @server.answer_tool_call("more_time", minutes: 1_000, reason: "more") }
     @server.answer("Done.")

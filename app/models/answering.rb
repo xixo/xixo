@@ -126,7 +126,7 @@ class Answering
     end
 
     def asked(text)
-      @inference.summarize(text, role: ROLE, analysis: @analysis)
+      @inference.summarize(text, role: ROLE, analysis: @analysis, effort: @inference.ask_effort)
     end
 
     def computing(spec)

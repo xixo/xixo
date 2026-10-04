@@ -133,7 +133,6 @@ class AnalyzeFeedJob < ApplicationJob
       asking = Asking.new(feed, analysis: analysis)
       grant = (analysis || feed).grant(scopes: Feed::ASKING_SCOPES)
 
-      asking.title!
       Current.grant = grant
       Current.acting_for = feed.id
       Current.analysis = analysis
@@ -143,16 +142,12 @@ class AnalyzeFeedJob < ApplicationJob
                                leaving_out: [ feed ], analysis: analysis).call
       answered = looked_up(asking, grant) || answered if answered.reason == :world
 
-      analysis.wrapping_up!
       said = asking.tidied(answered.said)
       noted(answered.with(said: said))
       spoken(said)
       drew(feed, Feed.where(id: answered.drew_on).where.not(id: feed.id))
-      asking.title!(later: true)
-      Analyzer::Conversation.new(feed, analysis: analysis).roll_up!
-      asking.retitle!(said)
-
       finish
+      concluded(feed, asking, said)
     rescue Agent::Refused, Resource::Unusable => e
       analysis.finished!(error: e.message)
     ensure
@@ -160,6 +155,14 @@ class AnalyzeFeedJob < ApplicationJob
       Current.acting_for = nil
       Current.analysis = nil
       Current.confined_to = nil
+    end
+
+    def concluded(feed, asking, said)
+      asking.title!(said)
+      Analyzer::Conversation.new(feed, analysis: analysis).roll_up!
+      analysis.refiled!
+    rescue Resource::Failed, Resource::Unusable, SearchIndex::Failed => e
+      analysis.log_skip("conclude", e.message)
     end
 
     def looked_up(asking, grant)

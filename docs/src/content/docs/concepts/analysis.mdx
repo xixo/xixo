@@ -180,8 +180,8 @@ An analysis runs for its feed's timeout, counted from when it starts. `setFeedTi
 form, sets any value from one minute to one day. A feed with no timeout set runs for ten minutes. An
 `ask` on such a feed starts small instead: the time per ask of the model backend that serves the
 `agent` role, or two minutes when that is not set. An agent that looks a question up on the web asks
-for more time while it runs, up to one day from the start. Once the answer is in, the run has at
-least three more minutes for the title and the conversation's summary. `ExpireOverdueJob` cancels an analysis that runs past its deadline.
+for more time while it runs, up to one day from the start. The analysis is done once the answer is
+saved, and the title and the conversation's summary follow it. `ExpireOverdueJob` cancels an analysis that runs past its deadline.
 
 Analysis jobs run on the `analysis` queue, with at most `ANALYSIS_PER_TENANT` (2 by default) running
 per tenant. A `Resource::Failed` error is retried five times with increasing waits, and the analysis

@@ -102,11 +102,10 @@ read from a personal resource.
 ## Asking
 
 uris saves a question asked of the catalog as a note, and answers it with an analysis whose cause is
-`ask`. The note's key is the question, and the note starts with no title. Before the question is
-answered, the model that serves the `fast` role names the note in a few words, such as "Toronto
-weather". If the note still has no title after the answer, because the tenant has no fast model or
-the fast model failed, uris tries again with the first of the `fast`, `smart`, and `agent` roles that
-a resource serves. See [asking a question](/guides/ask/).
+`ask`. The note's key is the question, and the note starts with no title. The analysis is done as
+soon as the answer is saved, so the answer shows at once. Then the first of the `fast`, `smart`, and
+`agent` roles that a resource serves titles the note from the question and its answer, such as
+"Toronto today: 18°C and rain", and the conversation is rolled up into the note. See [asking a question](/guides/ask/).
 
 `Answering` answers the question in four parts. Only the second and fourth call a model.
 
@@ -121,7 +120,10 @@ a resource serves. See [asking a question](/guides/ask/).
    first. The evidence stops at 18,000 characters.
 2. **Answer.** The model that serves the `agent` role reads the evidence, the conversation so far,
    and the question in one call, and answers in JSON with the feeds it used cited as `[feed 12]`.
-   It is told to copy every number, name, and date as the evidence gives them.
+   It is told to copy every number, name, and date as the evidence gives them. The call is sent
+   with the backend's **Effort on questions** as `reasoning_effort`, which is `none` unless it is
+   set, so a reasoning model answers without thinking first. On qwen3:8b with a sheet of evidence,
+   that answers in about 3 seconds where thinking took 9 to 20.
 3. **Compute.** When the evidence includes a table, the model can ask for a sum, count, average,
    smallest, or largest over its rows, narrowed by tests on its columns, in place of doing the
    arithmetic itself. `Tables` works it out over the rows the analyzer kept, leaving out a row that

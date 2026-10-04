@@ -19,6 +19,7 @@ class Resource
     TOOL_ROLES = [ AGENT_ROLE ].freeze
     EMBEDDING_ROLE = "embedding"
     EFFORTS = %w[none minimal low medium high].freeze
+    AS_IT_LIKES = "model".freeze
     ASKING = "Represent this sentence for searching relevant passages: ".freeze
     KNOWN_PREFIXES = [
       [ /nomic-embed/, { "query" => "search_query: ", "document" => "search_document: " } ],
@@ -78,7 +79,13 @@ class Resource
                 options: [ { value: "", label: "As the model likes" } ] +
                          EFFORTS.map { |effort| { value: effort, label: effort } },
                 help: "How hard a reasoning model thinks while filing what arrives. Sent as reasoning_effort. " \
-                      "Ollama takes none, and OpenAI minimal or low. Questions always think as the model likes."),
+                      "Ollama takes none, and OpenAI minimal or low."),
+          field("ask_effort", "Effort on questions", kind: "choice", value: "",
+                options: [ { value: "", label: "none" } ] +
+                         (EFFORTS - [ "none" ]).map { |effort| { value: effort, label: effort } } +
+                         [ { value: AS_IT_LIKES, label: "As the model likes" } ],
+                help: "How hard a reasoning model thinks before it answers a question. Sent as reasoning_effort. " \
+                      "Left at none, it answers without thinking, several times sooner."),
           field("time_allowed", "Time per ask", kind: "integer",
                 help: "Minutes an ask answered by this backend starts with when its item sets no timeout. " \
                       "An agent asks for more as it needs it. Left off, two minutes."),
@@ -97,6 +104,7 @@ class Resource
 
     validate :it_names_an_endpoint
     validate :its_routine_effort_is_known
+    validate :its_ask_effort_is_known
 
     after_update :forget_vectors!, if: :embedding_signature_changed?
 
@@ -275,6 +283,11 @@ class Resource
       details.to_h["routine_effort"].presence
     end
 
+    def ask_effort
+      held = details.to_h["ask_effort"].presence || "none"
+      held == AS_IT_LIKES ? nil : held
+    end
+
     def time_allowed
       minutes = details.to_h["time_allowed"].to_i
       minutes.clamp(1, Feed::MAX_TIMEOUT.in_minutes.to_i).minutes if minutes.positive?
@@ -332,14 +345,14 @@ class Resource
       Rails.logger.warn "#{key}: a turn could not be recorded — #{e.message}"
     end
 
-    def summarize(prompt, role:, analysis: nil, images: [], temperature: nil)
+    def summarize(prompt, role:, analysis: nil, images: [], temperature: nil, effort: nil)
       model = model_for(role)
       tries = attempts_for(role)
       last = nil
 
       tries.times do |index|
         answer = complete(prompt, model: model, role: role, analysis: analysis,
-                          attempt: index + 1, images: images, temperature: temperature)
+                          attempt: index + 1, images: images, temperature: temperature, effort: effort)
         parsed = self.class.extract_json(answer)
 
         return parsed if parsed.is_a?(Hash) && parsed.present?
@@ -425,6 +438,13 @@ class Resource
         errors.add(:details, "must name a base_url") if details["base_url"].blank?
       end
 
+      def its_ask_effort_is_known
+        held = details.to_h["ask_effort"].presence
+        return if held.nil? || (EFFORTS + [ AS_IT_LIKES ]).include?(held)
+
+        errors.add(:details, "ask_effort is one of #{(EFFORTS + [ AS_IT_LIKES ]).join(', ')}")
+      end
+
       def its_routine_effort_is_known
         return if routine_effort.nil? || EFFORTS.include?(routine_effort)
 
@@ -448,12 +468,12 @@ class Resource
         get("/models").fetch("data", []).filter_map { |entry| entry["id"] }
       end
 
-      def complete(prompt, model:, role:, analysis:, attempt:, images:, temperature: nil)
+      def complete(prompt, model:, role:, analysis:, attempt:, images:, temperature: nil, effort: nil)
         body = scrub(prompt).truncate(MAX_PROMPT)
         started = Time.current
 
         begin
-          content = ask(body, model, images, temperature: temperature)
+          content = ask(body, model, images, temperature: temperature, effort: effort)
         rescue StandardError => e
           noted(analysis, role: role, model: model, number: attempt, request: body,
                 started_at: started,
@@ -466,14 +486,15 @@ class Resource
         content
       end
 
-      def ask(body, model, images, temperature: nil)
+      def ask(body, model, images, temperature: nil, effort: nil)
         messages = [
           { role: "system", content: JSON_SYSTEM },
           { role: "user", content: said(body, images) }
         ]
 
         payload = { model: model, messages: messages, stream: true,
-                    max_tokens: max_tokens, temperature: temperature || self.temperature }
+                    max_tokens: max_tokens, temperature: temperature || self.temperature,
+                    reasoning_effort: effort }.compact
         payload[:response_format] = { type: "json_object" } if json_mode?
 
         content = streamed("/chat/completions", payload,

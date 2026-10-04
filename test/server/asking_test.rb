@@ -63,17 +63,23 @@ class AskingTest < ActionDispatch::IntegrationTest
     assert_includes asked_with, "[feed #{@invoice.id}] Acme invoice › Note\n---\nAcme invoice 0042 for $4,200"
   end
 
-  test "a question is thought through however hard the backend lets routine work skimp" do
-    Tenant.switch(@tenant) do
-      held = Resource::OpenaiCompatible.find_by!(key: "ollama")
-      held.update!(details: held.details.merge("routine_effort" => "none"))
-    end
+  test "a question is answered without thinking unless the backend asks for an effort" do
     answers("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
-
     ask("How much is the Acme invoice?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
-    assert_equal [ nil ], @server.efforts.uniq
+    assert_equal "none", @server.efforts.first
+
+    Tenant.switch(@tenant) do
+      held = Resource::OpenaiCompatible.find_by!(key: "ollama")
+      held.update!(details: held.details.merge("ask_effort" => "model"))
+    end
+    @server.reset!.serves("qwen3:8b")
+    answers("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
+    ask("What is the Acme invoice for?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    assert_nil @server.efforts.first, "as the model likes sends no effort at all"
   end
 
   ABOUT = <<~GQL.freeze
@@ -161,11 +167,10 @@ class AskingTest < ActionDispatch::IntegrationTest
     assert_includes note["tags"].pluck("key"), "due date"
   end
 
-  test "a question is kept untitled and named by the fast model before it is answered" do
+  test "the answer is shown before the note is titled and the conversation rolled up" do
     models("agent" => "qwen3:8b", "fast" => "qwen3:8b")
-
-    @server.answer_json(title: "Acme invoice total, please and thank you")
     answers("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
+    @server.answer_json(title: "Acme invoice total: $4,200, please and thank you")
 
     asked = ask("How much is the Acme invoice?")
 
@@ -173,43 +178,29 @@ class AskingTest < ActionDispatch::IntegrationTest
 
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
+    answered = @server.prompts.index { |prompt| prompt.include?("Answer from the parts above alone") }
+    titled = @server.prompts.index { |prompt| prompt.include?("Title the note") }
+    assert_operator answered, :<, titled
+    assert_match(/Asked: How much is the Acme invoice\?\s+Answered: The Acme invoice is for \$4,200/, @server.prompts[titled])
+
     Tenant.switch(@tenant) do
       note = Feed.find(asked.dig("feed", "id"))
+      analysis = Analysis.find(asked.dig("analysis", "id"))
 
-      assert_equal "Acme invoice total, please and thank", note.title
+      assert_equal "Acme invoice total: $4,200, please and thank you", note.title
       assert_equal "How much is the Acme invoice?", note.key
+      assert_operator analysis.finished_at, :<=, analysis.steps.dig("conversation", "finished_at").then { |at| Time.iso8601(at) }
     end
-
-    named = @server.prompts.index { |prompt| prompt.include?("Name the question") }
-    answered = @server.prompts.index { |prompt| prompt.include?("Answer from the parts above alone") }
-    assert_operator named, :<, answered
   end
 
-  test "with no fast model the note is named later, by the slower model, once the answer is in" do
+  test "with no fast model the note is titled by the slower model" do
     answers("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
     @server.answer_json(title: "Acme invoice total")
 
     asked = ask("How much is the Acme invoice?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
-    named = @server.prompts.index { |prompt| prompt.include?("Name the question") }
-    answered = @server.prompts.index { |prompt| prompt.include?("Answer from the parts above alone") }
-
-    assert_operator named, :>, answered
     Tenant.switch(@tenant) { assert_equal "Acme invoice total", Feed.find(asked.dig("feed", "id")).title }
-  end
-
-  test "once answered, a note is titled again with what the answer found" do
-    answers("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
-    @server.answer_json(title: "Acme invoice total")
-    @server.answer_json(title: "Acme invoice total: $4,200")
-
-    asked = ask("How much is the Acme invoice?")
-    perform_enqueued_jobs(only: AnalyzeFeedJob)
-
-    retitled = @server.prompts.find { |prompt| prompt.include?("Title the note") }
-    assert_match(/Asked: How much is the Acme invoice\?\s+Answered: The Acme invoice is for \$4,200/, retitled)
-    Tenant.switch(@tenant) { assert_equal "Acme invoice total: $4,200", Feed.find(asked.dig("feed", "id")).title }
   end
 
   test "a follow-up waits for the question before it to be answered" do

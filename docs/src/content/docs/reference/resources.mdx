@@ -307,7 +307,8 @@ A model backend. Anything speaking the OpenAI chat API — ollama, LM Studio, ll
 | `models.embedding` | Embedding model | string |  |  |  | What search compares meaning with. Its vectors have to be the width the index was built for. |
 | `embedding_prefixes.query` | Query prefix | string |  |  |  | Put before a search when it is embedded. Left off, uris uses what nomic-embed-text, e5, mxbai and bge were trained with, and nothing for any other model. |
 | `embedding_prefixes.document` | Document prefix | string |  |  |  | Put before what is catalogued when it is embedded. Left off, as above. |
-| `routine_effort` | Effort on routine work | choice of `` `none` `minimal` `low` `medium` `high` |  |  |  | How hard a reasoning model thinks while filing what arrives. Sent as reasoning_effort. Ollama takes none, and OpenAI minimal or low. Questions always think as the model likes. |
+| `routine_effort` | Effort on routine work | choice of `` `none` `minimal` `low` `medium` `high` |  |  |  | How hard a reasoning model thinks while filing what arrives. Sent as reasoning_effort. Ollama takes none, and OpenAI minimal or low. |
+| `ask_effort` | Effort on questions | choice of `` `minimal` `low` `medium` `high` `model` |  |  |  | How hard a reasoning model thinks before it answers a question. Sent as reasoning_effort. Left at none, it answers without thinking, several times sooner. |
 | `time_allowed` | Time per ask | integer |  |  |  | Minutes an ask answered by this backend starts with when its item sets no timeout. An agent asks for more as it needs it. Left off, two minutes. |
 | `api_key` | API key | string |  | encrypted |  | Left off where the backend wants none. |
 
