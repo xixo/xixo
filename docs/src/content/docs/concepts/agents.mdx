@@ -185,8 +185,13 @@ A `feedback` resource answers nothing. Its one command, `ask`, takes a `question
 the `context` it came up in and what was `wanted`. Every ask returns `answered: false` and the same
 sentence telling the caller to carry on, and is kept as a note titled "Wanted:" and the question. The
 note holds the question, its context, what would have helped, the grant's subject, and the feed the
-caller was working on, and it is connected to that feed and to the `feedback` tag. The tag is the
-feed of everything anyone wanted and could not get, for an agent or a person to read and act on.
+caller was working on, and it is connected to that feed and to the `/feedback` address.
+
+Attaching a feedback resource makes `/feedback`, so it sits on the shelf beside **Everything** and
+lists everything anyone wanted and could not get. Its schedule runs once a week with 16 turns: its
+agent reads what was wanted, groups it by what would provide it, such as a resource to attach or a
+change to uris, and keeps a note titled "Feedback review" with each group's count, a few of its
+questions, and the change it proposes. A health check makes `/feedback` again if it is gone.
 
 The `resource` tool tells every MCP client to use it for anything no tool could answer or do, and a
 tenant's [web agent](#asking) is told the same. When an answer from the catalog finds nothing, the

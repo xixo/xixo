@@ -6,7 +6,19 @@ class FeedbackResourceTest < ActiveSupport::TestCase
     @listener = Tenant.switch(@tenant) { Resource::Feedback.create!(key: "feedback", name: "Feedback") }
   end
 
-  test "an ask is never answered, and is kept as a note under the feedback tag with what it was for" do
+  test "attaching it puts a feedback feed on the shelf that reviews itself every week" do
+    Tenant.switch(@tenant) do
+      shelf = Feed.address("/feedback")
+
+      assert shelf.address?
+      assert_equal "Feedback", shelf.title
+      assert_equal 1.week.to_i, shelf.schedule.interval
+      assert_match(/Feedback review/, shelf.schedule.prompt)
+      assert_equal shelf, @listener.shelf, "the feed is made once"
+    end
+  end
+
+  test "an ask is never answered, and is kept as a note in the feedback feed with what it was for" do
     Tenant.switch(@tenant) do
       asked_about = Feed.create!(type: Feed::NOTE, key: "who is the president of france?")
       Current.set(acting_for: asked_about.id) do
@@ -20,9 +32,8 @@ class FeedbackResourceTest < ActiveSupport::TestCase
       assert_match(/Nothing here can answer that yet/, @answered[:said])
       assert_equal "Wanted: who is the president of france today?", kept.title
       assert_match(/Would have helped: a web search/, kept.note)
-      assert_includes kept.connected, Feed.tag!("feedback")
       assert_includes kept.connected, asked_about
-      assert_equal [ kept ], Feed.tag!("feedback").connected.to_a
+      assert_equal [ kept ], Feed.address("/feedback").connected.to_a
     end
   end
 
