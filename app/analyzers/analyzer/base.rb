@@ -55,6 +55,7 @@ module Analyzer
 
     SUMMARY_TEXT = 10_000
     SUMMARY_TAGS = 8
+    ENTITIES_ASKED = 30
 
     def self.summary_role
       :smart
@@ -95,9 +96,10 @@ module Analyzer
         Return ONLY valid JSON, no markdown and no explanation:
         {"entities": ["..."], "summary": "...", "tags": ["...", "..."]}
 
-        - entities: every proper name, product, company, person, place, amount,
-          reference number and date above, written exactly as it appears. Fill this
-          first. An empty array if there are none.
+        - entities: the proper names, products, companies, people, places, amounts,
+          reference numbers and dates above, written exactly as they appear, the most
+          important first and #{ENTITIES_ASKED} at most. Fill this first. An empty array
+          if there are none.
         - summary: #{says}
         - tags: 3 to #{SUMMARY_TAGS} tags to file it under and find it by, the way a person
           would label a folder. Each is a topic, the kind of thing this is, or the name of a
