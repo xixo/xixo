@@ -158,7 +158,7 @@ module Analyzer
     end
 
     def summary_effort
-      nil
+      inference&.routine_effort
     end
 
     def derive!

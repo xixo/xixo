@@ -44,6 +44,21 @@ class RoutineEffortTest < ActiveSupport::TestCase
     assert_equal [ "none" ], @server.efforts.uniq
   end
 
+  test "a summary is routine work, and asks for the backend's routine effort" do
+    Tenant.switch(@tenant) do
+      Resource::OpenaiCompatible.create!(
+        key: "ollama", details: { "base_url" => @server.base_url, "routine_effort" => "none",
+                                  "models" => { "smart" => "qwen3:8b" } }
+      ).tap(&:make_default_inference!)
+    end
+    @server.answer_json(summary: "A note about milk.", tags: [ "groceries" ])
+
+    analysis = Tenant.switch(@tenant) { @feed.analyze!(cause: "manual") }
+    Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, @feed.id, analysis.id) }
+
+    assert_equal [ "none" ], @server.efforts.uniq
+  end
+
   test "a backend with no routine effort lets the model think as it likes" do
     backend
 

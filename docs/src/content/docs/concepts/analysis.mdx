@@ -142,7 +142,8 @@ Every analyzer inherits the same sequence from `Analyzer::Base`:
    A text longer than 10,000 characters is summarized in one call from its first 10,000 characters,
    which open with the names of its sections when it has an outline.
    The role is `smart` by default, `vision` for images and pages, and `fast` for email and the
-   fallback. The prompt fences the file's text and tells the model to treat it as data. It asks
+   fallback. The call is sent with the backend's **Effort on routine work** as `reasoning_effort`, so
+   a reasoning model set to `none` summarizes without thinking first. The prompt fences the file's text and tells the model to treat it as data. It asks
    for tags the way a person would label a folder: a topic, the kind of thing the file is, or the
    name of a person, company, product, or place, and never an amount, a date, an address, or an
    account or reference number. uris reduces the model's answer to a summary, up to 40 entities,
