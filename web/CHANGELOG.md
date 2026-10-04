@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.4.0](https://github.com/xixo/xixo/compare/client-v0.3.0...client-v0.4.0) (2026-10-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **web:** the package is xixo rather than @xixo/client.
+* the package is @xixo/client, every URIS_ variable is XIXO_, and every uris: scope is xixo:, so masks tenants and tokens granted the old scopes ask again.
+
+### Features
+
+* a tailnet resource reaches services on a Tailscale or Headscale network, and a resource reached through a transport connects only to addresses the transport covers ([4dc3d4f](https://github.com/xixo/xixo/commit/4dc3d4fd8bc9c06b92f8755f0b9db6d79fa42899))
+* **server:** a question is answered in one call from the parts of the catalog that bear on it, and totals over a table are worked out by uris ([566ef5e](https://github.com/xixo/xixo/commit/566ef5e5fbc55a8d9977f1edd3daf8722e323db4))
+* **server:** an address feed is typed uris:address, so the type names what it is ([2257c4f](https://github.com/xixo/xixo/commit/2257c4fc221201005497de4e822798d0b8696d80))
+* the project is named xixo, lives at xixo.to and github.com/xixo/xixo, and nothing answers to uris ([d4ce05e](https://github.com/xixo/xixo/commit/d4ce05e10c22feb4e5fd7f4ea841cc2bd42569ed))
+* **web:** the client is published as xixo, so it installs with npm install xixo ([ff14b91](https://github.com/xixo/xixo/commit/ff14b919985f7c091862f82e4086505bdee355d5))
+
+
+### Documentation
+
+* the docs live at docs.xixo.network, and previews at whatever pages.dev address Cloudflare gave the project ([e201ba4](https://github.com/xixo/xixo/commit/e201ba4470e1be2b9888a0981d25849fd42e3781))
+
 ## [0.3.0](https://github.com/xixo/xixo/compare/client-v0.2.0...client-v0.3.0) (2026-09-28)
 
 
