@@ -28,12 +28,12 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.14",
+    "@biomejs/biome": "2.5.15",
     "@graphql-codegen/cli": "^7.4.3",
-    "@graphql-codegen/typed-document-node": "^7.1.0",
+    "@graphql-codegen/typed-document-node": "^7.1.1",
     "@graphql-codegen/typescript": "^6.1.0",
-    "@graphql-codegen/typescript-operations": "^6.1.7",
-    "@types/node": "^26.6.2",
+    "@graphql-codegen/typescript-operations": "^6.1.9",
+    "@types/node": "^26.6.4",
     "@types/rails__actioncable": "^8.0.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
@@ -42,8 +42,8 @@
     "graphql": "^17.0.2",
     "playwright": "1.63.0",
     "typescript": "^7.0.2",
-    "vite": "^8.3.1",
-    "vite-plugin-ruby": "^5.2.4",
-    "vitest": "^5.0.1"
+    "vite": "^8.3.2",
+    "vite-plugin-ruby": "^5.2.5",
+    "vitest": "^5.0.3"
   }
 }
