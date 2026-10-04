@@ -82,9 +82,14 @@ class SignInTest < ActionDispatch::IntegrationTest
                  "dropping the id token must not drop who is signed in"
   end
 
-  test "a callback whose state does not match this browser is refused" do
+  test "a callback whose state does not match this browser starts sign-in again once, then is refused" do
     get "/auth", headers: host
     granted = issuer.authorize!(response.location)
+
+    get "/auth/callback", params: { code: granted[:code], state: "forged" }, headers: host
+
+    assert_redirected_to "/auth/"
+    assert_no_session
 
     get "/auth/callback", params: { code: granted[:code], state: "forged" }, headers: host
 
@@ -92,11 +97,24 @@ class SignInTest < ActionDispatch::IntegrationTest
     assert_no_session
   end
 
-  test "a callback with no authorization in flight is refused" do
+  test "a callback with no authorization in flight starts sign-in again rather than ending there" do
     get "/auth/callback", params: { code: "abc", state: "whatever" }, headers: host
 
-    assert_response :bad_request
+    assert_redirected_to "/auth/"
     assert_no_session
+  end
+
+  test "a callback opened again once signed in, as a restored tab does, goes on to the app" do
+    get "/auth", headers: host
+    granted = issuer.authorize!(response.location)
+    get "/auth/callback", params: { code: granted[:code], state: granted[:state] }, headers: host
+    signed_in_to = response.location
+
+    get "/auth/callback", params: { code: granted[:code], state: granted[:state] }, headers: host
+
+    assert_redirected_to signed_in_to
+    get "/auth/session", headers: host
+    assert_response :success
   end
 
   test "the issuer refusing the code leaves no session behind" do
@@ -122,6 +140,19 @@ class SignInTest < ActionDispatch::IntegrationTest
     get "/auth/callback", params: { code: granted[:code], state: second[:state] }, headers: host
 
     assert_response :bad_request
+  end
+
+  test "only somebody who can change everyone's settings can reconnect a connected uris" do
+    sign_in(scopes: %w[uris:catalog:read uris:settings:admin])
+    get "/auth/handshake", headers: host
+
+    assert_response :success
+
+    delete "/auth/logout", headers: host
+    sign_in(scopes: %w[uris:catalog:read uris:settings:write])
+    get "/auth/handshake", headers: host
+
+    assert_response :forbidden
   end
 
   test "signing out drops the session" do
