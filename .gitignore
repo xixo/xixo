@@ -55,7 +55,7 @@
 # The asks group and the questions asked of it are small, and are kept.
 /test/fixtures/corpus/*
 !/test/fixtures/corpus/asks/
-!/test/fixtures/corpus/cases.yml
+!/test/fixtures/corpus/cases.yaml
 
 
 .masks/

@@ -54,7 +54,7 @@ paths = Pathname.glob(ROOT.join(GROUP.presence || "*", "*")).reject(&:directory?
 abort "nothing to load under #{ROOT}/#{GROUP}" if paths.empty?
 
 named = ENV["CORPUS_CASES"].to_s.split(",").map(&:strip).reject(&:empty?)
-cases = YAML.load_file(ROOT.join("cases.yml"))
+cases = YAML.load_file(ROOT.join("cases.yaml"))
 cases = named.include?("none") ? [] : cases.select { |held| named.include?(held["id"]) } if named.any?
 cases = [] if GROUP.present? && named.empty?
 

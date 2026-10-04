@@ -23,7 +23,7 @@ USAGE = <<~TEXT
     psql           a shell on postgres
     console        a rails console
     seed           re-run the seeds
-    corpus [group] index the reference corpus in its own tenant, then ask it cases.yml and score the answers
+    corpus [group] index the reference corpus in its own tenant, then ask it cases.yaml and score the answers
     test [suite]   unit, server, client, corpus
     reference      regenerate the reference pages under docs/ from the code
     delegation     connect an MCP server through masks and put the whole flow through its paces
