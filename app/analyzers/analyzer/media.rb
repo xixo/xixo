@@ -52,7 +52,7 @@ module Analyzer
         if self.class.model.blank?
           analysis&.log_skip(log_context, "transcript", "no transcription model is configured")
         else
-          step(:transcript, digest: WRITTEN_AS) { transcribe(path) }
+          attempt { step(:transcript, digest: WRITTEN_AS) { transcribe(path) } }
         end
 
         seen(path)

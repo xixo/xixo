@@ -39,7 +39,7 @@ describe('lookOf', () => {
 
   test('the other types look like what they are, whatever mime they carry', () => {
     expect(lookOf({ type: TYPE.tag, mime: 'text/plain' }).label).toBe('tag')
-    expect(lookOf({ type: TYPE.feed }).tone).toBe('var(--brass)')
+    expect(lookOf({ type: TYPE.address }).tone).toBe('var(--brass)')
     expect(lookOf({ type: TYPE.mime }).label).toBe('content type')
     expect(lookOf({ type: TYPE.note }).label).toBe('note')
   })
@@ -53,7 +53,7 @@ describe('naming a type', () => {
   })
 
   test('a feed is reached at its address, and everything else by id', () => {
-    expect(hrefFor({ id: '9', type: TYPE.feed, key: '/buy' })).toBe('/buy')
+    expect(hrefFor({ id: '9', type: TYPE.address, key: '/buy' })).toBe('/buy')
     expect(hrefFor({ id: '9', type: TYPE.tag, key: 'receipts' })).toBe(
       '/items/9',
     )
