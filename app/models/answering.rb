@@ -50,6 +50,13 @@ class Answering
     are not, %<again>s
   TEXT
 
+  UNUSED = <<~TEXT.freeze
+    Your answer was: %<said>s
+
+    It leaves out %<value>s, the figure worked out over the table for %<spec>s. Answer again with that
+    figure.
+  TEXT
+
   AGAIN = 'set "compute" again with tests that keep only the rows the question means.'.freeze
   LAST = "say what the figure covers and what it leaves out.".freeze
   COMPUTES = 2
@@ -97,6 +104,14 @@ class Answering
     end
 
     said = said_in(replied)
+
+    if unused?(said, computed)
+      @analysis&.log_info("answer", "left out the computed figure", computed[:result]["value"].to_s)
+      replied = asked(prompt(compute: false) + "\n\n" + format(UNUSED, said: said, value: computed[:result]["value"],
+                                                              spec: computed[:spec].to_json))
+      said = said_in(replied)
+    end
+
     unsupported = unsupported_in(said, computed)
 
     if unsupported.any?
@@ -120,7 +135,7 @@ class Answering
       computing = compute && evidence.tables.any?
 
       format(PROMPT, evidence: evidence.empty? ? "(nothing in the catalog matched)" : evidence.told,
-                     tables: tables_told, earlier: earlier_told, question: @question, today: Today.said,
+                     tables: tables_told, earlier: earlier_told, question: @question, today: "#{Today.said} #{Today.spans}",
                      compute: computing ? "#{COMPUTE} " : "", shape: computing ? COMPUTE_SHAPE : "")
     end
 
@@ -146,7 +161,7 @@ class Answering
     def computing(spec, again:)
       result = Tables.compute(named(spec), spec)
       @analysis&.log_info("answer", "computed", spec.to_json, "#{result['value']} over #{result['rows']} rows")
-      { result: result, told: format(COMPUTED, spec: spec.to_json, value: result["value"], rows: result["rows"],
+      { result: result, spec: spec, told: format(COMPUTED, spec: spec.to_json, value: result["value"], rows: result["rows"],
                                      spread: spread_told(result), again: again) }
     rescue Tables::Refused => e
       @analysis&.log_info("answer", "could not compute", spec.to_json, e.message)
@@ -156,6 +171,13 @@ class Answering
     def said_in(replied)
       held = replied["answer"].presence || replied.except("compute", "world").values.grep(String).max_by(&:length)
       held.to_s.strip
+    end
+
+    def unused?(said, computed)
+      value = computed&.dig(:result, "value")
+      return false if value.nil? || said.blank?
+
+      !numbers(said).include?(normalized(value.to_s))
     end
 
     def spread_told(result)

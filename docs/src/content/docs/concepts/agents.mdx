@@ -124,7 +124,8 @@ When no resource serves the `agent` role, the `fast` or `smart` model titles the
    rows it has. A feed's note, and what a model described it as, come first. The evidence stops at
    24,000 characters.
 2. **Answer.** The model that serves the `agent` role reads the evidence, the conversation so far,
-   today's date, and the question in one call, and answers in JSON with the feeds it used cited as
+   today's date with this and last month, quarter, and year spelled out as dates, and the question
+   in one call, and answers in JSON with the feeds it used cited as
    `[feed 12]`, in the form the question asks for. It is told to copy every number, name, and date as
    the evidence gives them. The call is sent with the backend's **Effort on questions** as
    `reasoning_effort`, which is `none` unless it is set, so a reasoning model answers without
@@ -138,9 +139,10 @@ When no resource serves the `agent` role, the `fast` or `smart` model titles the
    100 means more than 100 either way. The result goes back to the model with how many rows matched,
    the values they hold most often, and each number column's range, over the whole table when
    nothing matched. The model may ask once more with better tests before it answers.
-4. **Check.** uris lists every number in the answer that appears nowhere in the evidence, the
-   question, earlier answers, or a computed result, and sends the answer back once with them named.
-   A time of day and a citation are left out of the check.
+4. **Check.** An answer that leaves out the figure a computation gave it is sent back once with the
+   figure named. Then uris lists every number in the answer that appears nowhere in the evidence,
+   the question, earlier answers, or a computed result, and sends the answer back once with them
+   named. A time of day and a citation are left out of the check.
 
 When the evidence does not answer a question about the world as it is now, such as the weather or a
 price, the model says so, and uris hands the question to the agent with the tenant's web resources:

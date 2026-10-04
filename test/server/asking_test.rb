@@ -261,6 +261,33 @@ class AskingTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "an answer that leaves out the figure worked out for it is sent back once" do
+    ledger = Tenant.switch(@tenant) do
+      Feed.create!(type: Feed::FILE, key: "ledger.csv", title: "ledger.csv").tap do |feed|
+        rows = [ %w[Date Payee Amount], [ "2026-08-02", "Fernwood Grocers", "-40.10" ], [ "2026-08-19", "Fernwood Grocers", "-60.25" ] ]
+        Analysis.create!(feed: feed, cause: "manual", status: "done", finished_at: Time.current, steps: {
+          "text" => { "result" => rows.map { |row| row.join(",") }.join("\n") },
+          "tables" => { "result" => [ Tables.framed("ledger.csv", rows) ] }
+        })
+      end
+    end
+    Tenant.switch(@tenant) { SearchIndex.index(ledger) }
+    SearchIndex.refresh!
+
+    @server.answer_json(answer: "", world: false, compute: { table: "ledger.csv", op: "count", where: [] })
+    answers("You went to Fernwood Grocers on 2026-08-02 [feed #{ledger.id}].")
+    answers("You went to Fernwood Grocers 2 times [feed #{ledger.id}].")
+
+    asked = ask("How many times did I shop at Fernwood Grocers, by the ledger?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    assert(@server.prompts.any? { |prompt| prompt.include?("It leaves out 2, the figure worked out over the table") })
+    Tenant.switch(@tenant) do
+      assert_equal "You went to Fernwood Grocers 2 times [feed #{ledger.id}].",
+                   Analysis.find(asked.dig("analysis", "id")).step_result("text")
+    end
+  end
+
   test "an answer with a number found nowhere in what it read is sent back once" do
     answers("The Acme invoice is for $9,999 [feed #{@invoice.id}].")
     answers("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
