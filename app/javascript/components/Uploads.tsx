@@ -1,6 +1,5 @@
 import { ActionIcon, Button, Group, Text } from '@mantine/core'
 import { IconArrowBarToDown, IconX } from '@tabler/icons-react'
-import { metaCSRFToken } from 'xixo'
 import {
   createContext,
   type ReactNode,
@@ -11,6 +10,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { metaCSRFToken } from 'xixo'
 import { session } from '../hooks/useSession'
 import {
   type Dropped,

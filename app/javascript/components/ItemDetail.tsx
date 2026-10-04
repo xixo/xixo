@@ -24,6 +24,16 @@ import {
   IconX,
 } from '@tabler/icons-react'
 import {
+  type CSSProperties,
+  Fragment,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import {
   AnalyzeFeedDocument,
   AskCatalogDocument,
   FeedDetailDocument,
@@ -35,16 +45,6 @@ import {
   TagFeedsDocument,
 } from 'xixo'
 import { useQuery } from 'xixo/react'
-import {
-  type CSSProperties,
-  Fragment,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
 import { hrefFor, lookOf, TYPE, toned } from '../looks'
 import { Connections } from './Connections'

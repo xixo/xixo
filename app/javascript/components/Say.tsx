@@ -1,6 +1,5 @@
 import { CloseButton } from '@mantine/core'
 import { IconAlertTriangle, IconCheck } from '@tabler/icons-react'
-import { useMutation } from 'xixo/react'
 import {
   type CSSProperties,
   createContext,
@@ -11,6 +10,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { useMutation } from 'xixo/react'
 
 type Document<TData, TVariables extends Record<string, unknown>> = Parameters<
   typeof useMutation<TData, TVariables>

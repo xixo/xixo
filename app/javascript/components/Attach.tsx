@@ -37,6 +37,7 @@ import {
   IconWorld,
   IconWorldDownload,
 } from '@tabler/icons-react'
+import { type CSSProperties, useState } from 'react'
 import {
   AttachResourceDocument,
   ResourceTypesDocument,
@@ -44,7 +45,6 @@ import {
   UpdateResourceDocument,
 } from 'xixo'
 import { useMutation, useQuery } from 'xixo/react'
-import { type CSSProperties, useState } from 'react'
 
 type Attaching = ResourceTypesQuery['resourceTypes'][number]
 

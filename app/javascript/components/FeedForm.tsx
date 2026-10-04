@@ -9,9 +9,9 @@ import {
   Textarea,
   TextInput,
 } from '@mantine/core'
+import { useEffect, useState } from 'react'
 import { SaveFeedDocument } from 'xixo'
 import { useMutation } from 'xixo/react'
-import { useEffect, useState } from 'react'
 
 export const EVERY = [
   { label: 'by hand', seconds: 0 },

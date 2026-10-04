@@ -1,8 +1,8 @@
 import { Autocomplete, Button } from '@mantine/core'
 import { IconTag } from '@tabler/icons-react'
+import { useMemo, useState } from 'react'
 import { TagFeedsDocument, TagsDocument } from 'xixo'
 import { useQuery } from 'xixo/react'
-import { useMemo, useState } from 'react'
 import { useAloud, useSay } from './Say'
 
 export function Tagger({

@@ -1,6 +1,6 @@
 import { Checkbox } from '@mantine/core'
-import type { RowFragment } from 'xixo'
 import { Link } from 'react-router-dom'
+import type { RowFragment } from 'xixo'
 import { hrefFor, lookOf, toned } from '../looks'
 import { dated } from '../when'
 import { Cover, Thumb } from './Thumb'

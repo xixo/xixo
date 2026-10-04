@@ -1,7 +1,7 @@
 import { Alert, Button, Group, Loader, Stack, Text } from '@mantine/core'
+import { useState } from 'react'
 import { CatalogDocument } from 'xixo'
 import { useQuery } from 'xixo/react'
-import { useState } from 'react'
 import { usePages } from '../hooks/usePages'
 import { TYPE } from '../looks'
 import { type Row, Rows } from './Rows'

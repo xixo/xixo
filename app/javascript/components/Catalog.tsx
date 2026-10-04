@@ -10,6 +10,8 @@ import {
   IconPlus,
   IconSparkles,
 } from '@tabler/icons-react'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   AnalysisProgressedDocument,
   AskCatalogDocument,
@@ -23,8 +25,6 @@ import {
   TypesDocument,
 } from 'xixo'
 import { useQuery, useSubscription } from 'xixo/react'
-import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useEndless } from '../hooks/useEndless'
 import { usePages } from '../hooks/usePages'
 import { useTitle } from '../hooks/useTitle'

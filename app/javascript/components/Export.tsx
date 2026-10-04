@@ -8,13 +8,9 @@ import {
   TextInput,
 } from '@mantine/core'
 import { IconPackageExport } from '@tabler/icons-react'
-import {
-  ExportFeedsDocument,
-  ResourcesDocument,
-  TypesDocument,
-} from 'xixo'
-import { useQuery } from 'xixo/react'
 import { useEffect, useState } from 'react'
+import { ExportFeedsDocument, ResourcesDocument, TypesDocument } from 'xixo'
+import { useQuery } from 'xixo/react'
 import { pluralOf } from '../looks'
 import { useAloud, useSay } from './Say'
 

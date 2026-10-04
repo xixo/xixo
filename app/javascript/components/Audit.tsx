@@ -1,8 +1,8 @@
 import { Alert, Button, Code, Group, Loader, Stack, Text } from '@mantine/core'
-import { AuditEventsDocument } from 'xixo'
-import { useQuery } from 'xixo/react'
 import { type CSSProperties, type ReactNode, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { AuditEventsDocument } from 'xixo'
+import { useQuery } from 'xixo/react'
 import {
   type Entry,
   type Happening,

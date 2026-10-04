@@ -6,6 +6,8 @@ import {
   IconPlayerPlay,
   IconTrash,
 } from '@tabler/icons-react'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   AnalysisProgressedDocument,
   CancelAnalysisDocument,
@@ -14,8 +16,6 @@ import {
   RunFeedDocument,
 } from 'xixo'
 import { useSubscription } from 'xixo/react'
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { toned } from '../looks'
 import { RUN_OPEN } from '../runs'
 import { type Feed as Editable, EVERY, FeedForm } from './FeedForm'

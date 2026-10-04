@@ -6,10 +6,10 @@ import {
   IconDatabase,
   IconUser,
 } from '@tabler/icons-react'
-import { SetSettingDocument, SettingsDocument } from 'xixo'
-import { useQuery } from 'xixo/react'
 import type { ReactNode } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
+import { SetSettingDocument, SettingsDocument } from 'xixo'
+import { useQuery } from 'xixo/react'
 import { useTitle } from '../hooks/useTitle'
 import { Face } from './Face'
 import { useAloud } from './Say'

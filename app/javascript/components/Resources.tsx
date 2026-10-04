@@ -24,6 +24,14 @@ import {
   IconStarFilled,
 } from '@tabler/icons-react'
 import {
+  type CSSProperties,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
+import { useParams } from 'react-router-dom'
+import {
   ArchiveResourceDocument,
   CheckResourceDocument,
   ResourcesDocument,
@@ -33,14 +41,6 @@ import {
   SyncResourceDocument,
 } from 'xixo'
 import { useQuery } from 'xixo/react'
-import {
-  type CSSProperties,
-  type RefObject,
-  useEffect,
-  useRef,
-  useState,
-} from 'react'
-import { useParams } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
 import { ago, dated } from '../when'
 import { Attach, type Editing, glyphFor } from './Attach'
