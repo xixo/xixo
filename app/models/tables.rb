@@ -4,7 +4,8 @@ module Tables
   TOTALLED = /\A\s*(sub)?totals?\b/i
   OPS = %w[sum count average min max].freeze
   TESTS = %w[contains equals starts > < >= <=].freeze
-  LISTED = 20
+  SHOWN = 2
+  SPREAD = 4
 
   class Refused < StandardError; end
 
@@ -25,7 +26,18 @@ module Tables
     end
 
     def described(table)
-      "#{table['name']}: #{table['columns'].join(', ')} (#{table['rows'].size} rows)"
+      shown = table["rows"].first(SHOWN).map { |row| table["columns"].zip(row).to_h.to_json }
+      "#{table['name']}: #{table['columns'].join(', ')} (#{table['rows'].size} rows), such as #{shown.join(' and ')}"
+    end
+
+    def spread(table, rows)
+      table["columns"].each_with_index.filter_map do |name, at|
+        values = rows.map { |row| row[at] }.compact
+        next if values.empty? || values.all? { |value| number(value) }
+
+        common = values.tally.max_by(SPREAD) { |_, count| count }.map { |value, count| "#{value} (#{count})" }
+        "#{name}: #{common.join(', ')}"
+      end
     end
 
     def compute(tables, spec)
@@ -37,14 +49,14 @@ module Tables
       raise Refused, "op is one of #{OPS.join(', ')}" unless OPS.include?(op)
 
       rows = Array(spec["where"]).reduce(counted(table)) { |held, test| filtered(table, held, test) }
-      return { "op" => op, "value" => rows.size, "rows" => rows.size } if op == "count"
+      matched = { "rows" => rows.size, "spread" => spread(table, rows) }
+      return { "op" => op, "value" => rows.size }.merge(matched) if op == "count"
 
       at = column(table, spec["column"])
       values = rows.filter_map { |row| number(row[at]) }
       raise Refused, "no numbers in #{spec['column']} among the #{rows.size} rows that matched" if values.empty?
 
-      { "op" => op, "column" => table["columns"][at], "value" => reduced(op, values).round(2), "rows" => rows.size,
-        "matched" => rows.first(LISTED).map { |row| table["columns"].zip(row).to_h } }
+      { "op" => op, "column" => table["columns"][at], "value" => reduced(op, values).round(2) }.merge(matched)
     end
 
     private

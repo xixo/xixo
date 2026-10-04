@@ -1,10 +1,12 @@
 class Evidence
   Piece = Data.define(:feed, :section, :text)
 
-  BUDGET = 18_000
-  WHOLE = 4_000
+  BUDGET = 24_000
+  WHOLE = 10_000
   SECTION = 7_000
-  FEEDS = 6
+  SECTIONS = 3
+  MEANT = 6
+  FEEDS = 4
   FOUND = 12
   ANY_WORD = "1".freeze
   ASKING = %w[much many need tell know want give show find get got say said like please thanks one ones put].freeze
@@ -85,8 +87,7 @@ class Evidence
       return [] if body.blank?
       return [ [ nil, body ] ] if body.length <= WHOLE
 
-      starts = Array(Tool::Feeds.found_in(feed, @question, budget: SECTION)[:passages]).map { |passage| passage[:from] }
-      starts = [ 0 ] if starts.empty?
+      starts = ranked(feed, body).presence || [ 0 ]
 
       outline = feed.outline
       return windows(body, starts) if outline.empty?
@@ -94,10 +95,17 @@ class Evidence
       sections(body, outline, starts)
     end
 
+    def ranked(feed, body)
+      vector = Embedding.query(@question)
+      meant = vector ? PassageIndex.nearest(vector, tenant: feed.tenant, limit: MEANT, feed_id: feed.id).map(&:starts_at) : []
+
+      (meant + Tool::Feeds.worded(body, keywords).map(&:first)).uniq
+    end
+
     def sections(body, outline, starts)
       bounds = Outline.starts(outline) + [ body.length ]
 
-      starts.filter_map { |from| Outline.at(outline, from) }.uniq.map do |name|
+      starts.filter_map { |from| Outline.at(outline, from) }.uniq.first(SECTIONS).map do |name|
         part = outline.find { |held| held["name"] == name }
         from = part["from"].to_i
         to = bounds.find { |at| at > from } || body.length

@@ -253,7 +253,7 @@ class AskingTest < ActionDispatch::IntegrationTest
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
     computed = @server.prompts.find { |prompt| prompt.include?("it came to") }
-    assert_match(/it came to -100\.35 over 2 matching rows/, computed)
+    assert_match(/it came to -100\.35 over 2 rows/, computed)
     assert_includes @server.prompts.first, "Tables whose rows can be worked over:\n- [feed #{ledger.id}] ledger.csv: Date, Payee, Amount (3 rows)"
     Tenant.switch(@tenant) do
       assert_equal "You spent $100.35 at Fernwood Grocers in August [feed #{ledger.id}].",

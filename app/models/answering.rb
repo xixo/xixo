@@ -30,19 +30,27 @@ class Answering
   TEXT
 
   COMPUTE = <<~TEXT.squish.freeze
-    When the answer is a total, a count, an average, a smallest, or a largest over the rows of a table
-    and no row gives it, do not work it out: set "compute" and leave "answer" empty, and you will be
-    given the result. "where" narrows the rows: each test names a column, one of contains, equals, starts,
-    >, <, >=, or <=, and a value, so August of 2026 is ["Date", "starts", "2026-08"].
+    A total, a count, an average, a smallest, or a largest over the rows of a table that no row already
+    gives is never worked out by you: set "compute", leave "answer" empty, and you will be given the
+    result. Name the table as it is listed. "where" keeps only the rows that pass every test, so give
+    one test for each thing the question narrows by, such as a name and a month. A test names a column,
+    one of contains, equals, starts, >, <, >=, or <=, and a value: August of 2026 is ["Date", "starts",
+    "2026-08"]. Look at the example rows for how a column writes its values, such as a minus sign on
+    money spent.
   TEXT
 
   COMPUTE_SHAPE = '"compute": null or {"table": "...", "op": "sum, count, average, min or max", ' \
                   '"column": "...", "where": [["column", "contains", "value"]]}, '
 
   COMPUTED = <<~TEXT.freeze
-    You asked for %<spec>s, and it came to %<value>s over %<rows>s matching rows. Answer the question
-    with that figure.
+    You asked for %<spec>s, and it came to %<value>s over %<rows>s rows. The values those rows hold most
+    often are: %<spread>s. If those are the rows the question means, answer with that figure. If they
+    are not, %<again>s
   TEXT
+
+  AGAIN = 'set "compute" again with tests that keep only the rows the question means.'.freeze
+  LAST = "say what the figure covers and what it leaves out.".freeze
+  COMPUTES = 2
 
   REFUSED = <<~TEXT.freeze
     You asked for %<spec>s, which could not be worked out: %<reason>s. Answer from the parts above as
@@ -77,9 +85,13 @@ class Answering
     replied = asked(prompt)
     computed = nil
 
-    if (spec = replied["compute"]).is_a?(Hash) && evidence.tables.any?
-      computed = computing(spec)
-      replied = asked(prompt(compute: false) + "\n\n" + computed[:told])
+    COMPUTES.times do |round|
+      spec = replied["compute"]
+      break unless spec.is_a?(Hash) && evidence.tables.any?
+
+      last = round == COMPUTES - 1
+      computed = computing(spec, again: last ? LAST : AGAIN)
+      replied = asked(prompt(compute: !last) + "\n\n" + computed[:told])
     end
 
     said = said_in(replied)
@@ -129,10 +141,11 @@ class Answering
       @inference.summarize(text, role: ROLE, analysis: @analysis, effort: @inference.ask_effort)
     end
 
-    def computing(spec)
-      result = Tables.compute(evidence.tables, spec)
-      @analysis&.log_info("answer", "computed", spec.to_json, result["value"].to_s)
-      { result: result, told: format(COMPUTED, spec: spec.to_json, value: result["value"], rows: result["rows"]) }
+    def computing(spec, again:)
+      result = Tables.compute(named(spec), spec)
+      @analysis&.log_info("answer", "computed", spec.to_json, "#{result['value']} over #{result['rows']} rows")
+      { result: result, told: format(COMPUTED, spec: spec.to_json, value: result["value"], rows: result["rows"],
+                                     spread: result["spread"].join("; ").presence || "nothing", again: again) }
     rescue Tables::Refused => e
       @analysis&.log_info("answer", "could not compute", spec.to_json, e.message)
       { result: nil, told: format(REFUSED, spec: spec.to_json, reason: e.message) }
@@ -141,6 +154,13 @@ class Answering
     def said_in(replied)
       held = replied["answer"].presence || replied.except("compute", "world").values.grep(String).max_by(&:length)
       held.to_s.strip
+    end
+
+    def named(spec)
+      cited = spec.to_h.values_at("table", :table).join[/feed\s*(\d+)/i, 1]&.to_i
+      held = evidence.tables.select { |table| table["feed"] == cited }
+
+      held.one? ? held : evidence.tables
     end
 
     def unsupported_in(said, computed)
