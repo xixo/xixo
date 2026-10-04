@@ -1,6 +1,6 @@
 {
   "name": "xixo",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A GraphQL and Action Cable client for xixo.",
   "license": "MIT",
   "homepage": "https://docs.xixo.network",
