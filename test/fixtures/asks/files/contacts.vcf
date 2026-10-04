@@ -1,0 +1,16 @@
+BEGIN:VCARD
+VERSION:3.0
+FN:Marguerite Villeneuve
+N:Villeneuve;Marguerite;;;
+TEL;TYPE=CELL:+1 416 555 0143
+EMAIL:marguerite@example.invalid
+NOTE:Sam's aunt. Has the spare key to the house.
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Priya Raman
+N:Raman;Priya;;;
+ORG:Orchard Lane Properties Inc.
+TEL;TYPE=WORK:+1 905 555 0188
+EMAIL:priya@orchardlane.invalid
+END:VCARD

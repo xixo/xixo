@@ -1,0 +1,13 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//uris asks//EN
+BEGIN:VEVENT
+UID:dentist-20261103@example.invalid
+DTSTAMP:20260915T140000Z
+DTSTART;TZID=America/Toronto:20261103T141500
+DTEND;TZID=America/Toronto:20261103T150000
+SUMMARY:Dentist: cleaning with Dr. Okonkwo
+LOCATION:Maple Row Dental, 41 King Street, Halbrook
+DESCRIPTION:Bring the new insurance card. Arrive ten minutes early.
+END:VEVENT
+END:VCALENDAR

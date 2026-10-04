@@ -1,0 +1,111 @@
+- id: jars-per-size
+  turns:
+    - ask: how many jars do I need to buy for the pantry, per size?
+      expect:
+        - near: ["0.5", "3"]
+        - near: ["1L", "9"]
+        - near: ["1.5", "14"]
+        - near: ["2L", "8"]
+        - near: ["3L", "11"]
+    - ask: put that in a table
+      expect:
+        - "|"
+        - near: ["1.5", "14"]
+        - near: ["3L", "11"]
+    - ask: and what does it all cost with tax?
+      expect:
+        - /753\.69/
+
+- id: jars-total
+  turns:
+    - ask: how many containers is the whole pantry order?
+      expect:
+        - /\b61\b/
+
+- id: spaghetti-container
+  turns:
+    - ask: what am I storing the spaghetti in?
+      expect:
+        - /tallis/i
+
+- id: korken-absent
+  turns:
+    - ask: how many korken jars do I need to buy at ikea?
+      expect:
+        - /\b(no|not|n't|nothing|none)\b/i
+      reject:
+        - /you(?:'ll| will)? need \d+ korken/i
+
+- id: grocery-august
+  turns:
+    - ask: how much did I spend at Fernwood Grocers in August?
+      expect:
+        - /158\.01/
+
+- id: transactions-over-100
+  turns:
+    - ask: how many transactions over $100 were there in the chequing account last quarter?
+      expect:
+        - /\b30\b/
+
+- id: brightline-paid
+  turns:
+    - ask: what have I paid Brightline Roofing so far?
+      expect:
+        - /3,?250/
+
+- id: roof-decision
+  turns:
+    - ask: which roofer did we pick?
+      expect:
+        - /brightline/i
+    - ask: how much was their quote?
+      expect:
+        - /14,?800/
+
+- id: lease-notice
+  turns:
+    - ask: how much notice do I have to give to move out?
+      expect:
+        - /\b60\b|sixty/i
+    - ask: and is there a pet deposit?
+      expect:
+        - /\$?350\b/
+
+- id: lease-late-fee
+  turns:
+    - ask: what happens if my rent is late?
+      expect:
+        - /\$?45\b/
+
+- id: flight-code
+  turns:
+    - ask: what's my booking reference for Lisbon?
+      expect:
+        - QX7RTM
+
+- id: flight-departure
+  turns:
+    - ask: when does my flight to Lisbon leave?
+      expect:
+        - /21:35|9:35\s*p\.?m/i
+        - /nov(ember)?\.?\s*14|14\s*nov|2026-11-14/i
+
+- id: focaccia
+  turns:
+    - ask: how long do I bake the focaccia?
+      expect:
+        - /\b22\b/
+
+- id: dentist
+  turns:
+    - ask: when is my dentist appointment?
+      expect:
+        - /nov(ember)?\.?\s*3\b|3\s*nov|2026-11-03/i
+        - /2:15|14:15/
+
+- id: marguerite-phone
+  turns:
+    - ask: what's Marguerite's number?
+      expect:
+        - /555[\s.-]?0143/
