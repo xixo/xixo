@@ -344,7 +344,7 @@ header.header::after {
 .panes {
   display: grid;
   grid-template-columns: 1fr;
-  margin-block: 2.5rem 3rem;
+  margin-block: 3rem 4rem;
 }
 
 .panes > div {
@@ -355,15 +355,17 @@ header.header::after {
 }
 
 .panes > div + div {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
+  margin-top: 1.75rem;
+  padding-top: 1.75rem;
   border-block-start: 1px solid var(--sl-color-hairline);
 }
 
 .panes b {
-  font-size: 1.125rem;
+  font-size: clamp(1.375rem, 4vw, 1.625rem);
   font-weight: 700;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+  color: var(--sl-color-white);
 }
 
 .panes b a {
@@ -376,7 +378,7 @@ header.header::after {
 }
 
 .panes span {
-  font-size: 0.9375rem;
+  font-size: clamp(1.0625rem, 2.5vw, 1.1875rem);
   line-height: 1.5;
   color: var(--sl-color-gray-2);
   text-wrap: pretty;
