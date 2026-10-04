@@ -44,8 +44,7 @@ class Answering
                   '"column": "...", "where": [["column", "contains", "value"]]}, '
 
   COMPUTED = <<~TEXT.freeze
-    You asked for %<spec>s, and it came to %<value>s over %<rows>s rows. The values those rows hold most
-    often are: %<spread>s. If those are the rows the question means, answer with that figure. If they
+    You asked for %<spec>s, and it came to %<value>s over %<rows>s rows. Across those rows, %<spread>s. If those are the rows the question means, answer with that figure. If they
     are not, %<again>s
   TEXT
 
@@ -146,7 +145,7 @@ class Answering
       result = Tables.compute(named(spec), spec)
       @analysis&.log_info("answer", "computed", spec.to_json, "#{result['value']} over #{result['rows']} rows")
       { result: result, told: format(COMPUTED, spec: spec.to_json, value: result["value"], rows: result["rows"],
-                                     spread: result["spread"].join("; ").presence || "nothing", again: again) }
+                                     spread: spread_told(result), again: again) }
     rescue Tables::Refused => e
       @analysis&.log_info("answer", "could not compute", spec.to_json, e.message)
       { result: nil, told: format(REFUSED, spec: spec.to_json, reason: e.message) }
@@ -155,6 +154,13 @@ class Answering
     def said_in(replied)
       held = replied["answer"].presence || replied.except("compute", "world").values.grep(String).max_by(&:length)
       held.to_s.strip
+    end
+
+    def spread_told(result)
+      held = result["spread"].join("; ")
+      return "nothing matched every test. Across the whole table, the values run #{held}" if result["rows"].zero?
+
+      "the values run #{held}"
     end
 
     def named(spec)

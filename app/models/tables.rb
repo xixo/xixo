@@ -33,7 +33,10 @@ module Tables
     def spread(table, rows)
       table["columns"].each_with_index.filter_map do |name, at|
         values = rows.map { |row| row[at] }.compact
-        next if values.empty? || values.all? { |value| number(value) }
+        next if values.empty?
+
+        numbers = values.filter_map { |value| number(value) }
+        next "#{name} from #{numbers.min} to #{numbers.max}" if numbers.size == values.size
 
         common = values.tally.max_by(SPREAD) { |_, count| count }.map { |value, count| "#{value} (#{count})" }
         "#{name}: #{common.join(', ')}"
@@ -49,7 +52,7 @@ module Tables
       raise Refused, "op is one of #{OPS.join(', ')}" unless OPS.include?(op)
 
       rows = Array(spec["where"]).reduce(counted(table)) { |held, test| filtered(table, held, test) }
-      matched = { "rows" => rows.size, "spread" => spread(table, rows) }
+      matched = { "rows" => rows.size, "spread" => spread(table, rows.presence || counted(table)) }
       return { "op" => op, "value" => rows.size }.merge(matched) if op == "count"
 
       at = column(table, spec["column"])

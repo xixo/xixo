@@ -6,7 +6,8 @@ class Evidence
   SECTION = 7_000
   SECTIONS = 3
   MEANT = 6
-  FEEDS = 4
+  FEEDS = 5
+  WORDED = 2
   LONG = 30
   HEAD = 4
   MATCHING = 15
@@ -66,7 +67,8 @@ class Evidence
 
     def candidates
       found = SearchIndex.search(keywords, limit: FOUND, least: ANY_WORD)
-      ids = (@first.map(&:id) + found).uniq
+      worded = SearchIndex.lexical(keywords, tenant: Current.tenant, limit: WORDED, from: 0, least: ANY_WORD)[:ids]
+      ids = (@first.map(&:id) + worded + found).uniq
       asked = Analysis.where(cause: "ask").select(:feed_id)
       held = Feed.where(id: ids).where.not(id: @leaving_out.map(&:id)).where.not(id: asked)
                  .where.not(type: [ Feed::TAG, Feed::MIME ]).index_by(&:id)

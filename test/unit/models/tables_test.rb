@@ -55,6 +55,18 @@ class TablesTest < ActiveSupport::TestCase
     assert_equal 2, Tables.compute([ ledger ], { op: "count", where: [ [ "Amount", "<", "-9.5" ] ] })["value"]
   end
 
+  test "a result says what its rows hold, and what the whole table holds when nothing matched" do
+    ledger = Tables.framed("ledger.csv", LEDGER)
+
+    fernwood = Tables.compute([ ledger ], { op: "count", where: [ [ "Description", "contains", "fernwood" ] ] })
+    assert_includes fernwood["spread"], "Description: Fernwood Grocers (3)"
+    assert_includes fernwood["spread"], "Amount from -1060.25 to -9.0"
+
+    nothing = Tables.compute([ ledger ], { op: "count", where: [ [ "Amount", ">", "100" ] ] })
+    assert_equal 0, nothing["rows"]
+    assert_includes nothing["spread"], "Amount from -1060.25 to -4.5"
+  end
+
   test "what cannot be worked out is refused with the reason" do
     ledger = Tables.framed("ledger.csv", LEDGER)
 
