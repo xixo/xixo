@@ -344,7 +344,7 @@ header.header::after {
 .panes {
   display: grid;
   grid-template-columns: 1fr;
-  margin-block: 0 3rem;
+  margin-block: 2.5rem 3rem;
 }
 
 .panes > div {
@@ -355,8 +355,8 @@ header.header::after {
 }
 
 .panes > div + div {
-  margin-top: 1.25rem;
-  padding-top: 1.25rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
   border-block-start: 1px solid var(--sl-color-hairline);
 }
 
@@ -379,7 +379,11 @@ header.header::after {
   font-size: 0.9375rem;
   line-height: 1.5;
   color: var(--sl-color-gray-2);
-  text-wrap: balance;
+  text-wrap: pretty;
+}
+
+.panes span a {
+  white-space: nowrap;
 }
 
 @media (min-width: 50rem) {
@@ -389,6 +393,10 @@ header.header::after {
 
   .panes > div {
     padding-inline-end: 1.75rem;
+  }
+
+  .panes span {
+    text-wrap: balance;
   }
 
   .panes > div + div {
