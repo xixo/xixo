@@ -318,13 +318,19 @@ class Resource
           err = Thread.new { stderr.read }
 
           unless waiter.join(TIMEOUT)
-            Process.kill("KILL", -waiter.pid)
+            stop(waiter.pid)
             [ out, err ].each(&:kill)
             raise Resource::Failed, "#{key}: git #{command[-2]} ran past #{TIMEOUT}s and was stopped"
           end
 
           [ out.value, err.value, waiter.value ]
         end
+      end
+
+      def stop(pid)
+        Process.kill("KILL", -pid)
+      rescue Errno::ESRCH
+        nil
       end
 
       def scrubbed(said)
