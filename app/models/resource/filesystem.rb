@@ -118,7 +118,7 @@ class Resource
       target.dirname.mkpath
       confine_for_write(name)
 
-      File.open(target, File::WRONLY | File::CREAT | File::TRUNC | File::NOFOLLOW | File::BINARY) do |file|
+      File.open(target, File::WRONLY | File::CREAT | File::TRUNC | File::NOFOLLOW, binmode: true) do |file|
         body.respond_to?(:read) ? IO.copy_stream(body, file) : file.write(body.to_s)
       end
 

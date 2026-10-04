@@ -187,6 +187,14 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     assert_equal "untouched", outside.read
   end
 
+  test "an upload of bytes that are not UTF-8 lands on disk exactly as given" do
+    bytes = "\x89PNG\r\n\x1A\n\xB7\xFF".b
+
+    @resource.upload("scan.png", bytes)
+
+    assert_equal bytes, (@root + "scan.png").binread
+  end
+
   test "get reads a glimpse of a large file, not the whole of it, and says how big it is" do
     (@root + "huge.txt").open("wb") do |file|
       file.write("é" * Resource::GLIMPSE_BYTES)
