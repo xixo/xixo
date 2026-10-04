@@ -1,6 +1,8 @@
 module Analyzer
   class Calendar < Base
     MAX_EVENTS = 200
+    WRITTEN_AS = "dates as they are read".freeze
+    STAMP = /\A(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})\d{2}(Z)?)?\z/
 
     def self.handles?(feed)
       feed.mime == "text/calendar"
@@ -11,7 +13,7 @@ module Analyzer
 
       events = step(:events) { parse(body) }
 
-      step(:text) { flatten(events).truncate(MAX_TEXT) }
+      step(:text, digest: WRITTEN_AS) { flatten(events).truncate(MAX_TEXT) }
     end
 
     SUMMARY_EVENTS = 20
@@ -21,7 +23,7 @@ module Analyzer
       return super if events.empty?
 
       lines = events.first(SUMMARY_EVENTS).map do |event|
-        "- #{[ event['dtstart'], event['summary'], event['location'] ].compact_blank.join(' — ')}"
+        "- #{[ self.class.read_as(event['dtstart']), event['summary'], event['location'] ].compact_blank.join(' — ')}"
       end
 
       <<~PROMPT
@@ -33,6 +35,16 @@ module Analyzer
         #{fenced("First #{lines.size} of #{events.size} events:\n#{lines.join("\n")}")}
         #{summary_shape(SAYS)}
       PROMPT
+    end
+
+    def self.read_as(stamp)
+      parts = stamp.to_s.match(STAMP)
+      return stamp if parts.nil?
+
+      day = Date.new(parts[1].to_i, parts[2].to_i, parts[3].to_i).strftime("%A, %B %-d, %Y")
+      parts[4] ? "#{day}, #{parts[4]}:#{parts[5]}#{' UTC' if parts[6]}" : day
+    rescue Date::Error
+      stamp
     end
 
     SAYS = "one or two sentences on what is on this calendar and over what period. " \
@@ -87,7 +99,7 @@ module Analyzer
 
       def flatten(events)
         events.map do |event|
-          [ event["summary"], event["dtstart"], event["location"], event["description"] ]
+          [ event["summary"], self.class.read_as(event["dtstart"]), event["location"], event["description"] ]
             .compact.join(" · ")
         end.join("\n")
       end

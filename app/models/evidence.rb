@@ -7,6 +7,9 @@ class Evidence
   SECTIONS = 3
   MEANT = 6
   FEEDS = 4
+  LONG = 30
+  HEAD = 4
+  MATCHING = 15
   FOUND = 12
   ANY_WORD = "1".freeze
   ASKING = %w[much many need tell know want give show find get got say said like please thanks one ones put].freeze
@@ -47,7 +50,9 @@ class Evidence
       candidates.each do |feed|
         break if left <= 0
 
-        read(feed).each do |section, text|
+        tables = Tables.of(feed)
+
+        read(feed, tables).each do |section, text|
           held = text.to_s.strip.truncate(left)
           next if held.blank?
 
@@ -55,7 +60,7 @@ class Evidence
           left -= held.length
         end
 
-        @tables.concat(Tables.of(feed).map { |table| table.merge("feed" => feed.id) })
+        @tables.concat(tables.map { |table| table.merge("feed" => feed.id) })
       end
     end
 
@@ -76,20 +81,37 @@ class Evidence
 
     DESCRIBED = "As a model described what it shows".freeze
 
-    def read(feed)
+    def read(feed, tables)
       [ ([ "Note", feed.note ] if feed.note.present?),
         ([ DESCRIBED, feed.described_text.truncate(SECTION) ] if feed.described_text.present?),
-        *parts(feed) ].compact
+        *parts(feed).map { |section, text| [ section, shortened(text, tabled(tables, section)) ] } ].compact
+    end
+
+    def tabled(tables, section)
+      tables.find { |table| table["name"] == section } || (tables.first if tables.one? && section.nil?)
+    end
+
+    def shortened(text, table)
+      return text if table.nil? || table["rows"].size <= LONG
+
+      lines = text.lines
+      words = keywords.split
+      matching = lines.drop(HEAD).select { |line| words.any? { |word| line.downcase.include?(word) } }.first(MATCHING)
+
+      [ *lines.first(HEAD), *matching,
+        "(#{table['rows'].size} rows in all, #{matching.size} of them shown for mentioning #{words.to_sentence}. " \
+        "A total or a count over them is worked out with compute.)" ].join.strip
     end
 
     def parts(feed)
       body = feed.readable_text.to_s
       return [] if body.blank?
-      return [ [ nil, body ] ] if body.length <= WHOLE
-
-      starts = ranked(feed, body).presence || [ 0 ]
 
       outline = feed.outline
+      return [ [ nil, body ] ] if body.length <= WHOLE && outline.empty?
+      return every_section(body, outline) if body.length <= WHOLE
+
+      starts = ranked(feed, body).presence || [ 0 ]
       return windows(body, starts) if outline.empty?
 
       sections(body, outline, starts)
@@ -112,6 +134,16 @@ class Evidence
 
         [ name, body[from...to].truncate(SECTION) ]
       end.presence || windows(body, starts)
+    end
+
+    def every_section(body, outline)
+      bounds = Outline.starts(outline) + [ body.length ]
+      lead = bounds.first.to_i.positive? ? [ [ nil, body[0...bounds.first] ] ] : []
+
+      lead + outline.map do |part|
+        from = part["from"].to_i
+        [ part["name"], body[from...(bounds.find { |at| at > from } || body.length)] ]
+      end
     end
 
     def windows(body, starts)

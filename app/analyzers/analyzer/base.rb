@@ -157,6 +157,10 @@ module Analyzer
       []
     end
 
+    def summary_effort
+      nil
+    end
+
     def derive!
       step(:derived, digest: Thumbnail.widths.to_json) { Thumbnail.stored!(feed, reference) }
     rescue Thumbnail::Unavailable => e
@@ -313,7 +317,7 @@ module Analyzer
              after: [ self.class.summary_after, inference.updated_at ].max,
              digest: Digest::SHA256.hexdigest([ inference.key, model, prompt ].to_json),
              about: { "resource" => inference.key, "model" => model, "role" => role.to_s }) do
-          shaped(inference.summarize(prompt, role: role, analysis: analysis, images: summary_images))
+          shaped(inference.summarize(prompt, role: role, analysis: analysis, images: summary_images, effort: summary_effort))
         end
       rescue Resource::Unusable => e
         raise Analyzer::Failed, e.message

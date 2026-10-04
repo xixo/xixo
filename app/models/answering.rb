@@ -20,7 +20,8 @@ class Answering
     %<question>s
     ---
 
-    Answer from the parts above alone, in a few sentences or a short list. Copy every number, name, and
+    Answer from the parts above alone, in the form the question asks for, such as a table in markdown,
+    and otherwise in a few sentences or a short list. Copy every number, name, and
     date exactly as it appears in them, and cite each feed you used by its id in brackets, like [feed 12].
     When a part already gives a total, a count, or a list, use it as it is. %<compute>sIf the parts do not
     answer the question, say plainly that the catalog does not have it, and set "world" to true when the

@@ -9,6 +9,14 @@ module Analyzer
       false
     end
 
+    def self.summary_role
+      Resource::OpenaiCompatible::AGENT_ROLE
+    end
+
+    def summary_effort
+      inference&.ask_effort
+    end
+
     def roll_up!
       step(:conversation, force: true) { transcript }
       attempt { summarize! }

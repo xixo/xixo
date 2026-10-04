@@ -2,7 +2,7 @@ class Asking
   LINKED_CITATION = /\[feed\s*:?\s*(\d+)\]\([^)]*\)/i
   EARLIER = 8
 
-  TITLE_ROLES = [ :fast, :smart, Resource::OpenaiCompatible::AGENT_ROLE ].freeze
+  TITLE_ROLES = [ Resource::OpenaiCompatible::AGENT_ROLE, :fast, :smart ].freeze
 
   ANSWERED_TITLE_WORDS = 10
 
@@ -40,7 +40,7 @@ class Asking
     return if inference.nil?
 
     prompt = format(ANSWERED_TITLE, question: question, answer: answer.to_s.truncate(Answering::EARLIER_ANSWER))
-    named = inference.summarize(prompt, role: role, analysis: @analysis)["title"]
+    named = inference.summarize(prompt, role: role, analysis: @analysis, effort: inference.ask_effort)["title"]
     named = named.to_s.squish.delete_prefix('"').delete_suffix('"').truncate_words(ANSWERED_TITLE_WORDS, omission: "")
     return if named.blank?
 
