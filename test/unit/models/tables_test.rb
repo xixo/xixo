@@ -50,9 +50,10 @@ class TablesTest < ActiveSupport::TestCase
   end
 
   test "a count needs no column, and a comparison reads numbers" do
-    ledger = Tables.framed("ledger.csv", LEDGER)
+    mixed = Tables.framed("mixed.csv", [ %w[Payee Amount], [ "a", "40" ], [ "b", "-60" ], [ "c", "120" ] ])
 
-    assert_equal 2, Tables.compute([ ledger ], { op: "count", where: [ [ "Amount", "<", "-9.5" ] ] })["value"]
+    assert_equal 1, Tables.compute([ mixed ], { op: "count", where: [ [ "Amount", "<", "0" ] ] })["value"]
+    assert_equal 2, Tables.compute([ mixed ], { op: "count", where: [ [ "Amount", ">", "-10" ] ] })["value"]
   end
 
   test "a result says what its rows hold, and what the whole table holds when nothing matched" do
@@ -62,9 +63,16 @@ class TablesTest < ActiveSupport::TestCase
     assert_includes fernwood["spread"], "Description: Fernwood Grocers (3)"
     assert_includes fernwood["spread"], "Amount from -1060.25 to -9.0"
 
-    nothing = Tables.compute([ ledger ], { op: "count", where: [ [ "Amount", ">", "100" ] ] })
+    nothing = Tables.compute([ ledger ], { op: "count", where: [ [ "Amount", ">", "5000" ] ] })
     assert_equal 0, nothing["rows"]
     assert_includes nothing["spread"], "Amount from -1060.25 to -4.5"
+  end
+
+  test "a column that only ever goes out is compared by size, as a ledger means it" do
+    ledger = Tables.framed("ledger.csv", LEDGER)
+
+    assert_equal 2, Tables.compute([ ledger ], { op: "count", where: [ [ "Amount", ">", "35" ] ] })["value"]
+    assert_equal 2, Tables.compute([ ledger ], { op: "count", where: [ [ "Amount", "<", "-35" ] ] })["value"]
   end
 
   test "what cannot be worked out is refused with the reason" do

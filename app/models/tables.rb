@@ -82,10 +82,16 @@ module Tables
         raise Refused, "a test is one of #{TESTS.join(', ')}" unless TESTS.include?(how)
 
         at = column(table, name)
-        rows.select { |row| passes?(row[at], how, wanted) }
+        sized = outgoing?(table, at)
+        rows.select { |row| passes?(row[at], how, wanted, sized: sized) }
       end
 
-      def passes?(cell, how, wanted)
+      def outgoing?(table, at)
+        numbers = table["rows"].map { |row| number(row[at]) }
+        numbers.compact.any? && numbers.all? { |held| held.nil? || held <= 0 }
+      end
+
+      def passes?(cell, how, wanted, sized: false)
         text = cell.to_s.downcase
         sought = wanted.to_s.downcase
 
@@ -96,6 +102,7 @@ module Tables
         else
           held = number(cell)
           bound = number(wanted)
+          held, bound = held&.abs, bound&.abs if sized
           !held.nil? && !bound.nil? && held.public_send(how, bound)
         end
       end

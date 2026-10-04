@@ -113,25 +113,34 @@ When no resource serves the `agent` role, the `fast` or `smart` model titles the
 
 1. **Evidence.** `Evidence` chooses what the model reads. It searches the catalog with the question's
    keywords, any one of which is enough, fused with the passages and feeds nearest the question in
-   meaning. Up to six feeds are read, in this order: the item the question is about, the feeds
-   earlier answers in the conversation drew on, and then what the search found. A note that was
-   itself asked is never read, so an earlier answer is never taken for a source. A feed's text up to
-   4,000 characters is read whole. A longer one is read by the sections of its outline that hold the
-   passages matching the question, each whole up to 7,000 characters, such as one sheet of a
-   workbook or one minute of a transcript. A feed's note, and what a model described it as, come
-   first. The evidence stops at 18,000 characters.
+   meaning. Up to five feeds are read, in this order: the item the question is about, the feeds
+   earlier answers in the conversation drew on, the two feeds the keywords match best, and then what
+   the fused search found. A note that was itself asked is never read, so an earlier answer is never
+   taken for a source. A feed's text up to 10,000 characters is read whole, section by section when
+   it has an outline. A longer one is read by up to three sections of its outline, ranked by its
+   passages nearest the question and then by its words, each whole up to 7,000 characters, such as
+   one sheet of a workbook or one minute of a transcript. A table of more than 30 rows is read as its
+   first lines and up to 15 rows that mention the question's keywords, with a line saying how many
+   rows it has. A feed's note, and what a model described it as, come first. The evidence stops at
+   24,000 characters.
 2. **Answer.** The model that serves the `agent` role reads the evidence, the conversation so far,
-   and the question in one call, and answers in JSON with the feeds it used cited as `[feed 12]`.
-   It is told to copy every number, name, and date as the evidence gives them. The call is sent
-   with the backend's **Effort on questions** as `reasoning_effort`, which is `none` unless it is
-   set, so a reasoning model answers without thinking first. On qwen3:8b with a sheet of evidence,
-   that answers in about 3 seconds where thinking took 9 to 20.
-3. **Compute.** When the evidence includes a table, the model can ask for a sum, count, average,
+   today's date, and the question in one call, and answers in JSON with the feeds it used cited as
+   `[feed 12]`, in the form the question asks for. It is told to copy every number, name, and date as
+   the evidence gives them. The call is sent with the backend's **Effort on questions** as
+   `reasoning_effort`, which is `none` unless it is set, so a reasoning model answers without
+   thinking first. On qwen3:8b with a sheet of evidence, that answers in about 3 seconds where
+   thinking took 9 to 20.
+3. **Compute.** When the evidence includes a table, the model asks for a sum, count, average,
    smallest, or largest over its rows, narrowed by tests on its columns, in place of doing the
-   arithmetic itself. `Tables` works it out over the rows the analyzer kept, leaving out a row that
-   is already a total, and the model is asked again with the result.
+   arithmetic itself. Each table is listed with its columns and two example rows. `Tables` works it
+   out over the rows the analyzer kept, leaving out a row that is already a total. A column whose
+   numbers are all zero or less, as a ledger writes money spent, is compared by size, so more than
+   100 means more than 100 either way. The result goes back to the model with how many rows matched,
+   the values they hold most often, and each number column's range, over the whole table when
+   nothing matched. The model may ask once more with better tests before it answers.
 4. **Check.** uris lists every number in the answer that appears nowhere in the evidence, the
    question, earlier answers, or a computed result, and sends the answer back once with them named.
+   A time of day and a citation are left out of the check.
 
 When the evidence does not answer a question about the world as it is now, such as the weather or a
 price, the model says so, and uris hands the question to the agent with the tenant's web resources:
