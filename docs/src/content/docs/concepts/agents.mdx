@@ -129,7 +129,7 @@ When no resource serves the `agent` role, the `fast` or `smart` model titles the
    `[feed 12]`, in the form the question asks for. It is told to copy every number, name, and date as
    the evidence gives them. The call is sent with the backend's **Effort on questions** as
    `reasoning_effort`, which is `none` unless it is set, so a reasoning model answers without
-   thinking first. On qwen3:8b with a sheet of evidence, that answers in about 3 seconds where
+   thinking first, and at temperature 0, so the same evidence gives the same answer. On qwen3:8b with a sheet of evidence, that answers in about 3 seconds where
    thinking took 9 to 20.
 3. **Compute.** When the evidence includes a table, the model asks for a sum, count, average,
    smallest, or largest over its rows, narrowed by tests on its columns, in place of doing the

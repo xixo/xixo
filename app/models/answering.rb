@@ -1,5 +1,6 @@
 class Answering
   ROLE = Resource::OpenaiCompatible::AGENT_ROLE
+  STEADY = 0.0
   NUMBER = /(?<![\w.])-?\d[\d,]*(?:\.\d+)?/
   CITED = /\[feed\s*:?\s*\d+\]/i
   TIME = /\b\d{1,2}:\d{2}\b/
@@ -155,7 +156,7 @@ class Answering
     end
 
     def asked(text)
-      @inference.summarize(text, role: ROLE, analysis: @analysis, effort: @inference.ask_effort)
+      @inference.summarize(text, role: ROLE, analysis: @analysis, effort: @inference.ask_effort, temperature: STEADY)
     end
 
     def computing(spec, again:)
