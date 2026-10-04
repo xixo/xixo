@@ -61,7 +61,10 @@ jobs:
           subdomain=$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PAGES_PROJECT" \
             | jq -r '.result.subdomain')
-          [ -n "$subdomain" ] && [ "$subdomain" != null ] || { echo "no subdomain for $PAGES_PROJECT"; exit 1; }
+          if [ -z "$subdomain" ] || [ "$subdomain" = null ]; then
+            echo "no subdomain for $PAGES_PROJECT"
+            exit 1
+          fi
           echo "subdomain=$subdomain" >> "$GITHUB_OUTPUT"
 
       - name: Name the deploy after the branch it came from
