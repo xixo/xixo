@@ -98,7 +98,7 @@ function Gate({
         </div>
 
         <p className="gate-line">
-          <span className="wordmark">uris.to</span>/
+          <span className="wordmark">xixo.to</span>/
           <Cycle words={VERBS} onChange={setVerb} />
         </p>
 
@@ -140,7 +140,7 @@ function Shell({
         <Link to="/" className="mark-link" aria-label="Catalog">
           <Mark size={24} />
           <span className="mark-word" aria-hidden="true">
-            uris
+            xixo
           </span>
         </Link>
 

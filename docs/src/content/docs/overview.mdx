@@ -1,12 +1,12 @@
 ---
 title: Overview
-description: What uris catalogs, where it reads from, and the two interfaces to it.
+description: What xixo catalogs, where it reads from, and the two interfaces to it.
 ---
 
-uris catalogs files and records that already live somewhere else. You attach the places they live,
-such as buckets, directories, mailboxes, calendars, feeds, wikis, and repositories. uris reads each
+xixo catalogs files and records that already live somewhere else. You attach the places they live,
+such as buckets, directories, mailboxes, calendars, feeds, wikis, and repositories. xixo reads each
 one and builds a single index over all of them. You can search that index, ask questions of it, and
-export from it. The bytes stay in their original places. uris stores where each thing lives and
+export from it. The bytes stay in their original places. xixo stores where each thing lives and
 what its analysis found.
 
 Two interfaces reach the same catalog. The browser app uses [GraphQL](/reference/graphql/), and
@@ -19,14 +19,14 @@ and neither is built on the other.
 | | |
 | --- | --- |
 | [Feeds](/concepts/feeds/) | the record for each file, note, address, tag, and content type, and the edges between them |
-| [References](/concepts/references/) | where a feed's bytes live, and how uris notices a change to them |
-| [Adding things](/concepts/adding/) | uploads, notes, fetched pages, snapshots, and syncs, and how uris chooses where a file is stored |
-| [Analysis](/concepts/analysis/) | how uris reads a feed: the steps, its text, what a model described, and the summary |
-| [Resources](/concepts/resources/) | the places uris reads from, writes to, and sends requests to |
+| [References](/concepts/references/) | where a feed's bytes live, and how xixo notices a change to them |
+| [Adding things](/concepts/adding/) | uploads, notes, fetched pages, snapshots, and syncs, and how xixo chooses where a file is stored |
+| [Analysis](/concepts/analysis/) | how xixo reads a feed: the steps, its text, what a model described, and the summary |
+| [Resources](/concepts/resources/) | the places xixo reads from, writes to, and sends requests to |
 | [Search](/concepts/search/) | the index, and how lexical and semantic results are combined |
 | [Agents and MCP](/concepts/agents/) | the four tools, and the agent loop that calls them |
 | [Tenants](/concepts/tenants/) | isolation between tenants, and signing in through masks |
-| [Security](/concepts/security/) | each threat uris defends against, and the defense |
+| [Security](/concepts/security/) | each threat xixo defends against, and the defense |
 
 Start with the [quickstart](/quickstart/). The reference pages are generated from the code, or
 checked against it, so they match the running version.

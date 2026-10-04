@@ -103,7 +103,7 @@ class TaggingTest < ActionDispatch::IntegrationTest
   end
 
   test "tagging needs the write scope, not the read one" do
-    body = execute(TAG, scopes: %w[uris:catalog:read], variables: { ids: [ @one.id ], tag: "nope" })
+    body = execute(TAG, scopes: %w[xixo:catalog:read], variables: { ids: [ @one.id ], tag: "nope" })
 
     assert_nil body.dig("data", "tagFeeds")
     Tenant.switch(@tenant) { assert_empty @one.reload.tags.where(key: "nope") }
@@ -112,13 +112,13 @@ class TaggingTest < ActionDispatch::IntegrationTest
   private
 
     def host_for(tenant)
-      { "HOST" => "#{tenant.subdomain}.uris.test" }
+      { "HOST" => "#{tenant.subdomain}.xixo.test" }
     end
 
     def bearer(tenant, scopes: Grant::SCOPES)
       token = issuer.mint(
         subdomain: tenant.subdomain, scopes: scopes,
-        audience: "http://#{tenant.subdomain}.uris.test/mcp"
+        audience: "http://#{tenant.subdomain}.xixo.test/mcp"
       )
 
       { "Authorization" => "Bearer #{token}" }

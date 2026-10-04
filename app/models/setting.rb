@@ -9,8 +9,8 @@ class Setting < ApplicationRecord
     def personal? = level == :personal
     def server? = level == :server
     def permits?(value) = allowed.include?(value)
-    def reads = server? ? "uris:settings:admin" : "uris:settings:read"
-    def writes = server? ? "uris:settings:admin" : "uris:settings:write"
+    def reads = server? ? "xixo:settings:admin" : "xixo:settings:read"
+    def writes = server? ? "xixo:settings:admin" : "xixo:settings:write"
   end
 
   DEFINED = [

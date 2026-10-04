@@ -15,7 +15,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     write "photos/beach.jpg", "contents of beach"
     write "notes.txt", "remember the milk"
 
-    ENV["URIS_FILESYSTEM_ROOTS"] = @allowed.to_s
+    ENV["XIXO_FILESYSTEM_ROOTS"] = @allowed.to_s
 
     Tenant.switch(@tenant) do
       @resource = Resource::Filesystem.create!(
@@ -27,7 +27,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("URIS_FILESYSTEM_ROOTS")
+    ENV.delete("XIXO_FILESYSTEM_ROOTS")
     FileUtils.remove_entry(@allowed) if @allowed.exist?
   end
 
@@ -231,10 +231,10 @@ class FilesystemResourceTest < ActiveSupport::TestCase
   end
 
   test "no permitted roots at all means the type is unusable" do
-    ENV.delete("URIS_FILESYSTEM_ROOTS")
+    ENV.delete("XIXO_FILESYSTEM_ROOTS")
 
     error = assert_raises(Resource::Failed) { @resource.check! }
-    assert_match(/URIS_FILESYSTEM_ROOTS/, error.message)
+    assert_match(/XIXO_FILESYSTEM_ROOTS/, error.message)
   end
 
   test "a locator climbing out of the root is refused" do

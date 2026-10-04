@@ -38,7 +38,7 @@ class FeedLifetimeTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       Current.grant = grant
 
-      reply = Tool::Feeds.call(server_context: {}, do: "create", type: "uris:note", title: "Odd", lasts: "a while")
+      reply = Tool::Feeds.call(server_context: {}, do: "create", type: "xixo:note", title: "Odd", lasts: "a while")
 
       assert reply.error?
       assert_match(/forever or a number of days/, reply.content.first[:text])
@@ -118,7 +118,7 @@ class FeedLifetimeTest < ActiveSupport::TestCase
     end
 
     def created(title:, lasts: nil)
-      reply = Tool::Feeds.call(server_context: {}, do: "create", type: "uris:note", title: title, lasts: lasts)
+      reply = Tool::Feeds.call(server_context: {}, do: "create", type: "xixo:note", title: title, lasts: lasts)
       raise reply.content.first[:text] if reply.error?
 
       JSON.parse(reply.content.first[:text], symbolize_names: true)

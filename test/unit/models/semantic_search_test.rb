@@ -11,7 +11,7 @@ class SemanticSearchTest < ActiveSupport::TestCase
     @server = FakeModelServer.current
     @server.reset!.serves(MODELS.values).embeds(width: WIDTH)
 
-    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
+    ENV["XIXO_INFERENCE_ORIGINS"] = @server.origin
 
     @demo = Tenant.create!(subdomain: "sem-#{SecureRandom.hex(4)}", name: "Demo")
     @acme = Tenant.create!(subdomain: "sem-#{SecureRandom.hex(4)}", name: "Acme")
@@ -26,7 +26,7 @@ class SemanticSearchTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("URIS_INFERENCE_ORIGINS")
+    ENV.delete("XIXO_INFERENCE_ORIGINS")
   end
 
   test "a query finds an item that shares no word with it" do

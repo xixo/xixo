@@ -29,7 +29,7 @@ class Resource
       {
         label: "OneDrive",
         blurb: "Connected through masks with your Microsoft account. masks keeps the tokens and hands " \
-               "uris a fresh one when it needs it, so no secret is ever typed into uris.",
+               "xixo a fresh one when it needs it, so no secret is ever typed into xixo.",
         names: "A name for it",
         fields: [
           field("folder", "Only under this folder",

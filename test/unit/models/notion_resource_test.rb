@@ -24,7 +24,7 @@ class NotionResourceTest < ActiveSupport::TestCase
   end
 
   test "check passes when the secret names an integration" do
-    stub_request(:get, "#{API}/users/me").to_return(json_response(id: "bot-1", name: "uris"))
+    stub_request(:get, "#{API}/users/me").to_return(json_response(id: "bot-1", name: "xixo"))
 
     Tenant.switch(@tenant) { assert @resource.check! }
   end

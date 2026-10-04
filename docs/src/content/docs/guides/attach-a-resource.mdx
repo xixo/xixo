@@ -4,7 +4,7 @@ description: Add storage, a model backend, a mailbox, a web source, or another r
 ---
 
 At the end of this guide, a new [resource](/concepts/resources/) is attached, checked, and in use.
-You need to be signed in with `uris:resources:command`, which the browser app asks for at sign-in.
+You need to be signed in with `xixo:resources:command`, which the browser app asks for at sign-in.
 
 ## Attach it
 
@@ -22,7 +22,7 @@ You need to be signed in with `uris:resources:command`, which the browser app as
 7. Fill in the fields under **Connection**. Required fields are marked with an asterisk.
 8. Choose **Attach it**.
 
-uris saves the resource and checks it straight away. When the check passes, the dialog closes. When
+xixo saves the resource and checks it straight away. When the check passes, the dialog closes. When
 it fails, the resource is still attached, and the dialog shows **Attached, but it did not answer**
 with the error. See [if it doesn't work](#if-it-doesnt-work).
 
@@ -51,9 +51,9 @@ The fields for every type, with their help text, are listed in the
 | **Slack** | `slack` | **Bot token** |
 | **A git repository** | `git` | **Repository URL**, and an **Access token** for a private repository |
 
-**A directory** appears only when the server was started with `URIS_FILESYSTEM_ROOTS`. A model
+**A directory** appears only when the server was started with `XIXO_FILESYSTEM_ROOTS`. A model
 backend's **Agent model** must call tools. Its **Embedding model** must produce vectors of the width
-the search index was built for, `URIS_EMBEDDING_DIMENSIONS`.
+the search index was built for, `XIXO_EMBEDDING_DIMENSIONS`.
 
 To give [questions](/guides/ask/) the web, attach **Web search** to search it, **Fetch a page** to read
 pages, and **The web** to keep pages as items. Attach **Weather** so a question about the weather is
@@ -84,9 +84,9 @@ card shows its state: **reachable**, **failing**, **never checked**, **syncing**
 connection states above.
 
 1. Choose **Check** from the **⋯** menu on the resource's card.
-2. uris reports that the resource answers, or shows the error on the card.
+2. xixo reports that the resource answers, or shows the error on the card.
 
-uris also checks every resource on its own every six hours.
+xixo also checks every resource on its own every six hours.
 
 ## Choose the defaults
 
@@ -95,7 +95,7 @@ A tenant has one default storage and one default inference resource.
 - Choose **Take drops** from the **⋯** menu on a storage resource's card. The card then reads
   **Drops land here**. Uploads that no agent placed land there, and so do snapshots from the web.
 - Choose **Take questions** from the **⋯** menu on a model backend's card. The card then reads
-  **Answers questions**. uris prefers it when more than one resource could serve a role.
+  **Answers questions**. xixo prefers it when more than one resource could serve a role.
 
 Making one resource the default clears the flag on the previous one. A personal resource cannot be
 a default.
@@ -136,8 +136,8 @@ top of the page to show put-away resources, then **Put back** on its card.
 
 `resourceTypes` lists every type that can be attached and the fields each one takes.
 `attachResource` takes `type`, `key`, an optional `name`, `settings` with one entry per field, and
-`personal`. `resourceTypes` needs `uris:resources:read`, and `attachResource` needs
-`uris:resources:command`.
+`personal`. `resourceTypes` needs `xixo:resources:read`, and `attachResource` needs
+`xixo:resources:command`.
 
 ```graphql
 mutation {
@@ -147,8 +147,8 @@ mutation {
     settings: {
       endpoint: "http://minio:9000"
       force_path_style: true
-      access_key_id: "uris"
-      secret_access_key: "urisuris"
+      access_key_id: "xixo"
+      secret_access_key: "xixoxixo"
     }
   }) {
     resource { id key healthy }
@@ -168,14 +168,14 @@ the [MCP reference](/reference/mcp/#resource).
 
 ## If it doesn't work
 
-- **`no inference origins are permitted — set URIS_INFERENCE_ORIGINS`** or **`... is not one of
-  URIS_INFERENCE_ORIGINS`**. A model backend's **Base URL** must use an origin listed in
-  `URIS_INFERENCE_ORIGINS`. Add it and restart uris, then choose **Check**.
+- **`no inference origins are permitted — set XIXO_INFERENCE_ORIGINS`** or **`... is not one of
+  XIXO_INFERENCE_ORIGINS`**. A model backend's **Base URL** must use an origin listed in
+  `XIXO_INFERENCE_ORIGINS`. Add it and restart xixo, then choose **Check**.
 - **`... does not serve ...`** or **`no models are declared`**. A model backend was given a model it
   does not have, or no model at all. Pull the model into the backend, or correct the name with
   **Change**.
-- **`... resolves to ..., which is not a public address`**. uris refuses private and local addresses.
-  For object storage on a private network, list its origin in `URIS_S3_ORIGINS`. See the
+- **`... resolves to ..., which is not a public address`**. xixo refuses private and local addresses.
+  For object storage on a private network, list its origin in `XIXO_S3_ORIGINS`. See the
   [environment reference](/reference/environment/).
 - **`... is needed`**. A required field was left empty.
 - **That did not connect**. masks refused the connection, you declined it, or masks could not be

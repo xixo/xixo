@@ -4,11 +4,11 @@ class GitResourceTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
 
-    @root = Dir.mktmpdir("uris-git-root")
-    @origin = Dir.mktmpdir("uris-git-origin")
+    @root = Dir.mktmpdir("xixo-git-root")
+    @origin = Dir.mktmpdir("xixo-git-origin")
 
-    ENV["URIS_GIT_ROOT"] = @root
-    ENV["URIS_GIT_PROTOCOLS"] = "file"
+    ENV["XIXO_GIT_ROOT"] = @root
+    ENV["XIXO_GIT_PROTOCOLS"] = "file"
 
     build_origin
 
@@ -23,8 +23,8 @@ class GitResourceTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("URIS_GIT_ROOT")
-    ENV.delete("URIS_GIT_PROTOCOLS")
+    ENV.delete("XIXO_GIT_ROOT")
+    ENV.delete("XIXO_GIT_PROTOCOLS")
 
     FileUtils.remove_entry(@root, true)
     FileUtils.remove_entry(@origin, true)
@@ -193,21 +193,21 @@ class GitResourceTest < ActiveSupport::TestCase
   end
 
   test "a protocol the operator did not allow is refused, and the default is https alone" do
-    ENV["URIS_GIT_PROTOCOLS"] = "https"
+    ENV["XIXO_GIT_PROTOCOLS"] = "https"
 
     Tenant.switch(@tenant) do
       error = assert_raises(Resource::Unusable) { @resource.check! }
 
-      assert_match(/URIS_GIT_PROTOCOLS/, error.message)
+      assert_match(/XIXO_GIT_PROTOCOLS/, error.message)
     end
 
-    ENV.delete("URIS_GIT_PROTOCOLS")
+    ENV.delete("XIXO_GIT_PROTOCOLS")
 
     assert_equal [ "https" ], Resource::Git.protocols
   end
 
   test "an ext:: url, which would run a command, is not a url git is ever handed" do
-    ENV["URIS_GIT_PROTOCOLS"] = "https"
+    ENV["XIXO_GIT_PROTOCOLS"] = "https"
 
     Tenant.switch(@tenant) do
       %w[ext::sh ext::sh\ -c\ whoami file:///etc git://example.test/r.git].each do |url|
@@ -219,7 +219,7 @@ class GitResourceTest < ActiveSupport::TestCase
   end
 
   test "a repository inside the network is refused before git is asked to dial it" do
-    ENV["URIS_GIT_PROTOCOLS"] = "https"
+    ENV["XIXO_GIT_PROTOCOLS"] = "https"
 
     Tenant.switch(@tenant) do
       resource = Resource::Git.new(key: "meta",
@@ -238,7 +238,7 @@ class GitResourceTest < ActiveSupport::TestCase
   end
 
   test "a url carrying credentials is refused, since listing the resource would show them" do
-    ENV["URIS_GIT_PROTOCOLS"] = "https"
+    ENV["XIXO_GIT_PROTOCOLS"] = "https"
 
     Tenant.switch(@tenant) do
       resource = Resource::Git.new(key: "leaky",
@@ -250,7 +250,7 @@ class GitResourceTest < ActiveSupport::TestCase
   end
 
   test "git dials the address that was vetted and follows no redirect off it" do
-    ENV["URIS_GIT_PROTOCOLS"] = "https"
+    ENV["XIXO_GIT_PROTOCOLS"] = "https"
     dialled = []
 
     Tenant.switch(@tenant) do
@@ -278,12 +278,12 @@ class GitResourceTest < ActiveSupport::TestCase
   end
 
   test "with no clone root set the type says so rather than writing somewhere" do
-    ENV.delete("URIS_GIT_ROOT")
+    ENV.delete("XIXO_GIT_ROOT")
 
     Tenant.switch(@tenant) do
       error = assert_raises(Resource::Unusable) { @resource.each_page { |_, _| nil } }
 
-      assert_match(/URIS_GIT_ROOT/, error.message)
+      assert_match(/XIXO_GIT_ROOT/, error.message)
     end
   end
 
@@ -308,8 +308,8 @@ class GitResourceTest < ActiveSupport::TestCase
 
     def build_origin
       sh("git", "init", "--quiet", "--initial-branch", "main", @origin)
-      sh("git", "-C", @origin, "config", "user.email", "test@uris.test")
-      sh("git", "-C", @origin, "config", "user.name", "uris")
+      sh("git", "-C", @origin, "config", "user.email", "test@xixo.test")
+      sh("git", "-C", @origin, "config", "user.name", "xixo")
 
       place("README.md", "# Widgets\n")
       place("lib/widget.rb", "class Widget\nend\n")

@@ -21,7 +21,7 @@ class AskingTest < ActionDispatch::IntegrationTest
 
     @server = FakeModelServer.current
     @server.reset!.serves("qwen3:8b")
-    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
+    ENV["XIXO_INFERENCE_ORIGINS"] = @server.origin
 
     @tenant = Tenant.create!(subdomain: "ask-#{SecureRandom.hex(4)}", name: "Ask")
 
@@ -38,7 +38,7 @@ class AskingTest < ActionDispatch::IntegrationTest
     SearchIndex.refresh!
   end
 
-  teardown { ENV.delete("URIS_INFERENCE_ORIGINS") }
+  teardown { ENV.delete("XIXO_INFERENCE_ORIGINS") }
 
   test "a question is kept as a note, answered in one call from what the catalog holds, and connected to what it cites" do
     answers("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
@@ -439,11 +439,11 @@ class AskingTest < ActionDispatch::IntegrationTest
 
     def execute(query, **variables)
       token = issuer.mint(subdomain: @tenant.subdomain, scopes: Grant::SCOPES,
-                          audience: "http://#{@tenant.subdomain}.uris.test/mcp")
+                          audience: "http://#{@tenant.subdomain}.xixo.test/mcp")
 
       post "/graphql",
            params: { query: query, variables: variables.to_json },
-           headers: { "HOST" => "#{@tenant.subdomain}.uris.test", "Authorization" => "Bearer #{token}" }
+           headers: { "HOST" => "#{@tenant.subdomain}.xixo.test", "Authorization" => "Bearer #{token}" }
 
       response.parsed_body
     end

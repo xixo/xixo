@@ -12,7 +12,7 @@ class PassageTest < ActiveSupport::TestCase
 
     @server = FakeModelServer.current
     @server.reset!.serves("nomic-embed-text").embeds(width: WIDTH)
-    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
+    ENV["XIXO_INFERENCE_ORIGINS"] = @server.origin
 
     @tenant = Tenant.create!(subdomain: "pass-#{SecureRandom.hex(4)}", name: "Passages")
     @other = Tenant.create!(subdomain: "pass-#{SecureRandom.hex(4)}", name: "Elsewhere")
@@ -26,7 +26,7 @@ class PassageTest < ActiveSupport::TestCase
     end
   end
 
-  teardown { ENV.delete("URIS_INFERENCE_ORIGINS") }
+  teardown { ENV.delete("XIXO_INFERENCE_ORIGINS") }
 
   def pointing(at)
     Array.new(WIDTH, 0.0).tap { |vector| vector[at] = 1.0 }

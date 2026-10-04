@@ -66,7 +66,7 @@ class FeedReadingTest < ActiveSupport::TestCase
   test "a question finds the passage that means it, though they share no word" do
     server = FakeModelServer.current
     server.reset!.serves("nomic-embed-text").embeds(width: SearchIndex::VECTOR_DIMENSIONS)
-    ENV["URIS_INFERENCE_ORIGINS"] = server.origin
+    ENV["XIXO_INFERENCE_ORIGINS"] = server.origin
     PassageIndex.reset!
     toward = Array.new(SearchIndex::VECTOR_DIMENSIONS, 0.0).tap { |vector| vector[11] = 1.0 }
     server.embeds_as("search_query: what if the roof leaks", toward)
@@ -86,6 +86,6 @@ class FeedReadingTest < ActiveSupport::TestCase
       assert_includes found.map { |passage| [ passage["from"], passage["matched_by"] ] }, [ wanted.starts_at, "meaning" ]
     end
   ensure
-    ENV.delete("URIS_INFERENCE_ORIGINS")
+    ENV.delete("XIXO_INFERENCE_ORIGINS")
   end
 end

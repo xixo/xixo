@@ -2,11 +2,11 @@ module ReferencePages
   class Scopes < Page
     def slug = "scopes"
     def title = "Scopes"
-    def description = "Every scope a token can carry for uris, and what each one opens."
+    def description = "Every scope a token can carry for xixo, and what each one opens."
 
     def intro
       <<~TEXT
-        uris publishes its scopes beneath the `#{::Grant::NAMESPACE}` namespace of the masks tenant it
+        xixo publishes its scopes beneath the `#{::Grant::NAMESPACE}` namespace of the masks tenant it
         signs in with. A token carries the ones its holder was granted; anything outside the namespace
         is ignored. `#{::Grant::ADMINISTRATIVE.join('`, `')}` is never asked for at sign-in.
       TEXT
@@ -37,7 +37,7 @@ module ReferencePages
       end
 
       def fields_for(scope)
-        count = [ UrisSchema.query, UrisSchema.mutation, UrisSchema.subscription ].compact.sum do |root|
+        count = [ XixoSchema.query, XixoSchema.mutation, XixoSchema.subscription ].compact.sum do |root|
           root.fields.values.count { |field| field.respond_to?(:grants) && field.grants.include?(scope) }
         end
 

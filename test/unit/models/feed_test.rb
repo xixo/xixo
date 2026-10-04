@@ -15,7 +15,7 @@ class FeedTest < ActiveSupport::TestCase
         feed = address("/#{taken}")
 
         assert_not feed.valid?, "#{taken} should be refused"
-        assert_match(/path uris already answers to/, feed.errors[:key].first)
+        assert_match(/path xixo already answers to/, feed.errors[:key].first)
       end
     end
   end
@@ -75,7 +75,7 @@ class FeedTest < ActiveSupport::TestCase
       assert_equal "feed:/buy", feed.grant.subject
       assert_equal @tenant, feed.grant.tenant
       assert_equal Feed::AGENT_SCOPES.sort, feed.grant.scopes.sort
-      assert_not feed.grant.permits?("uris:settings:admin")
+      assert_not feed.grant.permits?("xixo:settings:admin")
     end
   end
 

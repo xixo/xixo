@@ -3,7 +3,7 @@ require "test_helper"
 class WalkTest < ActiveSupport::TestCase
   setup do
     @tenant = Tenant.create!(subdomain: "walk-#{SecureRandom.hex(4)}", name: "Walks")
-    ENV["URIS_GIT_ROOT"] = Dir.mktmpdir("walk-git")
+    ENV["XIXO_GIT_ROOT"] = Dir.mktmpdir("walk-git")
 
     Tenant.switch(@tenant) do
       @git = Resource::Git.new(key: "repo", name: "Repo", details: { "url" => "https://example.test/r.git" })
@@ -12,7 +12,7 @@ class WalkTest < ActiveSupport::TestCase
     end
   end
 
-  teardown { ENV.delete("URIS_GIT_ROOT") }
+  teardown { ENV.delete("XIXO_GIT_ROOT") }
 
   test "a first walk, a stale one, and one of a type with no change feed walk everything" do
     Tenant.switch(@tenant) do

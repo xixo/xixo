@@ -22,7 +22,7 @@ export function Lost() {
         <span className="mono" style={{ color: 'var(--soft)' }}>
           {pathname}
         </span>{' '}
-        is not an address uris knows. It may have been a feed that was never
+        is not an address xixo knows. It may have been a feed that was never
         made or has since been deleted, or a link that outlived the thing it
         pointed at.
       </Text>

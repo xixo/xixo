@@ -14,7 +14,7 @@ class Resource
     end
 
     def self.socket
-      ENV.fetch("URIS_TAILSCALE_SOCKET", "")
+      ENV.fetch("XIXO_TAILSCALE_SOCKET", "")
     end
 
     def self.declared
@@ -46,7 +46,7 @@ class Resource
 
       def local(path)
         socket = self.class.socket
-        raise Resource::Unusable, "#{key}: URIS_TAILSCALE_SOCKET names no tailscaled socket" if socket.blank?
+        raise Resource::Unusable, "#{key}: XIXO_TAILSCALE_SOCKET names no tailscaled socket" if socket.blank?
 
         UNIXSocket.open(socket) do |io|
           io.write("GET #{path} HTTP/1.0\r\nHost: #{LOCAL_API}\r\nSec-Tailscale: localapi\r\n\r\n")

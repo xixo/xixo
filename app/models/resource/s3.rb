@@ -3,7 +3,7 @@ require "aws-sdk-s3"
 class Resource
   class S3 < Resource
     class PublicOnly < Seahorse::Client::Plugin
-      option(:uris_through, default: nil)
+      option(:xixo_through, default: nil)
 
       class Pool < Seahorse::Client::NetHttp::ConnectionPool
         @pools = {}
@@ -33,7 +33,7 @@ class Resource
 
       class Handler < Seahorse::Client::NetHttp::Handler
         def pool_for(config)
-          Pool.for(pool_options(config), through: config.uris_through)
+          Pool.for(pool_options(config), through: config.xixo_through)
         end
       end
 
@@ -70,7 +70,7 @@ class Resource
     end
 
     def self.permitted_origins
-      PublicAddress.origins(ENV.fetch("URIS_S3_ORIGINS", ""))
+      PublicAddress.origins(ENV.fetch("XIXO_S3_ORIGINS", ""))
     end
 
     def self.named?(target)
@@ -195,7 +195,7 @@ class Resource
           force_path_style: details.fetch("force_path_style", true)
         }
 
-        inside ? Aws::S3::Client.new(**options) : PublicClient.new(**options, uris_through: through)
+        inside ? Aws::S3::Client.new(**options) : PublicClient.new(**options, xixo_through: through)
       rescue PublicAddress::Blocked => e
         raise PublicFetch::Blocked, "#{key}: #{e.message}"
       rescue PublicAddress::Unresolvable => e

@@ -2,7 +2,7 @@
 
 module Types
   class AttachingFieldType < Types::BaseObject
-    grants "uris:resources:read"
+    grants "xixo:resources:read"
 
     field :name, String, null: false
     field :label, String, null: false

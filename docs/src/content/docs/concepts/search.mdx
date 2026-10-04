@@ -3,10 +3,10 @@ title: Search
 description: The OpenSearch index over every feed, and how lexical and semantic results are combined.
 ---
 
-Every [feed](/concepts/feeds/) is a document in OpenSearch, at `OPENSEARCH_URL`. uris indexes a feed
+Every [feed](/concepts/feeds/) is a document in OpenSearch, at `OPENSEARCH_URL`. xixo indexes a feed
 again whenever the feed or one of its [references](/concepts/references/) is saved, and whenever an
 [analysis](/concepts/analysis/) of it finishes. It removes the document when the feed is destroyed.
-The index is a derived copy. Postgres holds the records, and a search returns ids that uris loads
+The index is a derived copy. Postgres holds the records, and a search returns ids that xixo loads
 from Postgres in ranked order.
 
 ## What a document holds
@@ -50,7 +50,7 @@ The first search is strict. It uses the `and` operator, so every word has to mat
 `bool_prefix` type, so the last word matches as a prefix. A query of `acme inv` finds a feed that
 contains `acme` and `invoice`.
 
-If the strict search does not fill the requested page, and the query has three or more words, uris
+If the strict search does not fill the requested page, and the query has three or more words, xixo
 runs a second, looser search. The loose search requires 60% of the words to match, or as few as the caller asks for: an answer's
 evidence asks for any one of the question's keywords. Its results go
 after the strict results, without duplicates, and the reported total is the larger of the two
@@ -73,12 +73,12 @@ Semantic search is added when all of these are true:
 - an inference resource declares a model for the `embedding` role;
 - the requested page ends within the first 200 results.
 
-uris embeds the query and caches the vector for a day per tenant, resource, model, and text. It then
+xixo embeds the query and caches the vector for a day per tenant, resource, model, and text. It then
 asks for the 200 nearest neighbors under the same facets. The neighbors are cut to the ones whose
-cosine similarity is at least `URIS_SEMANTIC_FLOOR` (0.55 by default), and within 0.12 of the best
+cosine similarity is at least `XIXO_SEMANTIC_FLOOR` (0.55 by default), and within 0.12 of the best
 match. A query whose meaning matches nothing well therefore adds no semantic results.
 
-When no facet is set, uris also asks the passage index for the 200 passages nearest the query, cut
+When no facet is set, xixo also asks the passage index for the 200 passages nearest the query, cut
 the same way, and ranks their feeds by their best passage. This finds a long document by something
 said deep inside it, which its own vector, drawn mostly from its opening, does not carry. The
 `search` tool gives each result found this way the passage and where it starts.
@@ -89,7 +89,7 @@ sorted by score. Fusion uses only the rank in each list. The two engines score o
 so their scores are never compared.
 
 Search is lexical only when the page is past the first 200 results, when no resource serves the
-`embedding` role, or when embedding the query fails. If the engine refuses the vector query, uris
+`embedding` role, or when embedding the query fails. If the engine refuses the vector query, xixo
 logs the error and the vector query adds nothing. Pages use offsets: `from` and `limit` select a
 slice of the fused list, and the reported total is the larger of the lexical total and the length
 of the fused list.
@@ -114,13 +114,13 @@ When a feed is selected in the catalog, the catalog uses `connectedTo` to list t
 
 `EmbedItemsJob` runs every minute in every tenant and embeds up to fifty feeds that have no
 `embedded_at`. The text it embeds is the feed's title, tags, summaries, note, and the first 2,000
-characters of its body, up to 8,000 characters in total. uris stores a digest of that text and the
-model name next to the vector. If the digest has not changed, uris sets `embedded_at` without
+characters of its body, up to 8,000 characters in total. xixo stores a digest of that text and the
+model name next to the vector. If the digest has not changed, xixo sets `embedded_at` without
 embedding the feed again. Changing a title or a note, finishing an analysis, or saving a reference
 clears `embedded_at`.
 
 Some embedding models were trained with a prefix on each text, one for what is stored and one for
-what is searched, and match poorly without it. uris puts `search_document: ` and `search_query: `
+what is searched, and match poorly without it. xixo puts `search_document: ` and `search_query: `
 before texts for `nomic-embed-text`, `passage: ` and `query: ` for e5 models, and the searching
 instruction mxbai, bge, and snowflake-arctic-embed expect before queries. A model backend's **Query
 prefix** and **Document prefix** replace these.
@@ -128,7 +128,7 @@ prefix** and **Document prefix** replace these.
 The model and its prefixes make a signature. Every digest includes it, and the backend keeps the
 signature its vectors were made with. When the two differ, because the model or a prefix changed,
 the next sweep clears `embedded_at` on every feed and passage in the tenant, since vectors made two
-ways cannot be compared. The vector's dimension is `URIS_EMBEDDING_DIMENSIONS`,
+ways cannot be compared. The vector's dimension is `XIXO_EMBEDDING_DIMENSIONS`,
 768 by default.
 
 ## Passages
@@ -155,14 +155,14 @@ whether it matched by words, by meaning, or both.
 
 All tenants' documents share one index. Each tenant searches through its own alias, created with the
 tenant, which filters on `tenant_id`. The nearest-neighbor query repeats that filter inside itself.
-uris refuses a search that has no tenant.
+xixo refuses a search that has no tenant.
 
 ## Rebuilding
 
-uris hashes the index's settings and mapping into a stamp and stores it in the index's metadata.
-`RebuildSearchIndexJob` runs daily at 3 a.m. and does nothing unless the stamp has changed. When it
-has, the job builds a new versioned index and reindexes every tenant into it in pages of 200, under a
-run of kind `reindex`. It refuses to promote the new index if it holds fewer documents than there are
-feeds. Promotion moves the main alias and every tenant alias in one request, and deletes the old
-index. If promotion fails, the job deletes the new index and the old one keeps serving. Feeds that
-changed during the rebuild are indexed again afterward.
+xixo hashes the index's settings and mapping into a stamp and stores it in the index's metadata.
+`RebuildSearchIndexJob` runs daily at 3 a.m. and does nothing unless the stamp has changed or the index
+is missing. When either happens, the job builds a new versioned index and reindexes every tenant into
+it in pages of 200, under a run of kind `reindex`. It refuses to promote the new index if it holds
+fewer documents than there are feeds. Promotion moves the main alias and every tenant alias in one
+request, and deletes the old index. If promotion fails, the job deletes the new index and the old
+one keeps serving. Feeds that changed during the rebuild are indexed again afterward.

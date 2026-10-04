@@ -4,44 +4,44 @@ description: The four tools at /mcp, how the token's scopes select them, and the
 ---
 
 `/mcp` is a Model Context Protocol endpoint over streamable HTTP. It accepts the same masks access
-token as the browser app, as described in [tenants](/concepts/tenants/). uris answers a request
+token as the browser app, as described in [tenants](/concepts/tenants/). xixo answers a request
 without a token with `401` and a `WWW-Authenticate` challenge that names
 `/.well-known/oauth-protected-resource`. That document lists the resource URL, the masks issuer as
-its authorization server, and every `uris:` scope an MCP tool checks, with a description. The
-`uris:settings:` scopes are left out, since no tool checks them, and an authorization server that
+its authorization server, and every `xixo:` scope an MCP tool checks, with a description. The
+`xixo:settings:` scopes are left out, since no tool checks them, and an authorization server that
 bounds what registered clients may request refuses a request that asks for them. An OAuth client
 uses the document to find masks and request a token. See [connecting an agent](/guides/connect-an-agent/).
 
-Calls are rate-limited per token, or per IP address when there is no token, to `URIS_MCP_LIMIT` a
-minute (120 by default). An `Mcp-Session-Id` belongs to the subject that opened it, and uris refuses
+Calls are rate-limited per token, or per IP address when there is no token, to `XIXO_MCP_LIMIT` a
+minute (120 by default). An `Mcp-Session-Id` belongs to the subject that opened it, and xixo refuses
 it from anyone else.
 
 ## Four tools
 
 | Tool | Scope to see it | Purpose |
 | --- | --- | --- |
-| `search` | `uris:catalog:read` | searches the whole catalog, or lists the newest feeds of a type |
-| `feed` | `uris:catalog:read` | reads one [feed](/concepts/feeds/) in full. With `do`, it adds a note, renames, analyzes, creates, places, or sets how long a feed lasts. |
-| `connect` | `uris:catalog:write` | connects two feeds, or disconnects them |
-| `resource` | `uris:resources:read` | lists the [resources](/concepts/resources/), and sends a command to one |
+| `search` | `xixo:catalog:read` | searches the whole catalog, or lists the newest feeds of a type |
+| `feed` | `xixo:catalog:read` | reads one [feed](/concepts/feeds/) in full. With `do`, it adds a note, renames, analyzes, creates, places, or sets how long a feed lasts. |
+| `connect` | `xixo:catalog:write` | connects two feeds, or disconnects them |
+| `resource` | `xixo:resources:read` | lists the [resources](/concepts/resources/), and sends a command to one |
 
 The [MCP reference](/reference/mcp/) lists each tool's inputs.
 
 A token sees only the tools its scopes permit. `Tool::Resources.for` builds the `resource` tool for
 each token. `list`, `describe`, `runs`, `get`, `parameters`, and `search` are always in its schema.
 `check`, `sync`, `keep`, `export`, `cancel`, `put`, and `snapshot` appear only when the token has
-`uris:resources:command`. A token with `uris:web:keep` also gets `snapshot`, and can send it only to
+`xixo:resources:command`. A token with `xixo:web:keep` also gets `snapshot`, and can send it only to
 a resource that renders pages, which is the `web` type. A command the token cannot use is left out of
 `tools/list`.
 
-uris still checks each call:
+xixo still checks each call:
 
 - the `feed` tool's writing verbs (`note`, `rename`, `analyze`, `create`, `place`, and `last`) need
-  `uris:catalog:write`;
-- `search` on a resource that serves `search` needs `uris:web:read`;
-- `get` on a resource that serves `fetch`, such as `curl`, needs `uris:web:read`.
+  `xixo:catalog:write`;
+- `search` on a resource that serves `search` needs `xixo:web:read`;
+- `get` on a resource that serves `fetch`, such as `curl`, needs `xixo:web:read`.
 
-A token with `uris:mcp:call` also sees the tools of every MCP server attached as a resource, passed
+A token with `xixo:mcp:call` also sees the tools of every MCP server attached as a resource, passed
 through unchanged.
 
 ## The agent
@@ -51,7 +51,7 @@ same four tools. It runs for a fixed number of turns: six by default, or the num
 schedule sets, up to 32. Each turn asks the model for a reply.
 
 - A reply with no tool calls is the answer.
-- uris checks each tool call against the tool's input schema before running it. An unknown tool,
+- xixo checks each tool call against the tool's input schema before running it. An unknown tool,
   arguments that are not valid JSON, and arguments the schema refuses go back to the model as an
   error it can correct. They do not end the loop.
 - A tool result longer than 8,000 characters is truncated, with a note that says how much was cut.
@@ -78,7 +78,7 @@ grant of its own, with the subject `feed:` followed by the feed's key and the sc
 `Feed::AGENT_SCOPES`:
 
 ```
-uris:catalog:read  uris:catalog:write  uris:web:read  uris:resources:read
+xixo:catalog:read  xixo:catalog:write  xixo:web:read  xixo:resources:read
 ```
 
 The agent can search, read, file, and place feeds, and send read-only commands to resources. It
@@ -101,7 +101,7 @@ read from a personal resource.
 
 ## Asking
 
-uris saves a question asked of the catalog as a note, and answers it with an analysis whose cause is
+xixo saves a question asked of the catalog as a note, and answers it with an analysis whose cause is
 `ask`. The note's key is the question, and the note starts with no title. The analysis is done as
 soon as the answer is saved, so the answer shows at once. Then the model that answered titles the
 note from the question and its answer, such as "Toronto today: 18°C and rain", and rolls the
@@ -145,23 +145,23 @@ When no resource serves the `agent` role, the `fast` or `smart` model titles the
    the values they hold most often, and each number column's range, over the whole table when
    nothing matched. The model may ask once more with better tests before it answers.
 4. **Check.** An answer that leaves out the figure a computation gave it is sent back once with the
-   figure named. Then uris lists every number in the answer that appears nowhere in the evidence,
+   figure named. Then xixo lists every number in the answer that appears nowhere in the evidence,
    the question, earlier answers, or a computed result, and sends the answer back once with them
    named. A time of day and a citation are left out of the check.
 
 When the evidence does not answer a question about the world as it is now, such as the weather or a
-price, the model says so, and uris hands the question to the agent with the tenant's web resources:
+price, the model says so, and xixo hands the question to the agent with the tenant's web resources:
 search, fetch, weather, and places. Without any of them, the question is answered from the catalog
 alone.
 
 Everything runs under the question's own grant, with the scopes in `Feed::ASKING_SCOPES`:
 
 ```
-uris:catalog:read  uris:catalog:write  uris:web:read  uris:web:keep  uris:resources:read
+xixo:catalog:read  xixo:catalog:write  xixo:web:read  xixo:web:keep  xixo:resources:read
 ```
 
 A note that was asked holds a conversation. `askCatalog` with the note's `feedId` asks a follow-up
-question in it, once the previous question has been answered. uris saves each question on the
+question in it, once the previous question has been answered. xixo saves each question on the
 analysis that answers it, and **Ask again** asks the latest question again. A follow-up is given the
 earlier questions and their answers, up to eight of them, with each answer truncated to 1,500
 characters, and is searched with the question before it. A follow-up about an earlier answer, such
@@ -190,18 +190,18 @@ caller was working on, and it is connected to that feed and to the `/feedback` a
 Attaching a feedback resource makes `/feedback`, so it sits on the shelf beside **Everything** and
 lists everything anyone wanted and could not get. Its schedule runs once a week with 16 turns: its
 agent reads what was wanted, groups it by what would provide it, such as a resource to attach or a
-change to uris, and keeps a note titled "Feedback review" with each group's count, a few of its
+change to xixo, and keeps a note titled "Feedback review" with each group's count, a few of its
 questions, and the change it proposes. A health check makes `/feedback` again if it is gone.
 
 The `resource` tool tells every MCP client to use it for anything no tool could answer or do, and a
 tenant's [web agent](#asking) is told the same. When an answer from the catalog finds nothing, the
-model says what would have answered the question, and uris asks the tenant's feedback resource
+model says what would have answered the question, and xixo asks the tenant's feedback resource
 with it. A tenant without a feedback resource keeps nothing.
 
 ## Budgets and gates
 
 Work that can run for a long time spends from a budget. This covers `feed` with `do: analyze`, and
-`resource` with `sync` or `export`. Each subject in a tenant may start `URIS_RUN_BUDGET` of these per
+`resource` with `sync` or `export`. Each subject in a tenant may start `XIXO_RUN_BUDGET` of these per
 clock hour, 20 by default, and `0` removes the limit. A feed's agent spends from its own subject's
 budget, which is separate from any person's.
 
@@ -210,7 +210,7 @@ A gate is a row that stops a kind of job. The iterating jobs each name their gat
 single resource for `sync`, and the record's gate takes precedence over the key's. A disabled gate
 marks the run as gated and does nothing. A gate that is enabled but not live lets `sync` and
 `reindex` walk and count without writing anything. Jobs read their gates again every 50 iterations,
-so closing a gate stops a run that is already in progress. `URIS_ITERATORS_DISABLED` closes every
+so closing a gate stops a run that is already in progress. `XIXO_ITERATORS_DISABLED` closes every
 gate at once. Gates have no screen yet. Set them with `Gate.set!` from a console.
 
 ## Audit
@@ -220,12 +220,12 @@ Every tool call writes an audit event with the tool, the scope, the result (`ok`
 with their name and the client they asked through, a `client` acting for itself, the `agent`, or
 `nobody` when no token was accepted. An agent's event also names the analysis it ran for, so the
 **Activity** page in Settings shows one analysis as one entry. Each event carries a sentence about
-the call, such as "filed invoice.pdf under receipts", and the feed it was about. uris writes the
-sentence when the call is made, so it still reads correctly after the feed is forgotten. uris summarizes
+the call, such as "filed invoice.pdf under receipts", and the feed it was about. xixo writes the
+sentence when the call is made, so it still reads correctly after the feed is forgotten. xixo summarizes
 the arguments and does not store them in full. It truncates strings to 200 characters, counts
 arrays, and keeps one level of nesting. It replaces the value of any key that names a secret,
 password, token, credential, authorization, or access key with `[redacted]`. Refused
 authorizations, rate-limited calls, and some GraphQL mutations are recorded the same way.
 
-The `auditEvents` query returns events to a token with `uris:catalog:read`. A daily job deletes
-events older than `URIS_AUDIT_RETENTION_DAYS`, 90 by default, and `0` keeps them forever.
+The `auditEvents` query returns events to a token with `xixo:catalog:read`. A daily job deletes
+events older than `XIXO_AUDIT_RETENTION_DAYS`, 90 by default, and `0` keeps them forever.

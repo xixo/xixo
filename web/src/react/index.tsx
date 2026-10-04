@@ -9,24 +9,24 @@ import {
   useRef,
   useState,
 } from 'react'
-import type { UrisClient } from '../client.js'
+import type { XixoClient } from '../client.js'
 
-const UrisContext = createContext<UrisClient | null>(null)
+const XixoContext = createContext<XixoClient | null>(null)
 
-export function UrisProvider({
+export function XixoProvider({
   client,
   children,
 }: {
-  client: UrisClient
+  client: XixoClient
   children: ReactNode
 }) {
-  return <UrisContext.Provider value={client}>{children}</UrisContext.Provider>
+  return <XixoContext.Provider value={client}>{children}</XixoContext.Provider>
 }
 
-export function useUris(): UrisClient {
-  const client = useContext(UrisContext)
+export function useXixo(): XixoClient {
+  const client = useContext(XixoContext)
   if (!client) {
-    throw new Error('useUris must be used inside a UrisProvider')
+    throw new Error('useXixo must be used inside a XixoProvider')
   }
   return client
 }
@@ -40,7 +40,7 @@ export function useQuery<TData, TVariables extends Record<string, unknown>>(
   variables?: TVariables,
   options?: QueryOptions,
 ) {
-  const client = useUris()
+  const client = useXixo()
   const skip = options?.skip ?? false
   const [data, setData] = useState<TData | null>(null)
   const [loading, setLoading] = useState(!skip)
@@ -97,7 +97,7 @@ export function useSubscription<
   variables?: TVariables,
   options?: SubscriptionOptions,
 ) {
-  const client = useUris()
+  const client = useXixo()
   const skip = options?.skip ?? false
   const [data, setData] = useState<TData | null>(null)
   const [error, setError] = useState<Error | null>(null)
@@ -129,7 +129,7 @@ export function useSubscription<
 export function useMutation<TData, TVariables extends Record<string, unknown>>(
   mutation: TypedDocumentNode<TData, TVariables>,
 ) {
-  const client = useUris()
+  const client = useXixo()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 

@@ -22,7 +22,7 @@ class HandshakeTest < ActionDispatch::IntegrationTest
     assert_response :redirect
 
     query = Rack::Utils.parse_query(URI.parse(response.location).query)
-    origin = "http://#{@tenant.subdomain}.uris.test"
+    origin = "http://#{@tenant.subdomain}.xixo.test"
 
     assert response.location.start_with?("#{issuer.url_for(@tenant.subdomain)}/handshake")
     assert_equal "#{origin}/mcp", query["resource"]
@@ -30,8 +30,8 @@ class HandshakeTest < ActionDispatch::IntegrationTest
     assert_equal [ "#{origin}/auth/callback", "#{origin}/connect/callback" ], query["redirect_uris"]
     assert_includes query["scope"].split, Grant::NAMESPACE
     assert_includes query["scope"].split, "masks:delegate:",
-                    "uris asks each person for their accounts elsewhere, so its handshake says so"
-    assert_not_includes query["scope"].split, "uris:catalog:read",
+                    "xixo asks each person for their accounts elsewhere, so its handshake says so"
+    assert_not_includes query["scope"].split, "xixo:catalog:read",
                         "the handshake asks for the namespace; sign-in asks for the scopes"
     assert_includes query["scope"].split, "offline_access"
     assert query["state"].present?
@@ -196,7 +196,7 @@ class HandshakeTest < ActionDispatch::IntegrationTest
   private
 
     def host
-      { "HOST" => "#{@tenant.subdomain}.uris.test" }
+      { "HOST" => "#{@tenant.subdomain}.xixo.test" }
     end
 
     def start!

@@ -79,8 +79,8 @@ class SettingTest < ActiveSupport::TestCase
     definition = Setting.definition!("catalog_view")
 
     assert_predicate definition, :personal?
-    assert_equal "uris:settings:read", definition.reads
-    assert_equal "uris:settings:write", definition.writes
+    assert_equal "xixo:settings:read", definition.reads
+    assert_equal "xixo:settings:write", definition.writes
     assert_includes Grant::SCOPES, definition.reads
     assert_includes Grant::SCOPES, definition.writes
   end
@@ -103,7 +103,7 @@ class SettingTest < ActiveSupport::TestCase
     definition = Setting.definition!("thumbnail_size")
 
     assert_not_predicate definition, :personal?
-    assert_equal "uris:settings:read", definition.reads
-    assert_equal "uris:settings:write", definition.writes
+    assert_equal "xixo:settings:read", definition.reads
+    assert_equal "xixo:settings:write", definition.writes
   end
 end

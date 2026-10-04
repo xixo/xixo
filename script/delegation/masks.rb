@@ -18,7 +18,7 @@ Masks::Server::Tenant.switch(tenant) do
       email = "#{nickname}@example.test"
       person = Masks::Server::Actor.locate(email) ||
                Masks::Server::Actor.invite!(email: email, nickname: nickname,
-                                            scopes: "openid profile email offline_access uris:")
+                                            scopes: "openid profile email offline_access xixo:")
       person.activate!(password, verifying_email: true)
       puts "#{email} can sign in"
     end

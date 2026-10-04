@@ -66,7 +66,7 @@ jobs:
           ENCRYPTION_PRIMARY_KEY: boot_check_primary_key_not_for_credentials
           ENCRYPTION_DETERMINISTIC_KEY: boot_check_deterministic_key_not_real
           ENCRYPTION_KEY_DERIVATION_SALT: boot_check_key_derivation_salt_fake
-          URIS_PUBLIC_ORIGIN: https://%{subdomain}.uris.example
+          XIXO_PUBLIC_ORIGIN: https://%{subdomain}.xixo.example
         run: bin/rails zeitwerk:check
 
   scan_ruby:

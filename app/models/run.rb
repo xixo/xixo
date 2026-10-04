@@ -23,7 +23,7 @@ class Run < ApplicationRecord
   end
 
   def self.default_deadline
-    budget = Rails.configuration.uris.run_deadline
+    budget = Rails.configuration.xixo.run_deadline
 
     budget.to_i.zero? ? nil : budget.from_now
   end
@@ -119,8 +119,8 @@ class Run < ApplicationRecord
     end
 
     def publish!
-      UrisSchema.subscriptions.trigger(:run_progressed, { id: id.to_s }, self, scope: tenant_id)
-      UrisSchema.subscriptions.trigger(:run_progressed, {}, self, scope: tenant_id)
+      XixoSchema.subscriptions.trigger(:run_progressed, { id: id.to_s }, self, scope: tenant_id)
+      XixoSchema.subscriptions.trigger(:run_progressed, {}, self, scope: tenant_id)
     rescue StandardError => e
       Rails.logger.warn "run #{id} could not announce: #{e.message}"
     end

@@ -42,8 +42,8 @@ import {
   ResourceTypesDocument,
   type ResourceTypesQuery,
   UpdateResourceDocument,
-} from '@uris-to/client'
-import { useMutation, useQuery } from '@uris-to/client/react'
+} from '@xixo/client'
+import { useMutation, useQuery } from '@xixo/client/react'
 import { type CSSProperties, useState } from 'react'
 
 type Attaching = ResourceTypesQuery['resourceTypes'][number]
@@ -518,7 +518,7 @@ export function Attach({
                 <Select
                   size="md"
                   label="Reached through"
-                  description="A network uris dials it over. Through one, only addresses on that network are reached."
+                  description="A network xixo dials it over. Through one, only addresses on that network are reached."
                   allowDeselect={false}
                   value={via}
                   onChange={(next) => setVia(next ?? DIRECT)}

@@ -2,7 +2,7 @@
 
 module Types
   class DetailType < Types::BaseObject
-    grants "uris:catalog:read"
+    grants "xixo:catalog:read"
 
     field :group, String, null: false,
           description: "The heading it is shown under, named for the step that produced it, such as Embedded in the file or Document."

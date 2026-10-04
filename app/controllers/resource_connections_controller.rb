@@ -45,7 +45,7 @@ class ResourceConnectionsController < ApplicationController
   private
 
     def authorize
-      super && grant.permit!("uris:resources:command")
+      super && grant.permit!("xixo:resources:command")
     rescue Grant::Denied => e
       refuse(Masks::Client::Unauthorized.new(e.message))
     end
@@ -96,7 +96,7 @@ class ResourceConnectionsController < ApplicationController
 
     def audit(resource, status, detail = nil)
       AuditEvent.record(
-        channel: "connect", action: "connect", status: status, scope: "uris:resources:command",
+        channel: "connect", action: "connect", status: status, scope: "xixo:resources:command",
         grant: Current.grant, context: Current.audit, detail: detail,
         told: "connected #{resource.key} through #{resource.provider_key}",
         arguments: { type: resource.class.sti_name, key: resource.key, provider: resource.provider_key }

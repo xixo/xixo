@@ -33,15 +33,15 @@ module Analyzer
     end
 
     def self.model
-      ENV["URIS_WHISPER_MODEL"].presence
+      ENV["XIXO_WHISPER_MODEL"].presence
     end
 
     def self.binary
-      ENV.fetch("URIS_WHISPER_BIN", DEFAULT_BINARY)
+      ENV.fetch("XIXO_WHISPER_BIN", DEFAULT_BINARY)
     end
 
     def self.span
-      ENV.fetch("URIS_TRANSCRIBE_SECONDS", DEFAULT_SPAN).to_i
+      ENV.fetch("XIXO_TRANSCRIBE_SECONDS", DEFAULT_SPAN).to_i
     end
 
     def analyze
@@ -128,11 +128,11 @@ module Analyzer
 
         if model.blank?
           raise Analyzer::Failed,
-                "no transcription model is configured — set URIS_WHISPER_MODEL to a ggml model file"
+                "no transcription model is configured — set XIXO_WHISPER_MODEL to a ggml model file"
         end
 
         unless File.file?(model)
-          raise Analyzer::Failed, "URIS_WHISPER_MODEL names #{model}, which is not a file"
+          raise Analyzer::Failed, "XIXO_WHISPER_MODEL names #{model}, which is not a file"
         end
 
         raise Analyzer::Failed, "#{reference.filename} carries no audio" unless audio?

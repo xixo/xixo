@@ -12,7 +12,7 @@ class ConnectionTest < ActionCable::Connection::TestCase
   end
 
   test "an unknown subdomain is refused before any session is read" do
-    assert_reject_connection { connect "/cable", headers: { "HOST" => "nobody.uris.test" } }
+    assert_reject_connection { connect "/cable", headers: { "HOST" => "nobody.xixo.test" } }
   end
 
   test "a session holding a token for this tenant connects and carries its grant" do
@@ -21,7 +21,7 @@ class ConnectionTest < ActionCable::Connection::TestCase
     connect_as(@tenant)
 
     assert_equal @tenant, connection.tenant
-    assert connection.grant.permits?("uris:catalog:read")
+    assert connection.grant.permits?("xixo:catalog:read")
   end
 
   test "a session holding another tenant's token is refused" do
@@ -46,18 +46,18 @@ class ConnectionTest < ActionCable::Connection::TestCase
   end
 
   test "the grant is narrowed to the scopes the token actually carries" do
-    sign_in(@tenant, scopes: %w[uris:catalog:read])
+    sign_in(@tenant, scopes: %w[xixo:catalog:read])
 
     connect_as(@tenant)
 
-    assert connection.grant.permits?("uris:catalog:read")
-    assert_not connection.grant.permits?("uris:resources:command")
+    assert connection.grant.permits?("xixo:catalog:read")
+    assert_not connection.grant.permits?("xixo:resources:command")
   end
 
   private
 
     def connect_as(tenant)
-      connect "/cable", headers: { "HOST" => "#{tenant.subdomain}.uris.test" }
+      connect "/cable", headers: { "HOST" => "#{tenant.subdomain}.xixo.test" }
     end
 
     def session_key
@@ -67,7 +67,7 @@ class ConnectionTest < ActionCable::Connection::TestCase
     def sign_in(tenant, scopes: Grant::SCOPES, expires_in: 1.hour)
       token = issuer.mint(
         subdomain: tenant.subdomain, scopes: scopes, expires_in: expires_in,
-        audience: "http://#{tenant.subdomain}.uris.test/mcp"
+        audience: "http://#{tenant.subdomain}.xixo.test/mcp"
       )
 
       cookies.encrypted[session_key] = {

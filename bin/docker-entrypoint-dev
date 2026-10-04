@@ -16,7 +16,7 @@ rm -f tmp/pids/server.pid
 
 if [ "${*: -2:1}" == "./bin/rails" ] && [ "${*: -1:1}" == "server" ]; then
   ./bin/rails db:prepare
-  ./bin/rails uris:tenants
+  ./bin/rails xixo:tenants
 fi
 
 exec "${@}"

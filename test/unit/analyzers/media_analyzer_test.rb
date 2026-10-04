@@ -15,8 +15,8 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
           "region" => ENV.fetch("S3_REGION", "us-east-1")
         },
         credentials: {
-          "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "uris"),
-          "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "urisuris")
+          "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "xixo"),
+          "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "xixoxixo")
         }
       )
     end
@@ -30,7 +30,7 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("URIS_WHISPER_MODEL")
+    ENV.delete("XIXO_WHISPER_MODEL")
 
     @resource.client.list_objects_v2(bucket: @bucket).contents.each do |object|
       @resource.client.delete_object(bucket: @bucket, key: object.key)
@@ -83,7 +83,7 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
   end
 
   test "with no model configured the recording is still catalogued, and the log says why it is silent" do
-    ENV.delete("URIS_WHISPER_MODEL")
+    ENV.delete("XIXO_WHISPER_MODEL")
 
     analyze_feed_at "tone.m4a"
 
@@ -97,7 +97,7 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
   end
 
   test "a model that was named but is not there is refused by name" do
-    ENV["URIS_WHISPER_MODEL"] = "/tmp/there-is-no-such-model.bin"
+    ENV["XIXO_WHISPER_MODEL"] = "/tmp/there-is-no-such-model.bin"
 
     analyze_feed_at "tone.m4a"
 
@@ -142,7 +142,7 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
     require_relative "../../support/fake_model_server"
     server = FakeModelServer.current
     server.reset!.serves("gemma3:4b")
-    ENV["URIS_INFERENCE_ORIGINS"] = server.origin
+    ENV["XIXO_INFERENCE_ORIGINS"] = server.origin
     Tenant.switch(@tenant) do
       Resource::OpenaiCompatible.create!(key: "ollama",
                                          details: { "base_url" => server.base_url, "models" => { "vision" => "gemma3:4b" } })
@@ -161,7 +161,7 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
       assert_equal 1, server.attachments.last.length
     end
   ensure
-    ENV.delete("URIS_INFERENCE_ORIGINS")
+    ENV.delete("XIXO_INFERENCE_ORIGINS")
   end
 
   test "a recording with no sound in it is not silently reported as heard" do

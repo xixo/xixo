@@ -1,6 +1,6 @@
 import { CloseButton } from '@mantine/core'
 import { IconAlertTriangle, IconCheck } from '@tabler/icons-react'
-import { useMutation } from '@uris-to/client/react'
+import { useMutation } from '@xixo/client/react'
 import {
   type CSSProperties,
   createContext,

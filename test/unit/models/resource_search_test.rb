@@ -166,10 +166,10 @@ class ResourceSearchTest < ActiveSupport::TestCase
   private
 
     def with_origins(value)
-      previous = ENV["URIS_SEARCH_ORIGINS"]
-      ENV["URIS_SEARCH_ORIGINS"] = value
+      previous = ENV["XIXO_SEARCH_ORIGINS"]
+      ENV["XIXO_SEARCH_ORIGINS"] = value
       yield
     ensure
-      ENV["URIS_SEARCH_ORIGINS"] = previous
+      ENV["XIXO_SEARCH_ORIGINS"] = previous
     end
 end

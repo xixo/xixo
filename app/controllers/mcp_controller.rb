@@ -3,7 +3,7 @@ class McpController < ApplicationController
 
   around_action :within_tenant
 
-  rate_limit to: Rails.configuration.uris.mcp_limit, within: 1.minute,
+  rate_limit to: Rails.configuration.xixo.mcp_limit, within: 1.minute,
              by: -> { caller_key }, with: -> { too_many }
 
   include Granted

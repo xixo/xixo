@@ -194,7 +194,7 @@ class McpProxyTest < ActionDispatch::IntegrationTest
   test "a token without the scope is not offered another server's tools" do
     attach
 
-    listed = call(@tenant, [ "uris:catalog:read" ], "tools/list")
+    listed = call(@tenant, [ "xixo:catalog:read" ], "tools/list")
              .dig("result", "tools").map { |tool| tool["name"] }
 
     assert_not_includes listed, "exa__web_search"

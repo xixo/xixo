@@ -127,7 +127,7 @@ class RunTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       heard = []
       run = Run.start!(kind: "sync", resource: @storage)
-      subscriptions = UrisSchema.subscriptions
+      subscriptions = XixoSchema.subscriptions
 
       subscriptions.define_singleton_method(:trigger) do |name, arguments = {}, *, **|
         heard << [ name, arguments ]
@@ -163,7 +163,7 @@ class RunTest < ActiveSupport::TestCase
     def topics
       heard = []
       run = Run.start!(kind: "sync", resource: @storage)
-      subscriptions = UrisSchema.subscriptions
+      subscriptions = XixoSchema.subscriptions
 
       subscriptions.define_singleton_method(:trigger) do |name, arguments = {}, *, **|
         heard << [ name, arguments ]

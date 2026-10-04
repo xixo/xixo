@@ -17,7 +17,7 @@ class WebResourceTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
 
-    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
 
     @server = FakeFeedServer.current
     @server.reset!
@@ -34,7 +34,7 @@ class WebResourceTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
   end
 
   test "a web resource cannot be scheduled, having nothing to enumerate yet" do
@@ -188,7 +188,7 @@ class WebResourceTest < ActiveSupport::TestCase
   end
 
   test "a private address is refused when fetching them is not allowed" do
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
 
     Tenant.switch(@tenant) do
       assert_raises(Snapshot::Blocked) { @resource.snapshot!(@url) }

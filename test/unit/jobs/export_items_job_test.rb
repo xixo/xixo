@@ -251,7 +251,7 @@ class ExportItemsJobTest < ActiveSupport::TestCase
         },
         credentials: {
           "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "items"),
-          "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "urisuris")
+          "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "xixoxixo")
         }
       )
     end

@@ -6,13 +6,13 @@ class GrantTest < ActiveSupport::TestCase
   end
 
   test "the granted scopes are the intersection with the ones this app defines" do
-    grant = build(scope: "openid uris:catalog:read profile uris:resources:command nonsense")
+    grant = build(scope: "openid xixo:catalog:read profile xixo:resources:command nonsense")
 
-    assert_equal [ "uris:catalog:read", "uris:resources:command" ], grant.scopes
+    assert_equal [ "xixo:catalog:read", "xixo:resources:command" ], grant.scopes
   end
 
   test "the tool list is the grant, so an ungranted tool is never registered" do
-    names = build(scope: "uris:catalog:read").tools.map(&:tool_name)
+    names = build(scope: "xixo:catalog:read").tools.map(&:tool_name)
 
     assert_equal %w[search feed], names
     assert_empty build(scope: "openid").tools
@@ -20,35 +20,35 @@ class GrantTest < ActiveSupport::TestCase
 
   test "a token whose tenant claim names another tenant is refused" do
     error = assert_raises(Grant::Denied) do
-      build(scope: "uris:catalog:read", tenant: { "subdomain" => "somebody-else" })
+      build(scope: "xixo:catalog:read", tenant: { "subdomain" => "somebody-else" })
     end
 
     assert_match(/issued for somebody-else/, error.message)
   end
 
   test "a token with a matching tenant claim is accepted" do
-    grant = build(scope: "uris:catalog:read", tenant: { "subdomain" => @tenant.subdomain })
+    grant = build(scope: "xixo:catalog:read", tenant: { "subdomain" => @tenant.subdomain })
 
-    assert grant.permits?("uris:catalog:read")
+    assert grant.permits?("xixo:catalog:read")
   end
 
   test "a token carrying no tenant claim is accepted, since the audience already bound it" do
-    assert build(scope: "uris:catalog:read").permits?("uris:catalog:read")
+    assert build(scope: "xixo:catalog:read").permits?("xixo:catalog:read")
   end
 
   test "one fixed issuer names its own tenant, which need not share this tenant's subdomain" do
     issuer = FakeIssuer.current.url_for("masks")
 
-    grant = build(scope: "uris:catalog:read", tenant: { "subdomain" => "masks" }, issuer: issuer)
+    grant = build(scope: "xixo:catalog:read", tenant: { "subdomain" => "masks" }, issuer: issuer)
 
-    assert grant.permits?("uris:catalog:read")
+    assert grant.permits?("xixo:catalog:read")
   end
 
   test "a token claiming a tenant other than the one its issuer speaks for is refused" do
     issuer = FakeIssuer.current.url_for("masks")
 
     error = assert_raises(Grant::Denied) do
-      build(scope: "uris:catalog:read", tenant: { "subdomain" => "acme" }, issuer: issuer)
+      build(scope: "xixo:catalog:read", tenant: { "subdomain" => "acme" }, issuer: issuer)
     end
 
     assert_match(/issued for acme, not masks/, error.message)

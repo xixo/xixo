@@ -94,7 +94,7 @@ class DerivedImagesTest < ActiveSupport::TestCase
     end
   end
 
-  test "forgetting a message takes the attachments uris extracted from it" do
+  test "forgetting a message takes the attachments xixo extracted from it" do
     Tenant.switch(@tenant) do
       store = Resource.internal!(:children)
       message = Feed.create!(type: Feed::FILE, key: "march.eml", title: "march.eml")
@@ -109,12 +109,12 @@ class DerivedImagesTest < ActiveSupport::TestCase
     end
   end
 
-  test "a resource someone attaches cannot take the key of a store uris keeps for itself" do
+  test "a resource someone attaches cannot take the key of a store xixo keeps for itself" do
     Tenant.switch(@tenant) do
       squatter = Resource::S3.new(key: "derived", details: { "endpoint" => "http://x" })
 
       assert_not squatter.valid?
-      assert_match(/kept for a store uris makes/, squatter.errors[:key].join)
+      assert_match(/kept for a store xixo makes/, squatter.errors[:key].join)
       assert Resource.internal!(:derived).internal?
     end
   end

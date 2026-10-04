@@ -1,6 +1,6 @@
 import { Alert, Button, Code, Group, Loader, Stack, Text } from '@mantine/core'
-import { AuditEventsDocument } from '@uris-to/client'
-import { useQuery } from '@uris-to/client/react'
+import { AuditEventsDocument } from '@xixo/client'
+import { useQuery } from '@xixo/client/react'
 import { type CSSProperties, type ReactNode, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -108,7 +108,7 @@ export function Audit() {
     <Stack gap="var(--s5)">
       <Intro
         title="Activity"
-        lead="Everything anyone asked uris to do that needed permission: who asked, what they asked for, and whether it was allowed. Newest first. An agent's run is one entry, with its steps in the order it took them."
+        lead="Everything anyone asked xixo to do that needed permission: who asked, what they asked for, and whether it was allowed. Newest first. An agent's run is one entry, with its steps in the order it took them."
       />
 
       <Group gap="var(--s4)" align="center" wrap="wrap">
@@ -175,7 +175,7 @@ function Trail({
       <Text c="dimmed" size="sm">
         {status || actor
           ? 'Nothing matches that.'
-          : 'Nothing has been asked of uris yet. Sync a resource or point a client at /mcp and it will fill up.'}
+          : 'Nothing has been asked of xixo yet. Sync a resource or point a client at /mcp and it will fill up.'}
       </Text>
     )
   }

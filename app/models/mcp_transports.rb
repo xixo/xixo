@@ -1,6 +1,6 @@
 module McpTransports
   INSTRUCTIONS = <<~TEXT.freeze
-    uris is one searchable index across everything its owner keeps, wherever it lives.
+    xixo is one searchable index across everything its owner keeps, wherever it lives.
 
     A feed is a reference, not the bytes: the catalog holds where something lives and what
     analysis understood about it, while the original stays in the resource it came from.
@@ -81,8 +81,8 @@ module McpTransports
 
       def server(tenant, grant)
         MCP::Server.new(
-          name: "uris",
-          title: "uris",
+          name: "xixo",
+          title: "xixo",
           instructions: INSTRUCTIONS,
           tools: grant.tools,
           server_context: { tenant_id: tenant.id, scopes: grant.scopes }

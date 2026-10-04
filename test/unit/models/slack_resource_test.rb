@@ -24,7 +24,7 @@ class SlackResourceTest < ActiveSupport::TestCase
   end
 
   test "check passes when the token names a workspace" do
-    stub_ok("/auth.test", team: "Acme", user: "uris")
+    stub_ok("/auth.test", team: "Acme", user: "xixo")
 
     Tenant.switch(@tenant) { assert @resource.check! }
   end

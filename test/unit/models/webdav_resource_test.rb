@@ -5,7 +5,7 @@ class WebdavResourceTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
 
-    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
 
     @server = FakeDavServer.current
     @server.reset!
@@ -26,7 +26,7 @@ class WebdavResourceTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
   end
 
   test "syncing walks collections and catalogues every file" do
@@ -136,7 +136,7 @@ class WebdavResourceTest < ActiveSupport::TestCase
   end
 
   test "a private address is refused unless fetching them is allowed" do
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
 
     assert_raises(PublicFetch::Blocked) { @resource.check! }
   end
@@ -152,7 +152,7 @@ class WebdavResourceTest < ActiveSupport::TestCase
   end
 
   test "a redirect to another origin goes without the credentials, and one within the server keeps them" do
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
     carried = {}
 
     stub_request(:get, "https://dav.example.test/files/moved.txt")

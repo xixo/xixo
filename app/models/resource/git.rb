@@ -2,8 +2,8 @@ require "open3"
 
 class Resource
   class Git < Resource
-    HEAD = "refs/uris/head".freeze
-    CHECKPOINT = "refs/uris/checkpoint".freeze
+    HEAD = "refs/xixo/head".freeze
+    CHECKPOINT = "refs/xixo/checkpoint".freeze
     NAMED = 200
     PAGE = 500
     MAX_BLOB = 2.megabytes
@@ -48,11 +48,11 @@ class Resource
     end
 
     def self.root
-      ENV["URIS_GIT_ROOT"].presence
+      ENV["XIXO_GIT_ROOT"].presence
     end
 
     def self.protocols
-      ENV.fetch("URIS_GIT_PROTOCOLS", DEFAULT_PROTOCOLS).split(",").map(&:strip).compact_blank
+      ENV.fetch("XIXO_GIT_PROTOCOLS", DEFAULT_PROTOCOLS).split(",").map(&:strip).compact_blank
     end
 
     validate :it_names_a_repository
@@ -71,7 +71,7 @@ class Resource
       if root.blank?
         raise Resource::Unusable,
               "#{key}: no clone root is set — a server holding more than one tenant's catalogue " \
-              "does not write clones wherever it likes. Set URIS_GIT_ROOT."
+              "does not write clones wherever it likes. Set XIXO_GIT_ROOT."
       end
 
       File.join(root, tenant_id.to_s, "#{Integer(id)}.git")
@@ -233,11 +233,11 @@ class Resource
         return yield({}) if token.nil?
 
         Tempfile.create([ "askpass", ".sh" ]) do |file|
-          file.write("#!/bin/sh\nprintf '%s' \"$URIS_GIT_TOKEN\"\n")
+          file.write("#!/bin/sh\nprintf '%s' \"$XIXO_GIT_TOKEN\"\n")
           file.close
           File.chmod(0o700, file.path)
 
-          yield({ "GIT_ASKPASS" => file.path, "URIS_GIT_TOKEN" => token })
+          yield({ "GIT_ASKPASS" => file.path, "XIXO_GIT_TOKEN" => token })
         end
       end
 
@@ -252,7 +252,7 @@ class Resource
 
         unless self.class.protocols.include?(uri.scheme)
           raise Resource::Unusable,
-                "#{key}: #{uri.scheme.presence || 'that'} is not one of URIS_GIT_PROTOCOLS " \
+                "#{key}: #{uri.scheme.presence || 'that'} is not one of XIXO_GIT_PROTOCOLS " \
                 "(#{self.class.protocols.join(', ')})"
         end
 

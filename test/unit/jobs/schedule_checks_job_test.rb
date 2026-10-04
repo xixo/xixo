@@ -38,7 +38,7 @@ class ScheduleChecksJobTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { assert_match(/not a public address/, @broken.reload.check_error) }
   end
 
-  test "a resource that is syncing, put away, or kept by uris for itself is not checked" do
+  test "a resource that is syncing, put away, or kept by xixo for itself is not checked" do
     Tenant.switch(@tenant) do
       @curl.update_columns(archived_at: Time.current)
       Resource.internal!(:children)

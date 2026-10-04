@@ -1,34 +1,34 @@
 ---
 title: Reach a tailnet
-description: Join uris to a Tailscale or Headscale network, and attach resources that live on it.
+description: Join xixo to a Tailscale or Headscale network, and attach resources that live on it.
 ---
 
-This guide puts uris on a [Tailscale](https://tailscale.com) network, including one coordinated by
+This guide puts xixo on a [Tailscale](https://tailscale.com) network, including one coordinated by
 [Headscale](https://headscale.net), so it can attach storage, mail, and other services on machines
-that have no public address. uris joins the network as its own node through a `tailscale`
+that have no public address. xixo joins the network as its own node through a `tailscale`
 container. Each resource on the network names the `tailnet` resource as the one it is reached
 through. See [reaching through another resource](/concepts/resources/#reaching-through-another-resource).
 
-You need a running uris from [self-hosting](/guides/self-hosting/), and an auth key for the
+You need a running xixo from [self-hosting](/guides/self-hosting/), and an auth key for the
 network. On Headscale, `headscale preauthkeys create --user <user>` makes one.
 
 ## Join the network
 
-Add a `tailscale` service to the Compose project, and run `uris` and `worker` in its network
-namespace. Both reach the tailnet through it, and both share its socket so uris can ask tailscaled
+Add a `tailscale` service to the Compose project, and run `xixo` and `worker` in its network
+namespace. Both reach the tailnet through it, and both share its socket so xixo can ask tailscaled
 for its status.
 
 ```yaml
-x-uris: &uris
+x-xixo: &xixo
   environment:
-    URIS_TAILSCALE_SOCKET: /var/run/tailscale/tailscaled.sock
+    XIXO_TAILSCALE_SOCKET: /var/run/tailscale/tailscaled.sock
   volumes:
     - tailscale-socket:/var/run/tailscale
 
 services:
   tailscale:
     image: tailscale/tailscale:stable
-    hostname: uris
+    hostname: xixo
     environment:
       TS_AUTHKEY: ...
       TS_STATE_DIR: /var/lib/tailscale
@@ -43,12 +43,12 @@ services:
       - tailscale:/var/lib/tailscale
       - tailscale-socket:/var/run/tailscale
 
-  uris:
-    <<: *uris
+  xixo:
+    <<: *xixo
     network_mode: service:tailscale
 
   worker:
-    <<: *uris
+    <<: *xixo
     network_mode: service:tailscale
 
 volumes:
@@ -60,23 +60,23 @@ Leave `TS_EXTRA_ARGS` off for Tailscale's own coordination server. The auth key 
 node's identity is kept in the `tailscale` volume after that.
 
 A container in another service's network namespace has no networks or ports of its own. List the
-networks `uris` was on under `tailscale` instead, and point the reverse proxy at `tailscale`, which
-now answers for uris on port 80.
+networks `xixo` was on under `tailscale` instead, and point the reverse proxy at `tailscale`, which
+now answers for xixo on port 80.
 
-## Limit what uris reaches
+## Limit what xixo reaches
 
-uris reaches every node the network lets it reach. Tag its node, and allow the tag only the
-services uris should attach, in the tailnet's access policy. A uris that is compromised can then
+xixo reaches every node the network lets it reach. Tag its node, and allow the tag only the
+services xixo should attach, in the tailnet's access policy. A xixo that is compromised can then
 reach those services and nothing else on the network.
 
 ## Check the tailnet resource
 
-With `URIS_TAILSCALE_SOCKET` set, uris declares a resource named `tailnet` in every tenant when it
+With `XIXO_TAILSCALE_SOCKET` set, xixo declares a resource named `tailnet` in every tenant when it
 boots, beside the resources in `config/resources.yml`. It is never attached by hand. Its check asks
 tailscaled for its status, and passes when tailscaled reports `Running`.
 
 :::caution
-Every tenant on the deployment gets the `tailnet` resource. Leave `URIS_TAILSCALE_SOCKET` unset on a
+Every tenant on the deployment gets the `tailnet` resource. Leave `XIXO_TAILSCALE_SOCKET` unset on a
 deployment whose tenants should not reach the network.
 :::
 

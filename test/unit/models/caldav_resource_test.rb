@@ -17,7 +17,7 @@ class CaldavResourceTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
 
-    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
 
     @server = FakeDavServer.current
     @server.reset!
@@ -37,7 +37,7 @@ class CaldavResourceTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
   end
 
   test "only calendar objects are catalogued, and they are calendars" do

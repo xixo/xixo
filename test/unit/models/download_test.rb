@@ -22,7 +22,7 @@ class DownloadTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
     ResolvesOnce.names = {}
     ResolvesOnce.lookups = 0
   end
@@ -134,6 +134,6 @@ class DownloadTest < ActiveSupport::TestCase
   private
 
     def private!
-      ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+      ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
     end
 end

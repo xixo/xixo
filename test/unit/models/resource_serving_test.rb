@@ -126,9 +126,9 @@ class ResourceServingTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { assert_equal({}, bucket.reload.serving) }
 
     require "rake"
-    Rails.application.load_tasks unless Rake::Task.task_defined?("uris:resources")
-    Rake::Task["uris:resources"].reenable
-    capture_io { Rake::Task["uris:resources"].invoke }
+    Rails.application.load_tasks unless Rake::Task.task_defined?("xixo:resources")
+    Rake::Task["xixo:resources"].reenable
+    capture_io { Rake::Task["xixo:resources"].invoke }
 
     Tenant.switch(@tenant) { assert_equal [ bucket.id ], Resource.capable_of(:storage).ids }
   end

@@ -4,8 +4,8 @@ module MimeType
     nef nrw orf ori pef pxn raf rw2 rwl sr2 srf srw x3f
   ].freeze
 
-  PAGE = "uris/page".freeze
-  ENTRY = "uris/entry".freeze
+  PAGE = "xixo/page".freeze
+  ENTRY = "xixo/entry".freeze
   NOTE = "text/markdown".freeze
   DEFAULT = "application/octet-stream".freeze
 

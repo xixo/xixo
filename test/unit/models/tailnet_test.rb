@@ -5,15 +5,15 @@ class TailnetTest < ActiveSupport::TestCase
   RANGES = Resource::Tailnet::RANGES
 
   setup do
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
     @tenant = Tenant.create!(subdomain: "tailnet-#{SecureRandom.hex(4)}", name: "Tailnet")
     @tailnet = Tenant.switch(@tenant) { Resource::Tailnet.create!(key: "tailnet", name: "Tailnet") }
   end
 
   teardown do
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
-    ENV.delete("URIS_TAILSCALE_SOCKET")
-    ENV.delete("URIS_GIT_PROTOCOLS")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_TAILSCALE_SOCKET")
+    ENV.delete("XIXO_GIT_PROTOCOLS")
     @tailscaled&.stop
   end
 
@@ -31,7 +31,7 @@ class TailnetTest < ActiveSupport::TestCase
   end
 
   test "allowing private fetches everywhere does not widen a transport" do
-    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
 
     assert_raises(PublicAddress::Blocked) { PublicAddress.permitted!("http://10.0.0.5/", through: RANGES) }
     assert PublicAddress.permitted!("http://100.100.1.1/", through: RANGES)
@@ -55,7 +55,7 @@ class TailnetTest < ActiveSupport::TestCase
   test "a tailscaled socket in the environment declares the tailnet in every tenant" do
     assert_not_includes Resource.declarations.keys, "tailnet"
 
-    ENV["URIS_TAILSCALE_SOCKET"] = "/var/run/tailscale/tailscaled.sock"
+    ENV["XIXO_TAILSCALE_SOCKET"] = "/var/run/tailscale/tailscaled.sock"
 
     assert_equal({ "type" => "tailnet", "name" => "Tailnet" }, Resource.declarations["tailnet"])
   end
@@ -72,7 +72,7 @@ class TailnetTest < ActiveSupport::TestCase
 
   test "the check asks tailscaled for its status over the local socket" do
     @tailscaled = FakeTailscaled.new
-    ENV["URIS_TAILSCALE_SOCKET"] = @tailscaled.path
+    ENV["XIXO_TAILSCALE_SOCKET"] = @tailscaled.path
 
     Tenant.switch(@tenant) { assert @tailnet.check }
 
@@ -84,7 +84,7 @@ class TailnetTest < ActiveSupport::TestCase
 
   test "a tailnet that is not running fails its check with the state tailscaled names" do
     @tailscaled = FakeTailscaled.new(state: "NeedsLogin")
-    ENV["URIS_TAILSCALE_SOCKET"] = @tailscaled.path
+    ENV["XIXO_TAILSCALE_SOCKET"] = @tailscaled.path
 
     Tenant.switch(@tenant) do
       refute @tailnet.check
@@ -94,7 +94,7 @@ class TailnetTest < ActiveSupport::TestCase
 
   test "a tailscaled that answers with an error fails the check" do
     @tailscaled = FakeTailscaled.new(answer: "HTTP/1.0 403 Forbidden\r\n\r\nno")
-    ENV["URIS_TAILSCALE_SOCKET"] = @tailscaled.path
+    ENV["XIXO_TAILSCALE_SOCKET"] = @tailscaled.path
 
     Tenant.switch(@tenant) do
       refute @tailnet.check
@@ -105,9 +105,9 @@ class TailnetTest < ActiveSupport::TestCase
   test "a tailnet with no socket named, or none there, fails its check" do
     Tenant.switch(@tenant) do
       refute @tailnet.check
-      assert_match(/URIS_TAILSCALE_SOCKET names no tailscaled socket/, @tailnet.reload.check_error)
+      assert_match(/XIXO_TAILSCALE_SOCKET names no tailscaled socket/, @tailnet.reload.check_error)
 
-      ENV["URIS_TAILSCALE_SOCKET"] = "/nonexistent/tailscaled.sock"
+      ENV["XIXO_TAILSCALE_SOCKET"] = "/nonexistent/tailscaled.sock"
 
       refute @tailnet.check
       assert_match(/ENOENT/, @tailnet.reload.check_error)
@@ -146,7 +146,7 @@ class TailnetTest < ActiveSupport::TestCase
       client = bucket("http://100.64.1.2:3900").send(:connection)
 
       assert_instance_of Resource::S3::PublicClient, client
-      assert_equal RANGES, client.config.uris_through
+      assert_equal RANGES, client.config.xixo_through
 
       assert_raises(PublicFetch::Blocked) { bucket("http://169.254.169.254").send(:connection) }
       assert_raises(PublicFetch::Blocked) { bucket("https://8.8.8.8").send(:connection) }
@@ -160,7 +160,7 @@ class TailnetTest < ActiveSupport::TestCase
 
     client = Resource::S3::PublicClient.new(
       endpoint: "http://127.0.0.1:#{server.addr[1]}", region: "us-east-1", access_key_id: "id",
-      secret_access_key: "secret", force_path_style: true, retry_limit: 0, uris_through: RANGES
+      secret_access_key: "secret", force_path_style: true, retry_limit: 0, xixo_through: RANGES
     )
 
     error = assert_raises(PublicFetch::Blocked) { client.head_bucket(bucket: "bucket") }
@@ -180,7 +180,7 @@ class TailnetTest < ActiveSupport::TestCase
   end
 
   test "a git remote behind a tailnet is http on the tailnet, never ssh" do
-    ENV["URIS_GIT_PROTOCOLS"] = "http,https,ssh"
+    ENV["XIXO_GIT_PROTOCOLS"] = "http,https,ssh"
 
     Tenant.switch(@tenant) do
       assert_equal "100.64.1.2", repository("http://100.64.1.2/repo.git").send(:permitted!).address

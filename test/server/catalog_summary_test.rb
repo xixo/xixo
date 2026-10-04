@@ -48,7 +48,7 @@ class CatalogSummaryTest < ActionDispatch::IntegrationTest
     def summary_of(feed)
       post "/graphql",
            params: { query: FEED, variables: { id: feed.id.to_s }.to_json },
-           headers: { "HOST" => "#{@tenant.subdomain}.uris.test" }.merge(bearer)
+           headers: { "HOST" => "#{@tenant.subdomain}.xixo.test" }.merge(bearer)
 
       response.parsed_body.dig("data", "feed", "summary")
     end
@@ -56,7 +56,7 @@ class CatalogSummaryTest < ActionDispatch::IntegrationTest
     def bearer
       token = issuer.mint(
         subdomain: @tenant.subdomain, scopes: Grant::SCOPES,
-        audience: "http://#{@tenant.subdomain}.uris.test/mcp"
+        audience: "http://#{@tenant.subdomain}.xixo.test/mcp"
       )
 
       { "Authorization" => "Bearer #{token}" }

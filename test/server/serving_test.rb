@@ -51,7 +51,7 @@ class ServingTest < ActionDispatch::IntegrationTest
   private
 
     def reader
-      host_for(@tenant).merge(bearer(@tenant, [ "uris:catalog:read" ]))
+      host_for(@tenant).merge(bearer(@tenant, [ "xixo:catalog:read" ]))
     end
 
     def content_of(name, body, mime)

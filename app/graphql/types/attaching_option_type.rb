@@ -2,7 +2,7 @@
 
 module Types
   class AttachingOptionType < Types::BaseObject
-    grants "uris:resources:read"
+    grants "xixo:resources:read"
 
     field :value, String, null: false
     field :label, String, null: false

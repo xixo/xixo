@@ -38,7 +38,7 @@ class TimeoutTest < ActionDispatch::IntegrationTest
   end
 
   test "setting a timeout needs the write scope" do
-    body = execute(SET, variables: { id: @feed.id, seconds: 3600 }, scopes: %w[uris:catalog:read])
+    body = execute(SET, variables: { id: @feed.id, seconds: 3600 }, scopes: %w[xixo:catalog:read])
 
     assert_nil body.dig("data", "setFeedTimeout")
     Tenant.switch(@tenant) { assert_nil @feed.reload.timeout }
@@ -48,11 +48,11 @@ class TimeoutTest < ActionDispatch::IntegrationTest
 
     def execute(query, variables: nil, scopes: Grant::SCOPES)
       token = issuer.mint(subdomain: @tenant.subdomain, scopes: scopes,
-                          audience: "http://#{@tenant.subdomain}.uris.test/mcp")
+                          audience: "http://#{@tenant.subdomain}.xixo.test/mcp")
 
       post "/graphql",
            params: { query: query, variables: variables&.to_json }.compact,
-           headers: { "HOST" => "#{@tenant.subdomain}.uris.test", "Authorization" => "Bearer #{token}" }
+           headers: { "HOST" => "#{@tenant.subdomain}.xixo.test", "Authorization" => "Bearer #{token}" }
 
       response.parsed_body
     end

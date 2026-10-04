@@ -11,22 +11,22 @@ class TenantOriginTest < ActiveSupport::TestCase
   end
 
   def with_origin(value)
-    held = ENV["URIS_PUBLIC_ORIGIN"]
-    ENV["URIS_PUBLIC_ORIGIN"] = value
+    held = ENV["XIXO_PUBLIC_ORIGIN"]
+    ENV["XIXO_PUBLIC_ORIGIN"] = value
     yield
   ensure
-    ENV["URIS_PUBLIC_ORIGIN"] = held
+    ENV["XIXO_PUBLIC_ORIGIN"] = held
   end
 
   test "with no override the origin is whatever answered the request" do
     with_origin(nil) do
-      assert_equal "http://demo.uris.test", Tenant.origin(request_for("demo.uris.test"))
+      assert_equal "http://demo.xixo.test", Tenant.origin(request_for("demo.xixo.test"))
     end
   end
 
   test "an override without a placeholder is used as it stands" do
     with_origin("https://tunnel.example") do
-      assert_equal "https://tunnel.example", Tenant.origin(request_for("demo.uris.test"))
+      assert_equal "https://tunnel.example", Tenant.origin(request_for("demo.xixo.test"))
     end
   end
 

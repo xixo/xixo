@@ -18,7 +18,7 @@ class AttachingTest < ActionDispatch::IntegrationTest
   GQL
 
   setup do
-    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
 
     @server = FakeFeedServer.current
     @server.reset!
@@ -30,8 +30,8 @@ class AttachingTest < ActionDispatch::IntegrationTest
   end
 
   teardown do
-    ENV.delete("URIS_FILESYSTEM_ROOTS")
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_FILESYSTEM_ROOTS")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
   end
 
   test "every attachable type says what it needs" do
@@ -58,7 +58,7 @@ class AttachingTest < ActionDispatch::IntegrationTest
   test "a directory is only offered where the server was given roots to allow" do
     refute_includes offered, "filesystem"
 
-    ENV["URIS_FILESYSTEM_ROOTS"] = Dir.mktmpdir("permitted")
+    ENV["XIXO_FILESYSTEM_ROOTS"] = Dir.mktmpdir("permitted")
 
     assert_includes offered, "filesystem"
   end
@@ -201,7 +201,7 @@ class AttachingTest < ActionDispatch::IntegrationTest
   end
 
   test "attaching needs the command scope, not merely the read one" do
-    body = execute(ATTACH, scopes: %w[uris:resources:read],
+    body = execute(ATTACH, scopes: %w[xixo:resources:read],
                            variables: { type: "rss", key: "news",
                                         settings: { "url" => @feed } })
 
@@ -231,13 +231,13 @@ class AttachingTest < ActionDispatch::IntegrationTest
     end
 
     def host_for(tenant)
-      { "HOST" => "#{tenant.subdomain}.uris.test" }
+      { "HOST" => "#{tenant.subdomain}.xixo.test" }
     end
 
     def bearer(tenant, scopes: Grant::SCOPES)
       token = issuer.mint(
         subdomain: tenant.subdomain, scopes: scopes,
-        audience: "http://#{tenant.subdomain}.uris.test/mcp"
+        audience: "http://#{tenant.subdomain}.xixo.test/mcp"
       )
 
       { "Authorization" => "Bearer #{token}" }

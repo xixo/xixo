@@ -6,7 +6,7 @@ module Mutations
 
     field :forgotten, Boolean, null: false
     field :places, Integer, null: false,
-          description: "How many places it lived that uris stopped pointing at."
+          description: "How many places it lived that xixo stopped pointing at."
 
     def resolve(id:)
       feed = feed!(id)

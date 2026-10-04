@@ -13,7 +13,7 @@ class PageAnalyzerTest < ActiveSupport::TestCase
 
     SearchIndex.reset!
 
-    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
 
     @server = FakeFeedServer.current
     @server.reset!
@@ -29,7 +29,7 @@ class PageAnalyzerTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
   end
 
   test "dispatch picks the page analyzer over the one that reads images" do

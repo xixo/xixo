@@ -48,12 +48,12 @@ class SearchWebTest < ActionDispatch::IntegrationTest
     attach_engine
     stub_exa
 
-    reply = call(@tenant, Grant::SCOPES - [ "uris:web:read" ], "tools/call",
+    reply = call(@tenant, Grant::SCOPES - [ "xixo:web:read" ], "tools/call",
                  arguments: { key: "exa", do: "search", input: { query: "anything" } },
                  name: "resource")
 
     assert reply.dig("result", "isError")
-    assert_match(/uris:web:read/, reply.dig("result", "content", 0, "text"))
+    assert_match(/xixo:web:read/, reply.dig("result", "content", 0, "text"))
   end
 
   test "the web scope still gates a search-capable resource, though the tool is one of four" do
@@ -66,7 +66,7 @@ class SearchWebTest < ActionDispatch::IntegrationTest
     }
 
     assert_includes granted.call(ALL), "resource"
-    assert_not_includes granted.call([ "uris:catalog:read" ]), "resource"
+    assert_not_includes granted.call([ "xixo:catalog:read" ]), "resource"
   end
 
   test "an agent is offered the places alongside the catalog" do

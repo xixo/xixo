@@ -16,7 +16,7 @@ class GatedIterationTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
 
-    ENV["URIS_FILESYSTEM_ROOTS"] = Dir.tmpdir
+    ENV["XIXO_FILESYSTEM_ROOTS"] = Dir.tmpdir
 
     @tenant = Tenant.create!(subdomain: "gated-#{SecureRandom.hex(4)}", name: "Gated")
 
@@ -32,7 +32,7 @@ class GatedIterationTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("URIS_FILESYSTEM_ROOTS")
+    ENV.delete("XIXO_FILESYSTEM_ROOTS")
     FileUtils.remove_entry(@root.dirname) if @root.dirname.exist?
   end
 
@@ -123,7 +123,7 @@ class GatedIterationTest < ActiveSupport::TestCase
   end
 
   test "the operator switch stops a run no tenant asked to stop" do
-    ENV["URIS_ITERATORS_DISABLED"] = "1"
+    ENV["XIXO_ITERATORS_DISABLED"] = "1"
 
     begin
       run = start_sync
@@ -133,7 +133,7 @@ class GatedIterationTest < ActiveSupport::TestCase
         assert_equal "gated", run.reload.status
       end
     ensure
-      ENV.delete("URIS_ITERATORS_DISABLED")
+      ENV.delete("XIXO_ITERATORS_DISABLED")
     end
   end
 

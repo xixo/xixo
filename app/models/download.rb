@@ -12,7 +12,7 @@ class Download
   MAX_REDIRECTS = 4
   OPEN_TIMEOUT = 5
   READ_TIMEOUT = 30
-  AGENT = "uris"
+  AGENT = "xixo"
 
   EXTENSIONS = {
     "application/pdf" => ".pdf",

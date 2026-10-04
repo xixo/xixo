@@ -102,11 +102,11 @@ class McpOauthServer
 
     def register(request)
       asked = request.json
-      uris = Array(asked["redirect_uris"])
-      return json(400, error: "invalid_redirect_uri") if uris.empty?
+      redirects = Array(asked["redirect_uris"])
+      return json(400, error: "invalid_redirect_uri") if redirects.empty?
 
       method = asked["token_endpoint_auth_method"] || "client_secret_basic"
-      client = { "client_id" => "mcp-#{SecureRandom.hex(8)}", "redirect_uris" => uris,
+      client = { "client_id" => "mcp-#{SecureRandom.hex(8)}", "redirect_uris" => redirects,
                  "token_endpoint_auth_method" => method }
       client["client_secret"] = SecureRandom.hex(24) unless method == "none"
       @clients[client["client_id"]] = client

@@ -16,19 +16,19 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 
 | Field | Type | Needs | Description |
 | --- | --- | --- | --- |
-| `analyses`<br />`feedId: ID`<br />`status: String`<br />`after: ID`<br />`limit: Int` | [`AnalysisPage!`](#analysispage) | `uris:catalog:read` |  |
-| `analysis`<br />`id: ID!` | [`Analysis`](#analysis) | `uris:catalog:read` |  |
-| `auditEvents`<br />`status: String`<br />`actor: String`<br />`feed: ID`<br />`after: ID`<br />`limit: Int` | [`AuditEventPage!`](#auditeventpage) | `uris:catalog:read` |  |
-| `feed`<br />`id: ID`<br />`key: String` | [`Feed`](#feed) | `uris:catalog:read` |  |
-| `feeds`<br />`type: String`<br />`types: [String!]`<br />`mime: String`<br />`resourceId: ID`<br />`tag: String`<br />`connectedTo: ID`<br />`topLevel: Boolean`<br />`after: ID`<br />`limit: Int` | [`FeedPage!`](#feedpage) | `uris:catalog:read` |  |
-| `resourceTypes` | [`[Attaching!]!`](#attaching) | `uris:resources:read` | Every type that can be attached, and what each of them needs. |
-| `resources`<br />`archived: Boolean` | [`[Resource!]!`](#resource) | `uris:resources:read` |  |
-| `run`<br />`id: ID!` | [`Run`](#run) | `uris:catalog:read` |  |
-| `runs`<br />`kind: String`<br />`status: String`<br />`after: ID`<br />`limit: Int` | [`RunPage!`](#runpage) | `uris:catalog:read` |  |
-| `search`<br />`query: String`<br />`type: String`<br />`types: [String!]`<br />`after: ID`<br />`limit: Int` | [`FeedPage!`](#feedpage) | `uris:catalog:read` |  |
-| `settings` | [`[Setting!]!`](#setting) | `uris:settings:read` |  |
-| `tenant` | [`Tenant`](#tenant) | `uris:catalog:read` |  |
-| `types` | [`[TypeCount!]!`](#typecount) | `uris:catalog:read` |  |
+| `analyses`<br />`feedId: ID`<br />`status: String`<br />`after: ID`<br />`limit: Int` | [`AnalysisPage!`](#analysispage) | `xixo:catalog:read` |  |
+| `analysis`<br />`id: ID!` | [`Analysis`](#analysis) | `xixo:catalog:read` |  |
+| `auditEvents`<br />`status: String`<br />`actor: String`<br />`feed: ID`<br />`after: ID`<br />`limit: Int` | [`AuditEventPage!`](#auditeventpage) | `xixo:catalog:read` |  |
+| `feed`<br />`id: ID`<br />`key: String` | [`Feed`](#feed) | `xixo:catalog:read` |  |
+| `feeds`<br />`type: String`<br />`types: [String!]`<br />`mime: String`<br />`resourceId: ID`<br />`tag: String`<br />`connectedTo: ID`<br />`topLevel: Boolean`<br />`after: ID`<br />`limit: Int` | [`FeedPage!`](#feedpage) | `xixo:catalog:read` |  |
+| `resourceTypes` | [`[Attaching!]!`](#attaching) | `xixo:resources:read` | Every type that can be attached, and what each of them needs. |
+| `resources`<br />`archived: Boolean` | [`[Resource!]!`](#resource) | `xixo:resources:read` |  |
+| `run`<br />`id: ID!` | [`Run`](#run) | `xixo:catalog:read` |  |
+| `runs`<br />`kind: String`<br />`status: String`<br />`after: ID`<br />`limit: Int` | [`RunPage!`](#runpage) | `xixo:catalog:read` |  |
+| `search`<br />`query: String`<br />`type: String`<br />`types: [String!]`<br />`after: ID`<br />`limit: Int` | [`FeedPage!`](#feedpage) | `xixo:catalog:read` |  |
+| `settings` | [`[Setting!]!`](#setting) | `xixo:settings:read` |  |
+| `tenant` | [`Tenant`](#tenant) | `xixo:catalog:read` |  |
+| `types` | [`[TypeCount!]!`](#typecount) | `xixo:catalog:read` |  |
 
 ## Mutations
 
@@ -36,35 +36,35 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 
 | Field | Type | Needs |
 | --- | --- | --- |
-| `addNote`<br />`input: AddNoteInput!` | [`AddNotePayload`](#addnotepayload) | `uris:catalog:write` |
-| `analyzeFeed`<br />`input: AnalyzeFeedInput!` | [`AnalyzeFeedPayload`](#analyzefeedpayload) | `uris:catalog:write` |
-| `archiveResource`<br />`input: ArchiveResourceInput!` | [`ArchiveResourcePayload`](#archiveresourcepayload) | `uris:resources:command` |
-| `askCatalog`<br />`input: AskCatalogInput!` | [`AskCatalogPayload`](#askcatalogpayload) | `uris:catalog:write` |
-| `attachResource`<br />`input: AttachResourceInput!` | [`AttachResourcePayload`](#attachresourcepayload) | `uris:resources:command` |
-| `cancelAnalysis`<br />`input: CancelAnalysisInput!` | [`CancelAnalysisPayload`](#cancelanalysispayload) | `uris:catalog:write` |
-| `cancelRun`<br />`input: CancelRunInput!` | [`CancelRunPayload`](#cancelrunpayload) | `uris:catalog:write` |
-| `checkResource`<br />`input: CheckResourceInput!` | [`CheckResourcePayload`](#checkresourcepayload) | `uris:resources:command` |
-| `connectFeeds`<br />`input: ConnectFeedsInput!` | [`ConnectFeedsPayload`](#connectfeedspayload) | `uris:catalog:write` |
-| `deleteFeed`<br />`input: DeleteFeedInput!` | [`DeleteFeedPayload`](#deletefeedpayload) | `uris:catalog:write` |
-| `exportFeeds`<br />`input: ExportFeedsInput!` | [`ExportFeedsPayload`](#exportfeedspayload) | `uris:catalog:write` |
-| `fetchUrl`<br />`input: FetchUrlInput!` | [`FetchUrlPayload`](#fetchurlpayload) | `uris:catalog:write` |
-| `forgetFeed`<br />`input: ForgetFeedInput!` | [`ForgetFeedPayload`](#forgetfeedpayload) | `uris:catalog:write` |
-| `noteFeed`<br />`input: NoteFeedInput!` | [`NoteFeedPayload`](#notefeedpayload) | `uris:catalog:write` |
-| `pauseFeed`<br />`input: PauseFeedInput!` | [`PauseFeedPayload`](#pausefeedpayload) | `uris:catalog:write` |
-| `renameFeed`<br />`input: RenameFeedInput!` | [`RenameFeedPayload`](#renamefeedpayload) | `uris:catalog:write` |
-| `runFeed`<br />`input: RunFeedInput!` | [`RunFeedPayload`](#runfeedpayload) | `uris:catalog:write` |
-| `saveFeed`<br />`input: SaveFeedInput!` | [`SaveFeedPayload`](#savefeedpayload) | `uris:catalog:write` |
-| `setDefaultInference`<br />`input: SetDefaultInferenceInput!` | [`SetDefaultInferencePayload`](#setdefaultinferencepayload) | `uris:resources:command` |
-| `setDefaultStorage`<br />`input: SetDefaultStorageInput!` | [`SetDefaultStoragePayload`](#setdefaultstoragepayload) | `uris:resources:command` |
-| `setFeedLifetime`<br />`input: SetFeedLifetimeInput!` | [`SetFeedLifetimePayload`](#setfeedlifetimepayload) | `uris:catalog:write` |
-| `setFeedTimeout`<br />`input: SetFeedTimeoutInput!` | [`SetFeedTimeoutPayload`](#setfeedtimeoutpayload) | `uris:catalog:write` |
-| `setSetting`<br />`input: SetSettingInput!` | [`SetSettingPayload`](#setsettingpayload) | `uris:settings:write` |
-| `setSyncInterval`<br />`input: SetSyncIntervalInput!` | [`SetSyncIntervalPayload`](#setsyncintervalpayload) | `uris:resources:command` |
-| `snapshotUrl`<br />`input: SnapshotUrlInput!` | [`SnapshotUrlPayload`](#snapshoturlpayload) | `uris:catalog:write` |
-| `splitReference`<br />`input: SplitReferenceInput!` | [`SplitReferencePayload`](#splitreferencepayload) | `uris:catalog:write` |
-| `syncResource`<br />`input: SyncResourceInput!` | [`SyncResourcePayload`](#syncresourcepayload) | `uris:resources:command` |
-| `tagFeeds`<br />`input: TagFeedsInput!` | [`TagFeedsPayload`](#tagfeedspayload) | `uris:catalog:write` |
-| `updateResource`<br />`input: UpdateResourceInput!` | [`UpdateResourcePayload`](#updateresourcepayload) | `uris:resources:command` |
+| `addNote`<br />`input: AddNoteInput!` | [`AddNotePayload`](#addnotepayload) | `xixo:catalog:write` |
+| `analyzeFeed`<br />`input: AnalyzeFeedInput!` | [`AnalyzeFeedPayload`](#analyzefeedpayload) | `xixo:catalog:write` |
+| `archiveResource`<br />`input: ArchiveResourceInput!` | [`ArchiveResourcePayload`](#archiveresourcepayload) | `xixo:resources:command` |
+| `askCatalog`<br />`input: AskCatalogInput!` | [`AskCatalogPayload`](#askcatalogpayload) | `xixo:catalog:write` |
+| `attachResource`<br />`input: AttachResourceInput!` | [`AttachResourcePayload`](#attachresourcepayload) | `xixo:resources:command` |
+| `cancelAnalysis`<br />`input: CancelAnalysisInput!` | [`CancelAnalysisPayload`](#cancelanalysispayload) | `xixo:catalog:write` |
+| `cancelRun`<br />`input: CancelRunInput!` | [`CancelRunPayload`](#cancelrunpayload) | `xixo:catalog:write` |
+| `checkResource`<br />`input: CheckResourceInput!` | [`CheckResourcePayload`](#checkresourcepayload) | `xixo:resources:command` |
+| `connectFeeds`<br />`input: ConnectFeedsInput!` | [`ConnectFeedsPayload`](#connectfeedspayload) | `xixo:catalog:write` |
+| `deleteFeed`<br />`input: DeleteFeedInput!` | [`DeleteFeedPayload`](#deletefeedpayload) | `xixo:catalog:write` |
+| `exportFeeds`<br />`input: ExportFeedsInput!` | [`ExportFeedsPayload`](#exportfeedspayload) | `xixo:catalog:write` |
+| `fetchUrl`<br />`input: FetchUrlInput!` | [`FetchUrlPayload`](#fetchurlpayload) | `xixo:catalog:write` |
+| `forgetFeed`<br />`input: ForgetFeedInput!` | [`ForgetFeedPayload`](#forgetfeedpayload) | `xixo:catalog:write` |
+| `noteFeed`<br />`input: NoteFeedInput!` | [`NoteFeedPayload`](#notefeedpayload) | `xixo:catalog:write` |
+| `pauseFeed`<br />`input: PauseFeedInput!` | [`PauseFeedPayload`](#pausefeedpayload) | `xixo:catalog:write` |
+| `renameFeed`<br />`input: RenameFeedInput!` | [`RenameFeedPayload`](#renamefeedpayload) | `xixo:catalog:write` |
+| `runFeed`<br />`input: RunFeedInput!` | [`RunFeedPayload`](#runfeedpayload) | `xixo:catalog:write` |
+| `saveFeed`<br />`input: SaveFeedInput!` | [`SaveFeedPayload`](#savefeedpayload) | `xixo:catalog:write` |
+| `setDefaultInference`<br />`input: SetDefaultInferenceInput!` | [`SetDefaultInferencePayload`](#setdefaultinferencepayload) | `xixo:resources:command` |
+| `setDefaultStorage`<br />`input: SetDefaultStorageInput!` | [`SetDefaultStoragePayload`](#setdefaultstoragepayload) | `xixo:resources:command` |
+| `setFeedLifetime`<br />`input: SetFeedLifetimeInput!` | [`SetFeedLifetimePayload`](#setfeedlifetimepayload) | `xixo:catalog:write` |
+| `setFeedTimeout`<br />`input: SetFeedTimeoutInput!` | [`SetFeedTimeoutPayload`](#setfeedtimeoutpayload) | `xixo:catalog:write` |
+| `setSetting`<br />`input: SetSettingInput!` | [`SetSettingPayload`](#setsettingpayload) | `xixo:settings:write` |
+| `setSyncInterval`<br />`input: SetSyncIntervalInput!` | [`SetSyncIntervalPayload`](#setsyncintervalpayload) | `xixo:resources:command` |
+| `snapshotUrl`<br />`input: SnapshotUrlInput!` | [`SnapshotUrlPayload`](#snapshoturlpayload) | `xixo:catalog:write` |
+| `splitReference`<br />`input: SplitReferenceInput!` | [`SplitReferencePayload`](#splitreferencepayload) | `xixo:catalog:write` |
+| `syncResource`<br />`input: SyncResourceInput!` | [`SyncResourcePayload`](#syncresourcepayload) | `xixo:resources:command` |
+| `tagFeeds`<br />`input: TagFeedsInput!` | [`TagFeedsPayload`](#tagfeedspayload) | `xixo:catalog:write` |
+| `updateResource`<br />`input: UpdateResourceInput!` | [`UpdateResourcePayload`](#updateresourcepayload) | `xixo:resources:command` |
 
 ## Subscriptions
 
@@ -72,9 +72,9 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 
 | Field | Type | Needs |
 | --- | --- | --- |
-| `analysisProgressed`<br />`id: ID` | [`AnalysisProgressedPayload!`](#analysisprogressedpayload) | `uris:catalog:read` |
-| `feedAnalyzed`<br />`id: ID` | [`FeedAnalyzedPayload!`](#feedanalyzedpayload) | `uris:catalog:read` |
-| `runProgressed`<br />`id: ID` | [`RunProgressedPayload!`](#runprogressedpayload) | `uris:catalog:read` |
+| `analysisProgressed`<br />`id: ID` | [`AnalysisProgressedPayload!`](#analysisprogressedpayload) | `xixo:catalog:read` |
+| `feedAnalyzed`<br />`id: ID` | [`FeedAnalyzedPayload!`](#feedanalyzedpayload) | `xixo:catalog:read` |
+| `runProgressed`<br />`id: ID` | [`RunProgressedPayload!`](#runprogressedpayload) | `xixo:catalog:read` |
 
 ## Objects
 
@@ -89,7 +89,7 @@ Autogenerated return type of AddNote.
 
 ### Analysis
 
-Resolves only for a token carrying `uris:catalog:read`.
+Resolves only for a token carrying `xixo:catalog:read`.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -169,7 +169,7 @@ Autogenerated return type of AttachResource.
 
 ### Attaching
 
-What one type of resource needs before it can answer. Resolves only for a token carrying `uris:resources:read`.
+What one type of resource needs before it can answer. Resolves only for a token carrying `xixo:resources:read`.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -185,7 +185,7 @@ What one type of resource needs before it can answer. Resolves only for a token 
 
 ### AttachingCondition
 
-Resolves only for a token carrying `uris:resources:read`.
+Resolves only for a token carrying `xixo:resources:read`.
 
 | Field | Type |
 | --- | --- |
@@ -194,7 +194,7 @@ Resolves only for a token carrying `uris:resources:read`.
 
 ### AttachingField
 
-Resolves only for a token carrying `uris:resources:read`.
+Resolves only for a token carrying `xixo:resources:read`.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -211,7 +211,7 @@ Resolves only for a token carrying `uris:resources:read`.
 
 ### AttachingOption
 
-Resolves only for a token carrying `uris:resources:read`.
+Resolves only for a token carrying `xixo:resources:read`.
 
 | Field | Type |
 | --- | --- |
@@ -220,7 +220,7 @@ Resolves only for a token carrying `uris:resources:read`.
 
 ### AuditEvent
 
-Resolves only for a token carrying `uris:catalog:read`.
+Resolves only for a token carrying `xixo:catalog:read`.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -302,7 +302,7 @@ Autogenerated return type of DeleteFeed.
 
 ### Detail
 
-Resolves only for a token carrying `uris:catalog:read`.
+Resolves only for a token carrying `xixo:catalog:read`.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -323,7 +323,7 @@ Autogenerated return type of ExportFeeds.
 
 ### Feed
 
-Resolves only for a token carrying `uris:catalog:read`.
+Resolves only for a token carrying `xixo:catalog:read`.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -352,7 +352,7 @@ Resolves only for a token carrying `uris:catalog:read`.
 | `timeAllowed` | `Int!` | Seconds an analysis of it may run before it is cut off, unless the agent asks for more, and never more than a day. |
 | `timeout` | `Int` | Seconds an analysis of it may run, when someone set it. Null gets the default. |
 | `title` | `String` |  |
-| `type` | `String!` | What it is, and how it renders: uris:file, uris:note, uris:address, uris:tag, uris:mime. |
+| `type` | `String!` | What it is, and how it renders: xixo:file, xixo:note, xixo:address, xixo:tag, xixo:mime. |
 
 ### FeedAnalyzedPayload
 
@@ -388,7 +388,7 @@ Autogenerated return type of ForgetFeed.
 | --- | --- | --- |
 | `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
 | `forgotten` | `Boolean!` |  |
-| `places` | `Int!` | How many places it lived that uris stopped pointing at. |
+| `places` | `Int!` | How many places it lived that xixo stopped pointing at. |
 
 ### NoteFeedPayload
 
@@ -410,7 +410,7 @@ Autogenerated return type of PauseFeed.
 
 ### Reference
 
-Resolves only for a token carrying `uris:catalog:read`.
+Resolves only for a token carrying `xixo:catalog:read`.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -418,7 +418,7 @@ Resolves only for a token carrying `uris:catalog:read`.
 | `changedAt` | `ISO8601DateTime` |  |
 | `contentType` | `String!` |  |
 | `contentUrl` | `String!` |  |
-| `digest` | `String` | The SHA-256 of its bytes, once uris has read them. Places with the same digest and owner are one item. |
+| `digest` | `String` | The SHA-256 of its bytes, once xixo has read them. Places with the same digest and owner are one item. |
 | `filename` | `String!` |  |
 | `goneAt` | `ISO8601DateTime` | When a sync of its resource last walked everything and did not find it. |
 | `hiresUrl` | `String` | The large image rendered from it, no longer on its longest edge than the hi-res size setting. |
@@ -443,13 +443,13 @@ Autogenerated return type of RenameFeed.
 
 ### Resource
 
-Resolves only for a token carrying `uris:resources:read`.
+Resolves only for a token carrying `xixo:resources:read`.
 
 | Field | Type | Description |
 | --- | --- | --- |
 | `archivedAt` | `ISO8601DateTime` |  |
 | `capabilities` | `[String!]!` |  |
-| `changeable` | `Boolean!` | Whether it has a form to change. A type uris makes for itself does not. |
+| `changeable` | `Boolean!` | Whether it has a form to change. A type xixo makes for itself does not. |
 | `checkError` | `String` |  |
 | `checkedAt` | `ISO8601DateTime` |  |
 | `connectUrl` | `String` | Where to send the browser to connect it, for a resource that connects through masks. |
@@ -477,7 +477,7 @@ Resolves only for a token carrying `uris:resources:read`.
 
 ### Run
 
-Resolves only for a token carrying `uris:catalog:read`.
+Resolves only for a token carrying `xixo:catalog:read`.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -531,7 +531,7 @@ Autogenerated return type of SaveFeed.
 
 ### Schedule
 
-Resolves only for a token carrying `uris:catalog:read`.
+Resolves only for a token carrying `xixo:catalog:read`.
 
 | Field | Type | Description |
 | --- | --- | --- |

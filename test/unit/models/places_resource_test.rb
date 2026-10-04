@@ -38,7 +38,7 @@ class PlacesResourceTest < ActiveSupport::TestCase
     assert_equal "Toronto", found[:city]
     assert_in_delta 43.6545, found[:latitude], 0.0001
     assert_requested :get, /q=kensington(%20|\+)market/
-    assert_requested(:get, %r{nominatim}) { |request| request.headers["User-Agent"].include?("uris") }
+    assert_requested(:get, %r{nominatim}) { |request| request.headers["User-Agent"].include?("xixo") }
   end
 
   test "coordinates are named, and what are not coordinates is refused before anything is asked" do
@@ -97,8 +97,8 @@ class PlacesResourceTest < ActiveSupport::TestCase
     held = places
 
     Tenant.switch(@tenant) do
-      reading = Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new("sub" => "a", "scope" => "uris:resources:read uris:web:read"))
-      local = Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new("sub" => "a", "scope" => "uris:resources:read"))
+      reading = Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new("sub" => "a", "scope" => "xixo:resources:read xixo:web:read"))
+      local = Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new("sub" => "a", "scope" => "xixo:resources:read"))
 
       assert_match(/do=find, key "#{held.key}"/, Reach.new(reading).told)
 

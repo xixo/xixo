@@ -240,7 +240,7 @@ class AnalyzeFeedJob < ApplicationJob
 
       <<~TEXT
         Beyond the catalog you can look at the web. #{reach.told} Keep anything worth keeping: make a
-        note with feed, do=create, type uris:note and a title naming it, write what it is and its
+        note with feed, do=create, type xixo:note and a title naming it, write what it is and its
         address with feed, do=note, and connect the note to feed #{feed.id} with connect.
       TEXT
     end

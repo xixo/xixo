@@ -4,7 +4,7 @@ require "yaml"
 
 ROOT = Rails.root.join("test/fixtures/corpus")
 SUBDOMAIN = ENV["CORPUS_TENANT"].presence || "corpus"
-MODELS_FROM = ENV["CORPUS_MODELS_FROM"].presence || "uris"
+MODELS_FROM = ENV["CORPUS_MODELS_FROM"].presence || "xixo"
 GROUP = ENV["CORPUS_GROUP"].to_s.strip
 INDEX_WAIT = (ENV["CORPUS_TIMEOUT"].presence || "1800").to_i
 ASK_WAIT = (ENV["CORPUS_ASK_TIMEOUT"].presence || "900").to_i

@@ -11,7 +11,7 @@ class Resource
     BLOCKS = "br, p, div, li, tr, dt, dd, h1, h2, h3, h4, h5, h6, section, article, table, pre, blockquote".freeze
     INLINE = "td, th, a, span, b, strong, em, i, label".freeze
     HEADERS = {
-      "User-Agent" => "uris",
+      "User-Agent" => "xixo",
       "Accept" => "text/html,application/xhtml+xml,application/json;q=0.9,text/*;q=0.8,*/*;q=0.1"
     }.freeze
 

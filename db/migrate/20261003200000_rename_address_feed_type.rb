@@ -2,11 +2,11 @@ class RenameAddressFeedType < ActiveRecord::Migration[8.1]
   INDEX = "index_feeds_on_one_row_per_address".freeze
 
   def up
-    retype("uris:feed", "uris:address")
+    retype("xixo:feed", "xixo:address")
   end
 
   def down
-    retype("uris:address", "uris:feed")
+    retype("xixo:address", "xixo:feed")
   end
 
   private
@@ -21,6 +21,6 @@ class RenameAddressFeedType < ActiveRecord::Migration[8.1]
       execute "SELECT set_config('#{TenantIsolation::SETTING}', '', true)"
 
       add_index :feeds, %i[tenant_id type key], unique: true, name: INDEX,
-                where: "type IN ('uris:tag', #{quote(to)}, 'uris:mime')"
+                where: "type IN ('xixo:tag', #{quote(to)}, 'xixo:mime')"
     end
 end

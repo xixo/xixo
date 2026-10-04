@@ -37,7 +37,7 @@ class Reference < ApplicationRecord
   }
 
   after_commit :reindex_feed
-  after_destroy_commit :forget_bytes_uris_made
+  after_destroy_commit :forget_bytes_xixo_made
 
   def self.discover!(resource:, locator:, locator_key:, mime: nil, title: nil, role: ORIGINAL)
     reference = find_or_initialize_by(resource: resource, locator_key: locator_key)
@@ -217,7 +217,7 @@ class Reference < ApplicationRecord
       kept.analyze!(cause: "sync")
     end
 
-    def forget_bytes_uris_made
+    def forget_bytes_xixo_made
       store = Resource.find_by(id: resource_id)
       return unless store&.internal?
       return if Reference.exists?(resource_id: resource_id, locator_key: locator_key)

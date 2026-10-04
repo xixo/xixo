@@ -6,8 +6,8 @@ import {
   IconDatabase,
   IconUser,
 } from '@tabler/icons-react'
-import { SetSettingDocument, SettingsDocument } from '@uris-to/client'
-import { useQuery } from '@uris-to/client/react'
+import { SetSettingDocument, SettingsDocument } from '@xixo/client'
+import { useQuery } from '@xixo/client/react'
 import type { ReactNode } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
@@ -92,7 +92,7 @@ export function SignedIn({
     <div className="settings-page">
       <Intro
         title="Account"
-        lead="Who you are signed in as, and how uris behaves for you."
+        lead="Who you are signed in as, and how xixo behaves for you."
       />
 
       <div className="profile">
@@ -158,7 +158,7 @@ export function SignedIn({
 
 const GROUPS = [
   { level: 'personal', heading: null },
-  { level: 'shared', heading: 'How uris behaves for everyone here' },
+  { level: 'shared', heading: 'How xixo behaves for everyone here' },
   { level: 'server', heading: 'Only for administrators' },
 ]
 
@@ -171,7 +171,7 @@ function Preferences() {
 
   return (
     <Stack gap="var(--s5)">
-      <h2 className="section-title">How uris behaves for you</h2>
+      <h2 className="section-title">How xixo behaves for you</h2>
 
       {error &&
         (stale ? (
@@ -179,7 +179,7 @@ function Preferences() {
             color="yellow"
             title="This sign-in is older than these settings"
           >
-            Your token was minted before uris asked for the settings scopes, so
+            Your token was minted before xixo asked for the settings scopes, so
             it does not carry them. Sign out and back in and they will be there.
           </Alert>
         ) : (

@@ -2,14 +2,14 @@
 
 module Types
   class FeedType < Types::BaseObject
-    grants "uris:catalog:read"
+    grants "xixo:catalog:read"
 
     SUMMARY = 400
     CONNECTED = 200
 
     field :id, ID, null: false
     field :type, String, null: false,
-          description: "What it is, and how it renders: uris:file, uris:note, uris:address, uris:tag, uris:mime."
+          description: "What it is, and how it renders: xixo:file, xixo:note, xixo:address, xixo:tag, xixo:mime."
     field :key, String, null: false,
           description: "Its name within its type — README.md, text/markdown, /buy."
     field :origin, String, null: false,

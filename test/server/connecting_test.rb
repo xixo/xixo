@@ -21,9 +21,9 @@ class ConnectingTest < ActionDispatch::IntegrationTest
 
   def headers(subject: "ada", scopes: Grant::SCOPES)
     token = issuer.mint(subdomain: @tenant.subdomain, subject: subject, scopes: scopes,
-                        audience: "http://#{@tenant.subdomain}.uris.test/mcp")
+                        audience: "http://#{@tenant.subdomain}.xixo.test/mcp")
 
-    { "HOST" => "#{@tenant.subdomain}.uris.test", "Authorization" => "Bearer #{token}" }
+    { "HOST" => "#{@tenant.subdomain}.xixo.test", "Authorization" => "Bearer #{token}" }
   end
 
   def start(**options)
@@ -128,7 +128,7 @@ class ConnectingTest < ActionDispatch::IntegrationTest
   end
 
   test "connecting needs the command scope" do
-    get "/resources/#{@resource.id}/connect", headers: headers(scopes: %w[uris:resources:read])
+    get "/resources/#{@resource.id}/connect", headers: headers(scopes: %w[xixo:resources:read])
 
     refute_predicate response, :redirect?
     Tenant.switch(@tenant) { refute @resource.reload.connected? }

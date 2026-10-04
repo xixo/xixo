@@ -31,8 +31,8 @@ import {
   SetDefaultStorageDocument,
   SetSyncIntervalDocument,
   SyncResourceDocument,
-} from '@uris-to/client'
-import { useQuery } from '@uris-to/client/react'
+} from '@xixo/client'
+import { useQuery } from '@xixo/client/react'
 import {
   type CSSProperties,
   type RefObject,
@@ -363,7 +363,7 @@ const SHELVES = [
   {
     key: 'networks',
     title: 'Networks',
-    note: 'What uris reaches the others through',
+    note: 'What xixo reaches the others through',
     tone: 'var(--k-email)',
   },
 ] as const

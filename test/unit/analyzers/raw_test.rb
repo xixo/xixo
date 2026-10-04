@@ -24,7 +24,7 @@ class RawTest < ActiveSupport::TestCase
 
     server = FakeModelServer.current
     server.reset!.serves("gemma3:4b")
-    ENV["URIS_INFERENCE_ORIGINS"] = server.origin
+    ENV["XIXO_INFERENCE_ORIGINS"] = server.origin
 
     tenant = Tenant.create!(subdomain: "raw-#{SecureRandom.hex(4)}", name: "Raw")
 
@@ -66,6 +66,6 @@ class RawTest < ActiveSupport::TestCase
 
     assert_equal Setting.definition!("hires_size").default.to_i, edges.max
   ensure
-    ENV.delete("URIS_INFERENCE_ORIGINS")
+    ENV.delete("XIXO_INFERENCE_ORIGINS")
   end
 end

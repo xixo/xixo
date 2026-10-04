@@ -11,7 +11,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
     @root = @allowed + @tenant.subdomain + "drop"
     @root.mkpath
 
-    ENV["URIS_FILESYSTEM_ROOTS"] = @allowed.to_s
+    ENV["XIXO_FILESYSTEM_ROOTS"] = @allowed.to_s
 
     Tenant.switch(@tenant) do
       @storage = Resource::Filesystem.create!(
@@ -25,7 +25,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
   end
 
   teardown do
-    ENV.delete("URIS_FILESYSTEM_ROOTS")
+    ENV.delete("XIXO_FILESYSTEM_ROOTS")
     FileUtils.remove_entry(@allowed) if @allowed.exist?
   end
 
@@ -267,7 +267,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
   end
 
   test "a token that may read but not write cannot drop anything" do
-    upload "march.pdf", "contents", scopes: [ "uris:catalog:read" ]
+    upload "march.pdf", "contents", scopes: [ "xixo:catalog:read" ]
 
     assert_response :unauthorized
     Tenant.switch(@tenant) { assert_equal 0, Feed.files.count }
@@ -300,13 +300,13 @@ class UploadsTest < ActionDispatch::IntegrationTest
     end
 
     def host_for(tenant)
-      { "HOST" => "#{tenant.subdomain}.uris.test" }
+      { "HOST" => "#{tenant.subdomain}.xixo.test" }
     end
 
     def bearer(tenant, scopes: Grant::SCOPES)
       token = issuer.mint(
         subdomain: tenant.subdomain, scopes: scopes,
-        audience: "http://#{tenant.subdomain}.uris.test/mcp"
+        audience: "http://#{tenant.subdomain}.xixo.test/mcp"
       )
 
       { "Authorization" => "Bearer #{token}" }

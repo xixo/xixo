@@ -44,6 +44,18 @@ class RebuildSearchIndexJobTest < ActiveSupport::TestCase
     assert_not SearchIndex.stale?
   end
 
+  test "an index that has gone missing is rebuilt from the catalog" do
+    SearchIndex.live_indices.each { |name| SearchIndex.client.indices.delete(index: name) }
+
+    assert SearchIndex.stale?
+
+    RebuildSearchIndexJob.perform_now
+
+    assert_not SearchIndex.stale?
+    assert_equal [ "March invoice" ], titles(@tenant)
+    assert_equal [ "Acme invoice" ], titles(@other)
+  end
+
   test "every tenant's items are carried into the index that replaces the old one" do
     unstamped!
 

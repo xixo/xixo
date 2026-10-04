@@ -63,7 +63,7 @@ module ReferencePages
           ## Resource commands
 
           What `resource` accepts as `do`. `list`, `types`, `attach`, `change`, `default`, `describe`,
-          `check`, `runs`, `sync`, `export` and `cancel` are answered by uris itself; the rest are
+          `check`, `runs`, `sync`, `export` and `cancel` are answered by xixo itself; the rest are
           passed to the resource, and a type accepts only the ones its
           [reference entry](/reference/resources/) lists. A command that starts a run counts against
           the token's hourly run budget. `attach` and `change` refuse any field that holds a

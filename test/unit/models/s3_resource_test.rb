@@ -6,8 +6,8 @@ class S3ResourceTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("URIS_S3_ORIGINS")
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_S3_ORIGINS")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
   end
 
   test "an endpoint inside the network is refused before a client is made for it" do
@@ -17,7 +17,7 @@ class S3ResourceTest < ActiveSupport::TestCase
   end
 
   test "an endpoint the operator names is reached even inside the network" do
-    ENV["URIS_S3_ORIGINS"] = "http://minio:9000, https://garage.internal"
+    ENV["XIXO_S3_ORIGINS"] = "http://minio:9000, https://garage.internal"
 
     assert_instance_of Aws::S3::Client, connection_for("http://minio:9000")
     assert_instance_of Aws::S3::Client, connection_for("https://garage.internal")
@@ -25,7 +25,7 @@ class S3ResourceTest < ActiveSupport::TestCase
   end
 
   test "allowing private fetches everywhere allows them here" do
-    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
 
     assert_instance_of Aws::S3::Client, connection_for("http://10.0.0.5:9000")
   end

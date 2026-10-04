@@ -1,4 +1,4 @@
-import type { RowFragment } from '@uris-to/client'
+import type { RowFragment } from '@xixo/client'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, test } from 'vitest'
@@ -6,7 +6,7 @@ import { AnswerText } from '../../app/javascript/components/Answer'
 
 const invoice = {
   id: '12',
-  type: 'uris:file',
+  type: 'xixo:file',
   key: 'invoice.pdf',
   title: 'invoice.pdf',
 } as RowFragment

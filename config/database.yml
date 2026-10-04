@@ -7,58 +7,58 @@ default: &default
 development:
   primary: &primary_development
     <<: *default
-    database: uris_development
+    database: xixo_development
     host: <%= ENV.fetch("POSTGRES_HOST", "localhost") %>
     port: <%= ENV.fetch("POSTGRES_PORT", 5432) %>
-    username: <%= ENV.fetch("POSTGRES_USER", "uris") %>
-    password: <%= ENV.fetch("POSTGRES_PASSWORD", "uris") %>
+    username: <%= ENV.fetch("POSTGRES_USER", "xixo") %>
+    password: <%= ENV.fetch("POSTGRES_PASSWORD", "xixo") %>
   cache:
     <<: *primary_development
-    database: uris_development_cache
+    database: xixo_development_cache
     migrations_paths: db/cache_migrate
   queue:
     <<: *primary_development
-    database: uris_development_queue
+    database: xixo_development_queue
     migrations_paths: db/queue_migrate
   cable:
     <<: *primary_development
-    database: uris_development_cable
+    database: xixo_development_cable
     migrations_paths: db/cable_migrate
 
 test:
   primary:
     <<: *primary_development
-    database: uris_test
+    database: xixo_test
   cache:
     <<: *primary_development
-    database: uris_test_cache
+    database: xixo_test_cache
     migrations_paths: db/cache_migrate
   queue:
     <<: *primary_development
-    database: uris_test_queue
+    database: xixo_test_queue
     migrations_paths: db/queue_migrate
   cable:
     <<: *primary_development
-    database: uris_test_cable
+    database: xixo_test_cable
     migrations_paths: db/cable_migrate
 
 production:
   primary: &primary_production
     <<: *default
-    database: uris_production
+    database: xixo_production
     host: <%= ENV.fetch("POSTGRES_HOST", "localhost") %>
     port: <%= ENV.fetch("POSTGRES_PORT", 5432) %>
-    username: uris
-    password: <%= ENV["URIS_DATABASE_PASSWORD"] %>
+    username: xixo
+    password: <%= ENV["XIXO_DATABASE_PASSWORD"] %>
   cache:
     <<: *primary_production
-    database: uris_production_cache
+    database: xixo_production_cache
     migrations_paths: db/cache_migrate
   queue:
     <<: *primary_production
-    database: uris_production_queue
+    database: xixo_production_queue
     migrations_paths: db/queue_migrate
   cable:
     <<: *primary_production
-    database: uris_production_cable
+    database: xixo_production_cable
     migrations_paths: db/cable_migrate

@@ -1,28 +1,28 @@
-# @uris-to/client
+# @xixo/client
 
-A GraphQL and Action Cable client for [uris](https://uris.pages.dev), an indexer for personal data.
+A GraphQL and Action Cable client for [xixo](https://xixo.pages.dev), an indexer for personal data.
 It is built on [urql](https://github.com/urql-graphql/urql) and ships typed documents for every
-operation the uris browser app uses.
+operation the xixo browser app uses.
 
 ## Installation
 
 ```sh
-npm install @uris-to/client
+npm install @xixo/client
 ```
 
 `graphql` is a required peer dependency. `react` and `@rails/actioncable` are optional peer
-dependencies. Install them only if you import `@uris-to/client/react` or
-`@uris-to/client/actioncable`.
+dependencies. Install them only if you import `@xixo/client/react` or
+`@xixo/client/actioncable`.
 
 ## Usage
 
-`createUris` returns a urql `Client` that posts JSON to the GraphQL endpoint:
+`createXixo` returns a urql `Client` that posts JSON to the GraphQL endpoint:
 
 ```ts
-import { createUris, metaCSRFToken } from "@uris-to/client";
-import { actionCableExchange } from "@uris-to/client/actioncable";
+import { createXixo, metaCSRFToken } from "@xixo/client";
+import { actionCableExchange } from "@xixo/client/actioncable";
 
-export const client = createUris({
+export const client = createXixo({
   url: "/graphql",
   csrfToken: metaCSRFToken,
   onUnauthorized: () => signIn(),
@@ -33,7 +33,7 @@ export const client = createUris({
 Run a typed document with the client:
 
 ```ts
-import { SettingsDocument } from "@uris-to/client";
+import { SettingsDocument } from "@xixo/client";
 
 const { data, error } = await client.query(SettingsDocument, {}).toPromise();
 ```
@@ -41,12 +41,12 @@ const { data, error } = await client.query(SettingsDocument, {}).toPromise();
 ### React
 
 ```tsx
-import { UrisProvider, useQuery } from "@uris-to/client/react";
-import { SettingsDocument } from "@uris-to/client";
+import { XixoProvider, useQuery } from "@xixo/client/react";
+import { SettingsDocument } from "@xixo/client";
 
-<UrisProvider client={client}>
+<XixoProvider client={client}>
   <App />
-</UrisProvider>;
+</XixoProvider>;
 
 function Settings() {
   const { data, loading, error } = useQuery(SettingsDocument);
@@ -59,20 +59,20 @@ function Settings() {
 
 ## API
 
-### `@uris-to/client`
+### `@xixo/client`
 
 | | |
 | --- | --- |
-| `createUris(options)` | Returns a `UrisClient`, which is a urql `Client`. |
+| `createXixo(options)` | Returns a `XixoClient`, which is a urql `Client`. |
 | `metaCSRFToken()` | Returns the `content` of the page's `<meta name="csrf-token">` tag, or `null`. |
-| `UrisClient` | The client type. |
-| `UrisOptions` | The options for `createUris`. |
+| `XixoClient` | The client type. |
+| `XixoOptions` | The options for `createXixo`. |
 | `*Document` | A typed document for each query, mutation, and subscription, such as `CatalogDocument`, `SearchDocument`, and `AttachResourceDocument`. |
 
-The package also exports the TypeScript types generated from the uris GraphQL schema, including the
+The package also exports the TypeScript types generated from the xixo GraphQL schema, including the
 result and variables types for each document.
 
-`UrisOptions` has these fields:
+`XixoOptions` has these fields:
 
 | | |
 | --- | --- |
@@ -83,17 +83,17 @@ result and variables types for each document.
 
 The client uses urql's document cache.
 
-### `@uris-to/client/react`
+### `@xixo/client/react`
 
 | | |
 | --- | --- |
-| `UrisProvider` | Puts a client in React context. |
-| `useUris()` | Returns the client from context. Throws outside a `UrisProvider`. |
+| `XixoProvider` | Puts a client in React context. |
+| `useXixo()` | Returns the client from context. Throws outside a `XixoProvider`. |
 | `useQuery(document, variables?, { skip? })` | Runs the query from the network whenever the variables change. Returns `{ data, loading, error, refetch }`. |
 | `useMutation(document)` | Returns `{ execute, attempt, loading, error }`. `execute(variables)` resolves to the data or `null`. `attempt(variables)` resolves to `{ data, error }`. |
 | `useSubscription(document, variables?, { skip? })` | Subscribes while mounted. Returns `{ data, error }` with the latest result. |
 
-### `@uris-to/client/actioncable`
+### `@xixo/client/actioncable`
 
 | | |
 | --- | --- |
@@ -101,8 +101,8 @@ The client uses urql's document cache.
 
 ## Development
 
-The types come from the schema of the uris Rails app, so the package is built from a checkout of
-[the uris repository](https://github.com/urisrb/uris):
+The types come from the schema of the xixo Rails app, so the package is built from a checkout of
+[the xixo repository](https://github.com/xixo/xixo):
 
 ```sh
 bin/rails graphql:dump_schema

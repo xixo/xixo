@@ -6,17 +6,17 @@ description: The record for each thing in the catalog, and the edges that connec
 A feed is the root record in the catalog. Files, notes, addresses, tags, and content types are all
 feeds, stored in one table and distinguished by a `type` column. A feed's
 [references](/concepts/references/) record where its bytes live, and its
-[analyses](/concepts/analysis/) record what uris found in it.
+[analyses](/concepts/analysis/) record what xixo found in it.
 
 The type comes from a small, fixed list. The browser app renders each feed according to its type.
 
 | Type | What it is | Singleton |
 | --- | --- | --- |
-| `uris:file` | Bytes stored in a resource, or staged until a resource accepts them. | No |
-| `uris:note` | Text written directly into the catalog. | No |
-| `uris:address` | An address, such as `/buy`, that can run on a schedule. | Yes |
-| `uris:tag` | A label that a person, an agent, or an analysis filed something under. | Yes |
-| `uris:mime` | A content type, keyed by its name, such as `text/markdown`. | Yes |
+| `xixo:file` | Bytes stored in a resource, or staged until a resource accepts them. | No |
+| `xixo:note` | Text written directly into the catalog. | No |
+| `xixo:address` | An address, such as `/buy`, that can run on a schedule. | Yes |
+| `xixo:tag` | A label that a person, an agent, or an analysis filed something under. | Yes |
+| `xixo:mime` | A content type, keyed by its name, such as `text/markdown`. | Yes |
 
 ## Keys
 
@@ -30,7 +30,7 @@ ignores case and reads underscores as spaces, so `Acme` and `ACME` are one tag, 
 `Mortgage_Statement` and `mortgage statement`.
 
 An address key is a slash followed by up to 63 lowercase letters, digits, and dashes, starting with
-a letter or a digit. Paths that uris already serves, such as `/graphql`, `/mcp`, `/uploads`, and
+a letter or a digit. Paths that xixo already serves, such as `/graphql`, `/mcp`, `/uploads`, and
 `/feeds`, are refused.
 
 Content types are feeds of their own. This keeps the tag list limited to labels that someone chose,
@@ -45,7 +45,7 @@ without the types that a parser detected.
 
 A feed lasts forever unless it has an `expires_at`. Every hour, `ForgetExpiredJob` forgets the
 feeds whose date has passed. Forgetting removes the feed's references, analyses, and edges, and
-deletes any bytes uris created for it, the same as forgetting it by hand. This suits things that go
+deletes any bytes xixo created for it, the same as forgetting it by hand. This suits things that go
 stale, such as a forecast, a price, or an API response.
 
 When an agent answers a question, anything it creates or keeps (a note, a page snapshot, or a kept
@@ -60,7 +60,7 @@ the item's page.
 ## Parents and children
 
 Some files contain other files, such as an email with attachments. When an analyzer can extract
-them, each becomes a `uris:file` feed whose `parent` is the file it came from. Its bytes are written
+them, each becomes a `xixo:file` feed whose `parent` is the file it came from. Its bytes are written
 to the internal `children` store, keyed by the parent's id, a position, and the filename. Each child
 is analyzed in turn.
 
@@ -74,8 +74,8 @@ is not sorted. As a result, a pair cannot be stored twice in reverse, and a feed
 itself.
 
 Tags and content types are built from edges. Filing a file under `receipts` creates an edge between
-the file and the `uris:tag` feed keyed `receipts`. Analysis connects every file it reads to the
-`uris:mime` feed for its content type. The files tagged `receipts` are the feeds at the other end of
+the file and the `xixo:tag` feed keyed `receipts`. Analysis connects every file it reads to the
+`xixo:mime` feed for its content type. The files tagged `receipts` are the feeds at the other end of
 that tag's edges. Destroying a feed deletes all of its edges.
 
 A finished analysis files its feed under a tag for each of its summary's tags, leaving out any tag
@@ -95,7 +95,7 @@ place, when [the same bytes join](/concepts/references/), takes its edges with t
 
 An address has no bytes to read, so its work is described by a prompt. Its `schedule` holds the
 prompt, the number of turns the agent may take (six by default), and an interval in seconds. Only a
-`uris:address` can have a schedule, and it has at most one.
+`xixo:address` can have a schedule, and it has at most one.
 
 | Field | |
 | --- | --- |

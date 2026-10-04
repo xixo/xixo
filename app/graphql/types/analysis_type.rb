@@ -2,7 +2,7 @@
 
 module Types
   class AnalysisType < Types::BaseObject
-    grants "uris:catalog:read"
+    grants "xixo:catalog:read"
 
     field :id, ID, null: false
     field :cause, String, null: false

@@ -9,8 +9,8 @@ require "time"
 
 ROOT = __dir__
 
-APP_PORT = ENV.fetch("URIS_PORT", "8180")
-DOCS_PORT = ENV.fetch("URIS_DOCS_PORT", "8181")
+APP_PORT = ENV.fetch("XIXO_PORT", "8180")
+DOCS_PORT = ENV.fetch("XIXO_DOCS_PORT", "8181")
 
 USAGE = <<~TEXT
   usage: dev [command] [--multi]
@@ -29,8 +29,8 @@ USAGE = <<~TEXT
     delegation     connect an MCP server through masks and put the whole flow through its paces
     fmt [--check]  format everything, or check it
 
-  One tenant answers at http://uris.localhost:#{APP_PORT}, its docs at
-  http://uris.localhost:#{DOCS_PORT}. It authenticates against masks, which
+  One tenant answers at http://xixo.localhost:#{APP_PORT}, its docs at
+  http://xixo.localhost:#{DOCS_PORT}. It authenticates against masks, which
   MASKS_ISSUER names and which has to be running for sign-in to work.
 TEXT
 
@@ -59,11 +59,11 @@ def compose(*args, multi: false)
 end
 
 def announce(multi)
-  hosts = multi ? %w[demo acme].map { |t| "#{t}.uris.localhost" } : [ "uris.localhost" ]
+  hosts = multi ? %w[demo acme].map { |t| "#{t}.xixo.localhost" } : [ "xixo.localhost" ]
 
   puts
-  hosts.each { |host| puts "  uris    http://#{host}:#{APP_PORT}" }
-  puts "  docs    http://uris.localhost:#{DOCS_PORT}"
+  hosts.each { |host| puts "  xixo    http://#{host}:#{APP_PORT}" }
+  puts "  docs    http://xixo.localhost:#{DOCS_PORT}"
   puts
 end
 
@@ -74,12 +74,12 @@ end
 
 SUITES = %w[unit server corpus].freeze
 
-UNPINNED = [ "-e", "URIS_TENANT=", "-e", "URIS_TENANTS=" ].freeze
+UNPINNED = [ "-e", "XIXO_TENANT=", "-e", "XIXO_TENANTS=" ].freeze
 
 def suite(name, multi)
-  return run(*compose("exec", "-T", "uris", "npm", "test", multi: multi)) if name == "client"
+  return run(*compose("exec", "-T", "xixo", "npm", "test", multi: multi)) if name == "client"
 
-  run(*compose("exec", "-T", *UNPINNED, "uris", "bin/rails", "test", "test/#{name}", multi: multi))
+  run(*compose("exec", "-T", *UNPINNED, "xixo", "bin/rails", "test", "test/#{name}", multi: multi))
 end
 
 def forwarded(prefix)
@@ -90,8 +90,8 @@ def test(names, multi)
   names = SUITES + [ "client" ] if names.empty?
   names.each { |name| usage unless SUITES.include?(name) || name == "client" }
 
-  run!(*compose("up", "-d", "--wait", "uris", multi: multi))
-  run!(*compose("exec", "-T", *UNPINNED, "uris", "bin/rails", "db:test:prepare", multi: multi))
+  run!(*compose("up", "-d", "--wait", "xixo", multi: multi))
+  run!(*compose("exec", "-T", *UNPINNED, "xixo", "bin/rails", "db:test:prepare", multi: multi))
 
   failed = names.reject do |name|
     puts "\n== #{name}\n\n"
@@ -103,11 +103,11 @@ def test(names, multi)
 end
 
 MASKS_CONTAINER = ENV.fetch("MASKS_CONTAINER", "masks-masks-1")
-MCP_OAUTH_PORT = ENV.fetch("URIS_MCP_OAUTH_PORT", "8190")
+MCP_OAUTH_PORT = ENV.fetch("XIXO_MCP_OAUTH_PORT", "8190")
 
 def delegation_env
   @delegation_env ||= {
-    "DELEGATION_URIS" => "http://uris.localhost:#{APP_PORT}",
+    "DELEGATION_XIXO" => "http://xixo.localhost:#{APP_PORT}",
     "DELEGATION_ISSUER" => ENV.fetch("MASKS_ISSUER", "http://masks.localhost:12345"),
     "DELEGATION_SERVER" => "http://mcp.localhost:#{MCP_OAUTH_PORT}",
     "DELEGATION_PASSWORD" => SecureRandom.hex(16),
@@ -128,14 +128,14 @@ def in_masks
   run!("docker", "exec", *flags, MASKS_CONTAINER, "bin/rails", "runner", script)
 end
 
-def in_uris(step)
+def in_xixo(step)
   output, status = Open3.capture2(
     *compose("exec", "-T", "-e", "DELEGATION_STEP=#{step}",
-             "-e", "DELEGATION_TENANT=#{ENV.fetch('URIS_TENANT', 'uris')}",
-             "uris", "bin/rails", "runner", "script/delegation/uris.rb"),
+             "-e", "DELEGATION_TENANT=#{ENV.fetch('XIXO_TENANT', 'xixo')}",
+             "xixo", "bin/rails", "runner", "script/delegation/xixo.rb"),
     chdir: ROOT
   )
-  die("failed: uris #{step}\n#{output}") unless status.success?
+  die("failed: xixo #{step}\n#{output}") unless status.success?
 
   line = output.lines.last
   line && line.start_with?("{") ? JSON.parse(line) : {}
@@ -159,25 +159,25 @@ def settle(seconds)
   end
 end
 
-def until_uris_asks_masks_again
-  stale = Time.at(in_uris("state")["expires_at"].to_i - 60)
+def until_xixo_asks_masks_again
+  stale = Time.at(in_xixo("state")["expires_at"].to_i - 60)
   sleep([ stale - Time.now + 1, 0 ].max)
 end
 
 def delegation
-  run!(*compose("up", "-d", "--wait", "uris", "uris-worker", "mcp-oauth"))
+  run!(*compose("up", "-d", "--wait", "xixo", "xixo-worker", "mcp-oauth"))
   run!("npx", "playwright", "install", "chromium")
 
   puts "\n== masks registers with the stand-in, and ada and bob can sign in\n\n"
   in_masks
-  in_uris("forget")
+  in_xixo("forget")
 
   puts "\n== ada attaches the stand-in for herself and connects it through masks\n\n"
   row = driven("connect")["row"]
   passes("it comes back reachable and only hers: #{row}", row.include?("reachable") && row.include?("only you"))
 
-  state = in_uris("state")
-  passes("uris holds a delegation and a cached upstream token, and nothing typed in",
+  state = in_xixo("state")
+  passes("xixo holds a delegation and a cached upstream token, and nothing typed in",
          state["holds"] == %w[delegation upstream])
 
   puts "\n== over MCP, as ada and then as bob\n\n"
@@ -191,27 +191,27 @@ def delegation
   passes("and calling one by name is refused", bob["said"].start_with?("refused"))
 
   puts "\n== with nobody signed in, the worker checks it from the kept secret alone\n\n"
-  until_uris_asks_masks_again
-  run!(*compose("restart", "uris-worker"))
-  before = in_uris("state")
-  in_uris("due")
+  until_xixo_asks_masks_again
+  run!(*compose("restart", "xixo-worker"))
+  before = in_xixo("state")
+  in_xixo("due")
   after = settle(90) do
-    now = in_uris("state")
+    now = in_xixo("state")
     now if now["checked_at"] != before["checked_at"] && Time.parse(now["checked_at"]) > Time.now - 120
   end
   passes("the scheduled check ran", after)
   passes("masks released a fresh upstream token", after["expires_at"].to_i > before["expires_at"].to_i)
   passes("and it still counts as connected", !after["needs_connect"])
 
-  puts "\n== ada stops uris using her account from the masks account page\n\n"
+  puts "\n== ada stops xixo using her account from the masks account page\n\n"
   driven("revoke", "ada")
-  passes("the upstream token uris already holds still answers until it lapses",
-         in_uris("call")["said"] == "called by ada")
-  until_uris_asks_masks_again
-  called = in_uris("call")
+  passes("the upstream token xixo already holds still answers until it lapses",
+         in_xixo("call")["said"] == "called by ada")
+  until_xixo_asks_masks_again
+  called = in_xixo("call")
   passes("then the next call is refused: #{called['message']}", called["refused"] == "Resource::Unusable")
-  state = in_uris("state")
-  passes("uris keeps only the delegation, and marks it for reconnecting",
+  state = in_xixo("state")
+  passes("xixo keeps only the delegation, and marks it for reconnecting",
          state["needs_connect"] && state["holds"] == %w[delegation])
   row = driven("listed", "ada")["row"]
   passes("her resource list offers Reconnect: #{row}", row.include?("Reconnect"))
@@ -256,15 +256,15 @@ when "reset"
 when "logs" then run!(*compose("logs", "-f", *ARGV, multi: multi))
 when "ps" then run!(*compose("ps", multi: multi))
 when "psql" then run!(*compose("exec", "postgres", "psql", "-U", "postgres", multi: multi))
-when "console" then run!(*compose("exec", "uris", "bin/rails", "console", multi: multi))
-when "seed" then run!(*compose("exec", "-T", "uris", "bin/rails", "db:seed", multi: multi))
+when "console" then run!(*compose("exec", "xixo", "bin/rails", "console", multi: multi))
+when "seed" then run!(*compose("exec", "-T", "xixo", "bin/rails", "db:seed", multi: multi))
 when "corpus"
   run!(*compose("exec", "-T", *UNPINNED, *forwarded("CORPUS_"), "-e", "CORPUS_GROUP=#{ARGV.first}",
-                "uris", "bin/rails", "runner", "script/corpus.rb", multi: multi))
+                "xixo", "bin/rails", "runner", "script/corpus.rb", multi: multi))
 when "test" then test(ARGV, multi)
 when "reference"
-  run!(*compose("up", "-d", "--wait", "uris", multi: multi))
-  run!(*compose("exec", "-T", *UNPINNED, "uris", "bin/rails", "docs:reference", multi: multi))
+  run!(*compose("up", "-d", "--wait", "xixo", multi: multi))
+  run!(*compose("exec", "-T", *UNPINNED, "xixo", "bin/rails", "docs:reference", multi: multi))
 when "delegation" then delegation
 when "fmt" then fmt(ARGV)
 else usage

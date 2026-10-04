@@ -1,7 +1,7 @@
 module Tool
   class Resources < Base
     tool_name "resource"
-    scope "uris:resources:read"
+    scope "xixo:resources:read"
 
     READ = %w[list types describe runs get parameters search forecast find reverse nearby ask].freeze
     PLACES = %w[find reverse nearby].freeze
@@ -10,9 +10,9 @@ module Tool
 
     KEEPING = %w[snapshot].freeze
 
-    WRITES = "uris:resources:command".freeze
-    WEB = "uris:web:read".freeze
-    KEEP = "uris:web:keep".freeze
+    WRITES = "xixo:resources:command".freeze
+    WEB = "xixo:web:read".freeze
+    KEEP = "xixo:web:keep".freeze
 
     description <<~TEXT
       Ask a place to do something. A resource is an instance — "my B2 bucket" — of a type
@@ -39,7 +39,7 @@ module Tool
 
       Class.new(self) do
         tool_name "resource"
-        scope "uris:resources:read"
+        scope "xixo:resources:read"
         description Resources.description
 
         input_schema(

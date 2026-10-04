@@ -5,7 +5,7 @@ class GraphqlChannel < ApplicationCable::Channel
 
   def execute(data)
     result = Tenant.switch(tenant) do
-      UrisSchema.execute(
+      XixoSchema.execute(
         data["query"],
         context: { channel: self, tenant: tenant, tenant_id: tenant.id, grant: grant },
         variables: ensure_hash(data["variables"]),
@@ -19,7 +19,7 @@ class GraphqlChannel < ApplicationCable::Channel
   end
 
   def unsubscribed
-    @subscription_ids.each { |sid| UrisSchema.subscriptions.delete_subscription(sid) }
+    @subscription_ids.each { |sid| XixoSchema.subscriptions.delete_subscription(sid) }
   end
 
   private

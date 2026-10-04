@@ -1,15 +1,15 @@
 x-tenants: &tenants
-  URIS_TENANT: ""
-  URIS_TENANTS: demo,acme
-  URIS_PUBLIC_ORIGIN: http://%{subdomain}.uris.localhost:${URIS_PORT:-8180}
+  XIXO_TENANT: ""
+  XIXO_TENANTS: demo,acme
+  XIXO_PUBLIC_ORIGIN: http://%{subdomain}.xixo.localhost:${XIXO_PORT:-8180}
   MASKS_ISSUER_TEMPLATE: ${MASKS_ISSUER:-http://%{subdomain}.masks.localhost:12345}
 
 services:
-  uris:
+  xixo:
     environment: *tenants
 
-  uris-vite:
+  xixo-vite:
     environment: *tenants
 
-  uris-worker:
+  xixo-worker:
     environment: *tenants

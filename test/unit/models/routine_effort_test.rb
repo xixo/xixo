@@ -7,7 +7,7 @@ class RoutineEffortTest < ActiveSupport::TestCase
   setup do
     @server = FakeModelServer.current
     @server.reset!.serves("qwen3:8b")
-    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
+    ENV["XIXO_INFERENCE_ORIGINS"] = @server.origin
 
     @tenant = Tenant.create!(subdomain: "effort-#{SecureRandom.hex(4)}", name: "Effort")
 
@@ -19,7 +19,7 @@ class RoutineEffortTest < ActiveSupport::TestCase
     end
   end
 
-  teardown { ENV.delete("URIS_INFERENCE_ORIGINS") }
+  teardown { ENV.delete("XIXO_INFERENCE_ORIGINS") }
 
   def backend(**details)
     Tenant.switch(@tenant) do

@@ -52,7 +52,7 @@ class NotingTest < ActionDispatch::IntegrationTest
   end
 
   test "noting needs the write scope, not the read one" do
-    body = execute(NOTE, scopes: %w[uris:catalog:read],
+    body = execute(NOTE, scopes: %w[xixo:catalog:read],
                          variables: { id: @item.id, note: "nope" })
 
     assert_nil body.dig("data", "noteFeed")
@@ -62,13 +62,13 @@ class NotingTest < ActionDispatch::IntegrationTest
   private
 
     def host_for(tenant)
-      { "HOST" => "#{tenant.subdomain}.uris.test" }
+      { "HOST" => "#{tenant.subdomain}.xixo.test" }
     end
 
     def bearer(tenant, scopes: Grant::SCOPES)
       token = issuer.mint(
         subdomain: tenant.subdomain, scopes: scopes,
-        audience: "http://#{tenant.subdomain}.uris.test/mcp"
+        audience: "http://#{tenant.subdomain}.xixo.test/mcp"
       )
 
       { "Authorization" => "Bearer #{token}" }

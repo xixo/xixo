@@ -1,7 +1,7 @@
 module Tool
   class Search < Base
     tool_name "search"
-    scope "uris:catalog:read"
+    scope "xixo:catalog:read"
 
     description <<~TEXT
       Search the whole catalog at once — every resource that has been synced, not one
@@ -16,8 +16,8 @@ module Tool
         query: { type: "string", description: "Words or a question. Matches the words, and what they mean." },
         type: {
           type: "string",
-          description: "Leave it off to search everything. Restricts to one type: uris:file, uris:note, " \
-                       "uris:address, uris:tag, uris:mime."
+          description: "Leave it off to search everything. Restricts to one type: xixo:file, xixo:note, " \
+                       "xixo:address, xixo:tag, xixo:mime."
         },
         limit: { type: "integer", minimum: 1, maximum: 200 }
       }

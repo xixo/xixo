@@ -5,35 +5,35 @@ description: The tools /mcp offers, the scope each needs, and what each takes.
 
 `/mcp` speaks the Model Context Protocol over streamable HTTP, behind OAuth. A tool the token's
 scopes do not reach is absent from `tools/list`, not refused when it is called, and a
-`resource` command that needs `uris:resources:command` is left out of that tool's schema
-in the same way. A token carrying `uris:mcp:call` also sees the tools of every MCP
+`resource` command that needs `xixo:resources:command` is left out of that tool's schema
+in the same way. A token carrying `xixo:mcp:call` also sees the tools of every MCP
 server attached as a resource, under that server's own names.
 
 Generated from the code by `./dev reference`. CI fails when this page and the code disagree.
 
 | Tool | Needs |
 | --- | --- |
-| [`search`](#search) | `uris:catalog:read` |
-| [`feed`](#feed) | `uris:catalog:read` |
-| [`connect`](#connect) | `uris:catalog:write` |
-| [`resource`](#resource) | `uris:resources:read` |
+| [`search`](#search) | `xixo:catalog:read` |
+| [`feed`](#feed) | `xixo:catalog:read` |
+| [`connect`](#connect) | `xixo:catalog:write` |
+| [`resource`](#resource) | `xixo:resources:read` |
 
 ## search
 
-Needs `uris:catalog:read`.
+Needs `xixo:catalog:read`.
 
 Search the whole catalog at once — every resource that has been synced, not one provider at a time. Matches titles, keys, paths, tags and text drawn out by analysis, and finds the passage inside a long document that means what was asked; a result found that way carries the passage and where it starts. Omit the query to list the most recent feeds of a type.
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
 | `query` | string |  | Words or a question. Matches the words, and what they mean. |
-| `type` | string |  | Leave it off to search everything. Restricts to one type: uris:file, uris:note, uris:address, uris:tag, uris:mime. |
+| `type` | string |  | Leave it off to search everything. Restricts to one type: xixo:file, xixo:note, xixo:address, xixo:tag, xixo:mime. |
 | `limit` | integer, 1–200 |  |  |
 
 
 ## feed
 
-Needs `uris:catalog:read`.
+Needs `xixo:catalog:read`.
 
 One feed: a part of its text, or with find the passages that answer what was asked, then an outline of where each sheet or section starts, everything known about it, every place it lives, and what analysis drew out of each. Read a table or a section whole, from where the outline says it starts, before counting or adding anything up. With `do` it also acts: note it, rename it, analyze it again, set how long it lasts, or place a file that is staged and waiting for somewhere to live. A feed is a reference, not the bytes; the originals stay in the resources they came from.
 
@@ -42,10 +42,10 @@ One feed: a part of its text, or with find the passages that answer what was ask
 | `id` | string |  | The feed's id, as returned by search. |
 | `key` | string |  | An address, as /buy, instead of an id. |
 | `do` | string, one of `get` `note` `rename` `analyze` `create` `place` `last` |  | What to do. Defaults to get. |
-| `type` | string |  | For create: uris:note, uris:address or uris:tag. |
+| `type` | string |  | For create: xixo:note, xixo:address or xixo:tag. |
 | `title` | string |  |  |
 | `note` | string |  | For note: what to write about it. |
-| `prompt` | string |  | For create of a uris:address: what it should find. |
+| `prompt` | string |  | For create of a xixo:address: what it should find. |
 | `resource` | string |  | For place: the key of the resource to store it in. |
 | `reason` | string |  | For place: why it belongs there, in one sentence. |
 | `from` | integer |  | For get: where in its text to start reading, as a character offset. Each get returns up to 6000 characters and says where the next part starts. |
@@ -55,7 +55,7 @@ One feed: a part of its text, or with find the passages that answer what was ask
 
 ## connect
 
-Needs `uris:catalog:write`.
+Needs `xixo:catalog:write`.
 
 Connect two feeds, or sever the connection. A connection is symmetric and carries no direction — what it means is read from the two things joined. Connecting a document to a tag is how it is filed; connecting it to another document is how they are related.
 
@@ -69,7 +69,7 @@ Connect two feeds, or sever the connection. A connection is symmetric and carrie
 
 ## resource
 
-Needs `uris:resources:read`.
+Needs `xixo:resources:read`.
 
 Ask a place to do something. A resource is an instance — "my B2 bucket" — of a type such as s3, and each type accepts its own commands; describe tells you which. Called with no key it lists the places there are. Some places reach the web: one that can search takes do=search with input &#123;"query": "..."}, and one that can fetch reads a page with do=get and input &#123;"url": "https://..."}, and one that serves weather takes do=forecast with input &#123;"place": "Toronto"}, and one that knows places takes do=find with input &#123;"query": "..."}, do=reverse with a latitude and longitude, or do=nearby with a kind such as cafe and a place. One that takes feedback takes do=ask with input &#123;"question": "...", "context": "...", "wanted": "..."}: use it for anything no tool here could answer or do, say what would have helped, and carry on; it always answers that it cannot. do=types lists what can be attached and the settings each type takes, and do=attach with a new key and input &#123;"type": "...", "settings": &#123;...}, "via": "..."} attaches one, reached through the transport named in via if there is one. do=change with input &#123;"name": "...", "settings": &#123;...}, "via": "..."} changes one, keeping every setting it is not given, and an empty via reaches it directly. do=default makes one the default for what it serves, storage or inference, named with input &#123;"for": "..."} when it serves both. Credentials never travel through here: a type that needs a password, a token, or a key is attached or changed in the app, and one that connects through masks comes back with the address a person opens to connect it.
 
@@ -83,7 +83,7 @@ Ask a place to do something. A resource is an instance — "my B2 bucket" — of
 ## Resource commands
 
 What `resource` accepts as `do`. `list`, `types`, `attach`, `change`, `default`, `describe`,
-`check`, `runs`, `sync`, `export` and `cancel` are answered by uris itself; the rest are
+`check`, `runs`, `sync`, `export` and `cancel` are answered by xixo itself; the rest are
 passed to the resource, and a type accepts only the ones its
 [reference entry](/reference/resources/) lists. A command that starts a run counts against
 the token's hourly run budget. `attach` and `change` refuse any field that holds a
@@ -92,25 +92,25 @@ setting it is not given.
 
 | Command | Needs | Starts a run |
 | --- | --- | --- |
-| `list` | `uris:resources:read` |  |
-| `types` | `uris:resources:read` |  |
-| `describe` | `uris:resources:read` |  |
-| `runs` | `uris:resources:read` |  |
-| `get` | `uris:resources:read` |  |
-| `parameters` | `uris:resources:read` |  |
-| `search` | `uris:resources:read` and `uris:web:read` on a search resource |  |
-| `forecast` | `uris:resources:read` |  |
-| `find` | `uris:resources:read` |  |
-| `reverse` | `uris:resources:read` |  |
-| `nearby` | `uris:resources:read` |  |
-| `ask` | `uris:resources:read` |  |
-| `attach` | `uris:resources:read` and `uris:resources:command` |  |
-| `change` | `uris:resources:read` and `uris:resources:command` |  |
-| `default` | `uris:resources:read` and `uris:resources:command` |  |
-| `check` | `uris:resources:read` and `uris:resources:command` |  |
-| `sync` | `uris:resources:read` and `uris:resources:command` | yes |
-| `keep` | `uris:resources:read` and `uris:resources:command` |  |
-| `export` | `uris:resources:read` and `uris:resources:command` | yes |
-| `cancel` | `uris:resources:read` and `uris:resources:command` |  |
-| `put` | `uris:resources:read` and `uris:resources:command` |  |
-| `snapshot` | `uris:resources:read` and `uris:resources:command` |  |
+| `list` | `xixo:resources:read` |  |
+| `types` | `xixo:resources:read` |  |
+| `describe` | `xixo:resources:read` |  |
+| `runs` | `xixo:resources:read` |  |
+| `get` | `xixo:resources:read` |  |
+| `parameters` | `xixo:resources:read` |  |
+| `search` | `xixo:resources:read` and `xixo:web:read` on a search resource |  |
+| `forecast` | `xixo:resources:read` |  |
+| `find` | `xixo:resources:read` |  |
+| `reverse` | `xixo:resources:read` |  |
+| `nearby` | `xixo:resources:read` |  |
+| `ask` | `xixo:resources:read` |  |
+| `attach` | `xixo:resources:read` and `xixo:resources:command` |  |
+| `change` | `xixo:resources:read` and `xixo:resources:command` |  |
+| `default` | `xixo:resources:read` and `xixo:resources:command` |  |
+| `check` | `xixo:resources:read` and `xixo:resources:command` |  |
+| `sync` | `xixo:resources:read` and `xixo:resources:command` | yes |
+| `keep` | `xixo:resources:read` and `xixo:resources:command` |  |
+| `export` | `xixo:resources:read` and `xixo:resources:command` | yes |
+| `cancel` | `xixo:resources:read` and `xixo:resources:command` |  |
+| `put` | `xixo:resources:read` and `xixo:resources:command` |  |
+| `snapshot` | `xixo:resources:read` and `xixo:resources:command` |  |

@@ -1,6 +1,6 @@
 module ReferencePages
   class Resources < Page
-    ROOTS = "URIS_FILESYSTEM_ROOTS".freeze
+    ROOTS = "XIXO_FILESYSTEM_ROOTS".freeze
     EXAMPLE_ROOT = "/data/files".freeze
 
     def slug = "resources"
@@ -10,9 +10,9 @@ module ReferencePages
     def intro
       <<~TEXT
         A [resource](/concepts/resources/) is an instance of one of these types. What a type serves
-        decides where uris uses it; what it accepts, and up to what size, decides whether a file may be
+        decides where xixo uses it; what it accepts, and up to what size, decides whether a file may be
         [placed](/concepts/adding/) in it. A type with fields can be attached from the app or declared in
-        `config/resources.yml`; one without is made by uris or a sign-in flow.
+        `config/resources.yml`; one without is made by xixo or a sign-in flow.
       TEXT
     end
 

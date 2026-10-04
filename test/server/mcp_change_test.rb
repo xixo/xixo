@@ -4,14 +4,14 @@ require_relative "../support/fake_model_server"
 class McpChangeTest < ActionDispatch::IntegrationTest
   include McpClient
 
-  COMMAND = %w[uris:resources:read uris:resources:command].freeze
+  COMMAND = %w[xixo:resources:read xixo:resources:command].freeze
   MODELS = { "fast" => "gemma3:4b", "agent" => "qwen3:8b" }.freeze
 
   setup do
     @server = FakeModelServer.current
     @server.reset!.serves(*MODELS.values, "qwen3:30b-a3b")
 
-    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
+    ENV["XIXO_INFERENCE_ORIGINS"] = @server.origin
 
     @tenant = Tenant.create!(subdomain: "change-mcp-#{SecureRandom.hex(4)}", name: "Changing")
 
@@ -30,7 +30,7 @@ class McpChangeTest < ActionDispatch::IntegrationTest
   end
 
   teardown do
-    ENV.delete("URIS_INFERENCE_ORIGINS")
+    ENV.delete("XIXO_INFERENCE_ORIGINS")
   end
 
   test "a change names one setting and keeps every other, the credential included" do
@@ -98,7 +98,7 @@ class McpChangeTest < ActionDispatch::IntegrationTest
 
   test "change and default take the command scope" do
     %w[change default].each do |verb|
-      reply = call(@tenant, %w[uris:resources:read], "tools/call", name: "resource", arguments: {
+      reply = call(@tenant, %w[xixo:resources:read], "tools/call", name: "resource", arguments: {
         do: verb, key: "ollama", input: { name: "renamed" }
       })
 

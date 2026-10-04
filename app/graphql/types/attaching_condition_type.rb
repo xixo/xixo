@@ -2,7 +2,7 @@
 
 module Types
   class AttachingConditionType < Types::BaseObject
-    grants "uris:resources:read"
+    grants "xixo:resources:read"
 
     field :field, String, null: false
     field :values, [ String ], null: false

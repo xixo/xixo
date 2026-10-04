@@ -1,13 +1,13 @@
 ---
 title: Self-hosting
-description: Run uris in production with Postgres, OpenSearch, storage, and a masks issuer.
+description: Run xixo in production with Postgres, OpenSearch, storage, and a masks issuer.
 ---
 
-uris ships as a container image. Point it at Postgres, OpenSearch, and a masks server, and it
+xixo ships as a container image. Point it at Postgres, OpenSearch, and a masks server, and it
 migrates itself on boot.
 
 ```sh
-docker pull ghcr.io/urisrb/uris:latest
+docker pull ghcr.io/xixo/xixo:latest
 ```
 
 ## What it runs
@@ -16,16 +16,16 @@ docker pull ghcr.io/urisrb/uris:latest
 | --- | --- |
 | Web process | The image's default command, `./bin/thrust ./bin/rails server`, listening on port 80 |
 | Worker process | `./bin/jobs`, from the same image |
-| Postgres | Four databases: `uris_production`, `uris_production_cache`, `uris_production_queue`, and `uris_production_cable` |
+| Postgres | Four databases: `xixo_production`, `xixo_production_cache`, `xixo_production_queue`, and `xixo_production_cable` |
 | OpenSearch | The search index, at `OPENSEARCH_URL` |
 | masks | One issuer per tenant, named by `MASKS_ISSUER_TEMPLATE` |
 
 When the container runs the web command, `bin/docker-entrypoint` runs `bin/rails db:prepare`,
-`bin/rails uris:tenants`, and `bin/rails uris:resources` before it starts the server. Those create
+`bin/rails xixo:tenants`, and `bin/rails xixo:resources` before it starts the server. Those create
 or migrate the four databases, create every declared [tenant](/concepts/tenants/), and declare the
 resources in `config/resources.yml` in every tenant. Any other command starts without them.
 
-uris stores where each file lives and what its analysis found. The bytes stay in the
+xixo stores where each file lives and what its analysis found. The bytes stay in the
 [resources](/concepts/resources/) they came from, or in the storage a file was placed in.
 
 ## Image tags
@@ -41,37 +41,37 @@ uris stores where each file lives and what its analysis found. The bytes stay in
 ## Example `compose.yml`
 
 ```yaml
-x-uris: &uris
-  image: ghcr.io/urisrb/uris:latest
+x-xixo: &xixo
+  image: ghcr.io/xixo/xixo:latest
   environment:
     POSTGRES_HOST: postgres
-    URIS_DATABASE_PASSWORD: ...
+    XIXO_DATABASE_PASSWORD: ...
     OPENSEARCH_URL: http://opensearch:9200
     SECRET_KEY_BASE: ...
     ENCRYPTION_PRIMARY_KEY: ...
     ENCRYPTION_DETERMINISTIC_KEY: ...
     ENCRYPTION_KEY_DERIVATION_SALT: ...
-    URIS_TENANTS: acme
-    URIS_HOST_SUFFIX: uris.example.com
-    URIS_PUBLIC_ORIGIN: https://%{subdomain}.uris.example.com
+    XIXO_TENANTS: acme
+    XIXO_HOST_SUFFIX: xixo.example.com
+    XIXO_PUBLIC_ORIGIN: https://%{subdomain}.xixo.example.com
     MASKS_ISSUER_TEMPLATE: https://%{subdomain}.auth.example.com
-    URIS_FILESYSTEM_ROOTS: /data/files
+    XIXO_FILESYSTEM_ROOTS: /data/files
   volumes:
     - storage:/rails/storage
     - files:/data/files
 
 services:
-  uris:
-    <<: *uris
+  xixo:
+    <<: *xixo
     depends_on:
       - postgres
       - opensearch
 
   worker:
-    <<: *uris
+    <<: *xixo
     command: ["./bin/jobs"]
     depends_on:
-      - uris
+      - xixo
 
   postgres:
     image: postgres:17-alpine
@@ -99,7 +99,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
     depends_on:
-      - uris
+      - xixo
 
 volumes:
   storage:
@@ -109,54 +109,54 @@ volumes:
   caddy-data:
 ```
 
-`initdb/01-uris.sql` creates the role uris connects as, with the password in
-`URIS_DATABASE_PASSWORD`:
+`initdb/01-xixo.sql` creates the role xixo connects as, with the password in
+`XIXO_DATABASE_PASSWORD`:
 
 ```sql
-CREATE ROLE uris WITH LOGIN PASSWORD '...' CREATEDB;
+CREATE ROLE xixo WITH LOGIN PASSWORD '...' CREATEDB;
 ```
 
 ```
-*.uris.example.com {
-  reverse_proxy uris:80
+*.xixo.example.com {
+  reverse_proxy xixo:80
 }
 ```
 
-Keep Postgres and OpenSearch on a network that only uris and the proxy can reach. The OpenSearch
+Keep Postgres and OpenSearch on a network that only xixo and the proxy can reach. The OpenSearch
 security plugin is off in this file, so anything that can reach port 9200 can read every tenant's
 index.
 
 ## The database role
 
-In production uris always connects as the role `uris`. `POSTGRES_USER` is not read there. The
-password comes from `URIS_DATABASE_PASSWORD`.
+In production xixo always connects as the role `xixo`. `POSTGRES_USER` is not read there. The
+password comes from `XIXO_DATABASE_PASSWORD`.
 
 1. Connect to the Postgres server as an administrator and create the role:
 
    ```sql
-   CREATE ROLE uris WITH LOGIN PASSWORD 'change-me' CREATEDB;
+   CREATE ROLE xixo WITH LOGIN PASSWORD 'change-me' CREATEDB;
    ```
 
    `CREATEDB` lets `db:prepare` create the four databases on first boot. To create them yourself
-   instead, create each one with `OWNER uris` and leave `CREATEDB` off.
+   instead, create each one with `OWNER xixo` and leave `CREATEDB` off.
 
 2. Confirm the role holds neither `SUPERUSER` nor `BYPASSRLS`:
 
    ```sql
-   SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'uris';
+   SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'xixo';
    ```
 
    Both must be `f`. Row-level security keeps each tenant's rows apart, and a role holding either
-   attribute is exempt from it. uris refuses to enter any tenant when it connects as such a role.
+   attribute is exempt from it. xixo refuses to enter any tenant when it connects as such a role.
 
-The official Postgres image makes `POSTGRES_USER` a superuser, so uris cannot use it. The
-development stack creates the `uris` role in `db/docker-entrypoint-initdb.d/01-app-role.sql`, with a
+The official Postgres image makes `POSTGRES_USER` a superuser, so xixo cannot use it. The
+development stack creates the `xixo` role in `db/docker-entrypoint-initdb.d/01-app-role.sql`, with a
 development password.
 
 ## Encryption & secrets
 
 Per tenant, the database holds the masks client's secret and registration token, and every resource's
-credentials. uris encrypts those columns with Active Record Encryption (AES-256-GCM). Reading them
+credentials. xixo encrypts those columns with Active Record Encryption (AES-256-GCM). Reading them
 needs the keys as well as the database.
 
 | Secret | Protects |
@@ -166,7 +166,7 @@ needs the keys as well as the database.
 | `ENCRYPTION_DETERMINISTIC_KEY` | Columns looked up by value. Rails requires it. |
 | `ENCRYPTION_KEY_DERIVATION_SALT` | The per-column keys derived from the two above. |
 
-1. Generate `SECRET_KEY_BASE` in a uris checkout:
+1. Generate `SECRET_KEY_BASE` in a xixo checkout:
 
    ```sh
    bin/rails secret
@@ -199,42 +199,42 @@ permanently.
 A tenant is a separate catalog with its own resources, feeds, and settings, at its own host. See
 [tenants](/concepts/tenants/) for how they are kept apart.
 
-1. Declare the tenants. Set exactly one of these. Setting both stops `uris:tenants` with an error.
+1. Declare the tenants. Set exactly one of these. Setting both stops `xixo:tenants` with an error.
 
    | | |
    | --- | --- |
-   | `URIS_TENANT=uris` | One tenant answers on every host. |
-   | `URIS_TENANTS=demo,acme` | Each tenant answers on hosts whose first label is its name, such as `demo.uris.example.com`. |
+   | `XIXO_TENANT=xixo` | One tenant answers on every host. |
+   | `XIXO_TENANTS=demo,acme` | Each tenant answers on hosts whose first label is its name, such as `demo.xixo.example.com`. |
 
-2. Set `URIS_HOST_SUFFIX` to the domain uris answers under, such as `uris.example.com`. Rails then
+2. Set `XIXO_HOST_SUFFIX` to the domain xixo answers under, such as `xixo.example.com`. Rails then
    accepts that domain and its subdomains and refuses other `Host` headers. `/up` is exempt. Left
    unset, Rails checks no hosts at all.
-3. Set `URIS_PUBLIC_ORIGIN` to the origin browsers use. `%{subdomain}` is replaced by the first
+3. Set `XIXO_PUBLIC_ORIGIN` to the origin browsers use. `%{subdomain}` is replaced by the first
    label of the host:
 
    ```sh
-   URIS_PUBLIC_ORIGIN=https://%{subdomain}.uris.example.com
+   XIXO_PUBLIC_ORIGIN=https://%{subdomain}.xixo.example.com
    ```
 
    With a single tenant, give the origin without the placeholder, such as
-   `https://uris.example.com`. The origin followed by `/mcp` is the audience every access token
+   `https://xixo.example.com`. The origin followed by `/mcp` is the audience every access token
    must name. Production refuses to boot without it.
 4. Point DNS for each tenant's host, or a wildcard under the suffix, at the reverse proxy.
 
 `RAILS_ASSUME_SSL` and `RAILS_FORCE_SSL` default to `true`. The proxy must terminate TLS and pass the
-original `Host` header, because uris resolves the tenant from the host.
+original `Host` header, because xixo resolves the tenant from the host.
 
 ## Signing in through masks
 
-1. Set `MASKS_ISSUER_TEMPLATE` to the issuer URL of the masks tenant each uris tenant signs in
-   through. `%{subdomain}` works as it does in `URIS_PUBLIC_ORIGIN`:
+1. Set `MASKS_ISSUER_TEMPLATE` to the issuer URL of the masks tenant each xixo tenant signs in
+   through. `%{subdomain}` works as it does in `XIXO_PUBLIC_ORIGIN`:
 
    ```sh
    MASKS_ISSUER_TEMPLATE=https://%{subdomain}.auth.example.com
    ```
 
-2. After uris is running, open each tenant in a browser and choose **Connect a sign-in server**. A
-   masks account allowed to approve connections approves it, and uris stores the credentials it
+2. After xixo is running, open each tenant in a browser and choose **Connect a sign-in server**. A
+   masks account allowed to approve connections approves it, and xixo stores the credentials it
    receives. See [signing in](/concepts/tenants/#signing-in).
 
 For MCP clients to register themselves, the masks tenant has to allow dynamic registration. See
@@ -242,34 +242,34 @@ For MCP clients to register themselves, the masks tenant has to allow dynamic re
 
 ## Storage
 
-uris uses storage in two places.
+xixo uses storage in two places.
 
 - **Staging.** Uploads are staged through Active Storage before a job places them. The default,
-  `URIS_STAGING_SERVICE=local`, writes to `/rails/storage` in the container, so the web and worker
+  `XIXO_STAGING_SERVICE=local`, writes to `/rails/storage` in the container, so the web and worker
   containers must share that directory. To stage in S3-compatible storage instead, set
-  `URIS_STAGING_SERVICE=s3` and the `URIS_STAGING_BUCKET`, `URIS_STAGING_ENDPOINT`,
-  `URIS_STAGING_REGION`, `URIS_STAGING_ACCESS_KEY_ID`, and `URIS_STAGING_SECRET_ACCESS_KEY`
+  `XIXO_STAGING_SERVICE=s3` and the `XIXO_STAGING_BUCKET`, `XIXO_STAGING_ENDPOINT`,
+  `XIXO_STAGING_REGION`, `XIXO_STAGING_ACCESS_KEY_ID`, and `XIXO_STAGING_SECRET_ACCESS_KEY`
   variables.
 - **Catalog storage.** Files are kept in [resources](/concepts/resources/) that serve `storage`.
   `config/resources.yml` declares a `filesystem` resource named `files` as every tenant's default
-  storage. It writes inside `<root>/<tenant>/` for the first directory in `URIS_FILESYSTEM_ROOTS`
+  storage. It writes inside `<root>/<tenant>/` for the first directory in `XIXO_FILESYSTEM_ROOTS`
   (colon-separated). Without that variable, the `files` resource cannot write. Attach `s3` or
   `webdav` resources from the app as well. See [attaching a resource](/guides/attach-a-resource/).
 
 ## Private networks
 
-uris refuses to reach a private, loopback, or link-local address on a resource's behalf. A service
+xixo refuses to reach a private, loopback, or link-local address on a resource's behalf. A service
 on the same private network needs its origin listed:
 
 | Variable | Lets through |
 | --- | --- |
-| `URIS_S3_ORIGINS` | An `s3` endpoint, such as a MinIO container at `http://minio:9000` |
-| `URIS_MCP_ORIGINS` | An MCP server attached as a resource |
-| `URIS_SEARCH_ORIGINS` | A self-hosted web search backend |
-| `URIS_INFERENCE_ORIGINS` | Every model backend, public or private, such as `https://api.openai.com,http://ollama:11434` |
+| `XIXO_S3_ORIGINS` | An `s3` endpoint, such as a MinIO container at `http://minio:9000` |
+| `XIXO_MCP_ORIGINS` | An MCP server attached as a resource |
+| `XIXO_SEARCH_ORIGINS` | A self-hosted web search backend |
+| `XIXO_INFERENCE_ORIGINS` | Every model backend, public or private, such as `https://api.openai.com,http://ollama:11434` |
 
 Each lists origins separated by commas. A private address whose origin is not listed stays refused.
-`URIS_INFERENCE_ORIGINS` names public backends too. A model backend whose origin is not listed is
+`XIXO_INFERENCE_ORIGINS` names public backends too. A model backend whose origin is not listed is
 unusable.
 See [addresses](/concepts/adding/#addresses) and [security](/concepts/security/).
 
@@ -278,17 +278,17 @@ A service on a Tailscale or Headscale network is reached through a `tailnet` res
 
 ## Minimum environment
 
-Every variable uris reads, with its default, is on the [ENV vars](/reference/environment/) page. A
+Every variable xixo reads, with its default, is on the [ENV vars](/reference/environment/) page. A
 production deployment sets at least these:
 
 | | |
 | --- | --- |
-| Database | `POSTGRES_HOST`, `POSTGRES_PORT`, `URIS_DATABASE_PASSWORD` |
+| Database | `POSTGRES_HOST`, `POSTGRES_PORT`, `XIXO_DATABASE_PASSWORD` |
 | Search | `OPENSEARCH_URL` |
 | Secrets | `SECRET_KEY_BASE`, `ENCRYPTION_PRIMARY_KEY`, `ENCRYPTION_DETERMINISTIC_KEY`, `ENCRYPTION_KEY_DERIVATION_SALT` |
-| Tenancy | `URIS_TENANT` or `URIS_TENANTS`, `URIS_HOST_SUFFIX`, `URIS_PUBLIC_ORIGIN` |
+| Tenancy | `XIXO_TENANT` or `XIXO_TENANTS`, `XIXO_HOST_SUFFIX`, `XIXO_PUBLIC_ORIGIN` |
 | Sign-in | `MASKS_ISSUER_TEMPLATE` |
-| Storage | `URIS_FILESYSTEM_ROOTS` |
+| Storage | `XIXO_FILESYSTEM_ROOTS` |
 
 ## The worker
 
@@ -306,7 +306,7 @@ requests, and so the two scale separately. To run jobs inside the web process on
 `SOLID_QUEUE_IN_PUMA=1` on the web container and run no worker.
 
 Syncs and exports checkpoint as they go, so a worker restarted during one resumes from its last
-checkpoint. Set `URIS_ITERATORS_DISABLED=true` to stop every iterating job in every tenant.
+checkpoint. Set `XIXO_ITERATORS_DISABLED=true` to stop every iterating job in every tenant.
 
 Follow job progress in the worker's log:
 
@@ -317,13 +317,13 @@ docker compose logs -f worker
 ### Mission Control at /jobs
 
 Mission Control is mounted at `/jobs`, on any tenant's host. Its HTTP basic authentication is on,
-and uris sets no user or password for it, so it answers `401` to every request. The dashboard
+and xixo sets no user or password for it, so it answers `401` to every request. The dashboard
 lists the jobs of every tenant, because Solid Queue's tables sit outside row-level security. Leave it
 closed, or block `/jobs` at the proxy.
 
 ## System requirements
 
-uris has no fixed CPU or memory floor. The models are the largest cost, and they run wherever the
+xixo has no fixed CPU or memory floor. The models are the largest cost, and they run wherever the
 inference resource points, outside these containers.
 
 | | |
@@ -338,7 +338,7 @@ inference resource points, outside these containers.
 exempt from the host check, and is not logged.
 
 ```sh
-docker compose exec -T uris curl -fsS http://localhost/up
+docker compose exec -T xixo curl -fsS http://localhost/up
 ```
 
 ## Upgrade
@@ -353,9 +353,9 @@ docker compose exec -T uris curl -fsS http://localhost/up
    ```
 
 3. The web container runs `db:prepare` on start, which applies new migrations to all four
-   databases, then `uris:tenants` and `uris:resources`.
+   databases, then `xixo:tenants` and `xixo:resources`.
 
-To add a tenant, add it to `URIS_TENANTS` and recreate the web container. It is created on boot with
+To add a tenant, add it to `XIXO_TENANTS` and recreate the web container. It is created on boot with
 the `files` resource, and needs **Connect a sign-in server** once.
 
 ## If it doesn't work
@@ -363,27 +363,27 @@ the `files` resource, and needs **Connect a sign-in server** once.
 - **Every page answers `404 Unknown tenant`**: no tenant variable is set, or the host's first label
   names no declared tenant.
 - **`Tenant::Exposed`, naming the role**: the database role holds `SUPERUSER` or `BYPASSRLS`. Remove
-  them with `ALTER ROLE uris NOSUPERUSER NOBYPASSRLS;`.
-- **`Tenant::TenancyConflict`**: both `URIS_TENANT` and `URIS_TENANTS` are set. Remove one.
-- **The container exits with `URIS_PUBLIC_ORIGIN is not set`**: set it to the origin browsers use.
+  them with `ALTER ROLE xixo NOSUPERUSER NOBYPASSRLS;`.
+- **`Tenant::TenancyConflict`**: both `XIXO_TENANT` and `XIXO_TENANTS` are set. Remove one.
+- **The container exits with `XIXO_PUBLIC_ORIGIN is not set`**: set it to the origin browsers use.
 - **The container exits with `Switch::Invalid`**: a switch holds a value other than `true` or
   `false`. The error names it.
 - **`MASKS_ISSUER_TEMPLATE is not set`**: sign-in and the `/mcp` metadata cannot name an issuer.
   Set the variable.
-- **Requests answer `403`**: the request's host is outside `URIS_HOST_SUFFIX`.
+- **Requests answer `403`**: the request's host is outside `XIXO_HOST_SUFFIX`.
 - **Uploads stage but never land**: the worker is not running, or it cannot read the web
   container's `/rails/storage`. Check `docker compose ps` and `docker compose logs worker`.
-- **"no filesystem roots are permitted"**: `URIS_FILESYSTEM_ROOTS` is unset, so the `files`
+- **"no filesystem roots are permitted"**: `XIXO_FILESYSTEM_ROOTS` is unset, so the `files`
   resource cannot read or write.
 - **An `s3` resource on the private network fails its check**: add its origin to
-  `URIS_S3_ORIGINS`.
+  `XIXO_S3_ORIGINS`.
 
 ## Next steps
 
 ```sh
-curl https://acme.uris.example.com/.well-known/oauth-protected-resource
+curl https://acme.xixo.example.com/.well-known/oauth-protected-resource
 ```
 
-The metadata names the tenant's resource URL, its masks issuer, and every `uris:` scope. Then open the
+The metadata names the tenant's resource URL, its masks issuer, and every `xixo:` scope. Then open the
 tenant in a browser, choose **Connect a sign-in server**, and
 [attach a resource](/guides/attach-a-resource/).

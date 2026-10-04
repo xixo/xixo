@@ -1,5 +1,5 @@
 import { Checkbox } from '@mantine/core'
-import type { RowFragment } from '@uris-to/client'
+import type { RowFragment } from '@xixo/client'
 import { Link } from 'react-router-dom'
 import { hrefFor, lookOf, toned } from '../looks'
 import { dated } from '../when'
@@ -27,7 +27,7 @@ function Gist({ row, className }: { row: Row; className: string }) {
   if (row.summary) return <div className={className}>{row.summary}</div>
   if (row.staged)
     return <div className={className}>Waiting for somewhere to live</div>
-  if (!row.analyzedAt && row.type === 'uris:file') {
+  if (!row.analyzedAt && row.type === 'xixo:file') {
     return <div className={className}>Not analyzed yet</div>
   }
 

@@ -1,6 +1,6 @@
 ---
 title: Resources
-description: The places uris reads from, writes to, and sends requests to.
+description: The places xixo reads from, writes to, and sends requests to.
 ---
 
 A resource is one instance of a type, such as a bucket, a directory, a mailbox, an inference
@@ -20,11 +20,11 @@ A type declares what it serves with three class macros:
 
 `browser` is the `web` type, which renders pages. `fetch` is the `curl` type, which reads a page's
 text. `search` is a web search API. Types such as git, IMAP, RSS, and CalDAV declare no capability,
-and uris reads them by syncing.
+and xixo reads them by syncing.
 
 Every save copies the declaration into the `serving` jsonb column. A question such as "which active
-stores accept a 4 GB video" is then one SQL query, and uris does not need to load every resource to
-answer it. The copy is only as current as the last save. `bin/rails uris:resources`, which the
+stores accept a 4 GB video" is then one SQL query, and xixo does not need to load every resource to
+answer it. The copy is only as current as the last save. `bin/rails xixo:resources`, which the
 production entrypoint runs before the server starts, saves every row again in every tenant and then
 reconciles the declared resources.
 
@@ -55,45 +55,45 @@ check and reports the result. See [attaching a resource](/guides/attach-a-resour
 A resource is changed through the same form. Its type and key stay the same. Its name and fields
 are read against the type again. A secret left empty keeps its current value, and a field the type
 no longer asks for is removed along with its value. The form reads back only the values held in
-plain text, plus the names of the encrypted fields that have a value. uris checks and audits a
+plain text, plus the names of the encrypted fields that have a value. xixo checks and audits a
 change the same way it checks and audits attaching.
 
-A filesystem resource can be attached only when `URIS_FILESYSTEM_ROOTS` names directories. Each
+A filesystem resource can be attached only when `XIXO_FILESYSTEM_ROOTS` names directories. Each
 tenant gets its own directory under each root, named for its subdomain and created on first use. A
 resource's root has to be inside one of those directories. The configured root itself is shared by
 every tenant on the server, so no resource can point at it. A relative root is resolved against the
 tenant's directory under the first root. The shipped `files` resource, with root `.`, lives there.
-uris checks the real path of a root, so it refuses a symlink that leads out of the tenant's
+xixo checks the real path of a root, so it refuses a symlink that leads out of the tenant's
 directory, and a write never follows a symlink.
 
 ## Resources connected through masks
 
 Google Drive, OneDrive, and an MCP server whose authentication is `masks` use a person's own
-account. Nobody enters a secret into uris.
+account. Nobody enters a secret into xixo.
 
 1. **Attach** it. It starts out not connected.
 2. **Connect** it. The browser goes to masks, which asks for the person's consent, signs them in to
    the provider if needed, and returns.
 3. From then on it syncs and answers requests, with nobody signed in.
-4. If the person revokes uris's access in masks, the resource shows **Reconnect** and its syncs
+4. If the person revokes xixo's access in masks, the resource shows **Reconnect** and its syncs
    stop until somebody reconnects it.
 
-masks keeps the provider's tokens. uris keeps a
+masks keeps the provider's tokens. xixo keeps a
 [delegation](https://masks.pages.dev/guides/connecting-via-sdk/#delegation), which is the connection and a secret
-encrypted in the resource's credentials. When the last provider token expires, uris exchanges the
+encrypted in the resource's credentials. When the last provider token expires, xixo exchanges the
 secret for a new one.
 
-uris enforces these rules:
+xixo enforces these rules:
 
-- `/resources/<id>/connect` needs `uris:resources:command`, and the caller has to be able to see
+- `/resources/<id>/connect` needs `xixo:resources:command`, and the caller has to be able to see
   the resource.
 - `/connect/callback` refuses a `state` that this browser did not start, a callback that somebody
   else already finished, and a connection that masks made for a different person.
 - Only one worker at a time renews a resource's token, under a row lock, because masks revokes a
-  secret that is used twice. uris keeps every rotated secret.
-- When a provider API refuses the token, uris gets one new token and tries once more.
-- When masks refuses, uris sets `needs_connect_at` and raises `Resource::Unusable`, which stops a
-  sync without retrying it. When masks does not answer, uris raises `Resource::Failed`, which is
+  secret that is used twice. xixo keeps every rotated secret.
+- When a provider API refuses the token, xixo gets one new token and tries once more.
+- When masks refuses, xixo sets `needs_connect_at` and raises `Resource::Unusable`, which stops a
+  sync without retrying it. When masks does not answer, xixo raises `Resource::Failed`, which is
   retried as usual. A successful check or sync clears `needs_connect_at`.
 
 ## Only mine, or everyone's
@@ -118,10 +118,10 @@ Starting a sync claims the resource with a single conditional update, so two wor
 start one, and opens a run of kind `sync`. The job walks the resource page by page with
 job-iteration. It records a [reference](/concepts/references/) for each object, analyzes any
 [feed](/concepts/feeds/) that needs it, and resumes at its cursor after a deploy. A
-`Resource::Failed` error gets five attempts before the run fails. When the sync finishes, uris
+`Resource::Failed` error gets five attempts before the run fails. When the sync finishes, xixo
 clears the claim and schedules the next sync on the original interval, skipping any times that were
 missed. A failed sync also clears the claim, but does not record the resource as synced. If the
-worker running a sync dies, the claim stays for six hours. After that uris treats the sync as
+worker running a sync dies, the claim stays for six hours. After that xixo treats the sync as
 abandoned, and another sync can start.
 
 A run can be cancelled, and it stops when it passes its deadline.
@@ -147,8 +147,8 @@ is dialed. The shipped transport is `tailnet`, which covers the Tailscale ranges
 
 A resource with a `via` connects only to addresses its transport covers. The address check runs as
 it always does, with the transport's ranges in place of the public internet, so a public address is
-refused as firmly as a loopback one. `URIS_ALLOW_PRIVATE_FETCH` and the `_ORIGINS` lists do not widen
-it. Where uris resolves a name itself, it connects to the address it checked. An `s3` resource also
+refused as firmly as a loopback one. `XIXO_ALLOW_PRIVATE_FETCH` and the `_ORIGINS` lists do not widen
+it. Where xixo resolves a name itself, it connects to the address it checked. An `s3` resource also
 checks the address of the peer that answers, since the AWS SDK resolves names on its own.
 
 These types can name a `via`: `webdav`, `caldav`, `carddav`, `s3`, `mcp`, `search`, `curl`, `rss`,
@@ -175,10 +175,10 @@ job, so a resource that stopped answering shows it before a sync or a tool call 
 a resource that is syncing, since the sync tests it better. Checking an MCP server asks it again for
 its tools, so tools it adds or removes reach the proxy within six hours.
 
-uris keeps two stores for itself: `children`, for what is extracted from a file, and `derived`, for
+xixo keeps two stores for itself: `children`, for what is extracted from a file, and `derived`, for
 previews and thumbnails. Both are database resources, and neither is ever offered as a place for an
 upload. Neither is listed or reachable by key through GraphQL or MCP. Neither can be archived,
-synced, scheduled, or made a default, because uris writes into them regardless of those settings.
+synced, scheduled, or made a default, because xixo writes into them regardless of those settings.
 
 Archiving sets `archived_at` and deletes nothing. An archived resource is left out of capability
 queries, placement, the defaults, and the sync schedule. Restoring it clears the timestamp.

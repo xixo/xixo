@@ -34,7 +34,7 @@ class McpAuditTest < ActionDispatch::IntegrationTest
     assert_equal "mcp", event.channel
     assert_equal "search", event.action
     assert_equal "ok", event.status
-    assert_equal "uris:catalog:read", event.scope
+    assert_equal "xixo:catalog:read", event.scope
     assert_equal "person", event.actor
     assert_equal "test", event.actor_name
     assert_equal "searched for invoice", event.told
@@ -44,14 +44,14 @@ class McpAuditTest < ActionDispatch::IntegrationTest
   end
 
   test "a call the token does not carry the scope for is recorded as denied" do
-    call(@tenant, [ "uris:catalog:read" ], "tools/call",
+    call(@tenant, [ "xixo:catalog:read" ], "tools/call",
          name: "search", arguments: { query: "invoice" })
 
     assert_equal "ok", events.first.status
 
     Tenant.switch(@tenant) { AuditEvent.delete_all }
 
-    call(@tenant, [ "uris:catalog:read" ], "tools/call",
+    call(@tenant, [ "xixo:catalog:read" ], "tools/call",
          name: "resource", arguments: { key: @resource.key, do: "sync" })
 
     assert_empty events, "an ungranted tool is not registered, so no grant was exercised"
@@ -93,7 +93,7 @@ class McpAuditTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) do
       broken = Class.new(Tool::Search) do
         tool_name "search"
-        scope "uris:catalog:read"
+        scope "xixo:catalog:read"
         define_singleton_method(:saying) { |_arguments| raise "broken" }
       end
 

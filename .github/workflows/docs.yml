@@ -17,8 +17,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PAGES_PROJECT: uris
-  PAGES_DOMAIN: uris.pages.dev
+  PAGES_PROJECT: xixo
+  PAGES_DOMAIN: xixo.pages.dev
 
 jobs:
   deploy:

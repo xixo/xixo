@@ -1,7 +1,7 @@
 module Tool
   class Connect < Base
     tool_name "connect"
-    scope "uris:catalog:write"
+    scope "xixo:catalog:write"
 
     description <<~TEXT
       Connect two feeds, or sever the connection. A connection is symmetric and carries no

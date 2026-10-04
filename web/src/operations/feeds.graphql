@@ -1,5 +1,5 @@
 query Feeds {
-  feeds(type: "uris:address", limit: 200) {
+  feeds(type: "xixo:address", limit: 200) {
     nodes {
       id
       key
@@ -152,7 +152,7 @@ mutation TagFeeds($ids: [ID!]!, $tag: String!, $tagged: Boolean) {
 }
 
 query Tags {
-  feeds(types: ["uris:tag"], limit: 200) {
+  feeds(types: ["xixo:tag"], limit: 200) {
     nodes {
       id
       key

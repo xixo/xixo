@@ -13,7 +13,7 @@ class SweepRunsJob < ApplicationJob
   private
 
     def delete_settled
-      retention = Rails.configuration.uris.run_retention
+      retention = Rails.configuration.xixo.run_retention
       return if retention.zero?
 
       Run.where.not(status: Run::OPEN)

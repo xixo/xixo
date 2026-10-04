@@ -17,7 +17,7 @@ class SummaryTest < ActiveSupport::TestCase
     @server = FakeModelServer.current
     @server.reset!.serves("gemma3:4b", "llama3.1:8b")
 
-    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
+    ENV["XIXO_INFERENCE_ORIGINS"] = @server.origin
 
     @tenant = Tenant.create!(subdomain: "sum-#{SecureRandom.hex(4)}", name: "Summaries")
 
@@ -32,7 +32,7 @@ class SummaryTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("URIS_INFERENCE_ORIGINS")
+    ENV.delete("XIXO_INFERENCE_ORIGINS")
   end
 
   test "with no inference resource the summary step is absent, and analysis still finishes" do

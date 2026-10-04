@@ -2,7 +2,7 @@
 
 module Types
   class AttachingType < Types::BaseObject
-    grants "uris:resources:read"
+    grants "xixo:resources:read"
 
     description "What one type of resource needs before it can answer."
 

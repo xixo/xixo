@@ -37,7 +37,7 @@ class Resource < ApplicationRecord
     greater_than_or_equal_to: MINIMUM_SYNC_INTERVAL.to_i
   }, allow_nil: true
   validate :an_internal_key_is_only_the_apps_own
-  validate :an_internal_store_stays_as_uris_keeps_it
+  validate :an_internal_store_stays_as_xixo_keeps_it
   validate :only_a_syncable_resource_keeps_a_schedule
   validate :a_default_is_a_resource_that_can_be_one
   validate :via_is_a_transport
@@ -516,7 +516,7 @@ class Resource < ApplicationRecord
 
   def sync!
     raise ArgumentError, "#{self.class.sti_name} is not syncable" unless syncable?
-    raise ArgumentError, "#{key} is a store uris keeps for itself" if internal?
+    raise ArgumentError, "#{key} is a store xixo keeps for itself" if internal?
     return false unless claim_sync!
 
     Run.start!(kind: "sync", resource: self).tap do |run|
@@ -597,17 +597,17 @@ class Resource < ApplicationRecord
       return unless INTERNAL.key?(key.to_s.to_sym)
       return if is_a?(Resource::Database) && details.to_h[INTERNAL_MARK] == true
 
-      errors.add(:key, "#{key} is kept for a store uris makes for itself")
+      errors.add(:key, "#{key} is kept for a store xixo makes for itself")
     end
 
-    def an_internal_store_stays_as_uris_keeps_it
+    def an_internal_store_stays_as_xixo_keeps_it
       return unless internal?
 
-      errors.add(:archived_at, "cannot be set on #{key}, which uris keeps for itself") if archived_at.present?
-      errors.add(:sync_interval, "cannot be set on #{key}, which uris keeps for itself") if sync_interval.present?
+      errors.add(:archived_at, "cannot be set on #{key}, which xixo keeps for itself") if archived_at.present?
+      errors.add(:sync_interval, "cannot be set on #{key}, which xixo keeps for itself") if sync_interval.present?
 
       DEFAULTABLE.each_value do |column|
-        errors.add(column, "cannot be set on #{key}, which uris keeps for itself") if public_send(:"#{column}?")
+        errors.add(column, "cannot be set on #{key}, which xixo keeps for itself") if public_send(:"#{column}?")
       end
     end
 

@@ -3,7 +3,7 @@ class SweepAuditEventsJob < ApplicationJob
   across_tenants!
 
   def perform
-    retention = Rails.configuration.uris.audit_retention
+    retention = Rails.configuration.xixo.audit_retention
     return if retention.zero?
 
     cutoff = retention.ago

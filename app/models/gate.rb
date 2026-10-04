@@ -14,7 +14,7 @@ class Gate < ApplicationRecord
   scope :key_wide, -> { where(reference_type: nil, reference_id: nil) }
 
   def self.stopped_everywhere?
-    Switch.on?("URIS_ITERATORS_DISABLED")
+    Switch.on?("XIXO_ITERATORS_DISABLED")
   end
 
   def self.decide(key:, reference: nil, enabled: true, live: true)

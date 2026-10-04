@@ -34,7 +34,7 @@ class Resource
     def check!
       unless Snapshot.available?
         raise Resource::Unusable,
-              "#{key}: no browser to render with — install chromium or set URIS_CHROME_PATH"
+              "#{key}: no browser to render with — install chromium or set XIXO_CHROME_PATH"
       end
 
       storage

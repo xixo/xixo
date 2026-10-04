@@ -5,7 +5,7 @@ class ResourceTest < ActiveSupport::TestCase
     @tenant = Tenant.create!(subdomain: "res-#{SecureRandom.hex(4)}", name: "Resources")
   end
 
-  test "a store uris keeps for itself cannot be put away, synced, scheduled or made a default" do
+  test "a store xixo keeps for itself cannot be put away, synced, scheduled or made a default" do
     Tenant.switch(@tenant) do
       store = Resource.internal!(:children)
 
@@ -19,7 +19,7 @@ class ResourceTest < ActiveSupport::TestCase
     end
   end
 
-  test "the stores uris keeps for itself are not among the ones people attend to" do
+  test "the stores xixo keeps for itself are not among the ones people attend to" do
     Tenant.switch(@tenant) do
       Resource.internal!(:derived)
       Resource.internal!(:children)

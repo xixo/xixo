@@ -150,7 +150,7 @@ class Resource
       end
 
       def fetch(target)
-        over_http(target) { |uri| Net::HTTP::Get.new(uri, "User-Agent" => "uris") }.body.to_s
+        over_http(target) { |uri| Net::HTTP::Get.new(uri, "User-Agent" => "xixo") }.body.to_s
       end
   end
 end

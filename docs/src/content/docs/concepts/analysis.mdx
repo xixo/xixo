@@ -1,12 +1,12 @@
 ---
 title: Analysis
-description: How uris reads a feed, recorded as one row with its steps, its turns, and its log.
+description: How xixo reads a feed, recorded as one row with its steps, its turns, and its log.
 ---
 
-Each time uris reads a [feed](/concepts/feeds/), it writes one `Analysis` record. The record holds
+Each time xixo reads a [feed](/concepts/feeds/), it writes one `Analysis` record. The record holds
 the cause, the status, each step's result, every turn the model took, and a log. A feed's current
 analysis is its last settled one. A new analysis starts with a copy of the current analysis's steps,
-so uris does not repeat work whose result is still valid.
+so xixo does not repeat work whose result is still valid.
 
 | Cause | Raised by |
 | --- | --- |
@@ -18,7 +18,7 @@ so uris does not repeat work whose result is still valid.
 | `ask` | `askCatalog`, and `analyzeFeed` on a note that was asked, as described in [asking](/concepts/agents/#asking) |
 
 The status is `queued` or `running` while the analysis is open. It ends as `done` or `failed`,
-which count as settled, or as `cancelled` or `gated`, which do not. When an analysis settles, uris
+which count as settled, or as `cancelled` or `gated`, which do not. When an analysis settles, xixo
 marks the feed's embedding as stale and indexes the feed again for [search](/concepts/search/).
 Each log line and each status change is published on `analysisProgressed`.
 
@@ -26,7 +26,7 @@ Each log line and each status change is published on `analysisProgressed`.
 check. It returns `cancelled: false` for an analysis that had already ended. The item page shows
 **Stop** beside an analysis in progress.
 
-An analysis gets a deadline when it opens: `URIS_RUN_DEADLINE_HOURS` from then, 6 by default, or no
+An analysis gets a deadline when it opens: `XIXO_RUN_DEADLINE_HOURS` from then, 6 by default, or no
 deadline when it is 0. This deadline applies only while the analysis is queued. `ExpireOverdueJob`
 runs every ten minutes and cancels a queued analysis past its deadline, with the error
 `deadline passed`. When the job starts the analysis, it replaces the deadline with the start time
@@ -100,7 +100,7 @@ skipped, so a book sold with DRM is cataloged by its details alone.
 `Image` asks `exiftool` for a photo's GPS coordinates and records them under the step `location`.
 `exiftool` also reads the GPS block of a raw photo, such as a Nikon NEF. A GPS block
 with no position in it, which some cameras write on every frame, reads as latitude 0 and longitude 0,
-and uris treats it as no location. When a **Places** resource has **Name where photos were taken**
+and xixo treats it as no location. When a **Places** resource has **Name where photos were taken**
 on, `Image` asks that resource for the address, records it under the step `place`, and tells the
 summary where the photo was taken. The vision model's description of the image is its summary, and
 `Image` keeps it under `caption` too.
@@ -110,7 +110,7 @@ title, artist, and album. For anything with a sound track, one `ffmpeg` pass rec
 step: integrated loudness and loudness range in LUFS, true peak, the silent spans, and the median
 spectral centroid and flatness. The summary prompt describes these as dynamics, brightness, and
 texture, and says when a recording is silent throughout. The `transcript` step runs `whisper-cli`
-over the first hour when `URIS_WHISPER_MODEL` names a model file. Each line of the transcript opens
+over the first hour when `XIXO_WHISPER_MODEL` names a model file. Each line of the transcript opens
 with the moment it was said, such as `[00:03:12]`. When a resource serves the `vision` role, the
 `scenes` step captions a video's frames: one for each eight seconds, up to eight, taken from the
 middle of each stretch. Each caption is kept with its moment, and the summary reads them after the
@@ -121,7 +121,7 @@ Every analyzer inherits the same sequence from `Analyzer::Base`:
 1. **Extract children**, if the analyzer has any and the feed is less than four levels deep. For
    example, an email's attachments become child feeds in the internal `children` store, and each is
    analyzed on its own. The analyzer stops here until every child has been analyzed. When the last
-   child finishes, uris analyzes the parent again.
+   child finishes, xixo analyzes the parent again.
 2. **Derive** a thumbnail and a hi-res image for images, video, audio, PDFs, and pages. Audio gets a
    picture of its waveform. They are stored as
    references in the internal `derived` store, under the step `derived`. Two
@@ -149,13 +149,13 @@ Every analyzer inherits the same sequence from `Analyzer::Base`:
    a reasoning model set to `none` summarizes without thinking first. The prompt fences the file's text and tells the model to treat it as data. It asks
    for tags the way a person would label a folder: a topic, the kind of thing the file is, or the
    name of a person, company, product, or place, and never an amount, a date, an address, or an
-   account or reference number. uris reduces the model's answer to a summary, up to 40 entities,
+   account or reference number. xixo reduces the model's answer to a summary, up to 40 entities,
    and up to 8 tags. It drops
    stopwords and tags longer than four words. When the analysis finishes, the feed is
    [filed under](/concepts/feeds/) the tags. If no resource
    serves the role, there is no summary and no tags.
 
-If derive, analyze, or summarize fails, uris skips that part and continues. The reference is marked
+If derive, analyze, or summarize fails, xixo skips that part and continues. The reference is marked
 analyzed either way.
 
 ## After the analyzer
@@ -164,15 +164,15 @@ analyzed either way.
 file uploaded to a path it already occupies goes back to the same place. Then it runs the analyzer,
 unless the feed is an address, and then three more steps:
 
-- **Filing.** uris connects the feed to the `uris:mime` feed for its content type.
+- **Filing.** xixo connects the feed to the `xixo:mime` feed for its content type.
 - **Considering.** For an address, and for a file that is still staged, the
-  [agent](/concepts/agents/) runs under the feed's own grant (`uris:catalog:read`,
-  `uris:catalog:write`, `uris:web:read`, and `uris:resources:read`) with the `search`, `feed`,
+  [agent](/concepts/agents/) runs under the feed's own grant (`xixo:catalog:read`,
+  `xixo:catalog:write`, `xixo:web:read`, and `xixo:resources:read`) with the `search`, `feed`,
   `connect`, and `resource` tools. For an address with a schedule, the prompt is the schedule's
   prompt. For a staged file, it is `FILE_PROMPT`, which asks the agent to connect the feed to the
   tags and feeds it belongs with and lists the places that would accept it. A file synced from a
   resource is filed by its summary's tags alone, with no agent. The agent gets the schedule's turn allowance, or six turns, and stops
-  early after three failed tool calls in a row. If no resource serves the `agent` role, uris skips
+  early after three failed tool calls in a row. If no resource serves the `agent` role, xixo skips
   this step.
 - **Settling.** A file the agent did not place goes to the default storage.
 
@@ -199,7 +199,7 @@ limit, or a cause that cannot write edges.
 ## One model at a time
 
 Loading a model is slow on a single machine, and two models that do not fit in memory together
-unload each other on every call. uris orders analysis work so that each model is used for as long as
+unload each other on every call. xixo orders analysis work so that each model is used for as long as
 there is work for it.
 
 An analysis caused by `sync` reads and files a file in one job: it runs the analyzer, files the feed

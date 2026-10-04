@@ -56,7 +56,7 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
 
     offered = response.parsed_body["scopes_supported"]
 
-    assert_includes offered, "uris:resources:command"
+    assert_includes offered, "xixo:resources:command"
     assert_empty offered & Grant::SETTINGS,
                  "an authorization server that bounds what clients register refuses the whole request over one of these"
   end
@@ -79,13 +79,13 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
   end
 
   test "the token decides which tools exist at all" do
-    assert_equal %w[search feed], listed_tools([ "uris:catalog:read" ])
-    assert_equal %w[search feed connect], listed_tools(%w[uris:catalog:read uris:catalog:write])
+    assert_equal %w[search feed], listed_tools([ "xixo:catalog:read" ])
+    assert_equal %w[search feed connect], listed_tools(%w[xixo:catalog:read xixo:catalog:write])
     assert_equal %w[search feed connect resource], listed_tools(ALL)
   end
 
   test "a tool outside the grant is not callable, not merely unlisted" do
-    reply = call(@tenant, [ "uris:catalog:read" ], "tools/call",
+    reply = call(@tenant, [ "xixo:catalog:read" ], "tools/call",
                  name: "resource", arguments: { key: @resource.key })
 
     assert_nil reply["result"]
@@ -93,8 +93,8 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
   end
 
   test "a command outside the grant is absent from the schema rather than refused at the call" do
-    read = tool_schema(%w[uris:resources:read], "resource")
-    both = tool_schema(%w[uris:resources:read uris:resources:command], "resource")
+    read = tool_schema(%w[xixo:resources:read], "resource")
+    both = tool_schema(%w[xixo:resources:read xixo:resources:command], "resource")
 
     assert_equal Tool::Resources::READ, read.dig("properties", "do", "enum")
     assert_includes both.dig("properties", "do", "enum"), "sync"
@@ -109,10 +109,10 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     @bucket.client.put_object(bucket: "kept-bucket", key: "reports/q3.pdf", body: "the third quarter")
     @bucket.client.put_object(bucket: "kept-bucket", key: "reports/q4.pdf", body: "the fourth quarter")
 
-    assert_not_includes tool_schema(%w[uris:resources:read], "resource").dig("properties", "do", "enum"), "keep"
-    assert_not_includes tool_schema(%w[uris:resources:read uris:web:keep], "resource").dig("properties", "do", "enum"), "keep"
+    assert_not_includes tool_schema(%w[xixo:resources:read], "resource").dig("properties", "do", "enum"), "keep"
+    assert_not_includes tool_schema(%w[xixo:resources:read xixo:web:keep], "resource").dig("properties", "do", "enum"), "keep"
 
-    refused = call(@tenant, %w[uris:resources:read], "tools/call",
+    refused = call(@tenant, %w[xixo:resources:read], "tools/call",
                    name: "resource", arguments: { key: "kept-bucket", do: "keep", input: { key: "reports/q3.pdf" } })
     assert refused.dig("result", "isError")
 
@@ -127,20 +127,20 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
   end
 
   test "keeping pages from the web offers snapshot and nothing else a command could do" do
-    keep = tool_schema(%w[uris:resources:read uris:web:keep], "resource")
+    keep = tool_schema(%w[xixo:resources:read xixo:web:keep], "resource")
 
     assert_includes keep.dig("properties", "do", "enum"), "snapshot"
     assert_empty keep.dig("properties", "do", "enum") & (Tool::Resources::WRITE - Tool::Resources::KEEPING)
   end
 
   test "keeping pages from the web snapshots only through a resource that renders them" do
-    reply = call(@tenant, %w[uris:resources:read uris:web:keep], "tools/call",
+    reply = call(@tenant, %w[xixo:resources:read xixo:web:keep], "tools/call",
                  name: "resource", arguments: { key: @resource.key, do: "snapshot", input: { url: "https://example.com" } })
 
     assert reply.dig("result", "isError")
     assert_match(/does not keep pages/, reply.dig("result", "content", 0, "text"))
 
-    bare = call(@tenant, %w[uris:resources:read], "tools/call",
+    bare = call(@tenant, %w[xixo:resources:read], "tools/call",
                 name: "resource", arguments: { key: @resource.key, do: "snapshot", input: { url: "https://example.com" } })
 
     assert bare.dig("result", "isError")
@@ -223,11 +223,11 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
   test "reading a page through a fetch resource needs the web scope" do
     Tenant.switch(@tenant) { Resource::Curl.create!(key: "curl", name: "Curl") }
 
-    reply = call(@tenant, %w[uris:resources:read], "tools/call",
+    reply = call(@tenant, %w[xixo:resources:read], "tools/call",
                  name: "resource", arguments: { key: "curl", do: "get", input: { url: "https://example.com" } })
 
     assert reply.dig("result", "isError")
-    assert_match(/uris:web:read/, reply.dig("result", "content", 0, "text"))
+    assert_match(/xixo:web:read/, reply.dig("result", "content", 0, "text"))
   end
 
   test "describe advertises the vocabulary the resource accepts" do
@@ -276,16 +276,16 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
   end
 
   test "checking dials the resource and writes down what it found, so it takes the command scope" do
-    assert_not_includes tool_schema(%w[uris:resources:read], "resource").dig("properties", "do", "enum"), "check"
+    assert_not_includes tool_schema(%w[xixo:resources:read], "resource").dig("properties", "do", "enum"), "check"
 
-    reply = call(@tenant, %w[uris:resources:read], "tools/call",
+    reply = call(@tenant, %w[xixo:resources:read], "tools/call",
                  name: "resource", arguments: { key: @resource.key, do: "check" })
 
     assert reply.dig("result", "isError")
     Tenant.switch(@tenant) { assert_nil @resource.reload.checked_at }
   end
 
-  test "the stores uris keeps for itself are neither listed nor reachable by key" do
+  test "the stores xixo keeps for itself are neither listed nor reachable by key" do
     Tenant.switch(@tenant) { Resource.internal!(:children) }
 
     listed = tool(@tenant, ALL, "resource", do: "list")["resources"].map { |resource| resource["key"] }

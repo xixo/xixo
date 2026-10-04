@@ -1,9 +1,9 @@
 ---
 title: Quickstart
-description: The ways to use uris, and where to go next for each.
+description: The ways to use xixo, and where to go next for each.
 ---
 
-uris is an indexer for personal data. You can try it on your own machine with `./dev`, run its
+xixo is an indexer for personal data. You can try it on your own machine with `./dev`, run its
 container image on a server, point an MCP client at it, or build on its GraphQL API. Pick the path
 that fits, and follow its link for the full guide.
 
@@ -13,15 +13,15 @@ The repository runs the whole stack in containers with `./dev`. It needs Docker 
 and a masks checkout beside it for sign-in.
 
 ```sh
-git clone https://github.com/urisrb/uris.git
+git clone https://github.com/xixo/xixo.git
 git clone https://github.com/masksrb/masks.git
 masks/dev
-uris/dev
+xixo/dev
 ```
 
 Rails, Vite, the worker, this site, and the three backing services all reload when you edit a file.
-uris answers at `http://uris.localhost:8180`, and this documentation at
-`http://uris.localhost:8181`. You do not need to edit `/etc/hosts`, because `*.localhost` already
+xixo answers at `http://xixo.localhost:8180`, and this documentation at
+`http://xixo.localhost:8181`. You do not need to edit `/etc/hosts`, because `*.localhost` already
 resolves.
 
 ```sh
@@ -36,27 +36,27 @@ The other commands are `logs`, `ps`, `psql`, `console`, `seed`, `corpus`, `refer
 
 | Port | Service | Override |
 | --- | --- | --- |
-| 8180 | uris, at `http://uris.localhost:8180` | `URIS_PORT` |
-| 8181 | these docs | `URIS_DOCS_PORT` |
-| 8182 | Vite | `URIS_VITE_PORT` |
-| 5434 | Postgres | `URIS_POSTGRES_PORT` |
-| 9201 | OpenSearch | `URIS_OPENSEARCH_PORT` |
-| 9000, 9001 | MinIO and its console | `URIS_MINIO_PORT`, `URIS_MINIO_CONSOLE_PORT` |
+| 8180 | xixo, at `http://xixo.localhost:8180` | `XIXO_PORT` |
+| 8181 | these docs | `XIXO_DOCS_PORT` |
+| 8182 | Vite | `XIXO_VITE_PORT` |
+| 5434 | Postgres | `XIXO_POSTGRES_PORT` |
+| 9201 | OpenSearch | `XIXO_OPENSEARCH_PORT` |
+| 9000, 9001 | MinIO and its console | `XIXO_MINIO_PORT`, `XIXO_MINIO_CONSOLE_PORT` |
 
-The stack serves one tenant, `uris`, on every host. `./dev --multi` declares the tenants `demo` and
-`acme` instead, at `http://demo.uris.localhost:8180` and `http://acme.uris.localhost:8180`. Each one
+The stack serves one tenant, `xixo`, on every host. `./dev --multi` declares the tenants `demo` and
+`acme` instead, at `http://demo.xixo.localhost:8180` and `http://acme.xixo.localhost:8180`. Each one
 signs in against the masks tenant of the same name. See [tenants](/concepts/tenants/).
 
 ### Sign in
 
-uris has no accounts of its own. It signs people in through masks, which has to be running first.
+xixo has no accounts of its own. It signs people in through masks, which has to be running first.
 `MASKS_ISSUER` names the masks server and defaults to `http://masks.localhost:12345`. The masks dev
 stack's setup token is `masks-dev`.
 
-1. Open `http://uris.localhost:8180` and click **Connect a sign-in server**.
+1. Open `http://xixo.localhost:8180` and click **Connect a sign-in server**.
 2. masks asks you to sign in with an account that is allowed to approve connections, and then to
-   approve uris. masks sends the client credentials to uris directly, server to server.
-3. uris then signs you in. On later visits the button reads **Sign in**.
+   approve xixo. masks sends the client credentials to xixo directly, server to server.
+3. xixo then signs you in. On later visits the button reads **Sign in**.
 
 ### Resources
 
@@ -66,7 +66,7 @@ The first time the stack starts, `bin/rails db:prepare` creates the database and
 | | |
 | --- | --- |
 | **Default storage** (`database`) | Storage in Postgres, up to 64 MB per file. It is the default storage, so uploads go here unless the agent picks another place. |
-| **Object storage** (`items-uris`) | A bucket in the stack's MinIO. The seeds create the bucket. |
+| **Object storage** (`items-xixo`) | A bucket in the stack's MinIO. The seeds create the bucket. |
 | **Snapshots** (`web`) | Headless Chrome, which saves web pages as snapshots. |
 | **Local models** (`ollama`) | Ollama on the host at `http://host.docker.internal:11434/v1`, with a model for every role. It is the default inference resource. |
 
@@ -93,9 +93,9 @@ ollama pull nomic-embed-text
 | `agent` | `qwen3:8b` |
 | `embedding` | `nomic-embed-text` |
 
-`URIS_INFERENCE_ORIGINS` permits only `http://host.docker.internal:11434`, so an inference resource
+`XIXO_INFERENCE_ORIGINS` permits only `http://host.docker.internal:11434`, so an inference resource
 you attach in development has to use that origin. If Ollama was not running when the seeds ran, the
-seeds print a warning and uris skips summaries until the resource answers. After you start Ollama,
+seeds print a warning and xixo skips summaries until the resource answers. After you start Ollama,
 click **Check** on **Local models**. The check fails and names the missing models until each one is
 pulled.
 
@@ -108,18 +108,18 @@ loses the start of its prompt. Start Ollama with `OLLAMA_CONTEXT_LENGTH=32768`.
 
 Drop a file anywhere on the catalog. The upload returns as soon as the file is staged, and the
 worker does the rest. It analyzes the file, the [agent](/concepts/agents/) connects it to tags and
-picks a resource that accepts it, and uris writes the bytes there. The file's page shows the
-analysis as it runs. uris refuses an upload that no active resource can accept, and says why. See
+picks a resource that accepts it, and xixo writes the bytes there. The file's page shows the
+analysis as it runs. xixo refuses an upload that no active resource can accept, and says why. See
 [adding things](/concepts/adding/) and [analysis](/concepts/analysis/).
 
 ## Run it with Docker
 
-uris ships as a container image, `ghcr.io/urisrb/uris`. The same image runs the web process and the
+xixo ships as a container image, `ghcr.io/xixo/xixo`. The same image runs the web process and the
 worker. It needs Postgres, OpenSearch, and a masks server to sign in against, and it migrates itself
 on boot.
 
 ```sh
-docker pull ghcr.io/urisrb/uris:latest
+docker pull ghcr.io/xixo/xixo:latest
 ```
 
 See [self-hosting](/guides/self-hosting/) for an example `compose.yml`, the secrets, tenants, and
@@ -130,27 +130,27 @@ storage.
 Point an MCP client that supports OAuth at `/mcp`:
 
 ```sh
-claude mcp add --transport http uris http://uris.localhost:8180/mcp
+claude mcp add --transport http xixo http://xixo.localhost:8180/mcp
 ```
 
-uris answers the first request with `401` and the protected-resource metadata, which names masks.
+xixo answers the first request with `401` and the protected-resource metadata, which names masks.
 The client registers with masks and requests a token itself, so this works only if the masks tenant
 allows dynamic client registration. The tools the client sees depend on the scopes it is granted.
 See [connecting an agent](/guides/connect-an-agent/) and the [MCP reference](/reference/mcp/).
 
 ## Build on the API
 
-Everything the browser app does goes through `/graphql`. A page served by uris uses its session
-cookie, and `@uris-to/client` wraps that with typed documents for every operation the app uses:
+Everything the browser app does goes through `/graphql`. A page served by xixo uses its session
+cookie, and `@xixo/client` wraps that with typed documents for every operation the app uses:
 
 ```sh
-npm install @uris-to/client graphql
+npm install @xixo/client graphql
 ```
 
 ```ts
-import { createUris, metaCSRFToken, SearchDocument } from "@uris-to/client";
+import { createXixo, metaCSRFToken, SearchDocument } from "@xixo/client";
 
-const client = createUris({ url: "/graphql", csrfToken: metaCSRFToken });
+const client = createXixo({ url: "/graphql", csrfToken: metaCSRFToken });
 
 const { data } = await client.query(SearchDocument, { query: "lease" }).toPromise();
 ```
@@ -159,7 +159,7 @@ Any other client sends a masks access token as `Authorization: Bearer`. The toke
 tenant's origin followed by `/mcp`, the same token an MCP client holds:
 
 ```sh
-curl https://uris.example.com/graphql \
+curl https://xixo.example.com/graphql \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"query": "{ search(query: \"lease\") { nodes { id title } } }"}'
@@ -169,9 +169,9 @@ See the [GraphQL reference](/reference/graphql/) for every field and the scope i
 
 ## Read the docs
 
-- [Overview](/overview/) says what uris catalogs and lists the key concepts.
+- [Overview](/overview/) says what xixo catalogs and lists the key concepts.
 - [Attach a resource](/guides/attach-a-resource/), [ask the catalog](/guides/ask/), and
   [export your catalog](/guides/export/) cover what people do in the app.
-- [Security](/concepts/security/) describes what uris protects and how.
-- [Resource types](/reference/resources/) lists every place uris reads from, and
+- [Security](/concepts/security/) describes what xixo protects and how.
+- [Resource types](/reference/resources/) lists every place xixo reads from, and
   [ENV vars](/reference/environment/) every setting a deployment makes.

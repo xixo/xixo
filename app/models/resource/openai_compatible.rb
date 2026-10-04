@@ -35,7 +35,7 @@ class Resource
     AGENT_CONTEXT = 16_384
     CHAIN_SYSTEM = "You have tools. Call one rather than answering from memory."
     CHAIN_ASK = "Search the catalog for invoices, then tell me what you found."
-    CHAIN_RESULT = { count: 1, feeds: [ { id: "1", type: "uris:file", title: "acme.pdf" } ] }.to_json
+    CHAIN_RESULT = { count: 1, feeds: [ { id: "1", type: "xixo:file", title: "acme.pdf" } ] }.to_json
     CHAIN_TOOL = {
       type: "function",
       function: {
@@ -71,7 +71,7 @@ class Resource
                 help: "What search compares meaning with. Its vectors have to be the width " \
                       "the index was built for."),
           field("embedding_prefixes.query", "Query prefix",
-                help: "Put before a search when it is embedded. Left off, uris uses what nomic-embed-text, " \
+                help: "Put before a search when it is embedded. Left off, xixo uses what nomic-embed-text, " \
                       "e5, mxbai and bge were trained with, and nothing for any other model."),
           field("embedding_prefixes.document", "Document prefix",
                 help: "Put before what is catalogued when it is embedded. Left off, as above."),
@@ -99,7 +99,7 @@ class Resource
     end
 
     def self.permitted_origins
-      PublicAddress.origins(ENV.fetch("URIS_INFERENCE_ORIGINS", ""))
+      PublicAddress.origins(ENV.fetch("XIXO_INFERENCE_ORIGINS", ""))
     end
 
     validate :it_names_an_endpoint
@@ -222,7 +222,7 @@ class Resource
 
       raise Resource::Unusable,
             "#{key}: #{model} returns #{vector.length} dimensions and the index holds #{wanted} — " \
-            "name a model that matches, or set URIS_EMBEDDING_DIMENSIONS to #{vector.length} and " \
+            "name a model that matches, or set XIXO_EMBEDDING_DIMENSIONS to #{vector.length} and " \
             "let the index rebuild itself"
     end
 
@@ -564,7 +564,7 @@ class Resource
       end
 
       def headers
-        base = { "Content-Type" => "application/json", "User-Agent" => "uris" }
+        base = { "Content-Type" => "application/json", "User-Agent" => "xixo" }
         token = credentials["api_key"].presence
 
         token ? base.merge("Authorization" => "Bearer #{token}") : base
@@ -618,14 +618,14 @@ class Resource
 
         if allowed.empty?
           raise Resource::Unusable,
-                "#{key}: no inference origins are permitted — set URIS_INFERENCE_ORIGINS"
+                "#{key}: no inference origins are permitted — set XIXO_INFERENCE_ORIGINS"
         end
 
         uri = URI.parse(target.to_s)
         origin = "#{uri.scheme}://#{uri.host}:#{uri.port}"
         return target if allowed.include?(origin)
 
-        raise Resource::Unusable, "#{key}: #{origin} is not one of URIS_INFERENCE_ORIGINS"
+        raise Resource::Unusable, "#{key}: #{origin} is not one of XIXO_INFERENCE_ORIGINS"
       rescue URI::InvalidURIError
         raise Resource::Unusable, "#{key}: #{target} is not a url"
       end

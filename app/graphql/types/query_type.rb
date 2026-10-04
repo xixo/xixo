@@ -2,13 +2,13 @@
 
 module Types
   class QueryType < Types::BaseObject
-    field :tenant, Types::TenantType, null: true, grants: "uris:catalog:read"
+    field :tenant, Types::TenantType, null: true, grants: "xixo:catalog:read"
 
     def tenant
       context[:tenant]
     end
 
-    field :settings, [ Types::SettingType ], null: false, grants: "uris:settings:read"
+    field :settings, [ Types::SettingType ], null: false, grants: "xixo:settings:read"
 
     def settings
       grant = context[:grant]
@@ -21,7 +21,7 @@ module Types
       end
     end
 
-    field :feed, Types::FeedType, null: true, grants: "uris:catalog:read" do
+    field :feed, Types::FeedType, null: true, grants: "xixo:catalog:read" do
       argument :id, ID, required: false
       argument :key, String, required: false, description: "An address, as /buy."
     end
@@ -32,7 +32,7 @@ module Types
       Feed.address(key) if key.present?
     end
 
-    field :feeds, Types::FeedPageType, null: false, grants: "uris:catalog:read" do
+    field :feeds, Types::FeedPageType, null: false, grants: "xixo:catalog:read" do
       argument :type, String, required: false
       argument :types, [ String ], required: false, description: "Any of these types, instead of one."
       argument :mime, String, required: false
@@ -56,7 +56,7 @@ module Types
       Page.of(scope, after: after, limit: limit)
     end
 
-    field :search, Types::FeedPageType, null: false, grants: "uris:catalog:read" do
+    field :search, Types::FeedPageType, null: false, grants: "xixo:catalog:read" do
       argument :query, String, required: false
       argument :type, String, required: false
       argument :types, [ String ], required: false, description: "Any of these types, instead of one."
@@ -70,7 +70,7 @@ module Types
                         limit: (limit || Page::DEFAULT).to_i.clamp(1, Page::MAX))
     end
 
-    field :types, [ Types::TypeCountType ], null: false, grants: "uris:catalog:read"
+    field :types, [ Types::TypeCountType ], null: false, grants: "xixo:catalog:read"
 
     def types
       Feed.where(parent_id: nil).group(:type).order(count_all: :desc).count.map do |type, count|
@@ -78,7 +78,7 @@ module Types
       end
     end
 
-    field :resources, [ Types::ResourceType ], null: false, grants: "uris:resources:read" do
+    field :resources, [ Types::ResourceType ], null: false, grants: "xixo:resources:read" do
       argument :archived, Boolean, required: false,
                description: "Left off, the ones still in use. True, the ones put away."
     end
@@ -89,7 +89,7 @@ module Types
       scope.order(:type, :key)
     end
 
-    field :resource_types, [ Types::AttachingType ], null: false, grants: "uris:resources:read",
+    field :resource_types, [ Types::AttachingType ], null: false, grants: "xixo:resources:read",
           description: "Every type that can be attached, and what each of them needs."
 
     def resource_types
@@ -104,7 +104,7 @@ module Types
       end
     end
 
-    field :run, Types::RunType, null: true, grants: "uris:catalog:read" do
+    field :run, Types::RunType, null: true, grants: "xixo:catalog:read" do
       argument :id, ID, required: true
     end
 
@@ -112,7 +112,7 @@ module Types
       Run.visible_to(context[:grant]).find_by(id: id)
     end
 
-    field :runs, Types::RunPageType, null: false, grants: "uris:catalog:read" do
+    field :runs, Types::RunPageType, null: false, grants: "xixo:catalog:read" do
       argument :kind, String, required: false
       argument :status, String, required: false
       argument :after, ID, required: false
@@ -127,7 +127,7 @@ module Types
       Page.of(scope, after: after, limit: limit)
     end
 
-    field :analysis, Types::AnalysisType, null: true, grants: "uris:catalog:read" do
+    field :analysis, Types::AnalysisType, null: true, grants: "xixo:catalog:read" do
       argument :id, ID, required: true
     end
 
@@ -135,7 +135,7 @@ module Types
       Analysis.find_by(id: id)
     end
 
-    field :analyses, Types::AnalysisPageType, null: false, grants: "uris:catalog:read" do
+    field :analyses, Types::AnalysisPageType, null: false, grants: "xixo:catalog:read" do
       argument :feed_id, ID, required: false
       argument :status, String, required: false
       argument :after, ID, required: false
@@ -150,7 +150,7 @@ module Types
       Page.of(scope, after: after, limit: limit)
     end
 
-    field :audit_events, Types::AuditEventPageType, null: false, grants: "uris:catalog:read" do
+    field :audit_events, Types::AuditEventPageType, null: false, grants: "xixo:catalog:read" do
       argument :status, String, required: false
       argument :actor, String, required: false
       argument :feed, ID, required: false

@@ -27,9 +27,9 @@ class PersonalResourcesTest < ActionDispatch::IntegrationTest
 
   def headers(subject)
     token = issuer.mint(subdomain: @tenant.subdomain, subject: subject, scopes: Grant::SCOPES,
-                        audience: "http://#{@tenant.subdomain}.uris.test/mcp")
+                        audience: "http://#{@tenant.subdomain}.xixo.test/mcp")
 
-    { "HOST" => "#{@tenant.subdomain}.uris.test", "Authorization" => "Bearer #{token}" }
+    { "HOST" => "#{@tenant.subdomain}.xixo.test", "Authorization" => "Bearer #{token}" }
   end
 
   def graphql(subject, query, **variables)

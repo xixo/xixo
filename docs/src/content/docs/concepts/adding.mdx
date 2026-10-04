@@ -3,19 +3,19 @@ title: Adding things
 description: How a file, a note, a URL, a question, or a synced record enters the catalog, and where its bytes are stored.
 ---
 
-A file enters the catalog in one of two ways. A file you hand to uris is staged, analyzed, and then
+A file enters the catalog in one of two ways. A file you hand to xixo is staged, analyzed, and then
 placed in a resource. A record that a [resource](/concepts/resources/) already holds gets a
-reference to where it is, and uris never moves it. Both ways end in an
+reference to where it is, and xixo never moves it. Both ways end in an
 [analysis](/concepts/analysis/).
 
 | Way in | Needs | Lands as |
 | --- | --- | --- |
-| `POST /uploads` | `uris:catalog:write` | a staged file, cause `upload` |
-| `addNote` | `uris:catalog:write` | a staged `text/markdown` file at `notes/<time>-<name>.md` |
-| `fetchUrl` | `uris:catalog:write` | a staged file at `downloads/<time>-<name>` |
-| `askCatalog` | `uris:catalog:write` | a note keyed by the question, with no bytes, cause `ask` |
-| `snapshotUrl`, or the `resource` tool's `snapshot` | `uris:catalog:write`, or `uris:resources:command` | a page written directly to storage |
-| the `resource` tool's `keep` | `uris:resources:command` | a reference to one object in a resource, cause `keep` |
+| `POST /uploads` | `xixo:catalog:write` | a staged file, cause `upload` |
+| `addNote` | `xixo:catalog:write` | a staged `text/markdown` file at `notes/<time>-<name>.md` |
+| `fetchUrl` | `xixo:catalog:write` | a staged file at `downloads/<time>-<name>` |
+| `askCatalog` | `xixo:catalog:write` | a note keyed by the question, with no bytes, cause `ask` |
+| `snapshotUrl`, or the `resource` tool's `snapshot` | `xixo:catalog:write`, or `xixo:resources:command` | a page written directly to storage |
+| the `resource` tool's `keep` | `xixo:resources:command` | a reference to one object in a resource, cause `keep` |
 | sync | a resource that can sync | references, each analyzed once |
 
 `keep` records one object from a storage, git, GitHub, Notion, or Slack resource without syncing the
@@ -27,7 +27,7 @@ described under [asking](/concepts/agents/#asking).
 `POST /uploads` takes a multipart `file` and an optional `path`. The request answers `202` with the
 feed id, type, mime type, path, and analysis id before any byte reaches a resource. Active Storage
 holds the bytes until they are placed. It uses `Disk` locally, and the service that
-`URIS_STAGING_SERVICE` names in production. uris takes the mime type from the path's extension and
+`XIXO_STAGING_SERVICE` names in production. xixo takes the mime type from the path's extension and
 ignores the content type the client declared. The request is refused with `422` when:
 
 - no file was sent;
@@ -46,13 +46,13 @@ A path that is already stored or already staged uses the existing feed. `addNote
 body and a body over one megabyte. It names an untitled note after its first line.
 
 `fetchUrl` checks the address first, and refuses if the tenant has no store at all. It then starts
-a `fetch` run, and `FetchUrlJob` downloads the URL. uris checks each redirect again, because a public
+a `fetch` run, and `FetchUrlJob` downloads the URL. xixo checks each redirect again, because a public
 host can redirect to an internal address such as `169.254.169.254`. The download follows at most
 four redirects, allows five seconds to connect and thirty to read, and fails on any status that is
-not a success. The limit is 100 MB. uris checks it against `Content-Length` and again while the body
+not a success. The limit is 100 MB. xixo checks it against `Content-Length` and again while the body
 streams, so a server that sends a false length is still cut off. The file is named from
 `Content-Disposition`, or from the last segment of the URL's path. If that name has no extension,
-uris adds one from the content type. The final URL is saved as the file's source and copied to the
+xixo adds one from the content type. The final URL is saved as the file's source and copied to the
 stored reference.
 
 ## Placement
@@ -74,19 +74,19 @@ serve storage, accept the file's mime type, and allow its size. The internal `ch
 
 Each placement writes a `placement` step with the resource, the path, `by` (`return`, `agent`, or
 `default`), and the reason, truncated to 500 characters. If another feed already holds that path in
-the chosen resource, uris adds the feed's id to the file name so the other file is not overwritten.
-Once the reference is saved, uris deletes the staged copy.
+the chosen resource, xixo adds the feed's id to the file name so the other file is not overwritten.
+Once the reference is saved, xixo deletes the staged copy.
 
 ## Snapshots
 
 A snapshot needs a `web` resource. The `web` resource renders the page in headless Chrome, in an
-incognito window. Ferrum's defaults turn off the same-origin policy and site isolation. uris turns
+incognito window. Ferrum's defaults turn off the same-origin policy and site isolation. xixo turns
 both back on, because a compromised renderer could otherwise read across origins. The browser also
 starts with flags that block new windows, permission prompts, the file system, notifications,
 speech, and pings.
 
-uris checks the address once before the page loads. The browser still resolves hosts itself,
-follows redirects, and requests whatever the page asks for, so uris intercepts every request too.
+xixo checks the address once before the page loads. The browser still resolves hosts itself,
+follows redirects, and requests whatever the page asks for, so xixo intercepts every request too.
 `data:` and `blob:` requests pass. `http` and `https` requests pass only if the address check allows
 them. Every other scheme is aborted, so `file://` stays blocked even when private fetches are
 allowed.
@@ -100,7 +100,7 @@ a private address for the connection.
 
 The window is 1280 pixels wide by default, and can be set from 320 to 2560. A full-page capture is
 cut off at 20,000 pixels high. The PNG must be under 25 MB, and the whole render must finish within
-120 seconds. uris writes the PNG and the page's text under `snapshots/` in the storage that the
+120 seconds. xixo writes the PNG and the page's text under `snapshots/` in the storage that the
 `web` resource names, or in the default storage. Snapshots skip staging, because a second visit
 would render a different page. The reference is keyed by the URL without its fragment, and the feed
 takes the page's title.
@@ -111,14 +111,14 @@ takes the page's title.
 run. `ScheduleSyncsJob` does this every minute for each resource that is due. `SyncResourceJob`
 walks the resource page by page and saves a checkpoint after each page. A sync interrupted by a
 deploy resumes from the start of the page it was on. Every object the sync finds becomes a
-reference on a feed. uris analyzes that feed only if all of these are true:
+reference on a feed. xixo analyzes that feed only if all of these are true:
 
 - the reference has not been analyzed since it last changed;
 - no analysis of the feed is still open;
 - no analysis of the feed failed in the last day.
 
-After a failure, uris waits for the bytes to change or for a day to pass, so a file that breaks the
-analyzer is not retried on every sync. Synced records already have a place, so uris never places
+After a failure, xixo waits for the bytes to change or for a day to pass, so a file that breaks the
+analyzer is not retried on every sync. Synced records already have a place, so xixo never places
 them.
 
 ## Addresses
@@ -127,12 +127,12 @@ them.
 accepts only `http` and `https` URLs. It resolves the host name and refuses the URL if any of the
 resulting addresses is in a loopback, private, link-local, shared, documentation, multicast, or other
 reserved range, for IPv4 or IPv6. It checks an IPv4-mapped IPv6 address as the IPv4 address inside
-it. A host that does not resolve is refused. `URIS_ALLOW_PRIVATE_FETCH` lifts the range check. It
+it. A host that does not resolve is refused. `XIXO_ALLOW_PRIVATE_FETCH` lifts the range check. It
 does not lift the scheme check.
 
 A resolver can return a public address to the check and a private address to the connection. To
-prevent that, uris connects to the address it checked and does not look the name up a second time.
-The Host header and the TLS certificate still use the host name, and uris resolves and checks each
+prevent that, xixo connects to the address it checked and does not look the name up a second time.
+The Host header and the TLS certificate still use the host name, and xixo resolves and checks each
 redirect again. These clients all work this way:
 
 - downloads, and every feed, WebDAV, and search request a resource makes;
@@ -141,10 +141,10 @@ redirect again. These clients all work this way:
 - git over `http` and `https`;
 - IMAP.
 
-An S3 resource refuses an endpoint at an internal address unless `URIS_ALLOW_PRIVATE_FETCH` is set
-or the endpoint's origin is listed in `URIS_S3_ORIGINS`. For an endpoint that is not listed, uris
+An S3 resource refuses an endpoint at an internal address unless `XIXO_ALLOW_PRIVATE_FETCH` is set
+or the endpoint's origin is listed in `XIXO_S3_ORIGINS`. For an endpoint that is not listed, xixo
 also checks the address each connection reached, and closes the connection if the endpoint answered
-from a reserved address. The development stack lists its MinIO in `URIS_S3_ORIGINS`.
+from a reserved address. The development stack lists its MinIO in `XIXO_S3_ORIGINS`.
 
 `Intake.key_for` cleans every path before anything is stored. Backslashes become slashes, control
 characters are removed, and empty, `.`, and `..` segments are dropped. The result is a relative key

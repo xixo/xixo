@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class UrisSchema < GraphQL::Schema
+class XixoSchema < GraphQL::Schema
   query(Types::QueryType)
   mutation(Types::MutationType)
   subscription(Types::SubscriptionType)

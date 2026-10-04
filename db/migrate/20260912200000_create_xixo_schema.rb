@@ -1,4 +1,4 @@
-class CreateUrisSchema < ActiveRecord::Migration[8.1]
+class CreateXixoSchema < ActiveRecord::Migration[8.1]
   include TenantIsolation
 
   CURRENT_TENANT = -> { "NULLIF(current_setting('#{TenantIsolation::SETTING}', true), '')::bigint" }
@@ -98,7 +98,7 @@ class CreateUrisSchema < ActiveRecord::Migration[8.1]
       t.timestamps
 
       t.index [ :tenant_id, :type, :key ], unique: true,
-                                           where: "type IN ('uris:tag', 'uris:feed', 'uris:mime')",
+                                           where: "type IN ('xixo:tag', 'xixo:feed', 'xixo:mime')",
                                            name: "index_feeds_on_one_row_per_address"
       t.index [ :tenant_id, :type ]
       t.index [ :tenant_id, :key ]

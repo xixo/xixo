@@ -95,8 +95,8 @@ class WeatherResourceTest < ActiveSupport::TestCase
     held = weather
 
     Tenant.switch(@tenant) do
-      reading = Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new("sub" => "a", "scope" => "uris:resources:read uris:web:read"))
-      local = Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new("sub" => "a", "scope" => "uris:resources:read"))
+      reading = Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new("sub" => "a", "scope" => "xixo:resources:read xixo:web:read"))
+      local = Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new("sub" => "a", "scope" => "xixo:resources:read"))
 
       assert_match(/do=forecast, key "#{held.key}"/, Reach.new(reading).told)
 

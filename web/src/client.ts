@@ -6,16 +6,16 @@ import {
   mapExchange,
 } from '@urql/core'
 
-export interface UrisOptions {
+export interface XixoOptions {
   url: string
   csrfToken?: () => string | null
   onUnauthorized?: () => void
   subscriptions?: Exchange
 }
 
-export type UrisClient = Client
+export type XixoClient = Client
 
-export function createUris(options: UrisOptions): UrisClient {
+export function createXixo(options: XixoOptions): XixoClient {
   const { url, csrfToken, onUnauthorized, subscriptions } = options
 
   return new Client({

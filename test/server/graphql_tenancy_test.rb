@@ -38,7 +38,7 @@ class GraphqlTenancyTest < ActionDispatch::IntegrationTest
   end
 
   test "an unknown subdomain resolves to no tenant at all" do
-    host! "nobody.uris.test"
+    host! "nobody.xixo.test"
     post "/graphql", params: { query: CATALOG }
 
     assert_response :not_found
@@ -47,7 +47,7 @@ class GraphqlTenancyTest < ActionDispatch::IntegrationTest
   private
 
     def query_as(subdomain, query = CATALOG)
-      host! "#{subdomain}.uris.test"
+      host! "#{subdomain}.xixo.test"
       post "/graphql", params: { query: query }, headers: bearer(subdomain)
 
       assert_response :success
@@ -57,7 +57,7 @@ class GraphqlTenancyTest < ActionDispatch::IntegrationTest
     def bearer(subdomain, scopes: Grant::SCOPES)
       token = issuer.mint(
         subdomain: subdomain, scopes: scopes,
-        audience: "http://#{subdomain}.uris.test/mcp"
+        audience: "http://#{subdomain}.xixo.test/mcp"
       )
 
       { "Authorization" => "Bearer #{token}" }

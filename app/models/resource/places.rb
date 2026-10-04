@@ -9,7 +9,7 @@ class Resource
     PROVIDERS = [ OPENSTREETMAP ].freeze
     SEARCH = "https://nominatim.openstreetmap.org".freeze
     NEARBY = "https://overpass-api.de/api/interpreter".freeze
-    AGENT = "uris (https://github.com/urisrb/uris)".freeze
+    AGENT = "xixo (https://github.com/xixo/xixo)".freeze
 
     FOUND = 5
     MOST_FOUND = 20

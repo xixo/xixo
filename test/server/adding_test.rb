@@ -25,7 +25,7 @@ class AddingTest < ActionDispatch::IntegrationTest
   end
 
   teardown do
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
   end
 
   test "a note becomes a text item named by its first line" do
@@ -65,13 +65,13 @@ class AddingTest < ActionDispatch::IntegrationTest
   end
 
   test "a note needs the write scope" do
-    body = execute(NOTE, variables: { body: "no" }, scopes: %w[uris:catalog:read])
+    body = execute(NOTE, variables: { body: "no" }, scopes: %w[xixo:catalog:read])
 
     assert_nil body.dig("data", "addNote")
   end
 
   test "snapshotting an address opens a run against the browser resource" do
-    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
 
     Tenant.switch(@tenant) { @web = Resource::Web.create!(key: "web", name: "The web") }
 
@@ -121,7 +121,7 @@ class AddingTest < ActionDispatch::IntegrationTest
   end
 
   test "a fetched file lands in the catalog under the name it was served as" do
-    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
 
     server = FakeFeedServer.current
     server.reset!
@@ -144,13 +144,13 @@ class AddingTest < ActionDispatch::IntegrationTest
   private
 
     def host_for(tenant)
-      { "HOST" => "#{tenant.subdomain}.uris.test" }
+      { "HOST" => "#{tenant.subdomain}.xixo.test" }
     end
 
     def bearer(tenant, scopes: Grant::SCOPES)
       token = issuer.mint(
         subdomain: tenant.subdomain, scopes: scopes,
-        audience: "http://#{tenant.subdomain}.uris.test/mcp"
+        audience: "http://#{tenant.subdomain}.xixo.test/mcp"
       )
 
       { "Authorization" => "Bearer #{token}" }

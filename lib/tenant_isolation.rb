@@ -1,5 +1,5 @@
 module TenantIsolation
-  SETTING = "uris.tenant_id".freeze
+  SETTING = "xixo.tenant_id".freeze
 
   def enable_row_level_security(table)
     execute <<~SQL

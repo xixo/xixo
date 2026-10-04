@@ -8,7 +8,7 @@ class SearchWideningTest < ActiveSupport::TestCase
 
     @server = FakeModelServer.current
     @server.reset!.serves("nomic-embed-text").embeds(width: SearchIndex::VECTOR_DIMENSIONS)
-    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
+    ENV["XIXO_INFERENCE_ORIGINS"] = @server.origin
 
     @tenant = Tenant.create!(subdomain: "widen-#{SecureRandom.hex(4)}", name: "Widening")
 
@@ -26,7 +26,7 @@ class SearchWideningTest < ActiveSupport::TestCase
 
   teardown do
     Current.grant = nil
-    ENV.delete("URIS_INFERENCE_ORIGINS")
+    ENV.delete("XIXO_INFERENCE_ORIGINS")
   end
 
   def searched(**arguments)
@@ -37,7 +37,7 @@ class SearchWideningTest < ActiveSupport::TestCase
     reply = searched(query: "Kilner", type: Feed::ADDRESS)
 
     assert reply["widened"]
-    assert_match(/Nothing of type uris:address matched.*Leave type off/, reply["note"])
+    assert_match(/Nothing of type xixo:address matched.*Leave type off/, reply["note"])
     assert_includes reply["feeds"].map { |held| held["id"] }, @plan.id.to_s
   end
 

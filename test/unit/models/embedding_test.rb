@@ -10,7 +10,7 @@ class EmbeddingTest < ActiveSupport::TestCase
     @server = FakeModelServer.current
     @server.reset!.serves(MODELS.values).embeds(width: SearchIndex::VECTOR_DIMENSIONS)
 
-    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
+    ENV["XIXO_INFERENCE_ORIGINS"] = @server.origin
 
     @tenant = Tenant.create!(subdomain: "vec-#{SecureRandom.hex(4)}", name: "Vectors")
 
@@ -23,7 +23,7 @@ class EmbeddingTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("URIS_INFERENCE_ORIGINS")
+    ENV.delete("XIXO_INFERENCE_ORIGINS")
   end
 
   test "an item with no vector is swept up, embedded and re-indexed" do
@@ -119,7 +119,7 @@ class EmbeddingTest < ActiveSupport::TestCase
     end
   end
 
-  test "a model uris does not know gets no prefix, and prefixes named on the backend win" do
+  test "a model xixo does not know gets no prefix, and prefixes named on the backend win" do
     assert_empty Resource::OpenaiCompatible.prefixes_for("models" => { "embedding" => "text-embedding-3-small" })
     assert_equal({ "query" => "query: ", "document" => "passage: " },
                  Resource::OpenaiCompatible.prefixes_for("models" => { "embedding" => "multilingual-e5-large" }))
@@ -231,7 +231,7 @@ class EmbeddingTest < ActiveSupport::TestCase
 
     assert_match(/384/, error.message)
     assert_match(/#{SearchIndex::VECTOR_DIMENSIONS}/, error.message)
-    assert_match(/URIS_EMBEDDING_DIMENSIONS/, error.message)
+    assert_match(/XIXO_EMBEDDING_DIMENSIONS/, error.message)
   end
 
   test "check passes when the embedding model matches the index" do
@@ -240,7 +240,7 @@ class EmbeddingTest < ActiveSupport::TestCase
 
   test "a search whose backend is asleep answers without a vector rather than failing" do
     dead = "http://127.0.0.1:1"
-    ENV["URIS_INFERENCE_ORIGINS"] = [ @server.origin, dead ].join(",")
+    ENV["XIXO_INFERENCE_ORIGINS"] = [ @server.origin, dead ].join(",")
 
     Tenant.switch(@tenant) do
       create_feed(mime: "application/pdf", title: "March invoice")

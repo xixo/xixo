@@ -19,11 +19,11 @@ class McpLimitsTest < ActionDispatch::IntegrationTest
   end
 
   def limit
-    Rails.configuration.uris.mcp_limit
+    Rails.configuration.xixo.mcp_limit
   end
 
   def budget
-    Rails.configuration.uris.run_budget
+    Rails.configuration.xixo.run_budget
   end
 
   def flood(tenant, held, times, session: nil)

@@ -6,7 +6,7 @@ class Agent
   READ_TOOLS = %w[search feed connect resource].freeze
 
   SYSTEM = <<~TEXT.freeze
-    You are the uris catalog agent. Use the tools to find what the request asks for.
+    You are the xixo catalog agent. Use the tools to find what the request asks for.
     Call a tool rather than answering from memory. When you have enough, answer in one
     or two sentences and stop.
   TEXT

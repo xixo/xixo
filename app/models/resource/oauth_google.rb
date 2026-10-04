@@ -20,7 +20,7 @@ class Resource
       {
         label: "Google Drive",
         blurb: "Connected through masks with your Google account. masks keeps the tokens and hands " \
-               "uris a fresh one when it needs it, so no secret is ever typed into uris.",
+               "xixo a fresh one when it needs it, so no secret is ever typed into xixo.",
         names: "A name for it",
         fields: []
       }

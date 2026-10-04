@@ -45,7 +45,7 @@ class CancellingTest < ActionDispatch::IntegrationTest
   end
 
   test "cancelling needs the write scope, not the read one" do
-    body = execute(CANCEL, scopes: %w[uris:catalog:read], variables: { id: @analysis.id })
+    body = execute(CANCEL, scopes: %w[xixo:catalog:read], variables: { id: @analysis.id })
 
     assert_nil body.dig("data", "cancelAnalysis")
     Tenant.switch(@tenant) { assert_equal "running", @analysis.reload.status }
@@ -54,13 +54,13 @@ class CancellingTest < ActionDispatch::IntegrationTest
   private
 
     def host_for(tenant)
-      { "HOST" => "#{tenant.subdomain}.uris.test" }
+      { "HOST" => "#{tenant.subdomain}.xixo.test" }
     end
 
     def bearer(tenant, scopes: Grant::SCOPES)
       token = issuer.mint(
         subdomain: tenant.subdomain, scopes: scopes,
-        audience: "http://#{tenant.subdomain}.uris.test/mcp"
+        audience: "http://#{tenant.subdomain}.xixo.test/mcp"
       )
 
       { "Authorization" => "Bearer #{token}" }

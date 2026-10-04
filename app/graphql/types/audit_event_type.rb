@@ -2,7 +2,7 @@
 
 module Types
   class AuditEventType < Types::BaseObject
-    grants "uris:catalog:read"
+    grants "xixo:catalog:read"
 
     field :id, ID, null: false
     field :actor, String, null: false,

@@ -22,7 +22,7 @@ class SearchIndexTest < ActiveSupport::TestCase
   end
 
   test "a word finds the other forms of it, as a plural finds the singular" do
-    skip "stemming is the search engine's; set URIS_TEST_SEARCH_ENGINE to run it" if SEARCH_ENGINE_URL.nil?
+    skip "stemming is the search engine's; set XIXO_TEST_SEARCH_ENGINE to run it" if SEARCH_ENGINE_URL.nil?
 
     Tenant.switch(@demo) do
       assert_equal [ "March invoice" ], Feed.search("invoices").pluck(:title)

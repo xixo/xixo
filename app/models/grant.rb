@@ -2,25 +2,25 @@ class Grant
   class Denied < StandardError; end
 
   DESCRIBED = {
-    "uris:catalog:read" => "Read your catalog",
-    "uris:catalog:write" => "Change your catalog",
-    "uris:web:read" => "Search the web",
-    "uris:web:keep" => "Keep pages from the web",
-    "uris:mcp:call" => "Use the servers you have added",
-    "uris:resources:read" => "Read your places",
-    "uris:resources:command" => "Act on your places",
-    "uris:settings:read" => "Read your settings",
-    "uris:settings:write" => "Change your settings",
-    "uris:settings:admin" => "Change everyone's settings"
+    "xixo:catalog:read" => "Read your catalog",
+    "xixo:catalog:write" => "Change your catalog",
+    "xixo:web:read" => "Search the web",
+    "xixo:web:keep" => "Keep pages from the web",
+    "xixo:mcp:call" => "Use the servers you have added",
+    "xixo:resources:read" => "Read your places",
+    "xixo:resources:command" => "Act on your places",
+    "xixo:settings:read" => "Read your settings",
+    "xixo:settings:write" => "Change your settings",
+    "xixo:settings:admin" => "Change everyone's settings"
   }.freeze
 
-  NAMESPACE = "uris:".freeze
+  NAMESPACE = "xixo:".freeze
 
   SCOPES = DESCRIBED.keys.freeze
 
-  ADMINISTRATIVE = %w[uris:settings:admin].freeze
+  ADMINISTRATIVE = %w[xixo:settings:admin].freeze
 
-  SETTINGS = %w[uris:settings:read uris:settings:write uris:settings:admin].freeze
+  SETTINGS = %w[xixo:settings:read xixo:settings:write xixo:settings:admin].freeze
 
   OFFERED = DESCRIBED.except(*SETTINGS).freeze
 

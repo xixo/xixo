@@ -2,13 +2,13 @@ import { createHash, randomBytes } from 'node:crypto'
 import { createServer } from 'node:http'
 import { chromium } from 'playwright'
 
-const uris = process.env.DELEGATION_URIS
+const xixo = process.env.DELEGATION_XIXO
 const masks = process.env.DELEGATION_ISSUER
 const server = process.env.DELEGATION_SERVER
 const password = process.env.DELEGATION_PASSWORD
 const callbackPort = 8199
 const callback = `http://127.0.0.1:${callbackPort}/cb`
-const scope = 'openid uris:mcp:call uris:catalog:read'
+const scope = 'openid xixo:mcp:call xixo:catalog:read'
 
 const [step, who = 'ada', wait = '0'] = process.argv.slice(2)
 
@@ -42,7 +42,7 @@ async function allow(page, until) {
 }
 
 async function row(page) {
-  await page.goto(`${uris}/settings/resources`)
+  await page.goto(`${xixo}/settings/resources`)
   const name = page.getByText('stand-in', { exact: true })
   await name.waitFor()
 
@@ -55,13 +55,13 @@ async function row(page) {
 
 async function connect() {
   return browse(async (page) => {
-    await page.goto(uris)
+    await page.goto(xixo)
     await page.getByText('Sign in').click()
     await signIn(page)
-    await allow(page, () => page.url().startsWith(uris))
-    await page.waitForURL(`${uris}/**`)
+    await allow(page, () => page.url().startsWith(xixo))
+    await page.waitForURL(`${xixo}/**`)
 
-    await page.goto(`${uris}/settings/resources`)
+    await page.goto(`${xixo}/settings/resources`)
     await page.getByRole('button', { name: 'Attach one' }).click()
     await page.getByText('An MCP server', { exact: true }).click()
 
@@ -76,8 +76,8 @@ async function connect() {
     await form.getByRole('button', { name: 'Attach and connect' }).click()
 
     await page.waitForURL(`${masks}/**`)
-    await allow(page, () => page.url().startsWith(uris))
-    await page.waitForURL(`${uris}/settings/resources/**`)
+    await allow(page, () => page.url().startsWith(xixo))
+    await page.waitForURL(`${xixo}/settings/resources/**`)
 
     return { row: await row(page) }
   })
@@ -88,7 +88,7 @@ async function revoke() {
     await page.goto(masks)
     await signIn(page)
 
-    const line = page.getByText('Uris can use it while you are away')
+    const line = page.getByText('Xixo can use it while you are away')
     const entry = page.locator('details.entry', { has: line })
     await entry.locator('summary').click()
     page.once('dialog', (dialog) => dialog.accept())
@@ -101,11 +101,11 @@ async function revoke() {
 
 async function listed() {
   return browse(async (page) => {
-    await page.goto(uris)
+    await page.goto(xixo)
     await page.getByText('Sign in').click()
     await signIn(page)
-    await allow(page, () => page.url().startsWith(uris))
-    await page.waitForURL(`${uris}/**`)
+    await allow(page, () => page.url().startsWith(xixo))
+    await page.waitForURL(`${xixo}/**`)
 
     return { row: await row(page) }
   })
@@ -129,7 +129,7 @@ async function token() {
 
   const verifier = randomBytes(32).toString('base64url')
   const challenge = createHash('sha256').update(verifier).digest('base64url')
-  const resource = `${uris}/mcp`
+  const resource = `${xixo}/mcp`
 
   let code = null
   let refused = null
@@ -197,7 +197,7 @@ function session(bearer) {
     const body = { jsonrpc: '2.0', method, params }
     if (!notify) body.id = next++
 
-    const response = await fetch(`${uris}/mcp`, {
+    const response = await fetch(`${xixo}/mcp`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),

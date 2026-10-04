@@ -1,9 +1,9 @@
 ---
 title: Security
-description: What uris protects, the defense for each threat, and where each is described in full.
+description: What xixo protects, the defense for each threat, and where each is described in full.
 ---
 
-uris reads other people's files, fetches pages from the web, and hands text to models that call
+xixo reads other people's files, fetches pages from the web, and hands text to models that call
 tools. Each of those is a way in. This page lists the threats and the defense for each, and links to
 the page that describes it in full.
 
@@ -30,10 +30,10 @@ Every request and every job runs inside exactly one tenant.
 | Row-level security | `FORCE ROW LEVEL SECURITY` and a `tenant_isolation` policy on every tenant table, Active Storage's included. |
 
 - Outside a tenant, the policy matches no rows, so even `Model.unscoped` returns nothing.
-- A Postgres role with `SUPERUSER` or `BYPASSRLS` skips every policy. uris checks its role once per
+- A Postgres role with `SUPERUSER` or `BYPASSRLS` skips every policy. xixo checks its role once per
   process and refuses to enter a tenant as either. See [the database role](/guides/self-hosting/#the-database-role).
 - A job records the tenant it was enqueued in, and a job enqueued outside a tenant raises.
-- All tenants share one OpenSearch index. Each searches through its own filtered alias, and uris
+- All tenants share one OpenSearch index. Each searches through its own filtered alias, and xixo
   refuses a search with no tenant.
 
 See [tenants](/concepts/tenants/#isolation) and [search](/concepts/search/#tenants).
@@ -43,15 +43,15 @@ See [tenants](/concepts/tenants/#isolation) and [search](/concepts/search/#tenan
 `/graphql`, `/mcp`, `/uploads`, and `/references/:id/content` each verify a masks access token. A
 token is accepted only when its issuer is this tenant's masks issuer, its audience is this tenant's
 origin followed by `/mcp`, and any `tenant` claim names this tenant. Production refuses to boot
-without `URIS_PUBLIC_ORIGIN`, so the audience never comes from a request's `Host` header.
+without `XIXO_PUBLIC_ORIGIN`, so the audience never comes from a request's `Host` header.
 
 - The scopes a token holds decide what it reaches. A GraphQL field that names a scope refuses a
   token without it, and an MCP tool the token cannot use is left out of `tools/list`. See
   [scopes](/reference/scopes/).
 - A browser request carrying the session cookie also needs the page's CSRF token. A request with a
   bearer token does not.
-- An `Mcp-Session-Id` belongs to the subject that opened it. uris refuses it from anyone else.
-- `uris:settings:admin` is never requested at sign-in.
+- An `Mcp-Session-Id` belongs to the subject that opened it. xixo refuses it from anyone else.
+- `xixo:settings:admin` is never requested at sign-in.
 
 See [signing in](/concepts/tenants/#signing-in) and [agents and MCP](/concepts/agents/).
 
@@ -68,24 +68,24 @@ values. Rails filters secrets, tokens, and passwords from the request log. See
 [encryption & secrets](/guides/self-hosting/#encryption--secrets).
 
 A resource connected through masks, such as Google Drive, holds no provider token. masks keeps the
-provider's tokens, and uris holds a delegation secret that masks revokes if it is ever used twice.
+provider's tokens, and xixo holds a delegation secret that masks revokes if it is ever used twice.
 See [resources connected through masks](/concepts/resources/#resources-connected-through-masks).
 
 ## Reaching addresses
 
-`PublicAddress` checks every URL uris fetches on someone's behalf: downloads, feeds, WebDAV, search
+`PublicAddress` checks every URL xixo fetches on someone's behalf: downloads, feeds, WebDAV, search
 requests, MCP servers, git over HTTPS, and IMAP.
 
 - Only `http` and `https` are accepted.
 - The host is resolved, and the URL is refused if any address is loopback, private, link-local,
   shared, documentation, multicast, or otherwise reserved, for IPv4 or IPv6.
-- uris connects to the address it checked, so a resolver cannot answer the check with a public
+- xixo connects to the address it checked, so a resolver cannot answer the check with a public
   address and the connection with a private one.
 - Each redirect is resolved and checked again.
 
-An operator lists a private origin by service: `URIS_S3_ORIGINS`, `URIS_MCP_ORIGINS`, and
-`URIS_SEARCH_ORIGINS`. `URIS_INFERENCE_ORIGINS` lists every model backend a tenant may use, public
-ones included. `URIS_ALLOW_PRIVATE_FETCH` lifts the range check for downloads, snapshots, and
+An operator lists a private origin by service: `XIXO_S3_ORIGINS`, `XIXO_MCP_ORIGINS`, and
+`XIXO_SEARCH_ORIGINS`. `XIXO_INFERENCE_ORIGINS` lists every model backend a tenant may use, public
+ones included. `XIXO_ALLOW_PRIVATE_FETCH` lifts the range check for downloads, snapshots, and
 resources other than search, and still refuses other schemes. See
 [outbound connections](/reference/environment/#outbound-connections).
 
@@ -93,7 +93,7 @@ A resource reached through a transport, such as a tailnet, connects only to addr
 covers. None of the settings above widen that. See
 [reaching through another resource](/concepts/resources/#reaching-through-another-resource).
 
-A git resource accepts only the protocols in `URIS_GIT_PROTOCOLS`, `https` by default. It runs git
+A git resource accepts only the protocols in `XIXO_GIT_PROTOCOLS`, `https` by default. It runs git
 with `protocol.file.allow=never`, no credential helper, no global or system config, and no redirects,
 and refuses a URL with a name or token in it.
 
@@ -105,7 +105,7 @@ A snapshot renders an untrusted page in headless Chrome.
 
 - The page opens in an incognito window, with the same-origin policy and site isolation on.
 - New windows, permission prompts, the file system, notifications, and pings are blocked.
-- uris intercepts every request the page makes. `data:` and `blob:` pass, `http` and `https` pass
+- xixo intercepts every request the page makes. `data:` and `blob:` pass, `http` and `https` pass
   only if the address check allows them, and every other scheme is aborted.
 - All traffic goes through `Snapshot::Egress`, a proxy on loopback that resolves, checks, and pins
   each connection. QUIC and non-proxied WebRTC are off, so no connection skips it.
@@ -115,8 +115,8 @@ See [snapshots](/concepts/adding/#snapshots).
 
 ## Serving files
 
-`/references/:id/content` streams a file's bytes, and needs `uris:catalog:read`. A file can be an
-HTML page someone kept, an SVG from an email, or anything else a sync found, so uris treats every
+`/references/:id/content` streams a file's bytes, and needs `xixo:catalog:read`. A file can be an
+HTML page someone kept, an SVG from an email, or anything else a sync found, so xixo treats every
 file as hostile when it serves it.
 
 - Every response carries `X-Content-Type-Options: nosniff` and a `Content-Security-Policy` of
@@ -125,15 +125,15 @@ file as hostile when it serves it.
   other type, HTML and SVG included, downloads.
 - A PDF is served without the sandbox, because Chrome refuses to start its viewer inside one.
 
-Active Storage's own routes are not drawn. Staged bytes are reached only through uris.
+Active Storage's own routes are not drawn. Staged bytes are reached only through xixo.
 
 ## Paths
 
 - `Intake.key_for` cleans every path before anything is stored. Backslashes become slashes,
   control characters are removed, and empty, `.`, and `..` segments are dropped.
-- An upload's type comes from its extension. uris ignores the content type the client declared.
+- An upload's type comes from its extension. xixo ignores the content type the client declared.
 - A filesystem resource's root must be inside the tenant's own directory under
-  `URIS_FILESYSTEM_ROOTS`. uris checks the real path, so a symlink cannot lead out, and a write never
+  `XIXO_FILESYSTEM_ROOTS`. xixo checks the real path, so a symlink cannot lead out, and a write never
   follows one.
 - A resource reads only what it was attached to. The prefix, folder, repositories, channels,
   mailbox, or Google Drive query given when attaching it bound `get`, `list`, `search`, and a
@@ -146,13 +146,13 @@ See [staging](/concepts/adding/#staging) and [where resources come from](/concep
 
 ## Models and prompt injection
 
-A file, a page, or an email can contain text written to steer a model. uris limits what that text
+A file, a page, or an email can contain text written to steer a model. xixo limits what that text
 can do.
 
 - The summary prompt fences the file's text and tells the model it is data. The prompt that answers
   a question fences the question and the evidence the same way.
-- The agent that runs an address or places an upload acts under a grant of its own, with `uris:catalog:read`,
-  `uris:catalog:write`, `uris:web:read`, and `uris:resources:read`. It cannot sync, export, write
+- The agent that runs an address or places an upload acts under a grant of its own, with `xixo:catalog:read`,
+  `xixo:catalog:write`, `xixo:web:read`, and `xixo:resources:read`. It cannot sync, export, write
   into a resource, call an attached MCP server, or change settings.
 - An agent reaches a person's [personal resources](/concepts/resources/#only-mine-or-everyones) only
   in a run that person started.
@@ -161,8 +161,8 @@ can do.
 - Every tool call is checked against the tool's schema before it runs. Three failed calls in a row
   end the run.
 - A question about the catalog is answered with no tools at all. Arithmetic over a table runs in
-  uris from a fixed set of operations, and the model only names them.
-- uris checks every number in an answer against the evidence and the results it computed, and sends
+  xixo from a fixed set of operations, and the model only names them.
+- xixo checks every number in an answer against the evidence and the results it computed, and sends
   an answer with a number from nowhere back once.
 
 See [the agent](/concepts/agents/#the-agent) and [asking](/concepts/agents/#asking).
@@ -171,11 +171,11 @@ See [the agent](/concepts/agents/#the-agent) and [asking](/concepts/agents/#aski
 
 | Limit | Counted per | Default |
 | --- | --- | --- |
-| `URIS_MCP_LIMIT` | Token, or IP address without one, per minute | 120 |
-| `URIS_RUN_BUDGET` | Subject, per clock hour, for analyses, syncs, and exports | 20 |
-| `URIS_RUN_DEADLINE_HOURS` | A queued analysis, before it is cancelled | 6 |
+| `XIXO_MCP_LIMIT` | Token, or IP address without one, per minute | 120 |
+| `XIXO_RUN_BUDGET` | Subject, per clock hour, for analyses, syncs, and exports | 20 |
+| `XIXO_RUN_DEADLINE_HOURS` | A queued analysis, before it is cancelled | 6 |
 
-A gate stops a kind of job for a tenant or a single record, and `URIS_ITERATORS_DISABLED` stops
+A gate stops a kind of job for a tenant or a single record, and `XIXO_ITERATORS_DISABLED` stops
 every iterating job at once. See [budgets and gates](/concepts/agents/#budgets-and-gates).
 
 Mission Control at `/jobs` lists every tenant's jobs. It answers `401` to every request, because no
@@ -186,6 +186,6 @@ password is set. See [Mission Control](/guides/self-hosting/#mission-control-at-
 Every tool call, refused authorization, rate-limited call, and some GraphQL mutations write an audit
 event. Each names its actor, the scope, the result, the IP address, and the request id. Arguments are
 summarized, and the value of any key that names a secret, password, token, or credential is replaced
-with `[redacted]`. Events are kept for `URIS_AUDIT_RETENTION_DAYS`, 90 by default.
+with `[redacted]`. Events are kept for `XIXO_AUDIT_RETENTION_DAYS`, 90 by default.
 
 See [audit](/concepts/agents/#audit).

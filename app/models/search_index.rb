@@ -1,13 +1,13 @@
 module SearchIndex
   class Failed < StandardError; end
 
-  VECTOR_DIMENSIONS = ENV.fetch("URIS_EMBEDDING_DIMENSIONS", 768).to_i
+  VECTOR_DIMENSIONS = ENV.fetch("XIXO_EMBEDDING_DIMENSIONS", 768).to_i
   CANDIDATES = 200
   FUSION_RANK = 60
   LOOSE_MATCH = "60%".freeze
   LOOSE_AFTER_WORDS = 3
   SEMANTIC_MARGIN = 0.12
-  SEMANTIC_FLOOR = ENV.fetch("URIS_SEMANTIC_FLOOR", "0.55").to_f
+  SEMANTIC_FLOOR = ENV.fetch("XIXO_SEMANTIC_FLOOR", "0.55").to_f
 
   SETTINGS = {
     index: { knn: true },
@@ -58,7 +58,7 @@ module SearchIndex
     end
 
     def alias_name
-      [ "uris", Rails.env, ENV["TEST_ENV_NUMBER"].presence ].compact.join("_")
+      [ "xixo", Rails.env, ENV["TEST_ENV_NUMBER"].presence ].compact.join("_")
     end
 
     def alias_for(tenant)
@@ -92,7 +92,7 @@ module SearchIndex
     def stale?
       live = live_index
 
-      return false if live.nil?
+      return Tenant.exists? if live.nil?
 
       stamp_of(live) != STAMP
     end

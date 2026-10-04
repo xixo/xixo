@@ -52,7 +52,7 @@ class Resource
         {
           "Authorization" => "Bearer #{token}",
           "Accept" => "application/json",
-          "User-Agent" => "uris"
+          "User-Agent" => "xixo"
         }
       end
 

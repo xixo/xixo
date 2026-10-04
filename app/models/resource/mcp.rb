@@ -3,7 +3,7 @@ class Resource
     include PublicFetch
     include Delegated
 
-    SCOPE = "uris:mcp:call".freeze
+    SCOPE = "xixo:mcp:call".freeze
     JOINER = "__".freeze
     AUTHS = %w[none bearer basic header masks].freeze
     MASKS = "masks".freeze
@@ -56,7 +56,7 @@ class Resource
                 ]),
           field("provider", "Provider in masks", required: true, placeholder: "notion",
                 help: "The key masks knows this server's authorization server by. Attaching sends you to " \
-                      "masks to connect your account, and uris never sees a password or a pasted token.",
+                      "masks to connect your account, and xixo never sees a password or a pasted token.",
                 shown_when: { "auth" => MASKS }),
           field("token", "Bearer token", required: true, secret: true,
                 help: "Sent as Authorization: Bearer.", shown_when: { "auth" => "bearer" }),
@@ -76,7 +76,7 @@ class Resource
     end
 
     def self.permitted_origins
-      PublicAddress.origins(ENV.fetch("URIS_MCP_ORIGINS", ""))
+      PublicAddress.origins(ENV.fetch("XIXO_MCP_ORIGINS", ""))
     end
 
     def self.named?(target)
@@ -192,7 +192,7 @@ class Resource
       end
 
       def headers
-        { "User-Agent" => "uris" }.merge(authorization.compact)
+        { "User-Agent" => "xixo" }.merge(authorization.compact)
       end
 
       def authorization
@@ -328,13 +328,13 @@ class Resource
       end
 
       def it_does_not_point_at_us
-        suffix = ENV["URIS_HOST_SUFFIX"].presence
+        suffix = ENV["XIXO_HOST_SUFFIX"].presence
         return if suffix.nil? || url.blank?
 
         host = URI.parse(url).host.to_s
         return unless host == suffix || host.end_with?(".#{suffix}")
 
-        errors.add(:details, "points back at uris, which would call itself")
+        errors.add(:details, "points back at xixo, which would call itself")
       rescue URI::InvalidURIError
         errors.add(:details, "is not a url")
       end

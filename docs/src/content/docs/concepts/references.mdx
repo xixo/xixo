@@ -1,6 +1,6 @@
 ---
 title: References
-description: Where a feed's bytes live, how uris notices a change, and what uris deletes.
+description: Where a feed's bytes live, how xixo notices a change, and what xixo deletes.
 ---
 
 A feed does not hold bytes. A reference points to them. It is a row that names a
@@ -20,7 +20,7 @@ describes what they have in common.
 PDFs, and captured pages, and stores them in the internal `derived` store, keyed
 `<feed id>/<role>.jpg`. Audio renders as a picture of its waveform. See
 [derive](/concepts/analysis/#the-analyzer) for the sizes. That
-store and the `children` store are listed in `Resource::INTERNAL`. uris keeps them for itself and
+store and the `children` store are listed in `Resource::INTERNAL`. xixo keeps them for itself and
 never offers them as a place to store a file. Serving a thumbnail reads the bytes of the thumbnail
 reference, so it passes the same grant check as any other bytes.
 
@@ -46,7 +46,7 @@ analysis never describes bytes that have since changed.
 
 ## Noticing what is gone
 
-Every object a sync walks past sets its reference's `seen_at`. When a sync finishes, uris sets
+Every object a sync walks past sets its reference's `seen_at`. When a sync finishes, xixo sets
 `gone_at` on each original reference in that resource that was last seen before the sync began,
 because the source no longer has it. This does not happen after a sync that was cancelled, ran past
 its deadline, was gated, or was a dry run. Nothing is deleted. The feed, its analysis, and its notes
@@ -70,7 +70,7 @@ versions and copies the file again only when the original has changed.
 ## Moving between feeds
 
 `move_to!` moves a reference to another feed. If that feed already has a reference to the same
-place, uris destroys the moved reference so there is no duplicate. In both cases, a `uris:file` feed
+place, xixo destroys the moved reference so there is no duplicate. In both cases, a `xixo:file` feed
 left with no originals is destroyed. `split!` is `move_to!` into a new feed with the same type, key,
 title, and expiry, and the new feed connects to everything the old one connects to and takes its
 note. `splitReference` refuses a feed that has only one original. Export, joining, and leaving are
@@ -109,13 +109,13 @@ the same feed says **the same bytes as another place**. **Keep apart** on an ori
 original never joins. A new version clears the mark, so the original joins again once its bytes
 match something. **Keep apart** appears only on a feed with more than one original.
 
-## What uris deletes
+## What xixo deletes
 
 Forgetting a feed destroys the row, its references, analyses, schedule, edges, and extracted
 children, and reports how many originals it pointed to. It does not touch the resources those
 originals live in, so the files stay where they are.
 
-The exception is bytes that uris created. A reference in an internal store, such as a `preview` or
+The exception is bytes that xixo created. A reference in an internal store, such as a `preview` or
 `thumbnail` render or a child extracted from a message, deletes its blob when it is destroyed,
-because nothing outside uris created it. A file that was uploaded and never placed is deleted with
+because nothing outside xixo created it. A file that was uploaded and never placed is deleted with
 its feed, because it was only staged.

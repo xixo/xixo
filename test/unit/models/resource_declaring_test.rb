@@ -5,11 +5,11 @@ class ResourceDeclaringTest < ActiveSupport::TestCase
     @tenant = Tenant.create!(subdomain: "decl-#{SecureRandom.hex(4)}", name: "Declared")
     @root = Pathname.new(Dir.mktmpdir)
 
-    ENV["URIS_FILESYSTEM_ROOTS"] = @root.to_s
+    ENV["XIXO_FILESYSTEM_ROOTS"] = @root.to_s
   end
 
   teardown do
-    ENV.delete("URIS_FILESYSTEM_ROOTS")
+    ENV.delete("XIXO_FILESYSTEM_ROOTS")
     FileUtils.remove_entry(@root) if @root.exist?
   end
 

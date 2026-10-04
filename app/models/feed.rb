@@ -1,11 +1,11 @@
 class Feed < ApplicationRecord
   self.inheritance_column = nil
 
-  FILE = "uris:file".freeze
-  NOTE = "uris:note".freeze
-  ADDRESS = "uris:address".freeze
-  TAG = "uris:tag".freeze
-  MIME = "uris:mime".freeze
+  FILE = "xixo:file".freeze
+  NOTE = "xixo:note".freeze
+  ADDRESS = "xixo:address".freeze
+  TAG = "xixo:tag".freeze
+  MIME = "xixo:mime".freeze
 
   TYPES = [ FILE, NOTE, ADDRESS, TAG, MIME ].freeze
   SINGLETON = [ TAG, ADDRESS, MIME ].freeze
@@ -190,11 +190,11 @@ class Feed < ApplicationRecord
   end
 
   AGENT_SCOPES = %w[
-    uris:catalog:read uris:catalog:write uris:web:read uris:resources:read
+    xixo:catalog:read xixo:catalog:write xixo:web:read xixo:resources:read
   ].freeze
 
   ASKING_SCOPES = %w[
-    uris:catalog:read uris:catalog:write uris:web:read uris:web:keep uris:resources:read
+    xixo:catalog:read xixo:catalog:write xixo:web:read xixo:web:keep xixo:resources:read
   ].freeze
 
   def time_allowed
@@ -421,8 +421,8 @@ class Feed < ApplicationRecord
   end
 
   def announce_analyzed!
-    UrisSchema.subscriptions.trigger(:feed_analyzed, {}, self, scope: tenant_id)
-    UrisSchema.subscriptions.trigger(:feed_analyzed, { id: id.to_s }, self, scope: tenant_id)
+    XixoSchema.subscriptions.trigger(:feed_analyzed, {}, self, scope: tenant_id)
+    XixoSchema.subscriptions.trigger(:feed_analyzed, { id: id.to_s }, self, scope: tenant_id)
   end
 
   def outline
@@ -506,7 +506,7 @@ class Feed < ApplicationRecord
     def an_address_is_not_spoken_for
       return unless RESERVED.include?(key.to_s.delete_prefix("/").downcase)
 
-      errors.add(:key, "is a path uris already answers to")
+      errors.add(:key, "is a path xixo already answers to")
     end
 
     def the_origin_does_not_change

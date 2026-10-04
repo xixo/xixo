@@ -33,8 +33,8 @@ import {
   SetFeedLifetimeDocument,
   SplitReferenceDocument,
   TagFeedsDocument,
-} from '@uris-to/client'
-import { useQuery } from '@uris-to/client/react'
+} from '@xixo/client'
+import { useQuery } from '@xixo/client/react'
 import {
   type CSSProperties,
   Fragment,
@@ -327,7 +327,7 @@ export function ItemDetail() {
           navigate('/')
         }}
       >
-        uris stops pointing at the{' '}
+        xixo stops pointing at the{' '}
         <strong>
           {originals.length} {originals.length === 1 ? 'place' : 'places'}
         </strong>{' '}
@@ -778,7 +778,7 @@ function Noting({
         value={draft}
         disabled={busy}
         aria-label="Your note"
-        placeholder="Anything you want to remember about this — uris will not touch it, and a search will find it."
+        placeholder="Anything you want to remember about this — xixo will not touch it, and a search will find it."
         onChange={(event) => setDraft(event.currentTarget.value)}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {

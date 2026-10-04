@@ -9,7 +9,7 @@ require_relative "../lib/switch"
 
 Switch.check!
 
-module Uris
+module Xixo
   class Application < Rails::Application
     config.active_record.query_log_tags_enabled = true
     config.active_record.query_log_tags = [
@@ -34,14 +34,14 @@ module Uris
     config.active_job.queue_adapter = :solid_queue
     config.solid_queue.connects_to = { database: { writing: :queue } }
 
-    config.uris = ActiveSupport::OrderedOptions.new
-    config.uris.tenant = ENV["URIS_TENANT"].presence
-    config.uris.tenants = ENV["URIS_TENANTS"].to_s.split(/[\s,]+/).reject(&:empty?)
-    config.uris.mcp_limit = ENV.fetch("URIS_MCP_LIMIT", 120).to_i
-    config.uris.run_budget = ENV.fetch("URIS_RUN_BUDGET", 20).to_i
-    config.uris.audit_retention = ENV.fetch("URIS_AUDIT_RETENTION_DAYS", 90).to_i.days
-    config.uris.run_retention = ENV.fetch("URIS_RUN_RETENTION_DAYS", 14).to_i.days
-    config.uris.run_deadline = ENV.fetch("URIS_RUN_DEADLINE_HOURS", 6).to_i.hours
+    config.xixo = ActiveSupport::OrderedOptions.new
+    config.xixo.tenant = ENV["XIXO_TENANT"].presence
+    config.xixo.tenants = ENV["XIXO_TENANTS"].to_s.split(/[\s,]+/).reject(&:empty?)
+    config.xixo.mcp_limit = ENV.fetch("XIXO_MCP_LIMIT", 120).to_i
+    config.xixo.run_budget = ENV.fetch("XIXO_RUN_BUDGET", 20).to_i
+    config.xixo.audit_retention = ENV.fetch("XIXO_AUDIT_RETENTION_DAYS", 90).to_i.days
+    config.xixo.run_retention = ENV.fetch("XIXO_RUN_RETENTION_DAYS", 14).to_i.days
+    config.xixo.run_deadline = ENV.fetch("XIXO_RUN_DEADLINE_HOURS", 6).to_i.hours
 
     config.active_record.encryption.primary_key = ENV["ENCRYPTION_PRIMARY_KEY"]
     config.active_record.encryption.deterministic_key = ENV["ENCRYPTION_DETERMINISTIC_KEY"]

@@ -12,7 +12,7 @@ class RssResourceTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
 
-    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
 
     @server = FakeFeedServer.current
     @server.reset!
@@ -28,7 +28,7 @@ class RssResourceTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
   end
 
   test "syncing a feed catalogues every entry, keyed on its guid" do
@@ -111,7 +111,7 @@ class RssResourceTest < ActiveSupport::TestCase
   end
 
   test "a private address is refused unless fetching them is allowed" do
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
 
     error = assert_raises(Resource::Rss::Blocked) { @resource.check! }
 

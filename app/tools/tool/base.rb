@@ -52,7 +52,7 @@ module Tool
       end
 
       def within_budget!(grant = Current.grant)
-        limit = Rails.configuration.uris.run_budget
+        limit = Rails.configuration.xixo.run_budget
         return if limit.zero?
 
         key = [ "mcp:runs", Current.tenant.id, grant.subject, Time.current.to_i / 3600 ].join(":")

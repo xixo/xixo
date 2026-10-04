@@ -12,7 +12,7 @@ class VisionTest < ActiveSupport::TestCase
     @server = FakeModelServer.current
     @server.reset!.serves("gemma3:4b", "llama3.1:8b")
 
-    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
+    ENV["XIXO_INFERENCE_ORIGINS"] = @server.origin
 
     @tenant = Tenant.create!(subdomain: "vis-#{SecureRandom.hex(4)}", name: "Vision")
 
@@ -31,7 +31,7 @@ class VisionTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("URIS_INFERENCE_ORIGINS")
+    ENV.delete("XIXO_INFERENCE_ORIGINS")
   end
 
   test "an image is described from its pixels, and the preview travels with the prompt" do

@@ -19,7 +19,7 @@
     "@masks/client": "^2.2.0",
     "@rails/actioncable": "^8.1.400",
     "@tabler/icons-react": "^3.48.0",
-    "@uris-to/client": "file:./web",
+    "@xixo/client": "file:./web",
     "@urql/core": "^6.0.3",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

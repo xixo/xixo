@@ -12,12 +12,12 @@ and keeping apart. This file lists what is still open.
 - **A resource behind a transport that comes and goes.** A peer that is off fails each check with a
   connection error. Read the peer's state from tailscaled, report the resource as offline for that
   reason, and resume its syncs when the peer returns.
-- **An agent.** A program on each machine that enrolls with uris as a masks client, dials uris, and
+- **An agent.** A program on each machine that enrolls with xixo as a masks client, dials xixo, and
   reports the machine's health. It then offers the machine's folders and model server as resources
   reached through it, and later pulls analysis jobs, so a file is read where it lives and only its
-  text reaches uris. It runs natively on macOS, where a container cannot see the GPU or the real
+  text reaches xixo. It runs natively on macOS, where a container cannot see the GPU or the real
   disks, and may run in a container on Linux.
-- **Installing uris on a phone.** A web manifest, an icon, and a share target.
+- **Installing xixo on a phone.** A web manifest, an icon, and a share target.
 - **Discovery.** A transport offers what it can reach as resources to attach, such as a tailnet's
   nodes from tailscaled's status.
 
@@ -54,11 +54,11 @@ and keeping apart. This file lists what is still open.
 - **Truncation is silent.** GitHub reads 50 comments, Notion 2,000 blocks three deep, git skips
   blobs over 2 MB, and Slack names the first 1,000 users.
 - **A resource cannot be deleted**, only archived and attached again under another key.
-- **`uris:resources` runs on every boot** and makes `files` the default storage again, whatever was
+- **`xixo:resources` runs on every boot** and makes `files` the default storage again, whatever was
   chosen since.
 - **Fetches from fixed or operator-named hosts are not streamed.** `Resource::Api` and
   `openai-compatible` read the whole body before checking its size, unlike `PublicFetch`.
-- **A revoked delegation reaches uris only when its cached upstream token lapses.** uris uses the
+- **A revoked delegation reaches xixo only when its cached upstream token lapses.** xixo uses the
   token until `Resource::Delegated::LEEWAY` before it expires, and masks has no way to tell it sooner.
 - **The stand-in MCP server forgets its clients when it restarts.** `./dev delegation` registers
   again on every run.

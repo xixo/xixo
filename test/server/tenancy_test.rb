@@ -8,7 +8,7 @@ class TenancyTest < ActionDispatch::IntegrationTest
   end
 
   test "a hostname that serves no tenant is refused before the request reaches a controller" do
-    get "http://nobody.uris.test/"
+    get "http://nobody.xixo.test/"
 
     assert_response :not_found
     assert_equal Tenancy::Middleware::UNSERVED, response.body
@@ -21,7 +21,7 @@ class TenancyTest < ActionDispatch::IntegrationTest
   end
 
   test "a request leaves no tenant behind on the connection it borrowed" do
-    get "http://demo.uris.test/"
+    get "http://demo.xixo.test/"
 
     assert_equal 0, Feed.unscoped.count,
                  "the request left its tenant on the connection, and the next request to " \
@@ -31,7 +31,7 @@ class TenancyTest < ActionDispatch::IntegrationTest
   test "a request holds no transaction open for its life" do
     depth = ActiveRecord::Base.connection.open_transactions
 
-    get "http://demo.uris.test/"
+    get "http://demo.xixo.test/"
 
     assert_equal depth, ActiveRecord::Base.connection.open_transactions
   end

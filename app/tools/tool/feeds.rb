@@ -1,7 +1,7 @@
 module Tool
   class Feeds < Base
     tool_name "feed"
-    scope "uris:catalog:read"
+    scope "xixo:catalog:read"
 
     EXCERPT = 6_000
     STEP_TEXT = 600
@@ -39,10 +39,10 @@ module Tool
           enum: READ + WRITE,
           description: "What to do. Defaults to get."
         },
-        type: { type: "string", description: "For create: uris:note, uris:address or uris:tag." },
+        type: { type: "string", description: "For create: xixo:note, xixo:address or xixo:tag." },
         title: { type: "string" },
         note: { type: "string", description: "For note: what to write about it." },
-        prompt: { type: "string", description: "For create of a uris:address: what it should find." },
+        prompt: { type: "string", description: "For create of a xixo:address: what it should find." },
         resource: { type: "string", description: "For place: the key of the resource to store it in." },
         reason: { type: "string", description: "For place: why it belongs there, in one sentence." },
         from: {
@@ -72,7 +72,7 @@ module Tool
                                 lasts: lasts, from: from, find: find }.compact) do
         raise ArgumentError, "no such action '#{verb}'" unless (READ + WRITE).include?(verb)
 
-        Current.grant.permit!("uris:catalog:write") if WRITE.include?(verb)
+        Current.grant.permit!("xixo:catalog:write") if WRITE.include?(verb)
 
         act(verb, id: id, key: key, title: title, note: note, type: type, prompt: prompt,
                   resource: resource, reason: reason, lasts: lasts, from: from, find: find)

@@ -4,9 +4,9 @@ description: Every type of resource, what each serves and accepts, and what it n
 ---
 
 A [resource](/concepts/resources/) is an instance of one of these types. What a type serves
-decides where uris uses it; what it accepts, and up to what size, decides whether a file may be
+decides where xixo uses it; what it accepts, and up to what size, decides whether a file may be
 [placed](/concepts/adding/) in it. A type with fields can be attached from the app or declared in
-`config/resources.yml`; one without is made by uris or a sign-in flow.
+`config/resources.yml`; one without is made by xixo or a sign-in flow.
 
 Generated from the code by `./dev reference`. CI fails when this page and the code disagree.
 
@@ -72,7 +72,7 @@ Object storage. One bucket over the S3 API. AWS, R2, B2, Wasabi, MinIO and Garag
 
 ## filesystem
 
-A directory. A directory on the machine running uris, inside this tenant's own directory under a root the server was started with. A relative path is taken from there.
+A directory. A directory on the machine running xixo, inside this tenant's own directory under a root the server was started with. A relative path is taken from there.
 
 |  |  |
 | --- | --- |
@@ -306,7 +306,7 @@ A model backend. Anything speaking the OpenAI chat API — ollama, LM Studio, ll
 | `models.vision` | Vision model | string |  |  |  | Anything that has to look at an image. |
 | `models.agent` | Agent model | string |  |  |  | What a feed drives. It has to call tools. |
 | `models.embedding` | Embedding model | string |  |  |  | What search compares meaning with. Its vectors have to be the width the index was built for. |
-| `embedding_prefixes.query` | Query prefix | string |  |  |  | Put before a search when it is embedded. Left off, uris uses what nomic-embed-text, e5, mxbai and bge were trained with, and nothing for any other model. |
+| `embedding_prefixes.query` | Query prefix | string |  |  |  | Put before a search when it is embedded. Left off, xixo uses what nomic-embed-text, e5, mxbai and bge were trained with, and nothing for any other model. |
 | `embedding_prefixes.document` | Document prefix | string |  |  |  | Put before what is catalogued when it is embedded. Left off, as above. |
 | `routine_effort` | Effort on routine work | choice of `` `none` `minimal` `low` `medium` `high` |  |  |  | How hard a reasoning model thinks while filing what arrives. Sent as reasoning_effort. Ollama takes none, and OpenAI minimal or low. |
 | `ask_effort` | Effort on questions | choice of `` `minimal` `low` `medium` `high` `model` |  |  |  | How hard a reasoning model thinks before it answers a question. Sent as reasoning_effort. Left at none, it answers without thinking, several times sooner. |
@@ -321,7 +321,7 @@ A model backend. Anything speaking the OpenAI chat API — ollama, LM Studio, ll
 
 ## oauth-google
 
-Google Drive. Connected through masks with your Google account. masks keeps the tokens and hands uris a fresh one when it needs it, so no secret is ever typed into uris.
+Google Drive. Connected through masks with your Google account. masks keeps the tokens and hands xixo a fresh one when it needs it, so no secret is ever typed into xixo.
 
 |  |  |
 | --- | --- |
@@ -436,7 +436,7 @@ An MCP server. Somebody else's tools, offered beside the catalog's own. Checking
 | --- | --- | --- | --- | --- | --- | --- |
 | `url` | Address | string | yes |  |  |  |
 | `auth` | Authentication | choice of `none` `bearer` `basic` `header` `masks` |  |  |  |  |
-| `provider` | Provider in masks | string | yes |  | `auth` is `masks` | The key masks knows this server's authorization server by. Attaching sends you to masks to connect your account, and uris never sees a password or a pasted token. |
+| `provider` | Provider in masks | string | yes |  | `auth` is `masks` | The key masks knows this server's authorization server by. Attaching sends you to masks to connect your account, and xixo never sees a password or a pasted token. |
 | `token` | Bearer token | string | yes | encrypted | `auth` is `bearer` | Sent as Authorization: Bearer. |
 | `username` | Username | string | yes | encrypted | `auth` is `basic` |  |
 | `password` | Password | string | yes | encrypted | `auth` is `basic` |  |
@@ -540,7 +540,7 @@ Slack. Threads from the channels the app has been invited to, each one an item. 
 
 ## microsoft-graph
 
-OneDrive. Connected through masks with your Microsoft account. masks keeps the tokens and hands uris a fresh one when it needs it, so no secret is ever typed into uris.
+OneDrive. Connected through masks with your Microsoft account. masks keeps the tokens and hands xixo a fresh one when it needs it, so no secret is ever typed into xixo.
 
 |  |  |
 | --- | --- |

@@ -1,7 +1,7 @@
 require "test_helper"
 
 class SwitchTest < ActiveSupport::TestCase
-  NAME = "URIS_SWITCH_UNDER_TEST".freeze
+  NAME = "XIXO_SWITCH_UNDER_TEST".freeze
 
   teardown { ENV.delete(NAME) }
 

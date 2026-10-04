@@ -15,14 +15,14 @@ a model backend with an **Agent model**. See
 3. Choose that row. From the search bar, `Tab` or `Down` moves to it and `Enter` asks. `Up` or
    `Escape` goes back to the search bar.
 
-uris creates a note keyed by the question and opens its page. The question appears under **The
+xixo creates a note keyed by the question and opens its page. The question appears under **The
 conversation**, with progress while the answer is worked out. A question can be up to 500
 characters.
 
-uris searches the catalog and reads the parts of what it finds that bear on the question: a sheet of
+xixo searches the catalog and reads the parts of what it finds that bear on the question: a sheet of
 a workbook, a section of a document, a minute of a recording, or what a picture shows. The agent
 model answers from them in one call. A total or a count over the rows of a table is worked out by
-uris itself. A question about the world as it is now, such as the weather, goes to the web when the
+xixo itself. A question about the world as it is now, such as the weather, goes to the web when the
 tenant has attached a web resource. See [asking](/concepts/agents/#asking).
 
 Once the answer is in, the **Agent model** that answered titles the note with what the answer found.
@@ -57,7 +57,7 @@ itself, such as "say that as a table", is answered by saying it again that way.
 
 ## Ask again
 
-Open the menu beside the note's title and choose **Ask again**. uris asks the latest question in the
+Open the menu beside the note's title and choose **Ask again**. xixo asks the latest question in the
 conversation again and adds the new answer at the top.
 
 ## Keep what the answer found
@@ -77,7 +77,7 @@ then **Forget it**. See
 ## Over GraphQL
 
 `askCatalog` takes a `question` and returns the note as `feed` and the analysis that answers it as
-`analysis`. It needs `uris:catalog:write`.
+`analysis`. It needs `xixo:catalog:write`.
 
 ```graphql
 mutation {
@@ -106,5 +106,5 @@ its id and no `lasts`. See the [GraphQL reference](/reference/graphql/).
   previous answer finishes.
 - **The answer names nothing from the web.** The tenant has no **Web search**, **Fetch a page**, or
   **The web** resource, so the question was asked of the catalog alone.
-- **An error about `URIS_INFERENCE_ORIGINS`** appears in place of an answer. The model backend's
+- **An error about `XIXO_INFERENCE_ORIGINS`** appears in place of an answer. The model backend's
   origin is not permitted. See [attach a resource](/guides/attach-a-resource/#if-it-doesnt-work).

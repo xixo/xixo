@@ -107,8 +107,8 @@ class RemovingTest < ActionDispatch::IntegrationTest
   end
 
   test "removing anything needs a write scope, not a read one" do
-    forget = execute(FORGET, scopes: %w[uris:catalog:read], variables: { id: @item.id })
-    archive = execute(ARCHIVE, scopes: %w[uris:resources:read],
+    forget = execute(FORGET, scopes: %w[xixo:catalog:read], variables: { id: @item.id })
+    archive = execute(ARCHIVE, scopes: %w[xixo:resources:read],
                                variables: { id: @storage.id, archived: true })
 
     assert_nil forget.dig("data", "forgetFeed")
@@ -140,13 +140,13 @@ class RemovingTest < ActionDispatch::IntegrationTest
   private
 
     def host_for(tenant)
-      { "HOST" => "#{tenant.subdomain}.uris.test" }
+      { "HOST" => "#{tenant.subdomain}.xixo.test" }
     end
 
     def bearer(tenant, scopes: Grant::SCOPES)
       token = issuer.mint(
         subdomain: tenant.subdomain, scopes: scopes,
-        audience: "http://#{tenant.subdomain}.uris.test/mcp"
+        audience: "http://#{tenant.subdomain}.xixo.test/mcp"
       )
 
       { "Authorization" => "Bearer #{token}" }

@@ -56,7 +56,7 @@ class RenamingTest < ActionDispatch::IntegrationTest
   end
 
   test "renaming needs the write scope, not the read one" do
-    body = execute(RENAME, scopes: %w[uris:catalog:read],
+    body = execute(RENAME, scopes: %w[xixo:catalog:read],
                            variables: { id: @item.id, title: "Nope" })
 
     assert_nil body.dig("data", "renameFeed")
@@ -66,13 +66,13 @@ class RenamingTest < ActionDispatch::IntegrationTest
   private
 
     def host_for(tenant)
-      { "HOST" => "#{tenant.subdomain}.uris.test" }
+      { "HOST" => "#{tenant.subdomain}.xixo.test" }
     end
 
     def bearer(tenant, scopes: Grant::SCOPES)
       token = issuer.mint(
         subdomain: tenant.subdomain, scopes: scopes,
-        audience: "http://#{tenant.subdomain}.uris.test/mcp"
+        audience: "http://#{tenant.subdomain}.xixo.test/mcp"
       )
 
       { "Authorization" => "Bearer #{token}" }

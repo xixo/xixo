@@ -20,7 +20,7 @@ SET default_table_access_method = heap;
 
 CREATE TABLE public.active_storage_attachments (
     id bigint NOT NULL,
-    tenant_id bigint DEFAULT (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint NOT NULL,
+    tenant_id bigint DEFAULT (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint NOT NULL,
     name character varying NOT NULL,
     record_type character varying NOT NULL,
     record_id bigint NOT NULL,
@@ -56,7 +56,7 @@ ALTER SEQUENCE public.active_storage_attachments_id_seq OWNED BY public.active_s
 
 CREATE TABLE public.active_storage_blobs (
     id bigint NOT NULL,
-    tenant_id bigint DEFAULT (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint NOT NULL,
+    tenant_id bigint DEFAULT (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint NOT NULL,
     key character varying NOT NULL,
     filename character varying NOT NULL,
     content_type character varying,
@@ -95,7 +95,7 @@ ALTER SEQUENCE public.active_storage_blobs_id_seq OWNED BY public.active_storage
 
 CREATE TABLE public.active_storage_variant_records (
     id bigint NOT NULL,
-    tenant_id bigint DEFAULT (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint NOT NULL,
+    tenant_id bigint DEFAULT (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint NOT NULL,
     blob_id bigint NOT NULL,
     variation_digest character varying NOT NULL
 );
@@ -1200,7 +1200,7 @@ CREATE INDEX index_feeds_awaiting_a_vector ON public.feeds USING btree (tenant_i
 -- Name: index_feeds_on_one_row_per_address; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX index_feeds_on_one_row_per_address ON public.feeds USING btree (tenant_id, type, key) WHERE ((type)::text = ANY ((ARRAY['uris:tag'::character varying, 'uris:address'::character varying, 'uris:mime'::character varying])::text[]));
+CREATE UNIQUE INDEX index_feeds_on_one_row_per_address ON public.feeds USING btree (tenant_id, type, key) WHERE ((type)::text = ANY ((ARRAY['xixo:tag'::character varying, 'xixo:address'::character varying, 'xixo:mime'::character varying])::text[]));
 
 
 --
@@ -1819,105 +1819,105 @@ ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
 -- Name: active_storage_attachments tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.active_storage_attachments USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.active_storage_attachments USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: active_storage_blobs tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.active_storage_blobs USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.active_storage_blobs USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: active_storage_variant_records tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.active_storage_variant_records USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.active_storage_variant_records USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: analyses tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.analyses USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.analyses USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: audit_events tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.audit_events USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.audit_events USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: feed_edges tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.feed_edges USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.feed_edges USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: feed_references tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.feed_references USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.feed_references USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: feeds tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.feeds USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.feeds USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: gates tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.gates USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.gates USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: passages tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.passages USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.passages USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: resource_blobs tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.resource_blobs USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.resource_blobs USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: resources tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.resources USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.resources USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: runs tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.runs USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.runs USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: schedules tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.schedules USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.schedules USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: settings tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
@@ -1927,6 +1927,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261004120000'),
 ('20261003200000'),
 ('20260927070000'),
 ('20260927060000'),

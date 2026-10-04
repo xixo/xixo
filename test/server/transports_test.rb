@@ -30,7 +30,7 @@ class TransportsTest < ActionDispatch::IntegrationTest
   end
 
   teardown do
-    ENV.delete("URIS_TAILSCALE_SOCKET")
+    ENV.delete("XIXO_TAILSCALE_SOCKET")
   end
 
   test "each type says whether it can be reached through a transport" do
@@ -89,12 +89,12 @@ class TransportsTest < ActionDispatch::IntegrationTest
     def execute(query, variables: nil)
       token = issuer.mint(
         subdomain: @tenant.subdomain, scopes: Grant::SCOPES,
-        audience: "http://#{@tenant.subdomain}.uris.test/mcp"
+        audience: "http://#{@tenant.subdomain}.xixo.test/mcp"
       )
 
       post "/graphql",
            params: { query: query, variables: variables&.to_json }.compact,
-           headers: { "HOST" => "#{@tenant.subdomain}.uris.test", "Authorization" => "Bearer #{token}" }
+           headers: { "HOST" => "#{@tenant.subdomain}.xixo.test", "Authorization" => "Bearer #{token}" }
 
       response.parsed_body
     end

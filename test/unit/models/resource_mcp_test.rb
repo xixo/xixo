@@ -41,13 +41,13 @@ class ResourceMcpTest < ActiveSupport::TestCase
     end
   end
 
-  test "a server pointing back at uris is refused rather than left to call itself" do
-    with_suffix("uris.localhost") do
+  test "a server pointing back at xixo is refused rather than left to call itself" do
+    with_suffix("xixo.localhost") do
       Tenant.switch(@tenant) do
-        held = Resource::Mcp.new(key: "loop", details: { "url" => "https://demo.uris.localhost/mcp" })
+        held = Resource::Mcp.new(key: "loop", details: { "url" => "https://demo.xixo.localhost/mcp" })
 
         assert_not held.valid?
-        assert_match(/points back at uris/, held.errors.full_messages.join)
+        assert_match(/points back at xixo/, held.errors.full_messages.join)
       end
     end
   end
@@ -81,7 +81,7 @@ class ResourceMcpTest < ActiveSupport::TestCase
   test "a grant without the scope is offered none of them" do
     discovered
 
-    offered = Tenant.switch(@tenant) { grant([ "uris:catalog:read" ]).tools.map(&:tool_name) }
+    offered = Tenant.switch(@tenant) { grant([ "xixo:catalog:read" ]).tools.map(&:tool_name) }
 
     assert_not_includes offered, "exa__web_search"
   end
@@ -131,7 +131,7 @@ class ResourceMcpTest < ActiveSupport::TestCase
   end
 
   test "a server on the private network may take credentials over plain http where that is allowed" do
-    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
 
     Tenant.switch(@tenant) do
       local = server(**{ "url" => "http://127.0.0.1:1/mcp", "tools" => LISTED })
@@ -140,7 +140,7 @@ class ResourceMcpTest < ActiveSupport::TestCase
       assert_no_match(/plain http/, error.message)
     end
   ensure
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
   end
 
   test "a private address is blocked before any tool is called" do
@@ -151,8 +151,8 @@ class ResourceMcpTest < ActiveSupport::TestCase
     end
   end
 
-  test "a private server whose origin is named in URIS_MCP_ORIGINS is reached, and no other private address is" do
-    ENV["URIS_MCP_ORIGINS"] = "http://127.0.0.1:1, https://mcp.internal"
+  test "a private server whose origin is named in XIXO_MCP_ORIGINS is reached, and no other private address is" do
+    ENV["XIXO_MCP_ORIGINS"] = "http://127.0.0.1:1, https://mcp.internal"
 
     Tenant.switch(@tenant) do
       named = server(**{ "url" => "http://127.0.0.1:1/mcp", "tools" => LISTED })
@@ -163,7 +163,7 @@ class ResourceMcpTest < ActiveSupport::TestCase
       assert_raises(PublicFetch::Blocked) { named.invoke!("web_search", { query: "x" }) }
     end
   ensure
-    ENV.delete("URIS_MCP_ORIGINS")
+    ENV.delete("XIXO_MCP_ORIGINS")
   end
 
   test "a server authenticated through masks names its provider, and holds nothing typed in" do
@@ -264,10 +264,10 @@ class ResourceMcpTest < ActiveSupport::TestCase
     end
 
     def with_suffix(suffix)
-      previous = ENV["URIS_HOST_SUFFIX"]
-      ENV["URIS_HOST_SUFFIX"] = suffix
+      previous = ENV["XIXO_HOST_SUFFIX"]
+      ENV["XIXO_HOST_SUFFIX"] = suffix
       yield
     ensure
-      ENV["URIS_HOST_SUFFIX"] = previous
+      ENV["XIXO_HOST_SUFFIX"] = previous
     end
 end

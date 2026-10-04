@@ -1,11 +1,11 @@
 ---
 title: Export your catalog
-description: Copy the original files behind your catalog into a storage resource you can read outside uris.
+description: Copy the original files behind your catalog into a storage resource you can read outside xixo.
 ---
 
 This guide copies the original bytes of every feed that matches a filter into a storage resource,
 where any tool that reads that storage can read them. You need a signed-in account with
-`uris:catalog:write`, and at least one attached resource that serves `storage`. See
+`xixo:catalog:write`, and at least one attached resource that serves `storage`. See
 [resources](/concepts/resources/) and [attaching a resource](/guides/attach-a-resource/).
 
 ## What an export writes
@@ -20,9 +20,9 @@ bytes, and uploads them to the destination.
 - In an `s3` resource, the bucket is the resource's key, and the path is the object key from the
   bucket's root. The resource's `prefix` does not apply.
 - In a `filesystem` resource, the path is relative to the resource's root, which sits inside the
-  tenant's directory under `URIS_FILESYSTEM_ROOTS`.
+  tenant's directory under `XIXO_FILESYSTEM_ROOTS`.
 - Only original bytes are copied. Previews, thumbnails, analyses, titles, tags, and edges stay in
-  uris.
+  xixo.
 - Each copy is recorded as another reference on its feed, so the feed lists the destination among its
   locations.
 - A feed with no original reference, or whose only original is already on the destination, is
@@ -46,10 +46,10 @@ bytes, and uploads them to the destination.
 ## Export over GraphQL
 
 `exportFeeds` takes an optional `destinationId`, `query`, `type`, and `resourceId`, and needs
-`uris:catalog:write`. `resourceId` limits the export to feeds with a reference on that resource.
+`xixo:catalog:write`. `resourceId` limits the export to feeds with a reference on that resource.
 See the [GraphQL reference](/reference/graphql/).
 
-1. Find the destination's id. This query needs `uris:resources:read`.
+1. Find the destination's id. This query needs `xixo:resources:read`.
 
    ```graphql
    query {
@@ -61,7 +61,7 @@ See the [GraphQL reference](/reference/graphql/).
 
    ```graphql
    mutation {
-     exportFeeds(input: { destinationId: "12", type: "uris:file", query: "invoices 2025" }) {
+     exportFeeds(input: { destinationId: "12", type: "xixo:file", query: "invoices 2025" }) {
        run { id status }
      }
    }
@@ -79,8 +79,8 @@ To stop it, call `cancelRun` with the run's id.
 
 ## Export over MCP
 
-The `resource` tool exports with `do: "export"`. The token needs `uris:resources:read` and
-`uris:resources:command`. See [MCP](/reference/mcp/) and [scopes](/reference/scopes/).
+The `resource` tool exports with `do: "export"`. The token needs `xixo:resources:read` and
+`xixo:resources:command`. See [MCP](/reference/mcp/) and [scopes](/reference/scopes/).
 
 1. Call `resource` with no arguments to list resources, and pick one whose `capabilities` include
    `storage`.
@@ -90,7 +90,7 @@ The `resource` tool exports with `do: "export"`. The token needs `uris:resources
    {
      "key": "archive",
      "do": "export",
-     "input": { "type": "uris:file", "query": "invoices 2025" }
+     "input": { "type": "xixo:file", "query": "invoices 2025" }
    }
    ```
 
@@ -99,7 +99,7 @@ The `resource` tool exports with `do: "export"`. The token needs `uris:resources
 3. Follow it with `do: "runs"` on the same key, and stop it with `do: "cancel"` and
    `input: { "id": "<run id>" }`.
 
-Each token can start `URIS_RUN_BUDGET` runs an hour through MCP (20 by default). Syncs and exports
+Each token can start `XIXO_RUN_BUDGET` runs an hour through MCP (20 by default). Syncs and exports
 share the budget.
 
 ## Fetch the files
@@ -112,10 +112,10 @@ Read the destination with any client for its type.
   the `files` volume, at `/data/files/<tenant>/`.
 - For `webdav`, use any WebDAV client.
 
-## Move the files to another uris
+## Move the files to another xixo
 
 1. Export to an `s3` or `webdav` resource that the other deployment can reach.
-2. In the other uris, attach the same bucket or share as a resource.
+2. In the other xixo, attach the same bucket or share as a resource.
 3. Sync it. Every file it finds becomes a reference on a feed there, and is analyzed. See
    [adding](/concepts/adding/#sync).
 
@@ -128,7 +128,7 @@ again.
   the default with **Take drops** in its **⋯** menu on **Resources**.
 - **"`<key>` is not storage"**: the destination does not serve `storage`. Pick an `s3`,
   `filesystem`, or `webdav` resource.
-- **The run ends `gated`**: an `export` gate is closed for the tenant, or `URIS_ITERATORS_DISABLED`
+- **The run ends `gated`**: an `export` gate is closed for the tenant, or `XIXO_ITERATORS_DISABLED`
   is set on the server.
 - **The run ends `failed`**: the destination refused a write. The job retries five times with a
   growing wait before it fails the run, and the error is on the run. Check the destination from
@@ -136,4 +136,4 @@ again.
 - **The run stays `queued`**: no worker is running the `export` queue. See
   [self-hosting](/guides/self-hosting/#the-worker).
 - **"this token has started N runs in the last hour"**: the MCP run budget is spent. The count resets at
-  the start of each clock hour. An operator can raise `URIS_RUN_BUDGET`, and `0` removes the limit.
+  the start of each clock hour. An operator can raise `XIXO_RUN_BUDGET`, and `0` removes the limit.

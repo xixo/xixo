@@ -241,7 +241,7 @@ class TwinsTest < ActiveSupport::TestCase
       right = (allowed + @tenant.subdomain + "right").tap(&:mkpath)
       (left + "report.txt").write("the same bytes")
       (right + "report.txt").write("the same bytes")
-      ENV["URIS_FILESYSTEM_ROOTS"] = allowed.to_s
+      ENV["XIXO_FILESYSTEM_ROOTS"] = allowed.to_s
 
       Tenant.switch(@tenant) do
         @one = Resource::Filesystem.create!(key: "left", name: "Left", details: { "root" => left.to_s })
@@ -255,7 +255,7 @@ class TwinsTest < ActiveSupport::TestCase
 
       yield left, right
     ensure
-      ENV.delete("URIS_FILESYSTEM_ROOTS")
+      ENV.delete("XIXO_FILESYSTEM_ROOTS")
       FileUtils.remove_entry(allowed) if allowed&.exist?
     end
 

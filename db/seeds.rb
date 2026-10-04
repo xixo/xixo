@@ -23,7 +23,7 @@ seeded.each do |tenant|
         },
         credentials: {
           "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "items"),
-          "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "urisuris")
+          "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "xixoxixo")
         }
       )
       storage.save!
@@ -93,7 +93,7 @@ seeded.each do |tenant|
     #     details: { "base_url" => "http://127.0.0.1:8082/v1",
     #                "models" => { "fast" => "mlx-community/Qwen3-8B-4bit" } })
     #
-    # Each needs its origin in URIS_INFERENCE_ORIGINS. A hosted one takes an api_key in
+    # Each needs its origin in XIXO_INFERENCE_ORIGINS. A hosted one takes an api_key in
     # credentials; one behind a transport takes a via.
 
     puts "seeded #{tenant.subdomain}: #{Resource.active.count} resource(s)"

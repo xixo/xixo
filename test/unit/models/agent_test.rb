@@ -8,7 +8,7 @@ class AgentTest < ActiveSupport::TestCase
     @server = FakeModelServer.current
     @server.reset!.serves(MODELS.values)
 
-    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
+    ENV["XIXO_INFERENCE_ORIGINS"] = @server.origin
 
     @tenant = Tenant.create!(subdomain: "agent-#{SecureRandom.hex(4)}", name: "Agent")
 
@@ -21,7 +21,7 @@ class AgentTest < ActiveSupport::TestCase
     end
   end
 
-  teardown { ENV.delete("URIS_INFERENCE_ORIGINS") }
+  teardown { ENV.delete("XIXO_INFERENCE_ORIGINS") }
 
   def grant(scopes = Feed::AGENT_SCOPES)
     Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new(

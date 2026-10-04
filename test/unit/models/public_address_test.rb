@@ -2,7 +2,7 @@ require "test_helper"
 
 class PublicAddressTest < ActiveSupport::TestCase
   setup do
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
   end
 
   test "a public address passes" do

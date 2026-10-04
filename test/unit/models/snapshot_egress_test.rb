@@ -35,7 +35,7 @@ class SnapshotEgressTest < ActiveSupport::TestCase
     EgressResolves.names = {}
     EgressResolves.refused = []
     EgressResolves.asked = []
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
   end
 
   test "a tunnel to a private address is refused" do
@@ -59,7 +59,7 @@ class SnapshotEgressTest < ActiveSupport::TestCase
 
     assert_match(%r{\AHTTP/1.1 403}, asked("CONNECT rebound.example:#{@server.port} HTTP/1.1\r\n\r\n"))
 
-    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
     answer = asked("GET http://rebound.example:#{@server.port}/page.html HTTP/1.1\r\nHost: rebound.example\r\n\r\n")
 
     assert_match(/pelicans\z/, answer)
@@ -67,7 +67,7 @@ class SnapshotEgressTest < ActiveSupport::TestCase
   end
 
   test "once private addresses are allowed, a request is forwarded without what was meant for the proxy" do
-    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
 
     answer = asked("GET #{@url} HTTP/1.1\r\nHost: 127.0.0.1:#{@server.port}\r\nProxy-Authorization: Basic c2VjcmV0\r\n\r\n")
 
@@ -76,7 +76,7 @@ class SnapshotEgressTest < ActiveSupport::TestCase
   end
 
   test "once private addresses are allowed, a tunnel carries bytes both ways" do
-    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
 
     socket = TCPSocket.new("127.0.0.1", @egress.port)
     socket.write("CONNECT 127.0.0.1:#{@server.port} HTTP/1.1\r\n\r\n")
@@ -101,7 +101,7 @@ class SnapshotEgressTest < ActiveSupport::TestCase
   test "a page cannot open a websocket to an address the egress refuses" do
     skip "no browser to render with" unless Snapshot.available?
 
-    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
     listener = TCPServer.new("127.0.0.1", 0)
     reached = Concurrent::AtomicBoolean.new
     watcher = Thread.new do

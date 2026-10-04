@@ -7,7 +7,7 @@ class ClockTest < ActiveSupport::TestCase
   setup do
     @server = FakeModelServer.current
     @server.reset!.serves("qwen3:8b")
-    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
+    ENV["XIXO_INFERENCE_ORIGINS"] = @server.origin
 
     @tenant = Tenant.create!(subdomain: "clock-#{SecureRandom.hex(4)}", name: "Clock")
 
@@ -18,7 +18,7 @@ class ClockTest < ActiveSupport::TestCase
     end
   end
 
-  teardown { ENV.delete("URIS_INFERENCE_ORIGINS") }
+  teardown { ENV.delete("XIXO_INFERENCE_ORIGINS") }
 
   def grant
     Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new("sub" => "test", "scope" => Feed::AGENT_SCOPES.join(" ")))

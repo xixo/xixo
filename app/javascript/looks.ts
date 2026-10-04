@@ -21,11 +21,11 @@ import {
 import type { CSSProperties } from 'react'
 
 export const TYPE = {
-  file: 'uris:file',
-  note: 'uris:note',
-  address: 'uris:address',
-  tag: 'uris:tag',
-  mime: 'uris:mime',
+  file: 'xixo:file',
+  note: 'xixo:note',
+  address: 'xixo:address',
+  tag: 'xixo:tag',
+  mime: 'xixo:mime',
 } as const
 
 export type Short = keyof typeof TYPE
@@ -121,7 +121,7 @@ export function familyOf(mime?: string | null): Family {
   if (held === 'text/calendar') return 'calendar'
   if (held === 'text/vcard') return 'contact'
   if (held === 'application/vnd.apple.pkpass') return 'pkpass'
-  if (held === 'uris/page' || held === 'uris/entry') return 'page'
+  if (held === 'xixo/page' || held === 'xixo/entry') return 'page'
   if (SHEETS.has(held)) return 'xlsx'
   if (DOCS.has(held)) return 'doc'
   if (DATA.has(held)) return 'data'

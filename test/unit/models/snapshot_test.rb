@@ -25,7 +25,7 @@ class SnapshotTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
   end
 
   test "a non-http scheme is refused before a browser is started" do
@@ -41,7 +41,7 @@ class SnapshotTest < ActiveSupport::TestCase
   end
 
   test "the guard on every request refuses a scheme whatever the address rules say" do
-    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
     snapshot = Snapshot.new(@url)
 
     assert snapshot.permits?("http://127.0.0.1:9000/style.css")
@@ -119,7 +119,7 @@ class SnapshotTest < ActiveSupport::TestCase
     def rendering
       skip "no browser to render with" unless Snapshot.available?
 
-      ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+      ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
       yield
     end
 

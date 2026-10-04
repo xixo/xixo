@@ -45,8 +45,8 @@ class Tenant < ApplicationRecord
   end
 
   def origin
-    override = ENV["URIS_PUBLIC_ORIGIN"].presence
-    raise Unconfigured, "URIS_PUBLIC_ORIGIN is not set, so #{subdomain} has no address outside a request" if override.nil?
+    override = ENV["XIXO_PUBLIC_ORIGIN"].presence
+    raise Unconfigured, "XIXO_PUBLIC_ORIGIN is not set, so #{subdomain} has no address outside a request" if override.nil?
 
     format(override, subdomain: subdomain)
   end
@@ -70,19 +70,19 @@ class Tenant < ApplicationRecord
   end
 
   class TenancyConflict < StandardError
-    def initialize(message = "URIS_TENANT and URIS_TENANTS are both set; declare one or the other")
+    def initialize(message = "XIXO_TENANT and XIXO_TENANTS are both set; declare one or the other")
       super
     end
   end
 
   class << self
     def pinned
-      Rails.configuration.uris.tenant
+      Rails.configuration.xixo.tenant
     end
 
     def declared
-      return Rails.configuration.uris.tenants unless pinned
-      raise TenancyConflict if Rails.configuration.uris.tenants.any?
+      return Rails.configuration.xixo.tenants unless pinned
+      raise TenancyConflict if Rails.configuration.xixo.tenants.any?
 
       [ pinned ]
     end
@@ -106,7 +106,7 @@ class Tenant < ApplicationRecord
     end
 
     def origin(request)
-      override = ENV["URIS_PUBLIC_ORIGIN"].presence
+      override = ENV["XIXO_PUBLIC_ORIGIN"].presence
       return request.base_url if override.nil?
 
       format(override, subdomain: subdomain_for(request.host))
@@ -178,7 +178,7 @@ class Tenant < ApplicationRecord
       end
 
       def within_connection(tenant)
-        return yield if connection.instance_variable_get(:@uris_tenant_id) == tenant.id
+        return yield if connection.instance_variable_get(:@xixo_tenant_id) == tenant.id
 
         begin
           isolate(tenant)
@@ -196,7 +196,7 @@ class Tenant < ApplicationRecord
           [ TenantIsolation::SETTING, tenant&.id.to_s ]
         )
 
-        held.instance_variable_set(:@uris_tenant_id, tenant&.id)
+        held.instance_variable_set(:@xixo_tenant_id, tenant&.id)
         held.clear_query_cache
       rescue ActiveRecord::ConnectionNotEstablished, ActiveRecord::ConnectionFailed
         nil

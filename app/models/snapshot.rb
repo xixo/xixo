@@ -47,7 +47,7 @@ class Snapshot
     end
 
     def browser_path
-      ENV["URIS_CHROME_PATH"].presence || Ferrum::Browser::Options::Chrome.instance.detect_path
+      ENV["XIXO_CHROME_PATH"].presence || Ferrum::Browser::Options::Chrome.instance.detect_path
     end
 
     def available?
@@ -59,7 +59,7 @@ class Snapshot
       features = defaults["disable-features"].to_s.split(",") - UNSAFE_FEATURES
 
       flags = defaults.merge(HARDENING).merge("disable-features" => features.join(","))
-      flags = flags.merge("no-sandbox" => nil) if Switch.on?("URIS_CHROME_NO_SANDBOX")
+      flags = flags.merge("no-sandbox" => nil) if Switch.on?("XIXO_CHROME_NO_SANDBOX")
       flags = flags.merge(routed(egress)) if egress
       flags
     end
@@ -85,7 +85,7 @@ class Snapshot
     target = permitted!(@url)
 
     unless self.class.available?
-      raise Unavailable, "no browser to render with — install chromium or set URIS_CHROME_PATH"
+      raise Unavailable, "no browser to render with — install chromium or set XIXO_CHROME_PATH"
     end
 
     Timeout.timeout(WHOLE, Failed, "#{@url} did not finish rendering in #{WHOLE}s") { drive(target) }

@@ -6,7 +6,7 @@ const clientPort = Number(process.env.DEV_CLIENT_PORT) || undefined;
 const allowedHosts = process.env.DEV_ALLOWED_HOSTS?.split(",").filter(Boolean);
 
 export default defineConfig({
-  site: process.env.DOCS_SITE || "https://uris.pages.dev",
+  site: process.env.DOCS_SITE || "https://xixo.pages.dev",
   image: { service: passthroughImageService() },
   server: allowedHosts ? { host: true, allowedHosts } : {},
   vite: clientPort
@@ -20,18 +20,18 @@ export default defineConfig({
     : {},
   integrations: [
     starlight({
-      title: "uris",
+      title: "xixo",
       description:
         "An indexer for personal data. One searchable index across the places your files and records live, with a way back out.",
       favicon: "/icon.svg",
-      logo: { src: "./src/assets/mark.svg", alt: "uris" },
+      logo: { src: "./src/assets/mark.svg", alt: "xixo" },
       components: { SiteTitle: "./src/components/SiteTitle.astro" },
       customCss: ["./src/styles/global.css"],
       social: [
         {
           icon: "github",
           label: "GitHub",
-          href: "https://github.com/urisrb/uris",
+          href: "https://github.com/xixo/xixo",
         },
       ],
       sidebar: [

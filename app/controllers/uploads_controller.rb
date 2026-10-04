@@ -29,7 +29,7 @@ class UploadsController < ApplicationController
   private
 
     def authorize
-      super && grant.permit!("uris:catalog:write")
+      super && grant.permit!("xixo:catalog:write")
     rescue Grant::Denied => e
       refuse(Masks::Client::Unauthorized.new(e.message))
     end

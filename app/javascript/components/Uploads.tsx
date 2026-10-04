@@ -1,6 +1,6 @@
 import { ActionIcon, Button, Group, Text } from '@mantine/core'
 import { IconArrowBarToDown, IconX } from '@tabler/icons-react'
-import { metaCSRFToken } from '@uris-to/client'
+import { metaCSRFToken } from '@xixo/client'
 import {
   createContext,
   type ReactNode,

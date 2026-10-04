@@ -29,7 +29,7 @@ module ReferencePages
 
     private
 
-      def schema = UrisSchema
+      def schema = XixoSchema
 
       def section(title, types)
         return nil if types.empty?

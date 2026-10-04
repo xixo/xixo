@@ -24,7 +24,7 @@ export function Mark({ size = 26 }: { size?: number }) {
       height={size}
       viewBox="0 0 25 28"
       role="img"
-      aria-label="uris"
+      aria-label="xixo"
     >
       {LETTERS.map((letter) => (
         <path key={letter.d} d={letter.d} fill={letter.tone} />

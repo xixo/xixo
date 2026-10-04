@@ -15,7 +15,7 @@ describe('familyOf', () => {
     expect(familyOf('image/heic')).toBe('image')
     expect(familyOf('text/csv')).toBe('data')
     expect(familyOf('text/markdown')).toBe('text')
-    expect(familyOf('uris/page')).toBe('page')
+    expect(familyOf('xixo/page')).toBe('page')
     expect(
       familyOf(
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -47,8 +47,8 @@ describe('lookOf', () => {
 
 describe('naming a type', () => {
   test('the short name in a link maps to the full type and back', () => {
-    expect(shortOf('uris:tag')).toBe('tag')
-    expect(shortOf('uris:nonsense')).toBeNull()
+    expect(shortOf('xixo:tag')).toBe('tag')
+    expect(shortOf('xixo:nonsense')).toBeNull()
     expect(pluralOf(TYPE.mime)).toBe('content types')
   })
 

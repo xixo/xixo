@@ -20,8 +20,8 @@ class SignInTest < ActionDispatch::IntegrationTest
     assert_equal "S256", query["code_challenge_method"]
     assert query["state"].present?
     assert query["nonce"].present?
-    assert_includes query["scope"].split, "uris:catalog:read"
-    assert_equal "http://#{@tenant.subdomain}.uris.test/mcp", query["resource"]
+    assert_includes query["scope"].split, "xixo:catalog:read"
+    assert_equal "http://#{@tenant.subdomain}.xixo.test/mcp", query["resource"]
     assert_not_includes response.location, "code_verifier"
   end
 
@@ -29,7 +29,7 @@ class SignInTest < ActionDispatch::IntegrationTest
     sign_in
 
     assert_response :redirect
-    assert_equal "http://#{@tenant.subdomain}.uris.test/", response.location
+    assert_equal "http://#{@tenant.subdomain}.xixo.test/", response.location
   end
 
   test "the session endpoint answers who is signed in" do
@@ -45,7 +45,7 @@ class SignInTest < ActionDispatch::IntegrationTest
     assert_equal "owner", account["nickname"]
     assert_equal "owner@example.invalid", account["email"]
     assert_equal @tenant.subdomain, account.dig("tenant", "subdomain")
-    assert_includes account["scopes"], "uris:catalog:read"
+    assert_includes account["scopes"], "xixo:catalog:read"
     assert_nil account["access_token"], "a token must never reach the browser"
   end
 
@@ -70,7 +70,7 @@ class SignInTest < ActionDispatch::IntegrationTest
   test "the session fits in a cookie, because three JWTs do not" do
     sign_in
 
-    held = cookies["_uris_session"].to_s
+    held = cookies["_xixo_session"].to_s
 
     assert held.present?
     assert_operator held.bytesize, :<, 4096,
@@ -142,14 +142,14 @@ class SignInTest < ActionDispatch::IntegrationTest
     assert_response :bad_request
   end
 
-  test "only somebody who can change everyone's settings can reconnect a connected uris" do
-    sign_in(scopes: %w[uris:catalog:read uris:settings:admin])
+  test "only somebody who can change everyone's settings can reconnect a connected xixo" do
+    sign_in(scopes: %w[xixo:catalog:read xixo:settings:admin])
     get "/auth/handshake", headers: host
 
     assert_response :success
 
     delete "/auth/logout", headers: host
-    sign_in(scopes: %w[uris:catalog:read uris:settings:write])
+    sign_in(scopes: %w[xixo:catalog:read xixo:settings:write])
     get "/auth/handshake", headers: host
 
     assert_response :forbidden
@@ -164,25 +164,25 @@ class SignInTest < ActionDispatch::IntegrationTest
   end
 
   test "the scopes the session carries are the ones the issuer granted" do
-    sign_in(scopes: %w[uris:catalog:read])
+    sign_in(scopes: %w[xixo:catalog:read])
 
     get "/auth/session", headers: host
 
-    assert_equal [ "uris:catalog:read" ], response.parsed_body["scopes"] & Grant::SCOPES
+    assert_equal [ "xixo:catalog:read" ], response.parsed_body["scopes"] & Grant::SCOPES
 
     post "/graphql",
          params: { query: "mutation($id: ID!) { analyzeFeed(input: { id: $id }) { analysis { id status } } }",
                    variables: { id: @item.id.to_s } },
          headers: host
 
-    assert_match(/does not carry uris:catalog:write/,
+    assert_match(/does not carry xixo:catalog:write/,
                  response.parsed_body.dig("errors", 0, "message"))
   end
 
   private
 
     def host
-      { "HOST" => "#{@tenant.subdomain}.uris.test" }
+      { "HOST" => "#{@tenant.subdomain}.xixo.test" }
     end
 
     def sign_in(scopes: Grant::SCOPES)

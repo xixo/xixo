@@ -99,7 +99,7 @@ class CatalogShapeTest < ActionDispatch::IntegrationTest
     def execute(query, variables: nil)
       post "/graphql",
            params: { query: query, variables: variables&.to_json }.compact,
-           headers: { "HOST" => "#{@tenant.subdomain}.uris.test" }.merge(bearer)
+           headers: { "HOST" => "#{@tenant.subdomain}.xixo.test" }.merge(bearer)
 
       response.parsed_body
     end
@@ -107,7 +107,7 @@ class CatalogShapeTest < ActionDispatch::IntegrationTest
     def bearer
       token = issuer.mint(
         subdomain: @tenant.subdomain, scopes: Grant::SCOPES,
-        audience: "http://#{@tenant.subdomain}.uris.test/mcp"
+        audience: "http://#{@tenant.subdomain}.xixo.test/mcp"
       )
 
       { "Authorization" => "Bearer #{token}" }

@@ -97,7 +97,7 @@ class UpdatingTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a store uris keeps for itself cannot be changed, and neither can one in another tenant" do
+  test "a store xixo keeps for itself cannot be changed, and neither can one in another tenant" do
     internal = Tenant.switch(@tenant) { Resource.internal!(:children) }
     other = Tenant.create!(subdomain: "update-#{SecureRandom.hex(4)}", name: "Elsewhere")
     theirs = Tenant.switch(other) { Resource::Curl.create!(key: "curl", name: "Theirs") }
@@ -110,7 +110,7 @@ class UpdatingTest < ActionDispatch::IntegrationTest
   end
 
   test "changing needs the command scope" do
-    body = execute(UPDATE, scopes: %w[uris:resources:read], variables: { id: @server.id, name: "Nope" })
+    body = execute(UPDATE, scopes: %w[xixo:resources:read], variables: { id: @server.id, name: "Nope" })
 
     assert_nil body.dig("data", "updateResource")
     Tenant.switch(@tenant) { assert_equal "Exa", @server.reload.name }
@@ -132,13 +132,13 @@ class UpdatingTest < ActionDispatch::IntegrationTest
   private
 
     def host_for(tenant)
-      { "HOST" => "#{tenant.subdomain}.uris.test" }
+      { "HOST" => "#{tenant.subdomain}.xixo.test" }
     end
 
     def bearer(tenant, scopes: Grant::SCOPES)
       token = issuer.mint(
         subdomain: tenant.subdomain, scopes: scopes,
-        audience: "http://#{tenant.subdomain}.uris.test/mcp"
+        audience: "http://#{tenant.subdomain}.xixo.test/mcp"
       )
 
       { "Authorization" => "Bearer #{token}" }

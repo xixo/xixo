@@ -1,6 +1,6 @@
 ---
 title: Tenants
-description: How one uris deployment serves one or more tenants, and how each tenant signs in through masks.
+description: How one xixo deployment serves one or more tenants, and how each tenant signs in through masks.
 ---
 
 A tenant is a separate catalog with its own resources, feeds, analyses, runs, gates, settings, and
@@ -12,10 +12,10 @@ A deployment declares its tenants in one of two ways. Setting both is an error.
 
 | | Declared by | A request resolves by |
 | --- | --- | --- |
-| Single | `URIS_TENANT=uris` | Nothing. Every host is that tenant. |
-| Multi | `URIS_TENANTS=demo,acme` | The first label of the hostname. `demo.uris.example` is `demo`. |
+| Single | `XIXO_TENANT=xixo` | Nothing. Every host is that tenant. |
+| Multi | `XIXO_TENANTS=demo,acme` | The first label of the hostname. `demo.xixo.example` is `demo`. |
 
-`bin/rails uris:tenants` creates the declared tenants, and the container entrypoint runs it on
+`bin/rails xixo:tenants` creates the declared tenants, and the container entrypoint runs it on
 boot. `Tenancy::Middleware` resolves the host and enters the tenant before any controller runs. A
 host that names no tenant receives `404 Unknown tenant`. The health check at `/up` is the only path
 served outside a tenant.
@@ -29,7 +29,7 @@ Isolation has two layers.
 | `TenantScoped` | Adds a default scope and a default `tenant_id` from `Current.tenant`. | Only when code bypasses it, as `unscoped` does. |
 | Row-level security | Applies `FORCE ROW LEVEL SECURITY` and a `tenant_isolation` policy to every tenant table. | It fails with an error or returns no rows. |
 
-The policy compares `tenant_id` with the `uris.tenant_id` session setting for both reads and
+The policy compares `tenant_id` with the `xixo.tenant_id` session setting for both reads and
 writes, so a row cannot be read from, or written to, another tenant. `Tenant.switch` sets the value
 for the session, so it covers every query and transaction inside the block, and it restores the
 previous tenant when the block ends. Outside a tenant the setting is empty and the policy matches
@@ -65,9 +65,9 @@ it belongs to and which scope changes it.
 
 | Level | Belongs to | Read with | Changed with |
 | --- | --- | --- | --- |
-| `personal` | the person signed in | `uris:settings:read` | `uris:settings:write` |
-| `shared` | everyone in the tenant | `uris:settings:read` | `uris:settings:write` |
-| `server` | everyone in the tenant | `uris:settings:admin` | `uris:settings:admin` |
+| `personal` | the person signed in | `xixo:settings:read` | `xixo:settings:write` |
+| `shared` | everyone in the tenant | `xixo:settings:read` | `xixo:settings:write` |
+| `server` | everyone in the tenant | `xixo:settings:admin` | `xixo:settings:admin` |
 
 A setting that was never changed reads as its default.
 
@@ -86,29 +86,29 @@ shows them under **Settings**, then **Account**. See the [GraphQL reference](/re
 
 ## Signing in
 
-Each uris tenant is a client of a masks tenant. `MASKS_ISSUER_TEMPLATE` sets the issuer URL, with
-`%{subdomain}` taken from the request's host, so `demo.uris.example` can sign in against
+Each xixo tenant is a client of a masks tenant. `MASKS_ISSUER_TEMPLATE` sets the issuer URL, with
+`%{subdomain}` taken from the request's host, so `demo.xixo.example` can sign in against
 `demo.masks.example`.
 
 A new tenant has no client, so the first visit shows **Connect a sign-in server**. This starts the
 handshake at `/auth/handshake`:
 
-1. uris sends the browser to masks with its name, its resource URL, its redirect URIs, the scopes
-   `openid profile email offline_access`, the `uris:` scope namespace, and `masks:delegate:`. The
+1. xixo sends the browser to masks with its name, its resource URL, its redirect URIs, the scopes
+   `openid profile email offline_access`, the `xixo:` scope namespace, and `masks:delegate:`. The
    redirect URIs are `/auth/callback` for signing in and `/connect/callback` for
    [connecting a resource](/concepts/resources/#resources-connected-through-masks).
 2. A masks account that is allowed to approve connections approves the request.
-3. masks returns a one-time initial access token, and uris redeems it at masks' registration
+3. masks returns a one-time initial access token, and xixo redeems it at masks' registration
    endpoint, server to server.
 
-uris stores `client_id`, `client_secret`, `registration_access_token`, `registration_client_uri`,
+xixo stores `client_id`, `client_secret`, `registration_access_token`, `registration_client_uri`,
 and `connected_at` on the tenant, with the secret and the registration token encrypted.
 Disconnecting deletes the registration in masks and clears these columns.
 
 The masks engine is mounted at `/auth`. `GET /auth/session` returns the signed-in account, or a 401
 whose `error` is `handshake_required` or `login_required`, which tells the browser which button to
-show. Signing in requests `openid profile email offline_access` and every `uris:` scope except
-`uris:settings:admin`. See the [scopes reference](/reference/scopes/).
+show. Signing in requests `openid profile email offline_access` and every `xixo:` scope except
+`xixo:settings:admin`. See the [scopes reference](/reference/scopes/).
 
 `/graphql`, `/mcp`, and `/uploads` all verify a masks access token. The browser's token comes from
 its session, and other clients send `Authorization: Bearer`. A token is accepted only when:

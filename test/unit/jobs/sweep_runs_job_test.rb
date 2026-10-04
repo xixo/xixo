@@ -84,7 +84,7 @@ class SweepRunsJobTest < ActiveSupport::TestCase
 
   test "a run is given a deadline by default, so none can strand" do
     Tenant.switch(@tenant) do
-      assert_in_delta Rails.configuration.uris.run_deadline.from_now,
+      assert_in_delta Rails.configuration.xixo.run_deadline.from_now,
                       Run.start!(kind: "sync").deadline, 5
     end
   end
@@ -92,10 +92,10 @@ class SweepRunsJobTest < ActiveSupport::TestCase
   private
 
     def with_retention(days)
-      previous = Rails.configuration.uris.run_retention
-      Rails.configuration.uris.run_retention = days.days
+      previous = Rails.configuration.xixo.run_retention
+      Rails.configuration.xixo.run_retention = days.days
       yield
     ensure
-      Rails.configuration.uris.run_retention = previous
+      Rails.configuration.xixo.run_retention = previous
     end
 end

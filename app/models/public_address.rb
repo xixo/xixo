@@ -20,7 +20,7 @@ module PublicAddress
 
   class << self
     def allowed?
-      Switch.on?("URIS_ALLOW_PRIVATE_FETCH")
+      Switch.on?("XIXO_ALLOW_PRIVATE_FETCH")
     end
 
     def permitted!(target, allow_private: allowed?, through: nil)

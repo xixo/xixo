@@ -9,7 +9,7 @@ class Resource
       here could give: a question no tool answered, or a thing no tool could do. Read the notes
       connected to it with feed, leaving out the reviews titled "Feedback review". Group what was
       wanted by what would provide it, such as a resource to attach, a kind of file to sync, or a
-      change to uris itself, and count how often each came up. Then make one note titled "Feedback
+      change to xixo itself, and count how often each came up. Then make one note titled "Feedback
       review" and the date, listing each group with its count, two or three of the questions in it,
       and the change you propose, most asked first. Connect that note to feed #{SHELF}.
     TEXT

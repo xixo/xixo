@@ -5,7 +5,7 @@ class ImapResourceTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
 
-    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
 
     @server = FakeImapServer.current
     @server.reset!
@@ -24,10 +24,10 @@ class ImapResourceTest < ActiveSupport::TestCase
     end
   end
 
-  teardown { ENV.delete("URIS_ALLOW_PRIVATE_FETCH") }
+  teardown { ENV.delete("XIXO_ALLOW_PRIVATE_FETCH") }
 
   test "a server inside the network is refused before it is dialled" do
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
 
     Tenant.switch(@tenant) do
       [ @server.host, "169.254.169.254", "::ffff:10.0.0.5" ].each do |host|

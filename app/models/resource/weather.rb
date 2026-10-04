@@ -157,7 +157,7 @@ class Resource
       def get(address, params)
         params = params.merge(apikey: credentials.to_h["api_key"]) if keyed?
         response = over_http("#{address}?#{URI.encode_www_form(params)}") do |uri|
-          Net::HTTP::Get.new(uri, "Accept" => "application/json", "User-Agent" => "uris")
+          Net::HTTP::Get.new(uri, "Accept" => "application/json", "User-Agent" => "xixo")
         end
 
         parsed = JSON.parse(response.body.to_s)

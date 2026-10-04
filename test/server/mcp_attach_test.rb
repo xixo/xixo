@@ -3,10 +3,10 @@ require "test_helper"
 class McpAttachTest < ActionDispatch::IntegrationTest
   include McpClient
 
-  COMMAND = %w[uris:resources:read uris:resources:command].freeze
+  COMMAND = %w[xixo:resources:read xixo:resources:command].freeze
 
   setup do
-    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
 
     @tenant = Tenant.create!(subdomain: "attach-mcp-#{SecureRandom.hex(4)}", name: "Attaching")
 
@@ -14,11 +14,11 @@ class McpAttachTest < ActionDispatch::IntegrationTest
   end
 
   teardown do
-    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
   end
 
   test "types lists what can be attached, with every credential marked and none of their values" do
-    listed = tool(@tenant, %w[uris:resources:read], "resource", do: "types")
+    listed = tool(@tenant, %w[xixo:resources:read], "resource", do: "types")
 
     assert_equal [ "tailnet" ], listed["transports"]
 
@@ -83,7 +83,7 @@ class McpAttachTest < ActionDispatch::IntegrationTest
   end
 
   test "attaching takes the command scope" do
-    read = call(@tenant, %w[uris:resources:read], "tools/call", name: "resource", arguments: {
+    read = call(@tenant, %w[xixo:resources:read], "tools/call", name: "resource", arguments: {
       do: "attach", key: "ollama-mac", input: { type: "openai-compatible", settings: { base_url: "http://100.64.0.1:11434/v1" } }
     })
 

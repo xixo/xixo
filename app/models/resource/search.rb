@@ -46,7 +46,7 @@ class Resource
     end
 
     def self.permitted_origins
-      PublicAddress.origins(ENV.fetch("URIS_SEARCH_ORIGINS", ""))
+      PublicAddress.origins(ENV.fetch("XIXO_SEARCH_ORIGINS", ""))
     end
 
     def self.named?(target)
@@ -70,7 +70,7 @@ class Resource
     end
 
     def check!
-      look("uris", 1)
+      look("xixo", 1)
       true
     end
 
@@ -159,7 +159,7 @@ class Resource
       end
 
       def headers
-        base = { "Accept" => "application/json", "User-Agent" => "uris" }
+        base = { "Accept" => "application/json", "User-Agent" => "xixo" }
         token = credentials.to_h["api_key"].to_s
 
         case provider

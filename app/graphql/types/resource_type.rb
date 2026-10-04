@@ -2,7 +2,7 @@
 
 module Types
   class ResourceType < Types::BaseObject
-    grants "uris:resources:read"
+    grants "xixo:resources:read"
 
     field :id, ID, null: false
     field :type, String, null: false, method: :type
@@ -27,7 +27,7 @@ module Types
           description: "What each field the type declares holds, for the fields kept in the clear. " \
                        "Nothing held encrypted is ever read back."
     field :changeable, Boolean, null: false,
-          description: "Whether it has a form to change. A type uris makes for itself does not."
+          description: "Whether it has a form to change. A type xixo makes for itself does not."
     field :personal, Boolean, null: false, method: :personal?,
           description: "Whether only the person who attached it can see and use it."
     field :delegated, Boolean, null: false, method: :delegated?,

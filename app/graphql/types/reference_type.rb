@@ -2,7 +2,7 @@
 
 module Types
   class ReferenceType < Types::BaseObject
-    grants "uris:catalog:read"
+    grants "xixo:catalog:read"
 
     field :id, ID, null: false
     field :resource, Types::ResourceType, null: false
@@ -17,7 +17,7 @@ module Types
           description: "When a sync of its resource last walked everything and did not find it."
     field :role, String, null: false
     field :digest, String,
-          description: "The SHA-256 of its bytes, once uris has read them. Places with the same digest and owner are one item."
+          description: "The SHA-256 of its bytes, once xixo has read them. Places with the same digest and owner are one item."
     field :mime, String
     field :size, GraphQL::Types::BigInt
     field :content_url, String, null: false

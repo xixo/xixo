@@ -14,7 +14,7 @@ class CorpusSummaryTest < ActiveSupport::TestCase
     @server = FakeModelServer.current
     @server.reset!.serves("llama3.1:8b")
 
-    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
+    ENV["XIXO_INFERENCE_ORIGINS"] = @server.origin
 
     @tenant = Tenant.create!(subdomain: "cor-#{SecureRandom.hex(4)}", name: "Corpus")
 
@@ -31,7 +31,7 @@ class CorpusSummaryTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("URIS_INFERENCE_ORIGINS")
+    ENV.delete("XIXO_INFERENCE_ORIGINS")
   end
 
   SOURCES.each do |path|

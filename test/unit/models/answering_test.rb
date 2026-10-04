@@ -7,7 +7,7 @@ class AnsweringTest < ActiveSupport::TestCase
 
     @server = FakeModelServer.current
     @server.reset!.serves("qwen3:8b")
-    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
+    ENV["XIXO_INFERENCE_ORIGINS"] = @server.origin
 
     @tenant = Tenant.create!(subdomain: "ans-#{SecureRandom.hex(4)}", name: "Answering")
 
@@ -20,7 +20,7 @@ class AnsweringTest < ActiveSupport::TestCase
     SearchIndex.refresh!
   end
 
-  teardown { ENV.delete("URIS_INFERENCE_ORIGINS") }
+  teardown { ENV.delete("XIXO_INFERENCE_ORIGINS") }
 
   test "an answer given under another name is still the answer" do
     @server.answer_json(response: "Sixty days' notice, 60 in all [feed #{@lease.id}].", world: false)

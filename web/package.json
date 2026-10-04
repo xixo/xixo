@@ -1,15 +1,15 @@
 {
-  "name": "@uris-to/client",
+  "name": "@xixo/client",
   "version": "0.3.0",
-  "description": "A GraphQL and Action Cable client for uris.",
+  "description": "A GraphQL and Action Cable client for xixo.",
   "license": "MIT",
-  "homepage": "https://uris.pages.dev",
+  "homepage": "https://xixo.pages.dev",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/urisrb/uris.git",
+    "url": "git+https://github.com/xixo/xixo.git",
     "directory": "web"
   },
-  "bugs": "https://github.com/urisrb/uris/issues",
+  "bugs": "https://github.com/xixo/xixo/issues",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

@@ -14,7 +14,7 @@ class Resource
 
       {
         label: "A directory",
-        blurb: "A directory on the machine running uris, inside this tenant's own directory under " \
+        blurb: "A directory on the machine running xixo, inside this tenant's own directory under " \
                "a root the server was started with. A relative path is taken from there.",
         names: "A name for it",
         fields: [
@@ -34,7 +34,7 @@ class Resource
     end
 
     def self.permitted_roots
-      ENV.fetch("URIS_FILESYSTEM_ROOTS", "").split(":").filter_map do |entry|
+      ENV.fetch("XIXO_FILESYSTEM_ROOTS", "").split(":").filter_map do |entry|
         Pathname.new(entry.strip).expand_path if entry.strip.present?
       end
     end
@@ -173,7 +173,7 @@ class Resource
       def permitted_root!
         if self.class.permitted_roots.empty?
           raise Resource::Failed,
-                "#{key}: no filesystem roots are permitted — set URIS_FILESYSTEM_ROOTS"
+                "#{key}: no filesystem roots are permitted — set XIXO_FILESYSTEM_ROOTS"
         end
 
         space = spaces.find { |held| under?(root, held) }

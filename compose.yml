@@ -1,4 +1,4 @@
-name: uris
+name: xixo
 
 x-app: &app
   build:
@@ -8,7 +8,7 @@ x-app: &app
       masks-client: ${MASKS_CLIENT_DIR:-../masks/client}
     args:
       MASKS_CLIENT_PATH: /masks/client
-  image: uris-dev
+  image: xixo-dev
   pull_policy: never
   shm_size: 1gb
   extra_hosts:
@@ -23,38 +23,38 @@ x-app: &app
     - ./compose/no-dotenv:/rails/.env:ro
     - modules:/rails/node_modules
     - storage:/rails/storage
-    - ${URIS_WHISPER_DIR:-${HOME}/.cache/whisper}:/models/whisper:ro
+    - ${XIXO_WHISPER_DIR:-${HOME}/.cache/whisper}:/models/whisper:ro
 
 x-env: &env
   POSTGRES_HOST: postgres
   POSTGRES_PORT: 5432
-  POSTGRES_USER: uris
-  POSTGRES_PASSWORD: uris
-  URIS_DATABASE_PASSWORD: uris
+  POSTGRES_USER: xixo
+  POSTGRES_PASSWORD: xixo
+  XIXO_DATABASE_PASSWORD: xixo
   OPENSEARCH_URL: http://opensearch:9200
   S3_ENDPOINT: http://minio:9000
-  URIS_S3_ORIGINS: http://minio:9000
+  XIXO_S3_ORIGINS: http://minio:9000
   S3_REGION: us-east-1
-  S3_ACCESS_KEY_ID: uris
-  S3_SECRET_ACCESS_KEY: urisuris
+  S3_ACCESS_KEY_ID: xixo
+  S3_SECRET_ACCESS_KEY: xixoxixo
   SECRET_KEY_BASE: dev_only_secret_key_base_not_for_real_deployments
   ENCRYPTION_PRIMARY_KEY: dev_only_primary_key_not_for_real_credentials
   ENCRYPTION_DETERMINISTIC_KEY: dev_only_deterministic_key_not_for_real_use
   ENCRYPTION_KEY_DERIVATION_SALT: dev_only_key_derivation_salt_not_for_real
   RAILS_ASSUME_SSL: "false"
   RAILS_FORCE_SSL: "false"
-  URIS_CHROME_NO_SANDBOX: "1"
-  URIS_TENANT: ${URIS_TENANT:-uris}
-  URIS_HOST_SUFFIX: uris.localhost
-  URIS_PUBLIC_ORIGIN: http://uris.localhost:${URIS_PORT:-8180}
+  XIXO_CHROME_NO_SANDBOX: "1"
+  XIXO_TENANT: ${XIXO_TENANT:-xixo}
+  XIXO_HOST_SUFFIX: xixo.localhost
+  XIXO_PUBLIC_ORIGIN: http://xixo.localhost:${XIXO_PORT:-8180}
   MASKS_ISSUER_TEMPLATE: ${MASKS_ISSUER:-http://masks.localhost:12345}
-  OLLAMA_URL: http://host.docker.internal:${URIS_OLLAMA_PORT:-11434}/v1
-  URIS_INFERENCE_ORIGINS: http://host.docker.internal:${URIS_OLLAMA_PORT:-11434}
-  URIS_WHISPER_MODEL: /models/whisper/${URIS_WHISPER_FILE:-ggml-base.en.bin}
-  URIS_MCP_ORIGINS: http://mcp.localhost:${URIS_MCP_OAUTH_PORT:-8190}
-  DEV_ALLOWED_HOSTS: .uris.localhost,uris-vite
-  DEV_CLIENT_PORT: ${URIS_VITE_PORT:-8182}
-  VITE_RUBY_HOST: uris-vite
+  OLLAMA_URL: http://host.docker.internal:${XIXO_OLLAMA_PORT:-11434}/v1
+  XIXO_INFERENCE_ORIGINS: http://host.docker.internal:${XIXO_OLLAMA_PORT:-11434}
+  XIXO_WHISPER_MODEL: /models/whisper/${XIXO_WHISPER_FILE:-ggml-base.en.bin}
+  XIXO_MCP_ORIGINS: http://mcp.localhost:${XIXO_MCP_OAUTH_PORT:-8190}
+  DEV_ALLOWED_HOSTS: .xixo.localhost,xixo-vite
+  DEV_CLIENT_PORT: ${XIXO_VITE_PORT:-8182}
+  VITE_RUBY_HOST: xixo-vite
   VITE_RUBY_SKIP_PROXY: "false"
 
 services:
@@ -65,7 +65,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
     ports:
-      - "${URIS_POSTGRES_PORT:-5434}:5432"
+      - "${XIXO_POSTGRES_PORT:-5434}:5432"
     volumes:
       - postgres:/var/lib/postgresql/data
       - ./db/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
@@ -83,7 +83,7 @@ services:
       OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
       cluster.routing.allocation.disk.threshold_enabled: "false"
     ports:
-      - "${URIS_OPENSEARCH_PORT:-9201}:9200"
+      - "${XIXO_OPENSEARCH_PORT:-9201}:9200"
     volumes:
       - opensearch:/usr/share/opensearch/data
     healthcheck:
@@ -96,11 +96,11 @@ services:
     image: cgr.dev/chainguard/minio@sha256:6a1d0b45c8669726bba580ced0bfa4cb9fdeed1ed636dfabd81d1577beb6937b
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: uris
-      MINIO_ROOT_PASSWORD: urisuris
+      MINIO_ROOT_USER: xixo
+      MINIO_ROOT_PASSWORD: xixoxixo
     ports:
-      - "${URIS_MINIO_PORT:-9000}:9000"
-      - "${URIS_MINIO_CONSOLE_PORT:-9001}:9001"
+      - "${XIXO_MINIO_PORT:-9000}:9000"
+      - "${XIXO_MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - minio:/data
     healthcheck:
@@ -109,11 +109,11 @@ services:
       timeout: 5s
       retries: 30
 
-  uris:
+  xixo:
     <<: *app
     environment: *env
     ports:
-      - "${URIS_PORT:-8180}:80"
+      - "${XIXO_PORT:-8180}:80"
     depends_on:
       postgres:
         condition: service_healthy
@@ -128,14 +128,14 @@ services:
       retries: 30
       start_period: 180s
 
-  uris-vite:
+  xixo-vite:
     <<: *app
     command: ["./bin/dev-assets"]
     environment:
       <<: *env
       VITE_RUBY_HOST: 0.0.0.0
     ports:
-      - "${URIS_VITE_PORT:-8182}:3036"
+      - "${XIXO_VITE_PORT:-8182}:3036"
     depends_on:
       postgres:
         condition: service_healthy
@@ -146,24 +146,24 @@ services:
       retries: 60
       start_period: 180s
 
-  uris-worker:
+  xixo-worker:
     <<: *app
     command: ["./bin/jobs"]
     restart: unless-stopped
     environment: *env
     depends_on:
-      uris:
+      xixo:
         condition: service_healthy
 
   mcp-oauth:
     image: ruby:3.4.7-slim
     command: ["ruby", "/script/mcp_oauth_server.rb"]
     environment:
-      MCP_OAUTH_ORIGIN: http://mcp.localhost:${URIS_MCP_OAUTH_PORT:-8190}
+      MCP_OAUTH_ORIGIN: http://mcp.localhost:${XIXO_MCP_OAUTH_PORT:-8190}
       MCP_OAUTH_PORT: "8190"
-      MCP_OAUTH_LIFETIME: ${URIS_MCP_OAUTH_LIFETIME:-120}
+      MCP_OAUTH_LIFETIME: ${XIXO_MCP_OAUTH_LIFETIME:-120}
     ports:
-      - "${URIS_MCP_OAUTH_PORT:-8190}:8190"
+      - "${XIXO_MCP_OAUTH_PORT:-8190}:8190"
     volumes:
       - ./script/mcp_oauth_server.rb:/script/mcp_oauth_server.rb:ro
     healthcheck:
@@ -179,7 +179,7 @@ services:
       timeout: 5s
       retries: 30
 
-  uris-docs:
+  xixo-docs:
     image: node:26.0.0-alpine
     working_dir: /docs
     command:
@@ -189,9 +189,9 @@ services:
     environment:
       ASTRO_DEV_BACKGROUND: "1"
       DEV_ALLOWED_HOSTS: .localhost
-      DEV_CLIENT_PORT: ${URIS_DOCS_PORT:-8181}
+      DEV_CLIENT_PORT: ${XIXO_DOCS_PORT:-8181}
     ports:
-      - "${URIS_DOCS_PORT:-8181}:4321"
+      - "${XIXO_DOCS_PORT:-8181}:4321"
     volumes:
       - ./docs:/docs
       - docs-modules:/docs/node_modules

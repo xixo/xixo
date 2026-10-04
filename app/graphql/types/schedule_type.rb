@@ -2,7 +2,7 @@
 
 module Types
   class ScheduleType < Types::BaseObject
-    grants "uris:catalog:read"
+    grants "xixo:catalog:read"
 
     field :id, ID, null: false
     field :prompt, String, null: false
