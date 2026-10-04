@@ -83,6 +83,10 @@ def suite(name, multi)
   run(*compose("exec", "-T", *UNPINNED, "uris", "bin/rails", "test", "test/#{name}", multi: multi))
 end
 
+def forwarded(prefix)
+  ENV.select { |name, _| name.start_with?(prefix) }.flat_map { |name, value| [ "-e", "#{name}=#{value}" ] }
+end
+
 def test(names, multi)
   names = SUITES + [ "client" ] if names.empty?
   names.each { |name| usage unless SUITES.include?(name) || name == "client" }
@@ -257,11 +261,10 @@ when "console" then run!(*compose("exec", "uris", "bin/rails", "console", multi:
 when "seed" then run!(*compose("exec", "-T", "uris", "bin/rails", "db:seed", multi: multi))
 when "corpus"
   tenant = ENV.fetch("URIS_TENANT", "uris")
-  run!(*compose("exec", "-T", "-e", "CORPUS_TENANT=#{tenant}", "-e", "CORPUS_GROUP=#{ARGV.first}",
+  run!(*compose("exec", "-T", *forwarded("CORPUS_"), "-e", "CORPUS_TENANT=#{tenant}", "-e", "CORPUS_GROUP=#{ARGV.first}",
                 "uris", "bin/rails", "runner", "script/corpus.rb", multi: multi))
 when "asks"
-  passed = %w[ASKS_FRESH ASKS_KEEP ASKS_AGAINST ASKS_TIMEOUT].flat_map { |name| [ "-e", "#{name}=#{ENV[name]}" ] }
-  run!(*compose("exec", "-T", *UNPINNED, "-e", "ASKS_ONLY=#{ARGV.join(',')}", *passed,
+  run!(*compose("exec", "-T", *UNPINNED, *forwarded("ASKS_"), "-e", "ASKS_ONLY=#{ARGV.join(',')}",
                 "uris", "bin/rails", "runner", "script/asks.rb", multi: multi))
 when "test" then test(ARGV, multi)
 when "reference"

@@ -6,14 +6,14 @@ ROOT = Rails.root.join("test/fixtures/asks")
 SUBDOMAIN = ENV.fetch("ASKS_TENANT", "asks")
 MODELS_FROM = ENV.fetch("ASKS_MODELS_FROM", "uris")
 WAIT = (ENV["ASKS_TIMEOUT"].presence || "900").to_i
+INDEX_WAIT = (ENV["ASKS_INDEX_TIMEOUT"].presence || "1800").to_i
 NEAR = 60
 
 def regex(text)
   match = text.match(%r{\A/(.*)/([imx]*)\z}m)
   return nil if match.nil?
 
-  flags = match[2].chars.sum { |flag| { "i" => Regexp::IGNORECASE, "m" => Regexp::MULTILINE, "x" => Regexp::EXTENDED }[flag] }
-  Regexp.new(match[1], flags)
+  Regexp.new(match[1], match[2])
 end
 
 def matched?(said, wanted)
@@ -29,14 +29,16 @@ def near?(said, first, second)
 end
 
 def told(wanted)
-  wanted.is_a?(Hash) ? "#{wanted['near'].join(' near ')}" : wanted.to_s
+  wanted.is_a?(Hash) ? wanted["near"].join(" near ") : wanted.to_s
 end
 
 def settle(seconds)
   deadline = Time.current + seconds
 
   loop do
-    yield.then { |pending| return pending if pending.empty? || Time.current > deadline }
+    pending = yield
+    break pending if pending.empty? || Time.current > deadline
+
     sleep 2
   end
 end
@@ -54,7 +56,7 @@ cases = cases.select { |held| only.include?(held["id"]) } if only.any?
 
 abort "no cases match #{only.join(', ')}" if cases.empty?
 
-keys = Tenant.switch(tenant) do
+storage, keys = Tenant.switch(tenant) do
   if ENV["ASKS_FRESH"].present?
     puts "forgetting everything #{SUBDOMAIN} held"
     Feed.destroy_all
@@ -62,32 +64,37 @@ keys = Tenant.switch(tenant) do
     Feed.where(type: Feed::NOTE).destroy_all
   end
 
-  storage = Resource.default_storage || Resource::Database.create!(key: "disk", name: "Storage").tap(&:make_default_storage!)
-  held = Resource::OpenaiCompatible.find_by(key: "ollama")
-  if held.nil?
-    Resource::OpenaiCompatible.create!(key: "ollama", details: details).make_default_inference!
-  elsif held.details != details
-    held.update!(details: details)
-  end
+  storage = Resource.default_storage ||
+            Resource::Database.find_or_create_by!(key: "database") { |held| held.name = "Database" }.tap(&:make_default_storage!)
 
-  paths.map { |path| "asks/#{path.basename}".tap { |key| storage.upload(key, path.binread) } }
-    .tap { SyncResourceJob.perform_now(tenant.id, storage.id) }
+  inference = Resource::OpenaiCompatible.find_or_initialize_by(key: "ollama")
+  fresh = inference.new_record?
+  inference.update!(details: details)
+  inference.make_default_inference! if fresh
+
+  keys = paths.map do |path|
+    key = "asks/#{path.basename}"
+    storage.upload(key, path.binread)
+    key
+  end
+  SyncResourceJob.perform_now(tenant.id, storage.id)
+
+  [ storage, keys ]
 end
 
 started = Time.current
 puts "#{keys.size} file(s) in #{SUBDOMAIN}, waiting for analysis"
 
-pending = settle(ENV.fetch("ASKS_INDEX_TIMEOUT", "1800").to_i) do
+pending = settle(INDEX_WAIT) do
   Tenant.switch(tenant) do
-    Reference.where(locator_key: keys).select { |held| held.analyzed_at.nil? || held.feed.analyses.open.exists? }
-             .map(&:locator_key)
+    uploaded = Reference.where(resource: storage, locator_key: keys)
+    uploaded.where(analyzed_at: nil).or(uploaded.where(feed_id: Analysis.open.select(:feed_id))).pluck(:locator_key)
   end
 end
 abort "still analyzing: #{pending.join(', ')}" if pending.any?
 
 Tenant.switch(tenant) do
-  nil while Passage.sweep!.positive?
-  nil while Embedding.sweep!.positive?
+  nil while (Embedding.sweep! + Passage.sweep!).positive?
 end
 SearchIndex.refresh!
 PassageIndex.refresh!
@@ -106,23 +113,23 @@ results = cases.map do |held|
       feed.ask!(turn["ask"])
     end
 
-    settle(WAIT) { Tenant.switch(tenant) { analysis.reload.open? ? [ analysis.id ] : [] } }
+    settle(WAIT) { Tenant.switch(tenant) { [ analysis.reload ].select(&:open?) } }
 
     said, calls, verified, status = Tenant.switch(tenant) do
-      analysis.reload
-      [ analysis.step_result("text").to_s.presence || analysis.step_result("answer").to_h["said"].to_s,
-        Array(analysis.turns).size, analysis.step_result("verified").to_h["score"], analysis.status ]
+      [ feed.conversation(through: analysis).last.said.to_s, Array(analysis.turns).size,
+        analysis.step_result("verified").to_h["score"], analysis.status ]
     end
 
     missed = Array(turn["expect"]).reject { |wanted| matched?(said, wanted) }.map { |wanted| told(wanted) }
     wrong = Array(turn["reject"]).select { |wanted| matched?(said, wanted) }.map { |wanted| told(wanted) }
     passed = status == "done" && missed.empty? && wrong.empty?
+    seconds = (Time.current - asked_at).round
 
     turns << { "ask" => turn["ask"], "said" => said, "passed" => passed, "missed" => missed, "wrong" => wrong,
-               "status" => status, "seconds" => (Time.current - asked_at).round, "calls" => calls,
+               "status" => status, "seconds" => seconds, "calls" => calls,
                "verified" => verified, "analysis" => analysis.id }
 
-    puts "#{passed ? 'PASS' : 'FAIL'}  #{held['id']}: #{turn['ask']}  (#{turns.last['seconds']}s, #{calls} calls)"
+    puts "#{passed ? 'PASS' : 'FAIL'}  #{held['id']}: #{turn['ask']}  (#{seconds}s, #{calls} calls)"
     unless passed
       puts "      status #{status}" unless status == "done"
       puts "      missing #{missed.join(', ')}" if missed.any?
@@ -158,13 +165,13 @@ puts "written to #{path.relative_path_from(Rails.root)}"
 against = ENV["ASKS_AGAINST"].presence
 if against
   before = JSON.parse(File.read(Rails.root.join(against)))
-  was = before["cases"].flat_map { |held| held["turns"].map { |turn| [ [ held["id"], turn["ask"] ], turn["passed"] ] } }.to_h
-  now = results.flat_map { |held| held["turns"].map { |turn| [ [ held["id"], turn["ask"] ], turn["passed"] ] } }.to_h
+  outcomes = ->(listed) { listed.flat_map { |held| held["turns"].map { |turn| [ [ held["id"], turn["ask"] ], turn["passed"] ] } }.to_h }
+  was = outcomes.call(before["cases"])
 
-  now.each do |key, held|
-    next if was[key].nil? || was[key] == held
+  outcomes.call(results).each do |key, passing|
+    next if was[key].nil? || was[key] == passing
 
-    puts "#{held ? 'fixed' : 'broke'}  #{key.join(': ')}"
+    puts "#{passing ? 'fixed' : 'broke'}  #{key.join(': ')}"
   end
   puts "against #{against}: #{before['passed']}/#{before['asked']} then, #{passed}/#{asked.size} now"
 end
