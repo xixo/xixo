@@ -343,13 +343,12 @@ header.header::after {
 
 .panes {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.875rem;
+  gap: 1rem;
   margin-block: 1rem 4rem;
 }
 
 .panes > div {
-  --tone: var(--k-text);
+  --radius: clamp(20px, 3vw, 28px);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -357,17 +356,9 @@ header.header::after {
   margin: 0;
   padding: clamp(1.5rem, 5vw, 2rem) clamp(1.25rem, 5vw, 1.75rem);
   border: 1px solid var(--sl-color-hairline-shade);
-  border-radius: clamp(20px, 3vw, 28px);
+  border-radius: var(--radius);
   background: var(--sl-color-gray-6);
-  transition: border-color 0.15s, background 0.15s;
-}
-
-.panes > div:nth-child(2) {
-  --tone: var(--k-data);
-}
-
-.panes > div:nth-child(3) {
-  --tone: var(--k-contact);
+  transition: border-color 0.15s;
 }
 
 .panes > div::before {
@@ -399,14 +390,14 @@ header.header::after {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: inherit;
+  border-radius: var(--radius);
 }
 
 .panes b a:focus-visible {
   outline: none;
 }
 
-.panes > div:has(b a:focus-visible) {
+.panes b a:focus-visible::after {
   outline: 2px solid var(--sl-color-accent-high);
   outline-offset: 3px;
 }
@@ -427,7 +418,6 @@ header.header::after {
 @media (min-width: 50rem) {
   .panes {
     grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
   }
 
   .panes span {
