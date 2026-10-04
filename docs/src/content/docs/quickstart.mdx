@@ -141,14 +141,14 @@ See [connecting an agent](/guides/connect-an-agent/) and the [MCP reference](/re
 ## Build on the API
 
 Everything the browser app does goes through `/graphql`. A page served by xixo uses its session
-cookie, and `@xixo/client` wraps that with typed documents for every operation the app uses:
+cookie, and `xixo` wraps that with typed documents for every operation the app uses:
 
 ```sh
-npm install @xixo/client graphql
+npm install xixo graphql
 ```
 
 ```ts
-import { createXixo, metaCSRFToken, SearchDocument } from "@xixo/client";
+import { createXixo, metaCSRFToken, SearchDocument } from "xixo";
 
 const client = createXixo({ url: "/graphql", csrfToken: metaCSRFToken });
 

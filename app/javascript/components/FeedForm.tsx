@@ -9,8 +9,8 @@ import {
   Textarea,
   TextInput,
 } from '@mantine/core'
-import { SaveFeedDocument } from '@xixo/client'
-import { useMutation } from '@xixo/client/react'
+import { SaveFeedDocument } from 'xixo'
+import { useMutation } from 'xixo/react'
 import { useEffect, useState } from 'react'
 
 export const EVERY = [

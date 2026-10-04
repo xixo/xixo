@@ -33,8 +33,8 @@ import {
   SetFeedLifetimeDocument,
   SplitReferenceDocument,
   TagFeedsDocument,
-} from '@xixo/client'
-import { useQuery } from '@xixo/client/react'
+} from 'xixo'
+import { useQuery } from 'xixo/react'
 import {
   type CSSProperties,
   Fragment,

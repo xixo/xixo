@@ -12,8 +12,8 @@ import {
   ExportFeedsDocument,
   ResourcesDocument,
   TypesDocument,
-} from '@xixo/client'
-import { useQuery } from '@xixo/client/react'
+} from 'xixo'
+import { useQuery } from 'xixo/react'
 import { useEffect, useState } from 'react'
 import { pluralOf } from '../looks'
 import { useAloud, useSay } from './Say'

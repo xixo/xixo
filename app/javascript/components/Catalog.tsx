@@ -21,8 +21,8 @@ import {
   SetSettingDocument,
   SettingsDocument,
   TypesDocument,
-} from '@xixo/client'
-import { useQuery, useSubscription } from '@xixo/client/react'
+} from 'xixo'
+import { useQuery, useSubscription } from 'xixo/react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useEndless } from '../hooks/useEndless'

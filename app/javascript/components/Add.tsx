@@ -12,8 +12,8 @@ import {
   AddNoteDocument,
   FetchUrlDocument,
   SnapshotUrlDocument,
-} from '@xixo/client'
-import { useMutation } from '@xixo/client/react'
+} from 'xixo'
+import { useMutation } from 'xixo/react'
 import {
   type ChangeEvent,
   createContext,

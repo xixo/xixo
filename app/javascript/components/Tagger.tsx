@@ -1,7 +1,7 @@
 import { Autocomplete, Button } from '@mantine/core'
 import { IconTag } from '@tabler/icons-react'
-import { TagFeedsDocument, TagsDocument } from '@xixo/client'
-import { useQuery } from '@xixo/client/react'
+import { TagFeedsDocument, TagsDocument } from 'xixo'
+import { useQuery } from 'xixo/react'
 import { useMemo, useState } from 'react'
 import { useAloud, useSay } from './Say'
 

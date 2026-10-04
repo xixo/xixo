@@ -1,6 +1,6 @@
 import { Alert, Button, Group, Loader, Stack, Text } from '@mantine/core'
-import { CatalogDocument } from '@xixo/client'
-import { useQuery } from '@xixo/client/react'
+import { CatalogDocument } from 'xixo'
+import { useQuery } from 'xixo/react'
 import { useState } from 'react'
 import { usePages } from '../hooks/usePages'
 import { TYPE } from '../looks'

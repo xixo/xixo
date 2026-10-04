@@ -1,5 +1,5 @@
-import { createXixo, metaCSRFToken } from '@xixo/client'
-import { actionCableExchange } from '@xixo/client/actioncable'
+import { createXixo, metaCSRFToken } from 'xixo'
+import { actionCableExchange } from 'xixo/actioncable'
 import { session } from './hooks/useSession'
 
 export const client = createXixo({

@@ -1,4 +1,4 @@
-# @xixo/client
+# xixo
 
 A GraphQL and Action Cable client for [xixo](https://docs.xixo.network), an indexer for personal data.
 It is built on [urql](https://github.com/urql-graphql/urql) and ships typed documents for every
@@ -7,20 +7,20 @@ operation the xixo browser app uses.
 ## Installation
 
 ```sh
-npm install @xixo/client
+npm install xixo
 ```
 
 `graphql` is a required peer dependency. `react` and `@rails/actioncable` are optional peer
-dependencies. Install them only if you import `@xixo/client/react` or
-`@xixo/client/actioncable`.
+dependencies. Install them only if you import `xixo/react` or
+`xixo/actioncable`.
 
 ## Usage
 
 `createXixo` returns a urql `Client` that posts JSON to the GraphQL endpoint:
 
 ```ts
-import { createXixo, metaCSRFToken } from "@xixo/client";
-import { actionCableExchange } from "@xixo/client/actioncable";
+import { createXixo, metaCSRFToken } from "xixo";
+import { actionCableExchange } from "xixo/actioncable";
 
 export const client = createXixo({
   url: "/graphql",
@@ -33,7 +33,7 @@ export const client = createXixo({
 Run a typed document with the client:
 
 ```ts
-import { SettingsDocument } from "@xixo/client";
+import { SettingsDocument } from "xixo";
 
 const { data, error } = await client.query(SettingsDocument, {}).toPromise();
 ```
@@ -41,8 +41,8 @@ const { data, error } = await client.query(SettingsDocument, {}).toPromise();
 ### React
 
 ```tsx
-import { XixoProvider, useQuery } from "@xixo/client/react";
-import { SettingsDocument } from "@xixo/client";
+import { XixoProvider, useQuery } from "xixo/react";
+import { SettingsDocument } from "xixo";
 
 <XixoProvider client={client}>
   <App />
@@ -59,7 +59,7 @@ function Settings() {
 
 ## API
 
-### `@xixo/client`
+### `xixo`
 
 |                       |                                                                                                                                         |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
@@ -83,7 +83,7 @@ result and variables types for each document.
 
 The client uses urql's document cache.
 
-### `@xixo/client/react`
+### `xixo/react`
 
 |                                                    |                                                                                                                                                          |
 | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -93,7 +93,7 @@ The client uses urql's document cache.
 | `useMutation(document)`                            | Returns `{ execute, attempt, loading, error }`. `execute(variables)` resolves to the data or `null`. `attempt(variables)` resolves to `{ data, error }`. |
 | `useSubscription(document, variables?, { skip? })` | Subscribes while mounted. Returns `{ data, error }` with the latest result.                                                                              |
 
-### `@xixo/client/actioncable`
+### `xixo/actioncable`
 
 |                                           |                                                                                                                                                                                                      |
 | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

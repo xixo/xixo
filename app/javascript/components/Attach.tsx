@@ -42,8 +42,8 @@ import {
   ResourceTypesDocument,
   type ResourceTypesQuery,
   UpdateResourceDocument,
-} from '@xixo/client'
-import { useMutation, useQuery } from '@xixo/client/react'
+} from 'xixo'
+import { useMutation, useQuery } from 'xixo/react'
 import { type CSSProperties, useState } from 'react'
 
 type Attaching = ResourceTypesQuery['resourceTypes'][number]

@@ -12,8 +12,8 @@ import {
   DeleteFeedDocument,
   PauseFeedDocument,
   RunFeedDocument,
-} from '@xixo/client'
-import { useSubscription } from '@xixo/client/react'
+} from 'xixo'
+import { useSubscription } from 'xixo/react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toned } from '../looks'

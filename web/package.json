@@ -1,5 +1,5 @@
 {
-  "name": "@xixo/client",
+  "name": "xixo",
   "version": "0.3.0",
   "description": "A GraphQL and Action Cable client for xixo.",
   "license": "MIT",

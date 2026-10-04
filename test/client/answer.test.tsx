@@ -1,4 +1,4 @@
-import type { RowFragment } from '@xixo/client'
+import type { RowFragment } from 'xixo'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, test } from 'vitest'

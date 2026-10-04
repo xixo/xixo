@@ -11,7 +11,7 @@ or a local copy.
 ```
 app/              the Rails app       GraphQL, MCP, analyzers, resources, and jobs
 app/javascript/   the browser app     React, urql, and the generated types
-web/              @xixo/client     the GraphQL and Action Cable client, on npm
+web/              xixo                the GraphQL and Action Cable client, on npm
 docs/             the site above      Astro + Starlight
 ```
 
@@ -21,10 +21,10 @@ token.
 
 ## Interfaces
 
-| Path       | Client                                               | Authorization                                        |
-| ---------- | ---------------------------------------------------- | ---------------------------------------------------- |
-| `/graphql` | The browser app, and [`@xixo/client`](web/README.md) | A masks session, or a bearer token                   |
-| `/mcp`     | An MCP client, such as Claude                        | A masks token, with typed tools and per-token grants |
+| Path       | Client                                       | Authorization                                        |
+| ---------- | -------------------------------------------- | ---------------------------------------------------- |
+| `/graphql` | The browser app, and [`xixo`](web/README.md) | A masks session, or a bearer token                   |
+| `/mcp`     | An MCP client, such as Claude                | A masks token, with typed tools and per-token grants |
 
 Both call the domain layer directly. MCP has typed tools of its own so that each one can be granted
 separately. The TypeScript types are generated from the Ruby schema, so the type check fails when

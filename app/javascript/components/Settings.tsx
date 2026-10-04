@@ -6,8 +6,8 @@ import {
   IconDatabase,
   IconUser,
 } from '@tabler/icons-react'
-import { SetSettingDocument, SettingsDocument } from '@xixo/client'
-import { useQuery } from '@xixo/client/react'
+import { SetSettingDocument, SettingsDocument } from 'xixo'
+import { useQuery } from 'xixo/react'
 import type { ReactNode } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'

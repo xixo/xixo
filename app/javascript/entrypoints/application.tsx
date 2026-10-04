@@ -2,7 +2,7 @@ import '@mantine/core/styles.css'
 import '../styles/xixo.css'
 
 import { MantineProvider } from '@mantine/core'
-import { XixoProvider } from '@xixo/client/react'
+import { XixoProvider } from 'xixo/react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'

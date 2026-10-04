@@ -1,5 +1,5 @@
 import { Checkbox } from '@mantine/core'
-import type { RowFragment } from '@xixo/client'
+import type { RowFragment } from 'xixo'
 import { Link } from 'react-router-dom'
 import { hrefFor, lookOf, toned } from '../looks'
 import { dated } from '../when'

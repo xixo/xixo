@@ -3,8 +3,8 @@ import {
   AnalysisLogDocument,
   AnalysisProgressedDocument,
   type PassFragment,
-} from '@xixo/client'
-import { useQuery, useSubscription } from '@xixo/client/react'
+} from 'xixo'
+import { useQuery, useSubscription } from 'xixo/react'
 import { useEffect, useRef, useState } from 'react'
 import { toned } from '../looks'
 import { RUN_OPEN, RUN_TONES, TONE_FOR_LINE } from '../runs'
