@@ -133,3 +133,40 @@
     - ask: when is the surveyor's second visit?
       expect:
         - /aug(ust)?\.?\s*30|30(th)?\s*(of\s*)?aug|2026-08-30/i
+
+- id: receipt-total
+  turns:
+    - ask: what was the total on the Bellwether Hardware receipt?
+      expect:
+        - /50\.14/
+
+- id: plumber-memo
+  turns:
+    - ask: when is the plumber coming?
+      expect:
+        - /thursday/i
+        - /10[:.]30|ten.thirty/i
+    - ask: what's her number if she's late?
+      expect:
+        - /555.?0177/
+
+- id: garage-tour-said
+  turns:
+    - ask: what does the garage tour video say the bike needs?
+      expect:
+        - /brake pads/i
+
+- id: garage-tour-seen
+  turns:
+    - ask: in the garage tour video, what colour is the door next to the bike?
+      expect:
+        - /blue/i
+
+- id: porch-door
+  turns:
+    - ask: what colour is the front door in my porch photo?
+      expect:
+        - /green/i
+    - ask: and what number is on it?
+      expect:
+        - /\b218\b/

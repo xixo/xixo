@@ -149,9 +149,9 @@ See [staging](/concepts/adding/#staging) and [where resources come from](/concep
 A file, a page, or an email can contain text written to steer a model. uris limits what that text
 can do.
 
-- The summary prompt fences the file's text and tells the model it is data. The prompts for
-  questions and for the judges fence the question and the evidence the same way.
-- The agent that files a feed acts under a grant of its own, with `uris:catalog:read`,
+- The summary prompt fences the file's text and tells the model it is data. The prompt that answers
+  a question fences the question and the evidence the same way.
+- The agent that runs an address or places an upload acts under a grant of its own, with `uris:catalog:read`,
   `uris:catalog:write`, `uris:web:read`, and `uris:resources:read`. It cannot sync, export, write
   into a resource, call an attached MCP server, or change settings.
 - An agent reaches a person's [personal resources](/concepts/resources/#only-mine-or-everyones) only
@@ -160,7 +160,10 @@ can do.
   so a page that tells the agent to rewrite a note has no effect.
 - Every tool call is checked against the tool's schema before it runs. Three failed calls in a row
   end the run.
-- Ten judges vote on whether the evidence the scouts read supports each answer.
+- A question about the catalog is answered with no tools at all. Arithmetic over a table runs in
+  uris from a fixed set of operations, and the model only names them.
+- uris checks every number in an answer against the evidence and the results it computed, and sends
+  an answer with a number from nowhere back once.
 
 See [the agent](/concepts/agents/#the-agent) and [asking](/concepts/agents/#asking).
 

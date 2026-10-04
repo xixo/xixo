@@ -426,7 +426,11 @@ class Feed < ApplicationRecord
   end
 
   def outline
-    @outline ||= Outline.of(analysis&.step_result("text"), stored: analysis&.step_result("outline"))
+    @outline ||= Outline.of(analysis&.own_text, stored: analysis&.step_result("outline"))
+  end
+
+  def described_text
+    family.flat_map { |held| held.analysis&.described || [] }.uniq.join("\n").presence
   end
 
   def readable_text

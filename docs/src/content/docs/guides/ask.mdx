@@ -4,7 +4,7 @@ description: Ask a question from the search bar, follow it up, and keep what the
 ---
 
 At the end of this guide, you have an answer kept as a note, with links to what it drew on. You need
-a model backend with an **Agent model** that calls tools. See
+a model backend with an **Agent model**. See
 [attach a resource](/guides/attach-a-resource/).
 
 ## Ask a question
@@ -19,11 +19,13 @@ uris creates a note keyed by the question and opens its page. The question appea
 conversation**, with progress while the answer is worked out. A question can be up to 500
 characters.
 
-A lead model sends scouts to search the catalog, open what they find, and, when the tenant has
-attached them, search the web, read pages, and keep pages. The lead answers from their reports. See
-[asking](/concepts/agents/#asking).
+uris searches the catalog and reads the parts of what it finds that bear on the question: a sheet of
+a workbook, a section of a document, a minute of a recording, or what a picture shows. The agent
+model answers from them in one call. A total or a count over the rows of a table is worked out by
+uris itself. A question about the world as it is now, such as the weather, goes to the web when the
+tenant has attached a web resource. See [asking](/concepts/agents/#asking).
 
-When a model backend has a **Fast model**, it gives the note a short title before the scouts go out.
+When a model backend has a **Fast model**, it gives the note a short title before the answer.
 Without one, a **Smart model** or the **Agent model** titles the note after the answer.
 
 ## Ask about one item
@@ -31,7 +33,7 @@ Without one, a **Smart model** or the **Agent model** titles the note after the 
 1. Open the item's page and choose **Ask about this**.
 2. Type the question in the field that opens, and choose **Ask**.
 
-The note is connected to the item, and the lead and its scouts open that item first. Follow-ups in
+The note is connected to the item, and the answer reads that item first. Follow-ups in
 the same note start from it too. **Ask about this** does not appear on a note that was itself
 asked, or on the page of a tag or a content type.
 
@@ -41,7 +43,7 @@ The conversation lists the newest question and its answer first, with earlier on
 answer appears under its question. Each item it cites is a link to that item's page, and a page
 it read on the web is a link to the page.
 
-Below the answer, **What it drew on** lists every item the answer cited, opened, or kept. The note
+Below the answer, **What it drew on** lists every item the answer cited. The note
 is connected to each of them.
 
 ## Follow up
@@ -50,9 +52,9 @@ is connected to each of them.
    conversation**.
 2. Choose **Ask**.
 
-The lead is told the earlier questions and their answers. The field is disabled while
-an answer is still being worked out. A follow-up about an earlier answer itself, such as "say that
-as a table", is answered without sending scouts.
+A follow-up is told the earlier questions and their answers, and reads first what they drew on. The
+field is disabled while an answer is still being worked out. A follow-up about an earlier answer
+itself, such as "say that as a table", is answered by saying it again that way.
 
 ## Ask again
 
@@ -61,8 +63,8 @@ conversation again and adds the new answer at the top.
 
 ## Keep what the answer found
 
-The note itself lasts forever. What the agent made or kept while answering, such as a note it
-created or a page it snapshotted, lasts 30 days.
+The note itself lasts forever. What the agent made or kept while looking a question up on the web,
+such as a note it created or a page it snapshotted, lasts 30 days.
 
 1. Open the item from **What it drew on**. Its page shows **forgotten** followed by the date.
 2. Choose **Keep forever**.

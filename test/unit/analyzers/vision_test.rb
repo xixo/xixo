@@ -51,6 +51,21 @@ class VisionTest < ActiveSupport::TestCase
     assert_match %r{\Adata:image/jpeg;base64,}, @server.attachments.last.first
   end
 
+  test "what the model saw is kept as the image's caption, apart from the text read off it" do
+    inference!
+    @server.answer_json({ summary: "A red bicycle leans against a blue door.", tags: %w[bicycle] })
+
+    analyze "poster.png"
+
+    Tenant.switch(@tenant) do
+      feed = feed_at("poster.png")
+
+      assert_equal "A red bicycle leans against a blue door.", steps_at("poster.png").dig("caption", "result")
+      assert_equal "A red bicycle leans against a blue door.", feed.described_text
+      assert_not_includes feed.readable_text.to_s, "red bicycle"
+    end
+  end
+
   test "what the model sees is a bounded preview, not the original" do
     inference!
     @server.answer_json({ summary: "A sign." })

@@ -129,12 +129,39 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       transcript = steps_at("standup.m4a").dig("transcript", "result")
 
+      assert_match(/\A\[00:00:\d{2}\] /, transcript, "each line opens with the moment it was said")
       assert_match(/invoice/i, transcript)
       assert_match(/4,200|4200/, transcript)
 
       assert_equal [ "standup.m4a" ], Feed.search("invoice", mime: "audio/mp4").pluck(:title),
                    "a spoken word is a searchable word or the transcript was for nothing"
     end
+  end
+
+  test "a video's frames are captioned with the moment they come from" do
+    require_relative "../../support/fake_model_server"
+    server = FakeModelServer.current
+    server.reset!.serves("gemma3:4b")
+    ENV["URIS_INFERENCE_ORIGINS"] = server.origin
+    Tenant.switch(@tenant) do
+      Resource::OpenaiCompatible.create!(key: "ollama",
+                                         details: { "base_url" => server.base_url, "models" => { "vision" => "gemma3:4b" } })
+    end
+    server.answer_json(caption: "A red bicycle leans against a blue door.")
+
+    analyze_feed_at "clip.mp4"
+
+    Tenant.switch(@tenant) do
+      feed = feed_at("clip.mp4")
+
+      assert_equal [ { "at" => "00:00:00", "caption" => "A red bicycle leans against a blue door." } ],
+                   steps_at("clip.mp4").dig("scenes", "result")
+      assert_equal "[00:00:00] A red bicycle leans against a blue door.", feed.described_text
+      assert_match(/a frame from a video, 00:00:00 into it/, server.prompts.first)
+      assert_equal 1, server.attachments.last.length
+    end
+  ensure
+    ENV.delete("URIS_INFERENCE_ORIGINS")
   end
 
   test "a recording with no sound in it is not silently reported as heard" do

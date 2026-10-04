@@ -38,6 +38,7 @@ module Analyzer
           attempt { analyze } if reference
         end
         attempt { summarize! }
+        attempt { captioned! }
       ensure
         stamp_analyzed!
       end
@@ -47,6 +48,9 @@ module Analyzer
     end
 
     def analyze
+    end
+
+    def captioned!
     end
 
     SUMMARY_TEXT = 10_000

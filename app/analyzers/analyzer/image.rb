@@ -53,6 +53,11 @@ module Analyzer
       [ preview ]
     end
 
+    def captioned!
+      said = step_result(:summary).to_h["summary"]
+      step(:caption, force: true) { said } if said.present?
+    end
+
     private
 
       def located(path)

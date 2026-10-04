@@ -29,22 +29,19 @@ class AskingTest < ActionDispatch::IntegrationTest
       Resource::OpenaiCompatible.create!(
         key: "ollama", details: { "base_url" => @server.base_url, "models" => { "agent" => "qwen3:8b" } }
       )
-      @invoice = Feed.create!(type: Feed::NOTE, key: "Acme invoice", title: "Acme invoice")
-      @other = Feed.create!(type: Feed::NOTE, key: "Beach photo", title: "Beach photo")
+      @invoice = Feed.create!(type: Feed::NOTE, key: "Acme invoice", title: "Acme invoice",
+                              note: "Acme invoice 0042 for $4,200, due on 1 October.")
+      @other = Feed.create!(type: Feed::NOTE, key: "Beach photo", title: "Beach photo", note: "A beach at dusk.")
     end
 
     connect!(@tenant)
+    SearchIndex.refresh!
   end
 
   teardown { ENV.delete("URIS_INFERENCE_ORIGINS") }
 
-  test "a question is kept as a note, answered from what a scout reported, and connected to what it cites" do
-    scout("Find the Acme invoice's total") do
-      @server.answer_tool_call("search", query: "invoice")
-      @server.answer_tool_call("feed", id: @invoice.id.to_s)
-      @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
-    end
-    @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
+  test "a question is kept as a note, answered in one call from what the catalog holds, and connected to what it cites" do
+    answers("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
 
     asked = ask("How much is the Acme invoice?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
@@ -55,17 +52,15 @@ class AskingTest < ActionDispatch::IntegrationTest
 
       assert_equal Feed::NOTE, note.type
       assert_equal "feed", note.origin
-      assert_equal "ask", analysis.cause
       assert_equal "done", analysis.status
       assert_match(/\$4,200/, analysis.step_result("text"))
       assert_equal [ @invoice.id ], note.connected.pluck(:id)
-      assert_match(/lead : turn 1 : scout/, analysis.logs)
-      assert_match(/scout 1 : turn 1 : search/, analysis.logs)
-      assert_match(/scout 1 : turn 2 : feed/, analysis.logs)
     end
 
-    assert(@server.prompts.any? { |prompt| prompt.include?("judged against today") && prompt.include?(Today.said) },
-           "the judges are told the date an answer's claims about time are held to")
+    assert_equal 1, @server.prompts.count { |prompt| prompt.include?("Answer from the parts above alone") }
+
+    asked_with = @server.prompts.find { |prompt| prompt.include?("How much is the Acme invoice?") }
+    assert_includes asked_with, "[feed #{@invoice.id}] Acme invoice › Note\n---\nAcme invoice 0042 for $4,200"
   end
 
   test "a question is thought through however hard the backend lets routine work skimp" do
@@ -73,14 +68,11 @@ class AskingTest < ActionDispatch::IntegrationTest
       held = Resource::OpenaiCompatible.find_by!(key: "ollama")
       held.update!(details: held.details.merge("routine_effort" => "none"))
     end
-
-    scout("Find the Acme invoice's total") { @server.answer("It is $4,200 [feed #{@invoice.id}].") }
-    @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
+    answers("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
 
     ask("How much is the Acme invoice?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
-    assert_operator @server.efforts.size, :>, 1
     assert_equal [ nil ], @server.efforts.uniq
   end
 
@@ -90,23 +82,22 @@ class AskingTest < ActionDispatch::IntegrationTest
     }
   GQL
 
-  test "a question about an item is connected to it, and its lead and scouts are told to open it first" do
+  test "a question about an item is connected to it, and reads it first" do
+    answers("It is due on 1 October [feed #{@invoice.id}].")
     asked = execute(ABOUT, question: "When is it due?", about: @invoice.id.to_s).dig("data", "askCatalog")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
 
     Tenant.switch(@tenant) do
       note = Feed.find(asked.dig("feed", "id"))
-      analysis = Analysis.find(asked.dig("analysis", "id"))
 
-      assert_equal @invoice, analysis.about
+      assert_equal @invoice, Analysis.find(asked.dig("analysis", "id")).about
       assert_includes note.connected, @invoice
 
-      asking = Asking.new(note, analysis: analysis)
-      assert_match(/The question is about \[feed #{@invoice.id}\] \(Acme invoice\)\. Open it with feed first/, asking.prompt)
-      assert_match(/\[feed #{@invoice.id}\]/, asking.briefing("find the due date"))
-
       later = Analysis.create!(feed: note, cause: "ask", question: "and who sent it?", steps: {})
-      assert_match(/about \[feed #{@invoice.id}\]/, Asking.new(note, analysis: later).prompt, "a follow-up keeps what it is about")
+      assert_equal [ @invoice ], Asking.new(note, analysis: later).first, "a follow-up keeps what it is about"
     end
+
+    assert_includes @server.prompts.find { |prompt| prompt.include?("When is it due?") }, "[feed #{@invoice.id}] Acme invoice"
   end
 
   test "a question about an item that is not there is refused" do
@@ -116,57 +107,47 @@ class AskingTest < ActionDispatch::IntegrationTest
   end
 
   test "a follow-up is asked in the same note, told what was asked before, and the whole conversation is rolled up" do
-    scout("Find the Acme invoice's total") { @server.answer("It is $4,200 [feed #{@invoice.id}].") }
-    @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
+    answers("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
     first = ask("How much is the Acme invoice?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
-    scout("Find when the Acme invoice is due") { @server.answer("It is due on 1 October [feed #{@other.id}].") }
-    @server.answer("It is due on 1 October [feed #{@other.id}].")
+    answers("It is due on 1 October [feed #{@invoice.id}].")
     followed = follow_up(first.dig("feed", "id"), "When is it due?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
     assert_equal first.dig("feed", "id"), followed.dig("feed", "id"), "the follow-up stays in the note it follows"
 
-    lead = @server.prompts.reverse.find { |prompt| prompt.include?("When is it due?") && prompt.include?("It follows on from") }
-    assert lead, "the lead of the follow-up is told the conversation so far"
-    assert_match(/Asked: How much is the Acme invoice\?\nAnswered: The Acme invoice is for \$4,200/, lead)
+    told = @server.prompts.reverse.find { |prompt| prompt.include?("When is it due?") && prompt.include?("Earlier in this conversation") }
+    assert told, "the follow-up is told the conversation so far"
+    assert_match(/Asked: How much is the Acme invoice\?\nAnswered: The Acme invoice is for \$4,200/, told)
+    assert_includes told, "[feed #{@invoice.id}] Acme invoice", "and reads first what the earlier answer drew on"
 
     passes = graphql("query($id: ID) { feed(id: $id) { analyses { cause question said drewOn { id } } } }",
                      id: first.dig("feed", "id")).dig("feed", "analyses").select { |pass| pass["cause"] == "ask" }.reverse
 
     assert_equal [ "How much is the Acme invoice?", "When is it due?" ], passes.pluck("question")
-    assert_equal "It is due on 1 October [feed #{@other.id}].", passes.last["said"]
-    assert_equal [ [ @invoice.id.to_s ], [ @other.id.to_s ] ], passes.map { |pass| pass["drewOn"].pluck("id") },
-                 "each answer keeps what it drew on, though the note is connected to all of it"
+    assert_equal "It is due on 1 October [feed #{@invoice.id}].", passes.last["said"]
+    assert_equal [ [ @invoice.id.to_s ], [ @invoice.id.to_s ] ], passes.map { |pass| pass["drewOn"].pluck("id") }
 
     Tenant.switch(@tenant) do
       rolled = Analysis.find(followed.dig("analysis", "id")).step_result("conversation")
 
       assert_match(/Asked: How much is the Acme invoice\?.*\$4,200.*Asked: When is it due\?\nAnswered: It is due on 1 October/m, rolled)
-      assert_equal [ @invoice.id, @other.id ].sort, Feed.find(first.dig("feed", "id")).connected.pluck(:id).sort
-      assert_includes Feed.find(first.dig("feed", "id")).readable_text, "1 October"
+      assert_equal [ @invoice.id ], Feed.find(first.dig("feed", "id")).connected.pluck(:id)
     end
   end
 
   test "once the reply lands the note is catalogued again from the whole conversation" do
-    Tenant.switch(@tenant) do
-      Resource::OpenaiCompatible.find_by!(key: "ollama")
-        .update!(details: { "base_url" => @server.base_url, "models" => { "agent" => "qwen3:8b", "smart" => "qwen3:8b" } })
-    end
+    models("agent" => "qwen3:8b", "smart" => "qwen3:8b")
 
-    scout("Find the Acme invoice's total") { @server.answer("It is $4,200 [feed #{@invoice.id}].") }
-    @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
-    10.times { @server.answer_json(answered: true, useful: true, why: "it says so") }
+    answers("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
     @server.answer_json(title: "Acme invoice")
     @server.answer_json(summary: "Asked what the Acme invoice costs: $4,200.", entities: [ "Acme" ], tags: [ "Acme invoice" ])
     first = ask("How much is the Acme invoice?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
-    scout("Find when it is due") { @server.answer("1 October.") }
-    @server.answer("It is due on 1 October.")
-    10.times { @server.answer_json(answered: true, useful: true, why: "it says so") }
-    @server.answer_json(summary: "The Acme invoice is $4,200, due on 1 October.", entities: [ "Acme", "1 October" ],
+    answers("It is due on 1 October [feed #{@invoice.id}].")
+    @server.answer_json(summary: "The Acme invoice is $4,200, due on 1 October.", entities: [ "Acme" ],
                         tags: [ "Acme invoice", "due date" ])
     follow_up(first.dig("feed", "id"), "When is it due?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
@@ -180,17 +161,13 @@ class AskingTest < ActionDispatch::IntegrationTest
     assert_includes note["tags"].pluck("key"), "due date"
   end
 
-  test "a question is kept untitled and named by the fast model before the scouts set out" do
-    Tenant.switch(@tenant) do
-      Resource::OpenaiCompatible.find_by!(key: "ollama")
-        .update!(details: { "base_url" => @server.base_url, "models" => { "agent" => "qwen3:8b", "fast" => "qwen3:8b" } })
-    end
+  test "a question is kept untitled and named by the fast model before it is answered" do
+    models("agent" => "qwen3:8b", "fast" => "qwen3:8b")
 
-    @server.answer_json(title: "Vancouver weather today, please and thank you")
-    scout("Find the weather in Vancouver") { @server.answer("14°C and raining.") }
-    @server.answer("It is 14°C and raining in Vancouver.")
+    @server.answer_json(title: "Acme invoice total, please and thank you")
+    answers("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
 
-    asked = ask("can you check the weather for vancouver on https://open-meteo.com/")
+    asked = ask("How much is the Acme invoice?")
 
     assert_nil asked.dig("feed", "title"), "a question is not its own title"
 
@@ -199,37 +176,31 @@ class AskingTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) do
       note = Feed.find(asked.dig("feed", "id"))
 
-      assert_equal "Vancouver weather today, please and thank", note.title
-      assert_equal "can you check the weather for vancouver on https://open-meteo.com/", note.key
-      assert_equal "can you check the weather for vancouver on https://open-meteo.com/", note.conversation.first.question
+      assert_equal "Acme invoice total, please and thank", note.title
+      assert_equal "How much is the Acme invoice?", note.key
     end
 
-    named = @server.prompts.find { |prompt| prompt.include?("Name the question") }
-    lead = @server.prompts.index { |prompt| prompt.include?("You lead scouts") || prompt.include?("Send scouts with scout") }
-    assert named, "the fast model is asked for a title"
-    assert_operator @server.prompts.index(named), :<, lead, "before the lead sends anyone"
+    named = @server.prompts.index { |prompt| prompt.include?("Name the question") }
+    answered = @server.prompts.index { |prompt| prompt.include?("Answer from the parts above alone") }
+    assert_operator named, :<, answered
   end
 
   test "with no fast model the note is named later, by the slower model, once the answer is in" do
-    scout("Find the Acme invoice's total") { @server.answer("It is $4,200 [feed #{@invoice.id}].") }
-    @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
-    10.times { @server.answer_json(answered: true, useful: true, why: "it says so") }
+    answers("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
     @server.answer_json(title: "Acme invoice total")
 
     asked = ask("How much is the Acme invoice?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
     named = @server.prompts.index { |prompt| prompt.include?("Name the question") }
-    judged = @server.prompts.rindex { |prompt| prompt.include?("Respond with JSON: {\"answered\"") }
+    answered = @server.prompts.index { |prompt| prompt.include?("Answer from the parts above alone") }
 
-    assert_operator named, :>, judged, "named after the answer, not before the scouts"
+    assert_operator named, :>, answered
     Tenant.switch(@tenant) { assert_equal "Acme invoice total", Feed.find(asked.dig("feed", "id")).title }
   end
 
   test "once answered, a note is titled again with what the answer found" do
-    scout("Find the Acme invoice's total") { @server.answer("It is $4,200 [feed #{@invoice.id}].") }
-    @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
-    10.times { @server.answer_json(answered: true, useful: true, why: "it says so") }
+    answers("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
     @server.answer_json(title: "Acme invoice total")
     @server.answer_json(title: "Acme invoice total: $4,200")
 
@@ -256,12 +227,10 @@ class AskingTest < ActionDispatch::IntegrationTest
   end
 
   test "asking again asks the latest question in the conversation" do
-    scout("Find it") { @server.answer("$4,200.") }
-    @server.answer("$4,200.")
+    answers("$4,200 [feed #{@invoice.id}].")
     first = ask("How much is the Acme invoice?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
-    scout("Find the date") { @server.answer("1 October.") }
-    @server.answer("1 October.")
+    answers("1 October [feed #{@invoice.id}].")
     follow_up(first.dig("feed", "id"), "When is it due?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
@@ -270,44 +239,55 @@ class AskingTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) { assert_equal "When is it due?", Analysis.find(again.dig("analyzeFeed", "analysis", "id")).question }
   end
 
-  test "the lead is turned back when it answers without sending a scout" do
-    @server.answer("From memory, it is $4,200.")
-    scout("Find the Acme invoice's total") { @server.answer("Nothing found.") }
-    @server.answer("The scouts found nothing.")
+  test "a total over a table's rows is worked out by code, and the model answers with the figure" do
+    ledger = Tenant.switch(@tenant) do
+      Feed.create!(type: Feed::FILE, key: "ledger.csv", title: "ledger.csv").tap do |feed|
+        rows = [ %w[Date Payee Amount], [ "2026-08-02", "Fernwood Grocers", "-40.10" ],
+                 [ "2026-08-19", "Fernwood Grocers", "-60.25" ], [ "2026-09-01", "Fernwood Grocers", "-9.00" ] ]
+        Analysis.create!(feed: feed, cause: "manual", status: "done", finished_at: Time.current, steps: {
+          "text" => { "result" => rows.map { |row| row.join(",") }.join("\n") },
+          "tables" => { "result" => [ Tables.framed("ledger.csv", rows) ] }
+        })
+      end
+    end
+    Tenant.switch(@tenant) { SearchIndex.index(ledger) }
+    SearchIndex.refresh!
+
+    @server.answer_json(answer: "", world: false,
+                        compute: { table: "ledger.csv", op: "sum", column: "Amount",
+                                   where: [ [ "Payee", "contains", "Fernwood" ], [ "Date", "starts", "2026-08" ] ] })
+    answers("You spent $100.35 at Fernwood Grocers in August [feed #{ledger.id}].")
+
+    asked = ask("How much did I spend at Fernwood Grocers in August, from the ledger?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    computed = @server.prompts.find { |prompt| prompt.include?("it came to") }
+    assert_match(/it came to -100\.35 over 2 matching rows/, computed)
+    assert_includes @server.prompts.first, "Tables whose rows can be worked over:\n- [feed #{ledger.id}] ledger.csv: Date, Payee, Amount (3 rows)"
+    Tenant.switch(@tenant) do
+      assert_equal "You spent $100.35 at Fernwood Grocers in August [feed #{ledger.id}].",
+                   Analysis.find(asked.dig("analysis", "id")).step_result("text")
+    end
+  end
+
+  test "an answer with a number found nowhere in what it read is sent back once" do
+    answers("The Acme invoice is for $9,999 [feed #{@invoice.id}].")
+    answers("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
 
     asked = ask("How much is the Acme invoice?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
+    assert(@server.prompts.any? { |prompt| prompt.include?("It gives 9999, which appear nowhere") })
     Tenant.switch(@tenant) do
       analysis = Analysis.find(asked.dig("analysis", "id"))
 
-      assert_match(/lead : turn 1 : pressed : You have not sent a scout/, analysis.logs)
-      assert_equal "The scouts found nothing.", analysis.step_result("text")
-    end
-  end
-
-  test "several scouts sent in one turn each report back to the lead" do
-    @server.answer_tool_calls([ [ "scout", { task: "Find the invoice" } ], [ "scout", { task: "Find the photo" } ] ])
-    @server.answer("The invoice is [feed #{@invoice.id}].")
-    @server.answer("The photo is [feed #{@other.id}].")
-    @server.answer("Both are here: [feed #{@invoice.id}] and [feed #{@other.id}].")
-
-    asked = ask("Where are the invoice and the photo?")
-    perform_enqueued_jobs(only: AnalyzeFeedJob)
-
-    Tenant.switch(@tenant) do
-      analysis = Analysis.find(asked.dig("analysis", "id"))
-
-      assert_equal 2, analysis.logs.scan(/\[✓\] : lead : turn 1 : scout/).size
-      assert(%w[invoice photo].all? { |thing| analysis.turns.any? { |turn| turn["request"].to_s.include?("Find the #{thing}") } },
-             "each scout was briefed with its own task")
-      assert_equal [ @invoice.id, @other.id ].sort, Feed.find(asked.dig("feed", "id")).connected.pluck(:id).sort
+      assert_equal "The Acme invoice is for $4,200 [feed #{@invoice.id}].", analysis.step_result("text")
+      assert_match(/numbers not in the evidence : 9999/, analysis.logs)
     end
   end
 
   test "an answered question reads cleanly in the catalog, and asking it again asks rather than analyzes" do
-    scout("Find the Acme invoice's total") { @server.answer("It is $4,200 [feed #{@invoice.id}].") }
-    @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
+    answers("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
 
     asked = ask("How much is the Acme invoice?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
@@ -323,108 +303,40 @@ class AskingTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) { assert_equal "ask", Analysis.find(again.dig("analyzeFeed", "analysis", "id")).cause }
   end
 
-  test "the question is never its own source, and scouts are told the web search when the tenant has one" do
+  test "neither the question nor an earlier answer is ever read as a source" do
+    answers("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
+    earlier = ask("How much is the Acme invoice?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+    SearchIndex.refresh!
+
+    answers("It is $4,200 [feed #{@invoice.id}].")
+    ask("What is the Acme invoice for?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    assert_not_includes @server.prompts.last(2).join, "[feed #{earlier.dig('feed', 'id')}]"
+  end
+
+  test "a question about the world goes to an agent with the web, which changes only what the run made" do
     Tenant.switch(@tenant) do
       Resource::Search.create!(key: "exa", details: { "provider" => "exa" }, credentials: { "api_key" => "k" })
     end
-    scout("Search the catalog for hn algolia") do
-      @server.answer_tool_call("search", query: "hn algolia")
-      @server.answer("Nothing in the catalog.")
-      @server.answer("Nothing on the web either.")
-    end
-    @server.answer("Nothing in the catalog.")
+    @server.answer_json(answer: "The catalog does not have it.", world: true)
+    @server.answer_tool_call("feed", do: "note", id: @invoice.id.to_s, note: "wiped")
+    @server.answer_tool_call("feed", do: "rename", id: @invoice.id.to_s, title: "wiped")
+    @server.answer("It is 14°C and raining in Vancouver.")
 
-    asked = ask("can you see hn algolia")
+    asked = ask("What is the weather in Vancouver?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
     Tenant.switch(@tenant) do
       analysis = Analysis.find(asked.dig("analysis", "id"))
-
-      assert(analysis.turns.none? { |turn| turn["request"].to_s.include?(%("id":"#{asked.dig('feed', 'id')}")) },
-             "the search a scout ran handed back the question it was answering")
-    end
-
-    assert(@server.prompts.any? { |prompt| prompt.include?("search the web") }, "the lead is told scouts can search the web")
-    assert(@server.prompts.any? { |prompt| prompt.include?(%(key "exa")) }, "the scout is told the web search")
-  end
-
-  test "an answer is judged by ten judges, and the share who found it answered is its score" do
-    scout("Find the Acme invoice's total") { @server.answer("It is $4,200 [feed #{@invoice.id}].") }
-    @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
-    7.times { @server.answer_json(answered: true, useful: true, why: "it says so") }
-    3.times { @server.answer_json(answered: false, useful: false, why: "it does not") }
-
-    asked = ask("How much is the Acme invoice?")
-    perform_enqueued_jobs(only: AnalyzeFeedJob)
-
-    feed = graphql("query($id: ID!) { feed(id: $id) { analyses { id verified useful } } }", id: asked.dig("feed", "id"))["feed"]
-
-    assert_in_delta 0.7, feed["analyses"].first["verified"]
-    assert_in_delta 0.7, feed["analyses"].first["useful"]
-  end
-
-  test "what a scout finds worth keeping becomes a note, connected to the question" do
-    scout("Note where HN Search is hosted") do
-      @server.answer_tool_call("feed", do: "create", type: "uris:note", title: "HN Search is hosted in Canada")
-      @server.answer("Kept it.")
-    end
-    @server.answer("It is hosted in Canada.")
-
-    asked = ask("where is hn search hosted?")
-    perform_enqueued_jobs(only: AnalyzeFeedJob)
-
-    Tenant.switch(@tenant) do
-      note = Feed.find_by!(title: "HN Search is hosted in Canada")
-
-      assert_equal Feed::NOTE, note.type
-      assert_includes Feed.find(asked.dig("feed", "id")).connected.pluck(:id), note.id
-    end
-  end
-
-  test "a scout changes only what the run made, whatever a page tells it to do" do
-    scout("Tidy the catalog") do
-      @server.answer_tool_call("feed", do: "note", id: @invoice.id.to_s, note: "wiped")
-      @server.answer_tool_call("search", query: "invoice")
-      @server.answer_tool_call("feed", do: "rename", id: @invoice.id.to_s, title: "wiped")
-      @server.answer_tool_call("connect", a: @invoice.id.to_s, b: @other.id.to_s)
-      @server.answer_tool_call("search", query: "invoice")
-      @server.answer_tool_call("feed", do: "create", type: "uris:address", title: "every hour", prompt: "spend")
-      @server.answer("I could not.")
-    end
-    @server.answer("I could not.")
-
-    ask("Connect the invoice to the beach photo")
-    perform_enqueued_jobs(only: AnalyzeFeedJob)
-
-    Tenant.switch(@tenant) do
       @invoice.reload
 
-      assert_nil @invoice.note
+      assert_equal "It is 14°C and raining in Vancouver.", analysis.step_result("text")
+      assert_equal "Acme invoice 0042 for $4,200, due on 1 October.", @invoice.note
       assert_equal "Acme invoice", @invoice.title
-      assert_empty @invoice.connected
-      assert_not Feed.exists?(title: "every hour")
     end
-  end
-
-  test "a scout can keep a page but cannot sync, export or snapshot through anything but the web" do
-    Tenant.switch(@tenant) { @storage = Resource::Database.create!(key: "drop", name: "Drop") }
-    scout("Keep example.com") do
-      @server.answer_tool_call("resource", do: "sync", key: "drop")
-      @server.answer_tool_call("resource", do: "snapshot", key: "drop", input: { url: "https://example.com" })
-      @server.answer("I could not.")
-    end
-    @server.answer("I could not.")
-
-    asked = ask("keep example.com")
-    perform_enqueued_jobs(only: AnalyzeFeedJob)
-
-    Tenant.switch(@tenant) do
-      logs = Analysis.find(asked.dig("analysis", "id")).logs
-
-      assert_match(/\[x\].*resource.*sync/, logs)
-      assert_match(/\[x\].*resource.*snapshot.*does not keep pages/, logs)
-      assert_equal 0, Run.where(resource: @storage).count
-    end
+    assert(@server.prompts.any? { |prompt| prompt.include?(%(key "exa")) }, "the agent is told the web search")
   end
 
   test "a question with no model to answer it fails with the reason" do
@@ -449,9 +361,14 @@ class AskingTest < ActionDispatch::IntegrationTest
 
   private
 
-    def scout(task)
-      @server.answer_tool_call("scout", task: task)
-      yield
+    def answers(said)
+      @server.answer_json(answer: said, world: false)
+    end
+
+    def models(declared)
+      Tenant.switch(@tenant) do
+        Resource::OpenaiCompatible.find_by!(key: "ollama").update!(details: { "base_url" => @server.base_url, "models" => declared })
+      end
     end
 
     def ask(question)

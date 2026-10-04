@@ -42,7 +42,6 @@ module Uris
     config.uris.audit_retention = ENV.fetch("URIS_AUDIT_RETENTION_DAYS", 90).to_i.days
     config.uris.run_retention = ENV.fetch("URIS_RUN_RETENTION_DAYS", 14).to_i.days
     config.uris.run_deadline = ENV.fetch("URIS_RUN_DEADLINE_HOURS", 6).to_i.hours
-    config.uris.scouts_at_once = ENV.fetch("URIS_SCOUTS_AT_ONCE", 2).to_i
 
     config.active_record.encryption.primary_key = ENV["ENCRYPTION_PRIMARY_KEY"]
     config.active_record.encryption.deterministic_key = ENV["ENCRYPTION_DETERMINISTIC_KEY"]

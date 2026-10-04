@@ -1,6 +1,7 @@
 module Outline
   HEADING = /^[ \t]{0,3}\#{1,6}[ \t]+(.+?)[ \t#]*$/
   PAGE = "\f".freeze
+  STAMP = /^\[(\d{2}):(\d{2}):\d{2}\]/
   MOST = 200
 
   class << self
@@ -8,7 +9,7 @@ module Outline
       return Array(stored).first(MOST) if stored.present?
 
       body = text.to_s
-      headings(body).presence || pages(body)
+      headings(body).presence || pages(body).presence || minutes(body)
     end
 
     def at(outline, offset)
@@ -24,6 +25,18 @@ module Outline
       def headings(body)
         body.to_enum(:scan, HEADING).map do
           { "name" => Regexp.last_match(1).strip, "from" => Regexp.last_match.begin(0) }
+        end.first(MOST)
+      end
+
+      def minutes(body)
+        seen = nil
+
+        body.to_enum(:scan, STAMP).filter_map do
+          minute = Regexp.last_match(1).to_i * 60 + Regexp.last_match(2).to_i
+          next if minute == seen
+
+          seen = minute
+          { "name" => Regexp.last_match(0).delete("[]"), "from" => Regexp.last_match.begin(0) }
         end.first(MOST)
       end
 

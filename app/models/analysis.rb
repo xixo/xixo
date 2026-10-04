@@ -6,6 +6,7 @@ class Analysis < ApplicationRecord
   SETTLED = %w[done failed].freeze
   BOOKKEEPING = %w[placement derived answer drew_on].freeze
   SOURCE = %w[text ocr transcript conversation place].freeze
+  DESCRIBED = %w[caption scenes].freeze
   BULK = %w[sync].freeze
   ASKED_PRIORITY = 0
 
@@ -179,6 +180,16 @@ class Analysis < ApplicationRecord
 
   def extracted
     steps.slice(*SOURCE).values.filter_map { |held| held["result"] }
+  end
+
+  def own_text
+    extracted.find { |held| held.is_a?(String) }
+  end
+
+  def described
+    steps.slice(*DESCRIBED).values.filter_map { |held| held["result"] }.flat_map do |result|
+      result.is_a?(Array) ? result.map { |scene| "[#{scene['at']}] #{scene['caption']}" } : [ result.to_s ]
+    end.compact_blank
   end
 
   def summary

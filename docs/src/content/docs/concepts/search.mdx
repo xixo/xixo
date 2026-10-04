@@ -129,14 +129,17 @@ ways cannot be compared. The vector's dimension is `URIS_EMBEDDING_DIMENSIONS`,
 ## Passages
 
 A feed whose text is longer than 1,500 characters is also cut into passages of up to 1,500
-characters. Each passage ends at the first of a paragraph, a line, a sentence, a clause, or a word found in its last 40
-percent, and the next starts 200 characters before it ends, so a clause across a boundary is whole
-in one of them. The `passages` table holds each passage's text, where it starts and ends, and its
+characters. A passage never crosses into the next section of the feed's outline: a sheet of a
+workbook, a markdown heading, a page of a PDF, or a minute of a transcript. Within a section, each
+passage ends at the first of a paragraph, a line, a sentence, a clause, or a word found in its last
+40 percent, and the next starts 200 characters before it ends, so a clause across a boundary is
+whole in one of them. A passage that ends at a section starts the next one there. The `passages` table holds each passage's text, where it starts and ends, and its
 vector. A digest of the text in `feeds.passages_digest` means a feed is cut again only when its
 text changes.
 
 The same job cuts feeds that have no passages digest, up to fifty a minute, and embeds up to 64
-passages a minute, each with its feed's title before it. The vectors are indexed in their own
+passages a minute, each with its feed's title and the name of its section before it, such as
+`elm-street-pantry-plan.xlsx › Buy List`. The vectors are indexed in their own
 index, `_passages` after the feeds' index name, and every query on it filters by `tenant_id`.
 
 The `feed` tool's `find` returns a long document's passages that contain the words asked for, ranked

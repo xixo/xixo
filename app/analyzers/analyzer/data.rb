@@ -10,10 +10,21 @@ module Analyzer
       body = reference.download.read.force_encoding("UTF-8").scrub
 
       step(:shape) { shape_of(body) }
+      step(:tables, digest: Tables::ROWS.to_s) { tables_of(body) } if separator
       step(:text) { body.strip.truncate(MAX_TEXT) }
     end
 
+    def separator
+      { ".csv" => ",", ".tsv" => "\t" }[File.extname(reference.locator_key.to_s).downcase]
+    end
+
     private
+
+      def tables_of(body)
+        [ Tables.framed(File.basename(reference.locator_key.to_s), CSV.parse(body, col_sep: separator).first(Tables::ROWS + 1)) ].compact
+      rescue CSV::MalformedCSVError
+        []
+      end
 
       def shape_of(body)
         case File.extname(reference.locator_key.to_s).downcase

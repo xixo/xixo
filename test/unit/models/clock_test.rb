@@ -98,11 +98,11 @@ class ClockTest < ActiveSupport::TestCase
     end
   end
 
-  test "a minute is enough for a scout to start, because the margins shrink with the budget" do
+  test "a minute is enough for an agent with a reserve to start, because the margins shrink with the budget" do
     Tenant.switch(@tenant) do
       ask = Analysis.open!(feed: @feed, cause: "ask").tap(&:running!)
       ask.update_columns(deadline: 1.minute.from_now)
-      clock = Agent::Clock.new(ask, reserve: Scouting::RESERVE)
+      clock = Agent::Clock.new(ask, reserve: 90.seconds)
 
       assert_not clock.closing?
       assert_not clock.spent?

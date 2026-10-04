@@ -13,6 +13,20 @@ module Analyzer
     DYNAMICS = [ [ 3, "steady" ], [ 10, "moderate" ], [ Float::INFINITY, "wide" ] ].freeze
     BRIGHTNESS = [ [ 500, "dark" ], [ 2000, "middle" ], [ Float::INFINITY, "bright" ] ].freeze
     TEXTURE = [ [ 0.05, "tonal" ], [ 0.5, "mixed" ], [ Float::INFINITY, "noisy" ] ].freeze
+    WRITTEN_AS = "a timestamp on each line".freeze
+    STAMPED = /\A\[(\d{2}:\d{2}:\d{2})\.\d+\s*-->[^\]]*\]\s*(.*)\z/
+    STILLS = %w[mjpeg png gif bmp].freeze
+    FRAMES = 8
+    SCENE_SECONDS = 8
+    FRAME_WIDTH = 768
+
+    SCENE = <<~TEXT.freeze
+      This is a frame from a video, %<at>s into it. Say in one or two sentences what it shows: the
+      people, objects, colours, and setting, and any text in it exactly as written. Say only what you
+      can see.
+
+      Return ONLY valid JSON: {"caption": "..."}
+    TEXT
 
     def self.handles?(feed)
       MimeType.audio?(feed.mime) || MimeType.video?(feed.mime)
@@ -38,9 +52,19 @@ module Analyzer
         if self.class.model.blank?
           analysis&.log_skip(log_context, "transcript", "no transcription model is configured")
         else
-          step(:transcript) { transcribe(path) }
+          step(:transcript, digest: WRITTEN_AS) { transcribe(path) }
         end
+
+        seen(path)
       end
+    end
+
+    def seen(path)
+      seeing = Resource.for_role(:vision)
+      return if seeing.nil? || !video? || !duration.positive?
+
+      digest = [ FRAMES, SCENE_SECONDS, seeing.key, seeing.model_for(:vision) ].join("/")
+      attempt { step(:scenes, digest: digest) { scenes(path, seeing) } }
     end
 
     def file_facts
@@ -48,7 +72,8 @@ module Analyzer
     end
 
     def summary_body
-      fenced(step_result(:transcript).to_s.strip)
+      seen = Array(step_result(:scenes)).map { |scene| "[#{scene['at']}] Seen: #{scene['caption']}" }
+      fenced([ step_result(:transcript).to_s.strip, *seen ].compact_blank.join("\n"))
     end
 
     SAYS = <<~SAYS.strip.freeze
@@ -119,7 +144,7 @@ module Analyzer
                       "-t", self.class.span.to_s, "-ac", CHANNELS, "-ar", SAMPLE_RATE,
                       "-f", "wav", heard)
 
-          spoken(run_command(self.class.binary, "-m", model, "-f", heard, "-nt", "-np"))
+          spoken(run_command(self.class.binary, "-m", model, "-f", heard, "-np"))
         end
       end
 
@@ -193,7 +218,37 @@ module Analyzer
       end
 
       def spoken(output)
-        output.to_s.lines.map(&:strip).reject(&:empty?).join("\n").truncate(MAX_TEXT)
+        output.to_s.lines.filter_map do |line|
+          stamp, said = line.strip.match(STAMPED)&.captures
+          next line.strip.presence if stamp.nil?
+
+          "[#{stamp}] #{said.strip}" if said.present?
+        end.join("\n").truncate(MAX_TEXT)
+      end
+
+      def scenes(path, seeing)
+        count = (duration / SCENE_SECONDS).floor.clamp(1, FRAMES)
+
+        Dir.mktmpdir do |dir|
+          Array.new(count) do |index|
+            at = duration * (index + 0.5) / count
+            frame = File.join(dir, "#{index}.jpg")
+            run_command("ffmpeg", "-v", "error", "-y", "-ss", at.round(2).to_s, "-i", path,
+                        "-frames:v", "1", "-vf", "scale=#{FRAME_WIDTH}:-2", frame)
+
+            said = seeing.summarize(format(SCENE, at: stamped(at)), role: :vision, analysis: analysis,
+                                    images: [ File.binread(frame) ])["caption"].to_s.squish
+            { "at" => stamped(at), "caption" => said } if said.present?
+          end.compact
+        end
+      end
+
+      def stamped(seconds)
+        Time.at(seconds).utc.strftime("%H:%M:%S")
+      end
+
+      def video?
+        streams.any? { |stream| stream["type"] == "video" && !STILLS.include?(stream["codec"]) }
       end
 
       def audio?

@@ -16,8 +16,7 @@ class Resource
     IMAGE_TYPE = "image/jpeg"
     JSON_SYSTEM = "Respond with valid JSON only. No markdown, no explanation."
     AGENT_ROLE = "agent"
-    SCOUT_ROLE = "scout"
-    TOOL_ROLES = [ AGENT_ROLE, SCOUT_ROLE ].freeze
+    TOOL_ROLES = [ AGENT_ROLE ].freeze
     EMBEDDING_ROLE = "embedding"
     EFFORTS = %w[none minimal low medium high].freeze
     ASKING = "Represent this sentence for searching relevant passages: ".freeze
@@ -67,9 +66,6 @@ class Resource
           field("models.smart", "Smart model", help: "Longer reasoning."),
           field("models.vision", "Vision model", help: "Anything that has to look at an image."),
           field("models.agent", "Agent model", help: "What a feed drives. It has to call tools."),
-          field("models.scout", "Scout model",
-                help: "What the agent sends out to find things, in a fresh context each time. It has to " \
-                      "call tools, and can be smaller. Left empty, the agent model scouts."),
           field("models.embedding", "Embedding model",
                 help: "What search compares meaning with. Its vectors have to be the width " \
                       "the index was built for."),
@@ -85,7 +81,7 @@ class Resource
                       "Ollama takes none, and OpenAI minimal or low. Questions always think as the model likes."),
           field("time_allowed", "Time per ask", kind: "integer",
                 help: "Minutes an ask answered by this backend starts with when its item sets no timeout. " \
-                      "The agent and its scouts ask for more as they need it. Left off, two minutes."),
+                      "An agent asks for more as it needs it. Left off, two minutes."),
           field("api_key", "API key", secret: true, help: "Left off where the backend wants none.")
         ]
       }

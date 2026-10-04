@@ -47,15 +47,24 @@ again. A saved result is reused and logged as `cached`, unless one of these is t
 - the reference the step read has a `changed_at` later than the step. When a file is stored again at
   the same path, this makes the steps that described its old bytes run again.
 
+A feed's text is what its source says, and nothing a model wrote about it. It is the results of
+five steps in this order: `text`, `ocr`, `transcript`, `conversation`, and `place`. Search indexes it
+as the body, passages are cut from it, and the `feed` tool reads and searches it. The summary,
+metadata, and every other step are left out of it.
+
+What a model saw in a picture or a video is kept apart, as what the feed was described as. An
+image's `caption` step holds the vision model's description, and a video's `scenes` step holds a
+caption for each of its sampled frames. Search finds a feed by them along with its summary, and an
+answer reads them under the heading "As a model described what it shows".
+
 Four steps are bookkeeping: `placement`, `derived`, `answer`, and `drew_on`. They record where a
-file went, which previews were rendered, what the agent said, and which feeds an answer used. The
-text a feed extracts leaves them out, so the search body does not index a storage path.
+file went, which previews were rendered, what the agent said, and which feeds an answer used.
 
 A feed's `details` field turns the steps of its current analysis into labelled rows, grouped by
 the step that produced them, and the item page shows them under **Details**. Nested values
 are flattened into one row each, a list of records such as attachments or events numbers each
 record, and a row an earlier step already showed is not repeated. Embedded metadata comes last.
-Text, the summary, the judges' verdicts, and the bookkeeping steps are left out.
+Text, captions, scenes, tables, the summary, and the bookkeeping steps are left out.
 
 ## The analyzer
 
@@ -74,6 +83,11 @@ entries if the file is a zip.
 PDF is taken to be a scan: its first 30 pages are rendered at 200 dpi and read with `tesseract`, and
 the log says how many pages were read that way.
 
+`Xlsx` writes every sheet into the text, each under its name, and records under `outline` where
+each sheet starts. `Xlsx`, and `Data` for a CSV or TSV file, also keep each sheet's rows under the
+step `tables`, up to 5,000 rows a sheet. The header is the widest of a sheet's first ten rows, so a
+title above it is left out. An answer works totals and counts out over these rows.
+
 An EPUB is a zip too, and `Epub` claims it first. It follows `META-INF/container.xml` to the package
 document and records the title, creators, publisher, date, language, subjects, and chapter paths
 under the step `book`. The `text` step starts with those details and continues with each chapter's
@@ -85,14 +99,19 @@ skipped, so a book sold with DRM is cataloged by its details alone.
 with no position in it, which some cameras write on every frame, reads as latitude 0 and longitude 0,
 and uris treats it as no location. When a **Places** resource has **Name where photos were taken**
 on, `Image` asks that resource for the address, records it under the step `place`, and tells the
-summary where the photo was taken.
+summary where the photo was taken. The vision model's description of the image is its summary, and
+`Image` keeps it under `caption` too.
 
 `Media` claims audio and video. The `probe` step records the length, streams, and tags such as
 title, artist, and album. For anything with a sound track, one `ffmpeg` pass records the `signal`
 step: integrated loudness and loudness range in LUFS, true peak, the silent spans, and the median
 spectral centroid and flatness. The summary prompt describes these as dynamics, brightness, and
 texture, and says when a recording is silent throughout. The `transcript` step runs `whisper-cli`
-over the first hour when `URIS_WHISPER_MODEL` names a model file.
+over the first hour when `URIS_WHISPER_MODEL` names a model file. Each line of the transcript opens
+with the moment it was said, such as `[00:03:12]`. When a resource serves the `vision` role, the
+`scenes` step captions a video's frames: one for each eight seconds, up to eight, taken from the
+middle of each stretch. Each caption is kept with its moment, and the summary reads them after the
+transcript.
 
 Every analyzer inherits the same sequence from `Analyzer::Base`:
 
@@ -120,16 +139,16 @@ Every analyzer inherits the same sequence from `Analyzer::Base`:
 4. **Analyze** with the analyzer's own steps, such as `text`, `info`, or `listing`. The download
    made for the metadata is reused here, so the file is fetched once.
 5. **Summarize** with the inference [resource](/concepts/resources/) that serves the analyzer's role.
-   A text longer than 10,000 characters is first read in up to eight parts, each summarized on the
-   same model under the step `sections`, and the summary is written from those.
+   A text longer than 10,000 characters is summarized in one call from its first 10,000 characters,
+   which open with the names of its sections when it has an outline.
    The role is `smart` by default, `vision` for images and pages, and `fast` for email and the
    fallback. The prompt fences the file's text and tells the model to treat it as data. It asks
    for tags the way a person would label a folder: a topic, the kind of thing the file is, or the
    name of a person, company, product, or place, and never an amount, a date, an address, or an
-   account or reference number. uris reduces the model's answer to a summary, up to 20 entities,
-   and up to 20 tags. It drops
+   account or reference number. uris reduces the model's answer to a summary, up to 40 entities,
+   and up to 8 tags. It drops
    stopwords and tags longer than four words. When the analysis finishes, the feed is
-   [filed under](/concepts/feeds/) the tags and the entities as tags of its own. If no resource
+   [filed under](/concepts/feeds/) the tags. If no resource
    serves the role, there is no summary and no tags.
 
 If derive, analyze, or summarize fails, uris skips that part and continues. The reference is marked
@@ -142,27 +161,27 @@ file uploaded to a path it already occupies goes back to the same place. Then it
 unless the feed is an address, and then three more steps:
 
 - **Filing.** uris connects the feed to the `uris:mime` feed for its content type.
-- **Considering.** The [agent](/concepts/agents/) runs under the feed's own grant
-  (`uris:catalog:read`, `uris:catalog:write`, `uris:web:read`, and `uris:resources:read`) with the
-  `search`, `feed`, `connect`, and `resource` tools. For an address with a schedule, the prompt is
-  the schedule's prompt. For anything else, it is `FILE_PROMPT`, which asks the agent to connect the
-  feed to the tags and feeds it belongs with. If the file is still staged, the prompt also lists the
-  places that would accept it. The agent gets the schedule's turn allowance, or six turns, and stops
+- **Considering.** For an address, and for a file that is still staged, the
+  [agent](/concepts/agents/) runs under the feed's own grant (`uris:catalog:read`,
+  `uris:catalog:write`, `uris:web:read`, and `uris:resources:read`) with the `search`, `feed`,
+  `connect`, and `resource` tools. For an address with a schedule, the prompt is the schedule's
+  prompt. For a staged file, it is `FILE_PROMPT`, which asks the agent to connect the feed to the
+  tags and feeds it belongs with and lists the places that would accept it. A file synced from a
+  resource is filed by its summary's tags alone, with no agent. The agent gets the schedule's turn allowance, or six turns, and stops
   early after three failed tool calls in a row. If no resource serves the `agent` role, uris skips
   this step.
 - **Settling.** A file the agent did not place goes to the default storage.
 
-An `ask` analysis skips all of this. It runs no analyzer, no filing, and no placement. The job runs
-the lead and its scouts instead, then the judges, and then rolls the conversation up into the note.
+An `ask` analysis skips all of this. It runs no analyzer, no filing, and no placement. The job
+answers the question instead, and then rolls the conversation up into the note.
 [Asking](/concepts/agents/#asking) describes each part.
 
 An analysis runs for its feed's timeout, counted from when it starts. `setFeedTimeout`, or the feed
 form, sets any value from one minute to one day. A feed with no timeout set runs for ten minutes. An
 `ask` on such a feed starts small instead: the time per ask of the model backend that serves the
-`agent` role, or two minutes when that is not set. The agent and its scouts ask for more time while
-they run, up to one day from the start. Once the lead answers, the run has at least three more
-minutes for the judges, the title, and the conversation's summary, and the judges stop voting a
-minute before the deadline. `ExpireOverdueJob` cancels an analysis that runs past its deadline.
+`agent` role, or two minutes when that is not set. An agent that looks a question up on the web asks
+for more time while it runs, up to one day from the start. Once the answer is in, the run has at
+least three more minutes for the title and the conversation's summary. `ExpireOverdueJob` cancels an analysis that runs past its deadline.
 
 Analysis jobs run on the `analysis` queue, with at most `ANALYSIS_PER_TENANT` (2 by default) running
 per tenant. A `Resource::Failed` error is retried five times with increasing waits, and the analysis
@@ -179,10 +198,10 @@ Loading a model is slow on a single machine, and two models that do not fit in m
 unload each other on every call. uris orders analysis work so that each model is used for as long as
 there is work for it.
 
-An analysis caused by `sync` runs in two jobs. The reading job runs the analyzer and files
-the feed under its content type. It then puts the analysis back in `queued` and hands the feed to a
-filing job, which runs the agent and settles the file into storage. The analysis gets its timeout
-again when filing starts.
+An analysis caused by `sync` reads and files a file in one job: it runs the analyzer, files the feed
+under its content type and tags, and settles it into storage. An address, or a file that is still
+staged, needs the agent, so its reading job puts the analysis back in `queued` and hands the feed to
+a filing job, which runs the agent. The analysis gets its timeout again when filing starts.
 
 Each job's queue priority comes from the model its work needs. `Lane` numbers every model the
 tenant's shared inference resources name, starting at 10, so roles served by one model share a

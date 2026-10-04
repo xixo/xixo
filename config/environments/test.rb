@@ -10,7 +10,6 @@ Rails.application.configure do
   config.cache_store = :solid_cache_store
 
   config.active_job.queue_adapter = :test
-  config.uris.scouts_at_once = 1
 
   config.action_dispatch.show_exceptions = :rescuable
 

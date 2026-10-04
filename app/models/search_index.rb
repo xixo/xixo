@@ -177,7 +177,7 @@ module SearchIndex
         title: feed.title,
         note: feed.note,
         locator_key: originals(feed).map(&:locator_key).compact.join(" "),
-        summary: feed.summaries.join("\n"),
+        summary: [ *feed.summaries, feed.described_text ].compact_blank.join("\n"),
         body: feed.readable_text,
         resource_ids: originals(feed).map(&:resource_id),
         created_at: feed.created_at,
@@ -185,46 +185,46 @@ module SearchIndex
       }.compact
     end
 
-    def search(query, tenant: Current.tenant, type: nil, mime: nil, tag: nil, limit: 50)
-      page(query, tenant: tenant, type: type, mime: mime, tag: tag, limit: limit)[:ids]
+    def search(query, tenant: Current.tenant, type: nil, mime: nil, tag: nil, limit: 50, least: LOOSE_MATCH)
+      page(query, tenant: tenant, type: type, mime: mime, tag: tag, limit: limit, least: least)[:ids]
     end
 
-    def page(query, tenant: Current.tenant, type: nil, mime: nil, tag: nil, limit: 50, from: 0)
+    def page(query, tenant: Current.tenant, type: nil, mime: nil, tag: nil, limit: 50, from: 0, least: LOOSE_MATCH)
       raise ArgumentError, "no tenant" if tenant.nil?
 
-      facets = { type: type, mime: mime, tag: tag }
+      facets = { type: type, mime: mime, tag: tag, least: least }
       vector = wanted_vector(query, limit: limit, from: from)
 
       return lexical(query, tenant: tenant, limit: limit, from: from, **facets) if vector.nil?
 
       found = lexical(query, tenant: tenant, limit: CANDIDATES, from: 0, **facets)
-      passages = facets.compact_blank.empty? ? PassageIndex.nearest(vector, tenant: tenant, limit: CANDIDATES) : []
-      fused = fuse(found[:ids], nearest(vector, tenant: tenant, limit: CANDIDATES, **facets),
+      passages = facets.except(:least).compact_blank.empty? ? PassageIndex.nearest(vector, tenant: tenant, limit: CANDIDATES) : []
+      fused = fuse(found[:ids], nearest(vector, tenant: tenant, limit: CANDIDATES, **facets.except(:least)),
                    passages.map(&:feed_id).uniq)
 
       { ids: fused.drop(from).first(limit), total: [ found[:total], fused.length ].max }
     end
 
-    def lexical(query, tenant:, limit:, from:, type: nil, mime: nil, tag: nil)
+    def lexical(query, tenant:, limit:, from:, type: nil, mime: nil, tag: nil, least: LOOSE_MATCH)
       facets = { type: type, mime: mime, tag: tag }
       wanted = from + limit
-      strict = matched(query, tenant: tenant, size: wanted, loosely: false, **facets)
+      strict = matched(query, tenant: tenant, size: wanted, **facets)
 
       if strict[:total] >= wanted || query.to_s.split.size < LOOSE_AFTER_WORDS
         return { ids: strict[:ids].drop(from).first(limit), total: strict[:total] }
       end
 
-      loose = matched(query, tenant: tenant, size: wanted, loosely: true, **facets)
+      loose = matched(query, tenant: tenant, size: wanted, least: least, **facets)
 
       { ids: (strict[:ids] + loose[:ids]).uniq.drop(from).first(limit),
         total: [ strict[:total], loose[:total] ].max }
     end
 
-    def matched(query, tenant:, size:, loosely:, type: nil, mime: nil, tag: nil)
+    def matched(query, tenant:, size:, least: nil, type: nil, mime: nil, tag: nil)
       must = if query.present?
         [ { multi_match: {
           query: query, fields: %w[title^3 key^3 tags^3 note^2 summary^2 locator_key body],
-          **(loosely ? { operator: "or", minimum_should_match: LOOSE_MATCH } : { operator: "and", type: "bool_prefix" })
+          **(least ? { operator: "or", minimum_should_match: least } : { operator: "and", type: "bool_prefix" })
         } } ]
       else
         [ { match_all: {} } ]

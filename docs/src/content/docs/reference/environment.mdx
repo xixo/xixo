@@ -138,8 +138,6 @@ server's disk, including other tenants' clones under `URIS_GIT_ROOT`, and `ext` 
 | `URIS_TRANSCRIBE_SECONDS` | `3600` | How many seconds from the start of a recording are measured and transcribed. Whisper runs at about real time on a CPU. |
 | `URIS_CHROME_PATH` | detected | The Chrome or Chromium binary used to render snapshots. Unset, uris looks in the usual places for the platform. The image includes Chromium. Without a browser, `web` resources report themselves unusable. |
 | `URIS_CHROME_NO_SANDBOX` | `false` | Starts Chrome with `--no-sandbox`, for a container that cannot give Chrome the namespaces its sandbox needs. |
-| `URIS_SCOUTS_AT_ONCE` | `2` | How many scouts an agent runs at the same time, from `1` to `6`. Values outside that range are clamped. See [agents](/concepts/agents/). |
-| `ASK_VERIFICATIONS` | `10` | How many times the judge model votes on an answer to a question, from `1` to `32`. Voting stops early at the analysis's deadline. More votes cost more inference and give a steadier score. |
 
 :::caution
 `URIS_CHROME_NO_SANDBOX` turns off the sandbox between a page uris renders and the worker process.
@@ -179,7 +177,7 @@ listens on `HTTP_PORT` and forwards to Puma on `TARGET_PORT`.
 
 | Variable | Default | |
 | --- | --- | --- |
-| `RAILS_MAX_THREADS` | `3` | Puma threads per process. Each database connection pool holds this many connections, or enough for an `analysis` process's threads and the scouts each one runs, `ANALYSIS_THREADS` × (`URIS_SCOUTS_AT_ONCE` + 1) + 5, whichever is more, so setting it for Puma never starves the worker. |
+| `RAILS_MAX_THREADS` | `3` | Puma threads per process. Each database connection pool holds this many connections, or enough for an `analysis` process's threads, `ANALYSIS_THREADS` + 5, whichever is more, so setting it for Puma never starves the worker. |
 | `WEB_CONCURRENCY` | `0` | Puma worker processes. `0` runs one process without forking. Read by Puma. |
 | `PORT` | `3000` | The port Puma listens on. Thruster sets it to `TARGET_PORT`. |
 | `PIDFILE` | none | Where Puma writes its process ID. |

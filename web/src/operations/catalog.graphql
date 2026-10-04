@@ -235,8 +235,6 @@ query Asked($id: ID!) {
       status
       error
       said
-      verified
-      useful
       turns
       createdAt
       finishedAt

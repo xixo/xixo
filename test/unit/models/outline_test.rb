@@ -21,6 +21,12 @@ class OutlineTest < ActiveSupport::TestCase
     assert_equal [ [ "Page 1", 0 ], [ "Page 2", 4 ] ], outline.map { |part| [ part["name"], part["from"] ] }
   end
 
+  test "a transcript is cut into the minutes it was said in" do
+    text = "[00:00:00] Hello.\n[00:00:40] Still the first minute.\n[00:01:05] The second.\n[00:03:12] The fourth."
+
+    assert_equal %w[00:00:00 00:01:05 00:03:12], Outline.of(text).map { |part| part["name"] }
+  end
+
   test "a plain text has no outline" do
     assert_empty Outline.of("Just a note about the shed.")
   end

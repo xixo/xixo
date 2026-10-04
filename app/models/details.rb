@@ -1,7 +1,7 @@
 class Details
   Row = Data.define(:group, :step, :item, :label, :value)
 
-  HIDDEN = (Analysis::BOOKKEEPING + %w[verified summary sections conversation deviation text ocr transcript]).freeze
+  HIDDEN = (Analysis::BOOKKEEPING + %w[verified summary sections conversation deviation text ocr transcript tables]).freeze
   LAST = %w[metadata].freeze
   ITEMS = 20
   LIST = 24

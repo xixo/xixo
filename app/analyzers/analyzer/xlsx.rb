@@ -19,6 +19,7 @@ module Analyzer
 
     def analyze
       step(:sheets) { with_workbook { |workbook| shape_of(workbook) } }
+      step(:tables, digest: Tables::ROWS.to_s) { with_workbook { |workbook| self.class.tables_of(workbook) } }
 
       written = nil
       writing = -> { written ||= with_workbook { |workbook| self.class.written_out(workbook) } }
@@ -50,6 +51,17 @@ module Analyzer
       end
 
       [ text.truncate(MAX_TEXT), outline ]
+    end
+
+    def self.tables_of(workbook)
+      workbook.sheets.filter_map do |name|
+        sheet = workbook.sheet(name)
+        next if sheet.first_row.nil?
+
+        columns = [ sheet.last_column.to_i, MAX_COLUMNS ].min
+        last = [ sheet.last_row, sheet.first_row + Tables::ROWS ].min
+        Tables.framed(name, (sheet.first_row..last).map { |row| (1..columns).map { |column| cell(sheet.cell(row, column)) } })
+      end
     end
 
     def self.cell(value)

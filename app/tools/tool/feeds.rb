@@ -170,7 +170,7 @@ module Tool
         accepted_by: Placement.candidates(feed).pluck(:key) }
     end
 
-    SHOWN_ELSEWHERE = %w[text outline sheets].freeze
+    SHOWN_ELSEWHERE = %w[text outline sheets tables].freeze
 
     def self.told(feed, from: nil, find: nil)
       steps = feed.analysis&.steps.to_h

@@ -78,9 +78,9 @@ the file and the `uris:tag` feed keyed `receipts`. Analysis connects every file 
 `uris:mime` feed for its content type. The files tagged `receipts` are the feeds at the other end of
 that tag's edges. Destroying a feed deletes all of its edges.
 
-A finished analysis files its feed under a tag for each of its summary's tags and entities, leaving
-out any entity with a digit in it and any tag `Feed.fit_tag?` refuses. A fit tag has at least two
-letters or digits, no more digits than letters, and is not shaped like a date. It is not the feed's
+A finished analysis files its feed under a tag for each of its summary's tags, leaving out any tag
+`Feed.fit_tag?` refuses. A fit tag has at least two letters or digits, no more digits than letters,
+and is not shaped like a date, an email address, a domain, or a citation such as `feed 12`. It is not the feed's
 own key or title, and when the file's name has a digit in it, as a camera's `GIG_2081.NEF` does,
 it does not contain that name. So `NEMA 14-50R` is a tag, and `$2,409.33`, `June 2026`, and
 `GIG 2081` are not. Amounts, dates, account numbers, and addresses stay searchable in the body.

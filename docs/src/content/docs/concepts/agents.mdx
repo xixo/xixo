@@ -61,7 +61,7 @@ schedule sets, up to 32. Each turn asks the model for a reply.
   `halted`.
 - A run with an analysis is told how much time it has, and is offered `more_time`. The loop answers
   `more_time` itself. Given a number of minutes and a reason, it moves the deadline later, up to one
-  day from the start. The lead and its scouts share one deadline, and each request adds to it. The
+  day from the start. The
   clock tells the model to answer as soon as it has what the request needs and to ask early when it
   needs longer. When less than a minute is left, or a fifth of the time it was given if that is
   shorter, the next turn asks for an answer now and offers only `more_time`.
@@ -69,9 +69,9 @@ schedule sets, up to 32. Each turn asks the model for a reply.
 The run returns an `Answer` with the reply, the reason the run stopped, the turns taken, and every
 call made.
 
-When a feed is analyzed, the agent is asked to file it. It connects the feed to tags and related
-feeds, and chooses a resource for a file that is still staged. An address feed with a schedule runs
-the schedule's prompt instead. See [analysis](/concepts/analysis/).
+When an address is analyzed, the agent runs the schedule's prompt. When a file that is still staged
+is analyzed, the agent is asked to file it: it connects the feed to tags and related feeds, and
+chooses a resource for it. A file synced from a resource is filed without the agent. See [analysis](/concepts/analysis/).
 
 This agent does not act for a person, so it does not use a person's token. `Feed#grant` gives it a
 grant of its own, with the subject `feed:` followed by the feed's key and the scopes in
@@ -102,75 +102,62 @@ read from a personal resource.
 ## Asking
 
 uris saves a question asked of the catalog as a note, and answers it with an analysis whose cause is
-`ask`. The note's key is the question, and the note starts with no title. Before the lead sends its
-first scout, the model that serves the `fast` role names the note in a few words, such as "Toronto
+`ask`. The note's key is the question, and the note starts with no title. Before the question is
+answered, the model that serves the `fast` role names the note in a few words, such as "Toronto
 weather". If the note still has no title after the answer, because the tenant has no fast model or
 the fast model failed, uris tries again with the first of the `fast`, `smart`, and `agent` roles that
 a resource serves. See [asking a question](/guides/ask/).
 
-`Asking` builds the prompts. Everything runs under the question's own grant, with the scopes in
-`Feed::ASKING_SCOPES`:
+`Answering` answers the question in four parts. Only the second and fourth call a model.
+
+1. **Evidence.** `Evidence` chooses what the model reads. It searches the catalog with the question's
+   keywords, any one of which is enough, fused with the passages and feeds nearest the question in
+   meaning. Up to six feeds are read, in this order: the item the question is about, the feeds
+   earlier answers in the conversation drew on, and then what the search found. A note that was
+   itself asked is never read, so an earlier answer is never taken for a source. A feed's text up to
+   4,000 characters is read whole. A longer one is read by the sections of its outline that hold the
+   passages matching the question, each whole up to 7,000 characters, such as one sheet of a
+   workbook or one minute of a transcript. A feed's note, and what a model described it as, come
+   first. The evidence stops at 18,000 characters.
+2. **Answer.** The model that serves the `agent` role reads the evidence, the conversation so far,
+   and the question in one call, and answers in JSON with the feeds it used cited as `[feed 12]`.
+   It is told to copy every number, name, and date as the evidence gives them.
+3. **Compute.** When the evidence includes a table, the model can ask for a sum, count, average,
+   smallest, or largest over its rows, narrowed by tests on its columns, in place of doing the
+   arithmetic itself. `Tables` works it out over the rows the analyzer kept, leaving out a row that
+   is already a total, and the model is asked again with the result.
+4. **Check.** uris lists every number in the answer that appears nowhere in the evidence, the
+   question, earlier answers, or a computed result, and sends the answer back once with them named.
+
+When the evidence does not answer a question about the world as it is now, such as the weather or a
+price, the model says so, and uris hands the question to the agent with the tenant's web resources:
+search, fetch, weather, and places. Without any of them, the question is answered from the catalog
+alone.
+
+Everything runs under the question's own grant, with the scopes in `Feed::ASKING_SCOPES`:
 
 ```
 uris:catalog:read  uris:catalog:write  uris:web:read  uris:web:keep  uris:resources:read
 ```
 
-A lead and its scouts answer the question. The lead holds the question and the goal, and its only
-tool is `scout`. It sends a scout a task, such as finding out what an address is and keeping its
-about page, and gets back a short report. The lead never sees a raw search result or page, so its
-transcript stays small no matter how much the scouts read. The lead may take 16 turns, within its
-feed's timeout. If it answers before sending any scout, uris sends it back once to send one.
-
-`Scouting` runs each task as a separate agent with a new context, using the real tools under the
-same grant, for up to eight turns. Scouts sent in the same turn run in parallel,
-`URIS_SCOUTS_AT_ONCE` at a time (two by default). Each runs in its own thread, which enters the
-tenant on its own database connection. A scout uses the inference resource that declares the `scout`
-role, or the agent's model when none does. A scout is told how much time it has and can ask for more
-with `more_time`, which moves the deadline for the whole run. It stops 90 seconds before the deadline, or a quarter of the time given if that is shorter, so the lead still has time to answer. Its report is
-truncated to 1,500 characters. uris keeps the calls it made for the judges and the connections.
-
-Scouts are told only about the resources the tenant has attached. With a search resource, a scout
-can search the web. With a fetch resource, such as `curl`, it can read a page. With a `web`
-resource, it can keep a page as a snapshot. The snapshot becomes a feed of its own, and keeping the
-same address again later updates that feed. Without any of these resources, the question is answered
-from the catalog alone.
-
 A note that was asked holds a conversation. `askCatalog` with the note's `feedId` asks a follow-up
 question in it, once the previous question has been answered. uris saves each question on the
-analysis that answers it, and **Ask again** asks the latest question again. The lead of a follow-up
-is given the earlier questions and their answers, up to eight of them, with each answer truncated to
-1,500 characters. It is told to read the new question in their context without answering them
-again, and its scouts are told which questions it follows. A follow-up about an earlier answer, such
-as a request to write it in markdown, make it shorter, or turn it into a table, is answered by
-rewriting that answer without any scout, and the lead is not asked to send one. The judges of a
-follow-up see the conversation before it. When the reply is saved, `Analyzer::Conversation` rolls the
-whole conversation into the analysis. Every question and answer becomes its text, and the summary,
-entities, and tags are made from all of it. Search then finds the note by the whole
-conversation.
+analysis that answers it, and **Ask again** asks the latest question again. A follow-up is given the
+earlier questions and their answers, up to eight of them, with each answer truncated to 1,500
+characters, and is searched with the question before it. A follow-up about an earlier answer, such
+as a request to make it shorter or turn it into a table, is answered by saying that answer again as
+asked. When the reply is saved, `Analyzer::Conversation` rolls the whole conversation into the
+analysis. Every question and answer becomes its text, and the summary, entities, and tags are made
+from all of it. Search then finds the note by the whole conversation.
 
-Each answer records the feeds it cited, opened, or kept in a `drew_on` step, and the note's page
-lists them under that answer. The note is also connected to all of them.
+Each answer records the feeds it cited in a `drew_on` step, or the first feed it read when it cites
+none, and the note's page lists them under that answer. The note is also connected to all of them.
 
-The run is confined. `Current.confined_to` holds the feeds the run created, and the `feed` tool's
-writing verbs refuse any other feed. A page that tells the agent to rewrite a note or rename a file
-therefore has no effect. The run can create only notes, never a scheduled feed. `connect` needs one
-end to be the question or a feed the run created. Snapshots are not confined, because the page
-decides what a snapshot contains.
-
-Small models tend to stop early. uris sends a scout's report back, once for each of these problems:
-
-- nothing came from the catalog and the scout never tried the web;
-- the scout searched the web and read no page. The message includes the exact calls for the
-  addresses the search returned;
-- the scout read pages and kept none, while a resource could keep them.
-
-When the lead finishes, uris connects the question to every feed the answer cites, every feed a
-scout opened or created, and every page a scout kept. Then ten judges run on the `smart` model, or
-on the agent's model when no smart model is declared. Each judge sees the question, the lead's
-answer, and only what the scouts' tools returned. Each votes on whether that evidence supports the
-answer, and whether what the run kept is worth keeping. uris stores the vote shares on the analysis
-as the `verified` step, and exposes them as `Analysis.verified` and `Analysis.useful`. A judge that
-fails does not vote. `ASK_VERIFICATIONS` sets the number of judges.
+The agent's run is confined. `Current.confined_to` holds the feeds the run created, and the `feed`
+tool's writing verbs refuse any other feed. A page that tells the agent to rewrite a note or rename
+a file therefore has no effect. The run can create only notes, never a scheduled feed. `connect`
+needs one end to be the question or a feed the run created. Snapshots are not confined, because the
+page decides what a snapshot contains.
 
 ## Budgets and gates
 
