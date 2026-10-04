@@ -194,7 +194,10 @@ class Resource < ApplicationRecord
     end
 
     def internal!(key)
-      held = Resource::Database.find_or_initialize_by(key: key.to_s)
+      held = Resource::Database.find_by(key: key.to_s) || Resource::Database.create_or_find_by!(key: key.to_s) do |made|
+        made.name = INTERNAL.fetch(key.to_sym)
+        made.details = { INTERNAL_MARK => true }
+      end
       held.name ||= INTERNAL.fetch(key.to_sym)
       held.details = held.details.to_h.merge(INTERNAL_MARK => true)
       held.save! if held.changed?

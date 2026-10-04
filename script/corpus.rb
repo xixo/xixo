@@ -94,7 +94,9 @@ puts "#{keys.length} file(s) into #{SUBDOMAIN}, analyzing on #{details.dig('mode
 pending = settle(INDEX_WAIT) do
   Tenant.switch(tenant) do
     uploaded = Reference.where(resource: storage, locator_key: keys)
-    uploaded.where(analyzed_at: nil).or(uploaded.where(feed_id: Analysis.open.select(:feed_id))).pluck(:locator_key)
+    uploaded.where(feed_id: Analysis.open.select(:feed_id))
+            .or(uploaded.where.not(feed_id: Analysis.where(status: Analysis::SETTLED).select(:feed_id)))
+            .pluck(:locator_key)
   end
 end
 
