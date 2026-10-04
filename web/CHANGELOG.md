@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/xixo/xixo/compare/client-v0.4.0...client-v0.4.1) (2026-10-04)
+
+
+### Fixes
+
+* **web:** the package lists keywords, so npm search finds xixo by graphql, urql, and actioncable ([701a3a0](https://github.com/xixo/xixo/commit/701a3a0f2c78e0e2fc09dab5e2d300bdbb400b93))
+
 ## [0.4.0](https://github.com/xixo/xixo/compare/client-v0.3.0...client-v0.4.0) (2026-10-04)
 
 
