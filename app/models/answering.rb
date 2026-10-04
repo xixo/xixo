@@ -2,11 +2,10 @@ class Answering
   ROLE = Resource::OpenaiCompatible::AGENT_ROLE
   STEADY = 0.0
   NUMBER = /(?<![\w.])-?\d[\d,]*(?:\.\d+)?/
-  CITED = /\[feed\s*:?\s*\d+\]/i
   TIME = /\b\d{1,2}:\d{2}\b/
   EARLIER_ANSWER = 1_500
 
-  Answer = Data.define(:said, :reason, :drew_on, :computed, :unsupported)
+  Answer = Data.define(:said, :reason, :drew_on, :unsupported)
 
   PROMPT = <<~TEXT.freeze
     Someone is asking about what they keep: their files, notes, and the pages they saved. Below are the
@@ -16,6 +15,8 @@ class Answering
     and are enough to say which items bear on the question, but not to quote from. A part headed "As a model described what it
     shows" is what a model saw in a picture or a video, not words in the file. A line that opens with a
     time, like [00:03:12], is from that moment in a recording.
+
+    The catalog as a whole, counted: %<holdings>s
 
     %<evidence>s
     %<tables>s%<earlier>s%<today>s
@@ -105,41 +106,47 @@ class Answering
 
       last = round == COMPUTES - 1
       computed = computing(spec, again: last ? LAST : AGAIN)
-      replied = asked(prompt(compute: !last) + "\n\n" + computed[:told])
+      replied = asked("#{prompt(compute: !last)}\n\n#{computed[:told]}")
     end
 
     said = said_in(replied)
 
     if unused?(said, computed)
       @analysis&.log_info("answer", "left out the computed figure", computed[:result]["value"].to_s)
-      replied = asked(prompt(compute: false) + "\n\n" + format(UNUSED, said: said, value: computed[:result]["value"],
-                                                              spec: computed[:spec].to_json))
-      said = said_in(replied)
+      replied, said = retold(format(UNUSED, said: said, value: computed[:result]["value"], spec: computed[:spec].to_json))
     end
 
     unsupported = unsupported_in(said, computed)
 
     if unsupported.any?
       @analysis&.log_info("answer", "numbers not in the evidence", unsupported.join(", "))
-      replied = asked(prompt(compute: false) + "\n\n" + format(UNSUPPORTED, said: said, numbers: unsupported.to_sentence))
-      said = said_in(replied)
+      replied, said = retold(format(UNSUPPORTED, said: said, numbers: unsupported.to_sentence))
       unsupported = unsupported_in(said, computed)
     end
 
     Answer.new(said: said, reason: replied["world"] == true ? :world : :answered, drew_on: drawn_on(said),
-               computed: computed&.dig(:result), unsupported: unsupported)
+               unsupported: unsupported)
   end
 
   private
 
     def searched
-      [ *@earlier.last(1).map(&:question), @question ].join(" ")
+      [ @earlier.last&.question, @question ].compact.join(" ")
+    end
+
+    def holdings
+      @holdings ||= Holdings.said
+    end
+
+    def retold(told)
+      replied = asked("#{prompt(compute: false)}\n\n#{told}")
+      [ replied, said_in(replied) ]
     end
 
     def prompt(compute: true)
       computing = compute && evidence.tables.any?
 
-      format(PROMPT, evidence: evidence.empty? ? "(nothing in the catalog matched)" : evidence.told,
+      format(PROMPT, holdings: holdings, evidence: evidence.empty? ? "(nothing in the catalog matched)" : evidence.told,
                      tables: tables_told, earlier: earlier_told, question: @question, today: "#{Today.said} #{Today.spans}",
                      compute: computing ? "#{COMPUTE} " : "", shape: computing ? COMPUTE_SHAPE : "")
     end
@@ -160,7 +167,7 @@ class Answering
     end
 
     def asked(text)
-      @inference.summarize(text, role: ROLE, analysis: @analysis, effort: @inference.ask_effort, temperature: STEADY)
+      @inference.summarize(text, role: ROLE, analysis: @analysis, temperature: STEADY)
     end
 
     def computing(spec, again:)
@@ -200,8 +207,11 @@ class Answering
     end
 
     def unsupported_in(said, computed)
-      known = numbers([ evidence.text, @question, *@earlier.map(&:said), computed&.dig(:result).to_json ].join("\n"))
-      numbers(said.gsub(CITED, "").gsub(TIME, "")) - known
+      numbers(said.gsub(Citation::CITED, "").gsub(TIME, "")) - known - numbers(computed&.dig(:result).to_json)
+    end
+
+    def known
+      @known ||= numbers([ evidence.text, @question, *@earlier.map(&:said) ].join("\n"))
     end
 
     def numbers(text)
@@ -214,7 +224,7 @@ class Answering
     end
 
     def drawn_on(said)
-      named = said.scan(/\[feed\s*:?\s*(\d+)\]/i).flatten.map(&:to_i)
+      named = Citation.ids(said)
       evidence.feeds.select { |feed| named.include?(feed.id) }.map(&:id).presence || evidence.feeds.first(1).map(&:id)
     end
 end

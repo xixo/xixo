@@ -25,7 +25,7 @@ class TablesTest < ActiveSupport::TestCase
 
     assert_equal [ "Container", "Qty", "Unit price (CAD)", "Line total (CAD)" ], table["columns"]
     assert_equal "Hartwell Square Jar 1L", table["rows"].first.first
-    assert_equal 4, table["rows"].size, "blank rows go, and so does nothing else"
+    assert_equal 3, table["rows"].size, "blank rows and the total go, and so does nothing else"
   end
 
   test "a sheet with no row of two cells is not a table" do

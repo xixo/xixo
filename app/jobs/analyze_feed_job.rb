@@ -171,7 +171,7 @@ class AnalyzeFeedJob < ApplicationJob
 
       led = Agent.new(grant: grant, analysis: analysis, halted: -> { analysis.halted? }, label: "world")
                  .call(format(WORLD, reach: reach.told, question: asking.question))
-      Answering::Answer.new(said: led.said.to_s, reason: led.reason, drew_on: [], computed: nil, unsupported: [])
+      Answering::Answer.new(said: led.said.to_s, reason: led.reason, drew_on: [], unsupported: [])
     end
 
     def drew(feed, held)

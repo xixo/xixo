@@ -20,6 +20,10 @@ module Outline
       outline.map { |part| part["from"].to_i }.select(&:positive?).uniq.sort
     end
 
+    def span(outline, from, length)
+      [ from, starts(outline).find { |at| at > from } || length ]
+    end
+
     private
 
       def headings(body)

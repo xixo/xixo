@@ -12,6 +12,7 @@ class Holdings
 
     [
       "It holds #{counted}.",
+      ("By kind, the files are #{listed(majors)}." if majors.any?),
       ("The most common kinds of file are #{listed(kinds)}." if kinds.any?),
       ("The tags most used are #{listed(tags)}." if tags.any?)
     ].compact.join(" ")
@@ -24,6 +25,11 @@ class Holdings
   def kinds
     @kinds ||= Reference.originals.where(feed_id: Feed.files.select(:id)).where.not(mime: nil)
                         .group(:mime).count.max_by(KINDS) { |_mime, count| count }
+  end
+
+  def majors
+    @majors ||= Reference.originals.where(feed_id: Feed.files.select(:id)).where.not(mime: nil)
+                         .group(Arel.sql("split_part(mime, '/', 1)")).count.sort_by { |_kind, count| -count }
   end
 
   def tags

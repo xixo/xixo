@@ -5,7 +5,6 @@ module Types
     grants "uris:catalog:read"
 
     SUMMARY = 400
-    CITATION = /\s*\[feed\s*:?\s*\d+\]/i
     CONNECTED = 200
 
     field :id, ID, null: false
@@ -63,7 +62,7 @@ module Types
       said = passed && (passed.step_result("text").presence || passed.step_result("ocr").presence)
       said = object.note if said.blank?
 
-      said.to_s.gsub(CITATION, "").gsub(/[*`]+/, "").gsub(/[#>|\\]+/, " ").squish.truncate(SUMMARY).presence
+      Citation.stripped(said).gsub(/[*`]+/, "").gsub(/[#>|\\]+/, " ").squish.truncate(SUMMARY).presence
     end
 
     def details

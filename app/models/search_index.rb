@@ -198,17 +198,19 @@ module SearchIndex
     def page(query, tenant: Current.tenant, type: nil, mime: nil, tag: nil, limit: 50, from: 0, least: LOOSE_MATCH)
       raise ArgumentError, "no tenant" if tenant.nil?
 
-      facets = { type: type, mime: mime, tag: tag, least: least }
+      facets = { type: type, mime: mime, tag: tag }
       vector = wanted_vector(query, limit: limit, from: from)
 
-      return lexical(query, tenant: tenant, limit: limit, from: from, **facets) if vector.nil?
+      if vector.nil?
+        held = lexical(query, tenant: tenant, limit: limit, from: from, least: least, **facets)
+        return held.merge(worded: held[:ids])
+      end
 
-      found = lexical(query, tenant: tenant, limit: CANDIDATES, from: 0, **facets)
-      passages = facets.except(:least).compact_blank.empty? ? PassageIndex.nearest(vector, tenant: tenant, limit: CANDIDATES) : []
-      fused = fuse(found[:ids], nearest(vector, tenant: tenant, limit: CANDIDATES, **facets.except(:least)),
-                   passages.map(&:feed_id).uniq)
+      found = lexical(query, tenant: tenant, limit: CANDIDATES, from: 0, least: least, **facets)
+      passages = facets.compact_blank.empty? ? PassageIndex.nearest(vector, tenant: tenant, limit: CANDIDATES) : []
+      fused = fuse(found[:ids], nearest(vector, tenant: tenant, limit: CANDIDATES, **facets), passages.map(&:feed_id).uniq)
 
-      { ids: fused.drop(from).first(limit), total: [ found[:total], fused.length ].max }
+      { ids: fused.drop(from).first(limit), total: [ found[:total], fused.length ].max, worded: found[:ids] }
     end
 
     def lexical(query, tenant:, limit:, from:, type: nil, mime: nil, tag: nil, least: LOOSE_MATCH)

@@ -18,13 +18,6 @@ module Analyzer
       { ".csv" => ",", ".tsv" => "\t" }[File.extname(reference.locator_key.to_s).downcase]
     end
 
-    def summary_body
-      tables = Array(step_result(:tables))
-      return super if tables.empty?
-
-      fenced(tables.map { |table| Tables.shape(table) }.join("\n\n"))
-    end
-
     private
 
       def tables_of(body)

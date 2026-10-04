@@ -14,6 +14,7 @@ module Tool
       the and for are but not you your all any can had has have her his how its our out who why was were
       what when where which will with this that these those from into about there their them then than
       does did done been being also just only some such very would could should shall may might must
+      much many need tell know want give show find get got say said like please thanks one ones put
     ].freeze
 
     description <<~TEXT
@@ -223,8 +224,12 @@ module Tool
       end
     end
 
+    def self.words(find)
+      (find.to_s.downcase.scan(/[[:alnum:]]{3,}/).uniq - COMMON).first(FIND_WORDS)
+    end
+
     def self.worded(body, find)
-      words = (find.to_s.downcase.scan(/[[:alnum:]]{3,}/).uniq - COMMON).first(FIND_WORDS)
+      words = words(find)
       return [] if words.empty?
 
       pattern = Regexp.new(words.map { |word| Regexp.escape(word) }.join("|"), Regexp::IGNORECASE)

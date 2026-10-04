@@ -1,6 +1,4 @@
 class Asking
-  CITATION = /\s*(?:\b(?:based on|from|per|in|see)\s+)?\[?feed\s*:?\s*\d+\]?/i
-  LINKED_CITATION = /\[feed\s*:?\s*(\d+)\]\([^)]*\)/i
   EARLIER = 8
 
   TITLE_ROLES = [ Resource::OpenaiCompatible::AGENT_ROLE, :fast, :smart ].freeze
@@ -36,13 +34,12 @@ class Asking
   def title!(answer)
     return if feed.title.present? || answer.blank?
 
-    role = TITLE_ROLES.find { |held| Resource.for_role(held) }
-    inference = role && Resource.for_role(role)
+    role, inference = titler
     return if inference.nil?
 
     prompt = format(ANSWERED_TITLE, question: question, answer: answer.to_s.truncate(Answering::EARLIER_ANSWER))
-    named = inference.summarize(prompt, role: role, analysis: @analysis, effort: inference.ask_effort)["title"]
-    named = named.to_s.gsub(CITATION, "").squish.delete_prefix('"').delete_suffix('"')
+    named = inference.summarize(prompt, role: role, analysis: @analysis)["title"]
+    named = Citation.stripped(named).delete_prefix('"').delete_suffix('"')
                  .sub(/[\s,:;-]+\z/, "").truncate_words(ANSWERED_TITLE_WORDS, omission: "")
     return if named.blank?
 
@@ -68,10 +65,19 @@ class Asking
   end
 
   def tidied(said)
-    said.to_s.gsub(LINKED_CITATION) { "[feed #{Regexp.last_match(1)}]" }
+    Citation.unlinked(said)
   end
 
   private
+
+    def titler
+      TITLE_ROLES.each do |role|
+        found = Resource.for_role(role)
+        return [ role, found ] if found
+      end
+
+      nil
+    end
 
     def about
       return @about if defined?(@about)

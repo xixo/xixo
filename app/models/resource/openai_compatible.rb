@@ -288,6 +288,10 @@ class Resource
       held == AS_IT_LIKES ? nil : held
     end
 
+    def effort_for(role)
+      role.to_s == AGENT_ROLE ? ask_effort : routine_effort
+    end
+
     def time_allowed
       minutes = details.to_h["time_allowed"].to_i
       minutes.clamp(1, Feed::MAX_TIMEOUT.in_minutes.to_i).minutes if minutes.positive?
@@ -345,14 +349,14 @@ class Resource
       Rails.logger.warn "#{key}: a turn could not be recorded — #{e.message}"
     end
 
-    def summarize(prompt, role:, analysis: nil, images: [], temperature: nil, effort: nil)
+    def summarize(prompt, role:, analysis: nil, images: [], temperature: nil)
       model = model_for(role)
       tries = attempts_for(role)
       last = nil
 
       tries.times do |index|
         answer = complete(prompt, model: model, role: role, analysis: analysis,
-                          attempt: index + 1, images: images, temperature: temperature, effort: effort)
+                          attempt: index + 1, images: images, temperature: temperature, effort: effort_for(role))
         parsed = self.class.extract_json(answer)
 
         return parsed if parsed.is_a?(Hash) && parsed.present?

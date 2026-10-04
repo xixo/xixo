@@ -232,13 +232,14 @@ module Analyzer
         Dir.mktmpdir do |dir|
           Array.new(count) do |index|
             at = duration * (index + 0.5) / count
+            moment = stamped(at)
             frame = File.join(dir, "#{index}.jpg")
             run_command("ffmpeg", "-v", "error", "-y", "-ss", at.round(2).to_s, "-i", path,
                         "-frames:v", "1", "-vf", "scale=#{FRAME_WIDTH}:-2", frame)
 
-            said = seeing.summarize(format(SCENE, at: stamped(at)), role: :vision, analysis: analysis,
+            said = seeing.summarize(format(SCENE, at: moment), role: :vision, analysis: analysis,
                                     images: [ File.binread(frame) ])["caption"].to_s.squish
-            { "at" => stamped(at), "caption" => said } if said.present?
+            { "at" => moment, "caption" => said } if said.present?
           end.compact
         end
       end

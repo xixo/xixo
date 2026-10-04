@@ -16,7 +16,7 @@ module Tables
       return nil if at.nil?
 
       columns = rows[at].each_with_index.map { |cell, index| cell.to_s.presence || "Column #{index + 1}" }
-      body = rows.drop(at + 1).reject { |row| row.compact.empty? }.first(ROWS)
+      body = rows.drop(at + 1).reject { |row| row.compact.empty? || row.compact.first.to_s.match?(TOTALLED) }.first(ROWS)
 
       { "name" => name.to_s, "columns" => columns, "rows" => body.map { |row| row.first(columns.size) } }
     end
@@ -31,23 +31,7 @@ module Tables
     end
 
     def shape(table)
-      [ described(table), "Across its rows, the values run #{spread(table, counted(table)).join('; ')}." ].join("\n")
-    end
-
-    def spread(table, rows)
-      table["columns"].each_with_index.filter_map do |name, at|
-        values = rows.map { |row| row[at] }.compact
-        next if values.empty?
-
-        numbers = values.filter_map { |value| number(value) }
-        next "#{name} from #{numbers.min} to #{numbers.max}" if numbers.size == values.size
-
-        texts = values.map(&:to_s)
-        next "#{name} from #{texts.min} to #{texts.max}" if values.size >= SPREAD && texts.uniq.size * 2 > texts.size
-
-        common = values.tally.max_by(SPREAD) { |_, count| count }.map { |value, count| "#{value} (#{count})" }
-        "#{name}: #{common.join(', ')}"
-      end
+      [ described(table), "Across its rows, the values run #{spread(table, table['rows']).join('; ')}." ].join("\n")
     end
 
     def compute(tables, spec)
@@ -58,8 +42,8 @@ module Tables
       op = spec["op"].to_s.downcase
       raise Refused, "op is one of #{OPS.join(', ')}" unless OPS.include?(op)
 
-      rows = Array(spec["where"]).reduce(counted(table)) { |held, test| filtered(table, held, test) }
-      matched = { "rows" => rows.size, "spread" => spread(table, rows.presence || counted(table)) }
+      rows = Array(spec["where"]).reduce(table["rows"]) { |held, test| filtered(table, held, test) }
+      matched = { "rows" => rows.size, "spread" => spread(table, rows.presence || table["rows"]) }
       return { "op" => op, "value" => rows.size }.merge(matched) if op == "count"
 
       at = column(table, spec["column"])
@@ -71,16 +55,28 @@ module Tables
 
     private
 
+      def spread(table, rows)
+        table["columns"].each_with_index.filter_map do |name, at|
+          values = rows.map { |row| row[at] }.compact
+          next if values.empty?
+
+          numbers = values.filter_map { |value| number(value) }
+          next "#{name} from #{numbers.min} to #{numbers.max}" if numbers.size == values.size
+
+          texts = values.map(&:to_s)
+          next "#{name} from #{texts.min} to #{texts.max}" if values.size >= SPREAD && texts.uniq.size * 2 > texts.size
+
+          common = values.tally.max_by(SPREAD) { |_, count| count }.map { |value, count| "#{value} (#{count})" }
+          "#{name}: #{common.join(', ')}"
+        end
+      end
+
       def header_at(rows)
         head = rows.first(HEADER_WITHIN)
         widest = head.map { |row| row.compact.size }.max.to_i
         return nil if widest < 2
 
         head.index { |row| row.compact.size == widest }
-      end
-
-      def counted(table)
-        table["rows"].reject { |row| row.compact.first.to_s.match?(TOTALLED) }
       end
 
       def filtered(table, rows, test)
@@ -98,7 +94,7 @@ module Tables
         numbers.compact.any? && numbers.all? { |held| held.nil? || held <= 0 }
       end
 
-      def passes?(cell, how, wanted, sized: false)
+      def passes?(cell, how, wanted, sized:)
         text = cell.to_s.downcase
         sought = wanted.to_s.downcase
 

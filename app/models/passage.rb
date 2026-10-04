@@ -65,7 +65,7 @@ class Passage < ApplicationRecord
       resource = Embedding.held
       return 0 if resource.nil?
 
-      held = unembedded.includes(:feed).order(:id).limit(limit).to_a
+      held = unembedded.includes(feed: :analyses).order(:id).limit(limit).to_a
       return 0 if held.empty?
 
       vectors = resource.embed(held.map(&:embedded_text))

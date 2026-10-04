@@ -55,7 +55,7 @@ module Analyzer
 
     SUMMARY_TEXT = 10_000
     SUMMARY_TAGS = 8
-    ENTITIES_ASKED = 30
+    ENTITIES = 30
 
     def self.summary_role
       :smart
@@ -98,7 +98,7 @@ module Analyzer
 
         - entities: the proper names, products, companies, people, places, amounts,
           reference numbers and dates above, written exactly as they appear, the most
-          important first and #{ENTITIES_ASKED} at most. Fill this first. An empty array
+          important first and #{ENTITIES} at most. Fill this first. An empty array
           if there are none.
         - summary: #{says}
         - tags: 3 to #{SUMMARY_TAGS} tags to file it under and find it by, the way a person
@@ -135,6 +135,9 @@ module Analyzer
     end
 
     def summary_body
+      tables = Array(step_result(:tables))
+      return fenced(tables.map { |table| Tables.shape(table) }.join("\n\n")) if tables.any?
+
       text = step_result(:text).to_s.strip
       named = Outline.of(text, stored: step_result(:outline)).map { |part| part["name"] }.uniq
       return fenced(text) if text.length <= SUMMARY_TEXT || named.empty?
@@ -159,9 +162,6 @@ module Analyzer
       []
     end
 
-    def summary_effort
-      inference&.routine_effort
-    end
 
     def derive!
       step(:derived, digest: Thumbnail.widths.to_json) { Thumbnail.stored!(feed, reference) }
@@ -319,7 +319,7 @@ module Analyzer
              after: [ self.class.summary_after, inference.updated_at ].max,
              digest: Digest::SHA256.hexdigest([ inference.key, model, prompt ].to_json),
              about: { "resource" => inference.key, "model" => model, "role" => role.to_s }) do
-          shaped(inference.summarize(prompt, role: role, analysis: analysis, images: summary_images, effort: summary_effort))
+          shaped(inference.summarize(prompt, role: role, analysis: analysis, images: summary_images))
         end
       rescue Resource::Unusable => e
         raise Analyzer::Failed, e.message
@@ -327,14 +327,13 @@ module Analyzer
 
       def shaped(answer)
         {
-          "summary" => answer["summary"].to_s.strip.presence,
-          "entities" => terms(answer["entities"]).first(ENTITIES),
-          "tags" => tags(answer["tags"])
+          "summary" => Citation.stripped(answer["summary"]).presence,
+          "entities" => terms(answer["entities"]).map { |word| Citation.stripped(word) }.compact_blank.first(ENTITIES),
+          "tags" => tags(answer["tags"]).map { |word| Citation.stripped(word) }.compact_blank
         }.compact_blank
       end
 
       TAG_WORDS = 4
-      ENTITIES = 40
 
       def tags(given)
         terms(given).reject { |word| STOPWORDS.include?(word.downcase) }

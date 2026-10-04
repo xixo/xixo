@@ -126,7 +126,9 @@ When no resource serves the `agent` role, the `fast` or `smart` model titles the
    summary, so a question about which items or how many can see past the five read in full. The
    model is told that a feed read by several sections is still one item, and that a feed known
    only by its summary is enough to name but not to quote.
-2. **Answer.** The model that serves the `agent` role reads the evidence, the conversation so far,
+2. **Answer.** The model that serves the `agent` role reads a count of the whole catalog, by type and
+   by kind of file such as image or audio, so it can say how many photos there are, then the
+   evidence, the conversation so far,
    today's date with this and last month, quarter, and year spelled out as dates, and the question
    in one call, and answers in JSON with the feeds it used cited as
    `[feed 12]`, in the form the question asks for. It is told to copy every number, name, and date as
