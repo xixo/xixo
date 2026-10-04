@@ -9,6 +9,7 @@ module Analyzer
     ].freeze
 
     SAMPLE_ROWS = 20
+    WRITTEN_AS = "every row, with an outline".freeze
     MAX_COLUMNS = 30
     CELL = 200
 
@@ -21,8 +22,8 @@ module Analyzer
 
       written = nil
       writing = -> { written ||= with_workbook { |workbook| self.class.written_out(workbook) } }
-      step(:outline) { writing.call.last }
-      step(:text) { writing.call.first }
+      step(:outline, digest: WRITTEN_AS) { writing.call.last }
+      step(:text, digest: WRITTEN_AS) { writing.call.first }
     end
 
     def self.written_out(workbook)
