@@ -60,7 +60,29 @@ class AskingTest < ActionDispatch::IntegrationTest
     assert_equal 1, @server.prompts.count { |prompt| prompt.include?("Answer from the parts above alone") }
 
     asked_with = @server.prompts.find { |prompt| prompt.include?("How much is the Acme invoice?") }
-    assert_includes asked_with, "[feed #{@invoice.id}] Acme invoice › Note\n---\nAcme invoice 0042 for $4,200"
+    assert_includes asked_with, "[feed #{@invoice.id}] Acme invoice, read in full:\n--- Note ---\nAcme invoice 0042 for $4,200"
+  end
+
+  test "beyond what it reads in full, an answer sees what else the search found, by summary" do
+    Tenant.switch(@tenant) do
+      6.times do |index|
+        Feed.create!(type: Feed::NOTE, key: "Invoice #{index}", title: "Invoice #{index}", note: "An invoice.").tap do |feed|
+          Analysis.create!(feed: feed, cause: "manual", status: "done", finished_at: Time.current,
+                           steps: { "summary" => { "result" => { "summary" => "Invoice #{index} from a plumber, for $#{index}00." } } })
+          SearchIndex.index(feed)
+        end
+      end
+    end
+    SearchIndex.refresh!
+    answers("Seven invoices mention money [feed #{@invoice.id}].")
+
+    ask("Which invoice mentions money?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    asked_with = @server.prompts.find { |prompt| prompt.include?("Which invoice mentions money?") }
+    assert_includes asked_with, "Other items the search found, known only by a model's summary of each:"
+    assert_match(/- \[feed \d+\] Invoice \d: Invoice \d from a plumber, for \$\d00\./, asked_with)
+    assert_operator asked_with.scan(", read in full").size, :<=, Evidence::FEEDS
   end
 
   test "a question is answered without thinking unless the backend asks for an effort" do
@@ -191,6 +213,16 @@ class AskingTest < ActionDispatch::IntegrationTest
       assert_equal "How much is the Acme invoice?", note.key
       assert_operator analysis.finished_at, :<=, analysis.steps.dig("conversation", "finished_at").then { |at| Time.iso8601(at) }
     end
+  end
+
+  test "a title never carries the feed an answer cited" do
+    answers("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
+    @server.answer_json(title: "Acme invoice: $4,200, based on feed #{@invoice.id}")
+
+    asked = ask("How much is the Acme invoice?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    Tenant.switch(@tenant) { assert_equal "Acme invoice: $4,200", Feed.find(asked.dig("feed", "id")).title }
   end
 
   test "with no fast model the note is titled by the slower model" do

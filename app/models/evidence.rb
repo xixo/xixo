@@ -1,5 +1,6 @@
 class Evidence
   Piece = Data.define(:feed, :section, :text)
+  Glimpse = Data.define(:feed, :gist)
 
   BUDGET = 24_000
   WHOLE = 10_000
@@ -11,11 +12,13 @@ class Evidence
   LONG = 30
   HEAD = 4
   MATCHING = 15
-  FOUND = 12
+  FOUND = 40
+  GLANCED = 20
+  GIST = 240
   ANY_WORD = "1".freeze
   ASKING = %w[much many need tell know want give show find get got say said like please thanks one ones put].freeze
 
-  attr_reader :pieces, :tables
+  attr_reader :pieces, :tables, :glimpses
 
   def initialize(question, first: [], leaving_out: [])
     @question = question.to_s
@@ -23,32 +26,55 @@ class Evidence
     @leaving_out = leaving_out
     @pieces = []
     @tables = []
+    @glimpses = []
     gather
   end
 
   def feeds
-    @pieces.map(&:feed).uniq
+    (@pieces.map(&:feed) + @glimpses.map(&:feed)).uniq
   end
 
-  def empty? = @pieces.empty?
+  def empty? = @pieces.empty? && @glimpses.empty?
 
   def text
-    @pieces.map(&:text).join("\n")
+    (@pieces.map(&:text) + @glimpses.map(&:gist)).join("\n")
   end
 
   def told
-    @pieces.map do |piece|
-      named = [ "[feed #{piece.feed.id}] #{piece.feed.title.presence || piece.feed.key}", piece.section ].compact.join(" › ")
-      "#{named}\n---\n#{piece.text.strip}\n---"
-    end.join("\n\n")
+    [ read_told, glimpses_told ].compact_blank.join("\n\n")
   end
 
   private
 
+    def named(feed)
+      "[feed #{feed.id}] #{feed.title.presence || feed.key}"
+    end
+
+    def read_told
+      @pieces.chunk_while { |one, other| one.feed == other.feed }.map do |held|
+        parts = held.map { |piece| [ ("--- #{piece.section} ---" if piece.section), piece.text.strip ].compact.join("\n") }
+        "#{named(held.first.feed)}, read in full#{', by its sections' if held.many?}:\n#{parts.join("\n")}\n--- end of feed #{held.first.feed.id} ---"
+      end.join("\n\n")
+    end
+
+    def glimpses_told
+      return nil if @glimpses.empty?
+
+      listed = @glimpses.map { |held| "- #{named(held.feed)}: #{held.gist}" }
+      "Other items the search found, known only by a model's summary of each:\n#{listed.join("\n")}"
+    end
+
     def gather
       left = BUDGET
+      ranked = candidates
+      deep, wide = ranked.first(FEEDS), ranked.drop(FEEDS)
 
-      candidates.each do |feed|
+      @glimpses = wide.filter_map do |feed|
+        gist = [ feed.summary, feed.described_text ].compact_blank.first
+        Glimpse.new(feed: feed, gist: gist.squish.truncate(GIST)) if gist
+      end.first(GLANCED)
+
+      deep.each do |feed|
         break if left <= 0
 
         tables = Tables.of(feed)
@@ -71,9 +97,9 @@ class Evidence
       ids = (@first.map(&:id) + worded + found).uniq
       asked = Analysis.where(cause: "ask").select(:feed_id)
       held = Feed.where(id: ids).where.not(id: @leaving_out.map(&:id)).where.not(id: asked)
-                 .where.not(type: [ Feed::TAG, Feed::MIME ]).index_by(&:id)
+                 .where.not(type: [ Feed::TAG, Feed::MIME ]).includes(:analyses, children: :analyses).index_by(&:id)
 
-      ids.filter_map { |id| held[id] }.first(FEEDS)
+      ids.filter_map { |id| held[id] }
     end
 
     def keywords

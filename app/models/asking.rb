@@ -1,4 +1,5 @@
 class Asking
+  CITATION = /\s*(?:\b(?:based on|from|per|in|see)\s+)?\[?feed\s*:?\s*\d+\]?/i
   LINKED_CITATION = /\[feed\s*:?\s*(\d+)\]\([^)]*\)/i
   EARLIER = 8
 
@@ -41,7 +42,8 @@ class Asking
 
     prompt = format(ANSWERED_TITLE, question: question, answer: answer.to_s.truncate(Answering::EARLIER_ANSWER))
     named = inference.summarize(prompt, role: role, analysis: @analysis, effort: inference.ask_effort)["title"]
-    named = named.to_s.squish.delete_prefix('"').delete_suffix('"').truncate_words(ANSWERED_TITLE_WORDS, omission: "")
+    named = named.to_s.gsub(CITATION, "").squish.delete_prefix('"').delete_suffix('"')
+                 .sub(/[\s,:;-]+\z/, "").truncate_words(ANSWERED_TITLE_WORDS, omission: "")
     return if named.blank?
 
     feed.update!(title: named)

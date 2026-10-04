@@ -122,7 +122,10 @@ When no resource serves the `agent` role, the `fast` or `smart` model titles the
    one sheet of a workbook or one minute of a transcript. A table of more than 30 rows is read as its
    first lines and up to 15 rows that mention the question's keywords, with a line saying how many
    rows it has. A feed's note, and what a model described it as, come first. The evidence stops at
-   24,000 characters.
+   24,000 characters. Up to 20 more of the feeds the search found follow, each as one line with its
+   summary, so a question about which items or how many can see past the five read in full. The
+   model is told that a feed read by several sections is still one item, and that a feed known
+   only by its summary is enough to name but not to quote.
 2. **Answer.** The model that serves the `agent` role reads the evidence, the conversation so far,
    today's date with this and last month, quarter, and year spelled out as dates, and the question
    in one call, and answers in JSON with the feeds it used cited as

@@ -16,10 +16,13 @@ module SearchIndex
         path_parts: { type: "pattern", pattern: "[/\\\\\\-_.\\s]+" }
       },
       analyzer: {
-        path: { type: "custom", tokenizer: "path_parts", filter: [ "lowercase" ] }
+        path: { type: "custom", tokenizer: "path_parts", filter: [ "lowercase" ] },
+        stemmed: { type: "custom", tokenizer: "standard", filter: [ "lowercase", "kstem" ] }
       }
     }
   }.freeze
+
+  STEMMED = { type: "text", analyzer: "stemmed" }.freeze
 
   MAPPING = {
     dynamic: false,
@@ -29,11 +32,11 @@ module SearchIndex
       mime: { type: "keyword" },
       tags: { type: "text", analyzer: "path", fields: { raw: { type: "keyword" } } },
       key: { type: "text", analyzer: "path" },
-      title: { type: "text", analyzer: "path" },
+      title: { type: "text", analyzer: "path", fields: { stemmed: STEMMED } },
       locator_key: { type: "text", analyzer: "path" },
-      note: { type: "text" },
-      summary: { type: "text" },
-      body: { type: "text" },
+      note: { type: "text", fields: { stemmed: STEMMED } },
+      summary: { type: "text", fields: { stemmed: STEMMED } },
+      body: { type: "text", fields: { stemmed: STEMMED } },
       resource_ids: { type: "long" },
       created_at: { type: "date" },
       embedding: {
@@ -43,6 +46,9 @@ module SearchIndex
       }
     }
   }.freeze
+
+  FIELDS = %w[title^3 title.stemmed^3 key^3 tags^3 note^2 note.stemmed^2 summary^2 summary.stemmed^2
+              locator_key body body.stemmed].freeze
 
   STAMP = Digest::SHA256.hexdigest([ SETTINGS, MAPPING ].to_json).first(12).freeze
 
@@ -223,7 +229,7 @@ module SearchIndex
     def matched(query, tenant:, size:, least: nil, type: nil, mime: nil, tag: nil)
       must = if query.present?
         [ { multi_match: {
-          query: query, fields: %w[title^3 key^3 tags^3 note^2 summary^2 locator_key body],
+          query: query, fields: FIELDS,
           **(least ? { operator: "or", minimum_should_match: least } : { operator: "and", type: "bool_prefix" })
         } } ]
       else

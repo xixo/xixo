@@ -42,12 +42,17 @@ A query with text runs a `multi_match` over these fields, with these boosts:
 | 2 | `note` and `summary` |
 | 1 | `locator_key` and `body` |
 
+`title`, `note`, `summary`, and `body` are also indexed a second time through the `kstem` stemmer,
+and searched with the same boosts, so a word finds its other forms: `invoices` finds `invoice`, and
+`kilners` finds `Kilner`.
+
 The first search is strict. It uses the `and` operator, so every word has to match, and the
 `bool_prefix` type, so the last word matches as a prefix. A query of `acme inv` finds a feed that
 contains `acme` and `invoice`.
 
 If the strict search does not fill the requested page, and the query has three or more words, uris
-runs a second, looser search. The loose search requires 60% of the words to match. Its results go
+runs a second, looser search. The loose search requires 60% of the words to match, or as few as the caller asks for: an answer's
+evidence asks for any one of the question's keywords. Its results go
 after the strict results, without duplicates, and the reported total is the larger of the two
 totals. A query of one or two words gets only the strict search.
 
