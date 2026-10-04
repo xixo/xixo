@@ -109,3 +109,27 @@
     - ask: what's Marguerite's number?
       expect:
         - /555[\s.-]?0143/
+
+- id: bellwether-invoice
+  turns:
+    - ask: how much is the Bellwether Surveying invoice for?
+      expect:
+        - /\b880\b/
+
+- id: condition-report-drainage
+  turns:
+    - ask: what did the condition report say about the drainage?
+      expect:
+        - /gully|leaf litter|soakaway/i
+
+- id: felt-comes-off
+  turns:
+    - ask: when does the felt come off the roof at Bellwether Lane?
+      expect:
+        - /\b22(nd)?\b/
+
+- id: surveyor-second-visit
+  turns:
+    - ask: when is the surveyor's second visit?
+      expect:
+        - /aug(ust)?\.?\s*30|30(th)?\s*(of\s*)?aug|2026-08-30/i

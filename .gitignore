@@ -52,7 +52,10 @@
 
 # A local reference corpus for exercising the analyzers by hand. Mostly binary
 # and 30MB of it is one raw photo, so it lives on disk rather than in history.
-/test/fixtures/corpus
+# The asks group and the questions asked of it are small, and are kept.
+/test/fixtures/corpus/*
+!/test/fixtures/corpus/asks/
+!/test/fixtures/corpus/cases.yml
 
 
 .masks/

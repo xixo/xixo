@@ -23,8 +23,7 @@ USAGE = <<~TEXT
     psql           a shell on postgres
     console        a rails console
     seed           re-run the seeds
-    corpus [group] load the reference corpus and analyse what comes back
-    asks [ids]     ask the eval questions against the asks fixtures and score the answers
+    corpus [group] index the reference corpus in its own tenant, then ask it cases.yml and score the answers
     test [suite]   unit, server, client, corpus
     reference      regenerate the reference pages under docs/ from the code
     delegation     connect an MCP server through masks and put the whole flow through its paces
@@ -260,12 +259,8 @@ when "psql" then run!(*compose("exec", "postgres", "psql", "-U", "postgres", mul
 when "console" then run!(*compose("exec", "uris", "bin/rails", "console", multi: multi))
 when "seed" then run!(*compose("exec", "-T", "uris", "bin/rails", "db:seed", multi: multi))
 when "corpus"
-  tenant = ENV.fetch("URIS_TENANT", "uris")
-  run!(*compose("exec", "-T", *forwarded("CORPUS_"), "-e", "CORPUS_TENANT=#{tenant}", "-e", "CORPUS_GROUP=#{ARGV.first}",
+  run!(*compose("exec", "-T", *UNPINNED, *forwarded("CORPUS_"), "-e", "CORPUS_GROUP=#{ARGV.first}",
                 "uris", "bin/rails", "runner", "script/corpus.rb", multi: multi))
-when "asks"
-  run!(*compose("exec", "-T", *UNPINNED, *forwarded("ASKS_"), "-e", "ASKS_ONLY=#{ARGV.join(',')}",
-                "uris", "bin/rails", "runner", "script/asks.rb", multi: multi))
 when "test" then test(ARGV, multi)
 when "reference"
   run!(*compose("up", "-d", "--wait", "uris", multi: multi))
