@@ -77,7 +77,13 @@ the first analyzer that claims the mime type:
 The order matters. `text/calendar` and `text/csv` are both text types. They reach `Calendar` and
 `Data` only because those come before `Text`. `Fallback` claims everything else. It records the size,
 detects the format from magic bytes, reads the file as text if it looks printable, and lists the
-entries if the file is a zip.
+entries if the file is a zip, a tar, or a tar compressed with gzip. A tar is known by its `ustar`
+header and a gzip by the tar inside it. The listing leaves out the pax headers and `._` files that a
+tar made on a Mac carries. A gzip that holds anything other than a tar is not listed.
+
+Every analyzer that reads a file as text decodes it the same way. A UTF-16 file with a byte order
+mark is read as UTF-16, a UTF-8 byte order mark is dropped, and valid UTF-8 is kept as it is. Anything
+else is read as Windows-1252, the superset of Latin-1 that older text files are almost always in.
 
 `Pdf` reads the text layer with `pdftotext`. When that yields fewer than 40 characters a page, the
 PDF is taken to be a scan: its first 30 pages are rendered at 200 dpi and read with `tesseract`, and
@@ -103,7 +109,9 @@ with no position in it, which some cameras write on every frame, reads as latitu
 and xixo treats it as no location. When a **Places** resource has **Name where photos were taken**
 on, `Image` asks that resource for the address, records it under the step `place`, and tells the
 summary where the photo was taken. The vision model's description of the image is its summary, and
-`Image` keeps it under `caption` too.
+`Image` keeps it under `caption` too. A GIF, WebP, or APNG records how many frames it has under the
+step `frames`. With more than one, the vision model is sent up to four frames spread evenly across
+it, in order, and told it is looking at an animation, so the description covers what happens in it.
 
 `Media` claims audio and video. The `probe` step records the length, streams, and tags such as
 title, artist, and album. For anything with a sound track, one `ffmpeg` pass records the `signal`
@@ -131,7 +139,8 @@ Every analyzer inherits the same sequence from `Analyzer::Base`:
    capture keeps its full length at that width. A PDF's first page
    is drawn at both sizes, so it stays sharp at any setting. A photo or a video frame is never made
    larger than it is. The hi-res image is what a thumbnail opens and what the vision
-   model reads. Changing either setting renders an item's images again the next time it is
+   model reads, except for a GIF: its item page plays the GIF itself when it is 8 MB or less, and a
+   click opens the original. Changing either setting renders an item's images again the next time it is
    analyzed.
 3. **Describe** the file with `exiftool` under the step `metadata`: EXIF, XMP, and IPTC from photos,
    camera and lens details, QuickTime and ID3 tags, PDF and Office document properties, and the
