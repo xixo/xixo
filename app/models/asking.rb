@@ -64,6 +64,13 @@ class Asking
     [ about, *drawn ].compact.uniq
   end
 
+  def about
+    return @about if defined?(@about)
+
+    @about = @analysis&.about ||
+             feed.analyses.where(cause: "ask").where.not(about_id: nil).order(:id).first&.about
+  end
+
   def tidied(said)
     Citation.unlinked(said)
   end
@@ -77,13 +84,6 @@ class Asking
       end
 
       nil
-    end
-
-    def about
-      return @about if defined?(@about)
-
-      @about = @analysis&.about ||
-               feed.analyses.where(cause: "ask").where.not(about_id: nil).order(:id).first&.about
     end
 
     def drawn

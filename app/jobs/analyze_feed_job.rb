@@ -139,7 +139,7 @@ class AnalyzeFeedJob < ApplicationJob
       Current.confined_to = Concurrent::Set.new
 
       answered = Answering.new(question: asking.question, earlier: asking.earlier, first: asking.first,
-                               leaving_out: [ feed ], analysis: analysis).call
+                               about: asking.about, leaving_out: [ feed ], analysis: analysis).call
       answered = looked_up(asking, grant) || answered if answered.reason == :world
 
       said = asking.tidied(answered.said)

@@ -128,6 +128,25 @@ class AskingTest < ActionDispatch::IntegrationTest
     assert_includes @server.prompts.find { |prompt| prompt.include?("When is it due?") }, "[feed #{@invoice.id}] Acme invoice"
   end
 
+  test "a question asked on an item's page is told that this and it mean that item" do
+    answers("It is due on 1 October [feed #{@invoice.id}].")
+    execute(ABOUT, question: "When is this due?", about: @invoice.id.to_s)
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    asked = @server.prompts.find { |prompt| prompt.include?("When is this due?") }
+
+    assert_includes asked, "The question was asked on the page of [feed #{@invoice.id}] Acme invoice, so \"this\""
+    assert_includes asked, "When the parts bear on only part of the\nquestion, say what they do show and what they do not"
+  end
+
+  test "a question asked from the catalog is told of no page" do
+    answers("Nothing matched.")
+    execute(ASK, question: "What is due?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    assert_not_includes @server.prompts.find { |prompt| prompt.include?("What is due?") }, "asked on the page of"
+  end
+
   test "a question about an item that is not there is refused" do
     body = execute(ABOUT, question: "When is it due?", about: "999999")
 
