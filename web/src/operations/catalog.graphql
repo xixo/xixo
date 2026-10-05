@@ -114,6 +114,7 @@ query FeedDetail($id: ID!) {
       locatorKey
       filename
       contentType
+      size
       contentUrl
       thumbnailUrl
       hiresUrl

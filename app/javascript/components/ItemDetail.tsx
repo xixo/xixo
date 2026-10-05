@@ -60,6 +60,31 @@ import { Thumb } from './Thumb'
 import { TypeBadge } from './TypeBadge'
 
 const FACETS = new Set<string>([TYPE.tag, TYPE.mime])
+const ANIMATED = 'image/gif'
+const PLAYS_INLINE = 8 * 1024 * 1024
+
+type Shown = {
+  contentType: string
+  contentUrl: string
+  thumbnailUrl?: string | null
+  hiresUrl?: string | null
+  size?: unknown
+}
+
+function animated(shown: Shown) {
+  return shown.contentType === ANIMATED
+}
+
+function headerSrc(shown: Shown) {
+  const small = Number(shown.size ?? Infinity) <= PLAYS_INLINE
+  return animated(shown) && small ? shown.contentUrl : shown.thumbnailUrl
+}
+
+function zoomSrc(shown: Shown) {
+  return animated(shown)
+    ? shown.contentUrl
+    : (shown.hiresUrl ?? shown.contentUrl)
+}
 
 const ABOUT: Record<string, string> = {
   [TYPE.tag]: 'Everything filed under this tag.',
@@ -155,13 +180,13 @@ export function ItemDetail() {
               className="thumb-open thumb-header"
               onClick={() =>
                 setZoomed({
-                  url: pictured[0].hiresUrl ?? pictured[0].contentUrl,
+                  url: zoomSrc(pictured[0]),
                   alt: pictured[0].filename,
                 })
               }
             >
               <img
-                src={pictured[0].thumbnailUrl ?? undefined}
+                src={headerSrc(pictured[0]) ?? undefined}
                 alt={pictured[0].filename}
                 loading="lazy"
                 className="thumb-header-image"
