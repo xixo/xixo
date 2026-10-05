@@ -7,6 +7,7 @@ query Settings {
     allowed
     label
     note
+    unit
   }
 }
 

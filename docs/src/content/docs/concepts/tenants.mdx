@@ -76,9 +76,16 @@ A setting that was never changed reads as its default.
 | **How the catalog opens** (`catalog_view`) | `personal` | `list`, `cards` | `list` |
 | **Thumbnail width** (`thumbnail_size`) | `shared` | 160, 240, 320, 480, or 640 pixels | 320 |
 | **Hi-res size** (`hires_size`) | `shared` | 1024, 1500, 2048, or 3072 pixels | 1500 |
+| **Most frames read from an animation** (`animation_frames`) | `shared` | 1, 2, 4, 6, 8, or 12 | 4 |
+| **Share of an animation's frames read** (`animation_frame_share`) | `shared` | 10, 25, 50, or 100 percent | 100 |
 
 The two image sizes decide how [analysis](/concepts/analysis/#the-analyzer) renders thumbnails and
 hi-res images. An item rendered before a change keeps its old images until it is analyzed again.
+
+The two animation settings decide how many frames of a GIF, WebP, or APNG the vision model is shown:
+the share of its frames, rounded up, and never more than the most frames read. At the defaults, an
+animation of up to four frames is read in full, and a longer one is read at four frames spread evenly
+across it.
 
 The `settings` query lists every setting the token may read, with its value, default, and choices.
 `setSetting` takes a `key` and a `value`, and refuses a value outside the choices. The browser app

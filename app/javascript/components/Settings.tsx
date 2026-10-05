@@ -208,6 +208,7 @@ function Preferences() {
 
                   <Choice
                     allowed={setting.allowed}
+                    unit={setting.unit}
                     value={setting.value}
                     onPick={async (next) => {
                       await save.execute({ key: setting.key, value: next })
@@ -226,10 +227,12 @@ function Preferences() {
 
 function Choice({
   allowed,
+  unit,
   value,
   onPick,
 }: {
   allowed: readonly string[]
+  unit?: string | null
   value: string
   onPick: (next: string) => void
 }) {
@@ -243,7 +246,7 @@ function Choice({
           aria-pressed={value === option}
           onClick={() => onPick(option)}
         >
-          {/^\d+$/.test(option) ? `${option}px` : option}
+          {`${option}${unit ?? ''}`}
         </button>
       ))}
     </div>

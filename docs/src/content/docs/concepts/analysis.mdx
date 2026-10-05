@@ -110,8 +110,9 @@ and xixo treats it as no location. When a **Places** resource has **Name where p
 on, `Image` asks that resource for the address, records it under the step `place`, and tells the
 summary where the photo was taken. The vision model's description of the image is its summary, and
 `Image` keeps it under `caption` too. A GIF, WebP, or APNG records how many frames it has under the
-step `frames`. With more than one, the vision model is sent up to four frames spread evenly across
-it, in order, and told it is looking at an animation, so the description covers what happens in it.
+step `frames`. With more than one, the vision model is sent frames spread evenly across it, in
+order, and told it is looking at an animation, so the description covers what happens in it. How
+many frames it is sent is set by two [settings](/concepts/tenants/#settings), four by default.
 
 `Media` claims audio and video. The `probe` step records the length, streams, and tags such as
 title, artist, and album. For anything with a sound track, one `ffmpeg` pass records the `signal`

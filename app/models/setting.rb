@@ -5,7 +5,7 @@ class Setting < ApplicationRecord
 
   LEVELS = %i[personal shared server].freeze
 
-  Definition = Data.define(:key, :level, :default, :allowed, :label, :note) do
+  Definition = Data.define(:key, :level, :default, :allowed, :label, :note, :unit) do
     def personal? = level == :personal
     def server? = level == :server
     def permits?(value) = allowed.include?(value)
@@ -20,7 +20,8 @@ class Setting < ApplicationRecord
       default: "list",
       allowed: %w[list cards],
       label: "How the catalog opens",
-      note: "A list reads names quickly. Cards show you what an item looks like."
+      note: "A list reads names quickly. Cards show you what an item looks like.",
+      unit: nil
     ),
     Definition.new(
       key: "thumbnail_size",
@@ -29,7 +30,8 @@ class Setting < ApplicationRecord
       allowed: %w[160 240 320 480 640],
       label: "Thumbnail width",
       note: "The width in pixels of the small image rendered for every photo, video, PDF, and page " \
-            "capture. Items rendered before a change keep their old size until they are analyzed again."
+            "capture. Items rendered before a change keep their old size until they are analyzed again.",
+      unit: "px"
     ),
     Definition.new(
       key: "hires_size",
@@ -38,7 +40,28 @@ class Setting < ApplicationRecord
       allowed: %w[1024 1500 2048 3072],
       label: "Hi-res size",
       note: "The longest edge in pixels of the large image a thumbnail opens, which is also what the " \
-            "vision model reads. A page capture keeps its full length at this width."
+            "vision model reads. A page capture keeps its full length at this width.",
+      unit: "px"
+    ),
+    Definition.new(
+      key: "animation_frames",
+      level: :shared,
+      default: "4",
+      allowed: %w[1 2 4 6 8 12],
+      label: "Most frames read from an animation",
+      note: "How many frames of a GIF, WebP, or APNG the vision model is shown at most, spread evenly " \
+            "across it. More frames describe more of what happens, and each one adds to how long it takes.",
+      unit: nil
+    ),
+    Definition.new(
+      key: "animation_frame_share",
+      level: :shared,
+      default: "100",
+      allowed: %w[10 25 50 100],
+      label: "Share of an animation's frames read",
+      note: "The percentage of an animation's frames the vision model is shown, rounded up and never " \
+            "more than the most frames read. A short animation is read in full and a long one is sampled.",
+      unit: "%"
     )
   ].index_by(&:key).freeze
 

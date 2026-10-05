@@ -4,7 +4,6 @@ module Analyzer
     FLAT = 1.0
     OCR_CONTEXT = 4_000
     LOCATED_BY = "exiftool".freeze
-    FRAMES = 4
     FRAME_WIDTH = 768
 
     def self.handles?(feed)
@@ -93,11 +92,17 @@ module Analyzer
       def animated? = frames > 1
 
       def picked
-        (0...[ frames, FRAMES ].min).map { |at| at * frames / [ frames, FRAMES ].min }.uniq
+        shown = (frames * Setting.read("animation_frame_share", subject: nil).to_i / 100.0).ceil
+        shown = shown.clamp(1, [ Setting.read("animation_frames", subject: nil).to_i, frames ].min)
+
+        (0...shown).map { |at| at * frames / shown }.uniq
       end
 
       def moving
-        "An animation of #{frames} frames. The #{picked.size} images attached are frames from it, in order." if animated?
+        return nil unless animated?
+        return "An animation of #{frames} frames. The image attached is one frame from it." if picked.one?
+
+        "An animation of #{frames} frames. The #{picked.size} images attached are frames from it, in order."
       end
 
       def sampled_frames

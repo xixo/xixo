@@ -9,6 +9,8 @@ module Types
     field :allowed, [ String ], null: false
     field :label, String, null: false
     field :note, String, null: true
+    field :unit, String, null: true,
+                         description: "What its values count, such as px or %. Null for a plain choice."
 
     def level
       object[:level].to_s

@@ -132,6 +132,28 @@ class VisionTest < ActiveSupport::TestCase
     assert_includes @server.prompts.last, "what happens across the animation"
   end
 
+  test "the share of frames read is rounded up, and the most frames read caps it" do
+    inference!
+    Tenant.switch(@tenant) { Setting.write!("animation_frame_share", "50", subject: nil) }
+    @server.answer_json({ summary: "Counting frames." })
+
+    analyze "animated.gif"
+
+    assert_equal 2, @server.attachments.last.length, "half of three frames, rounded up"
+    assert_includes @server.prompts.last, "An animation of 3 frames. The 2 images attached"
+
+    Tenant.switch(@tenant) do
+      Setting.write!("animation_frame_share", "100", subject: nil)
+      Setting.write!("animation_frames", "1", subject: nil)
+    end
+    @server.answer_json({ summary: "One frame." })
+
+    analyze "animated.gif"
+
+    assert_equal 1, @server.attachments.last.length, "never more than the most frames read"
+    assert_includes @server.prompts.last, "An animation of 3 frames. The image attached is one frame from it."
+  end
+
   test "a still image sends one preview and says nothing of frames" do
     inference!
     @server.answer_json({ summary: "A printed sign." })
