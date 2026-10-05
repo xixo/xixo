@@ -9,6 +9,7 @@ class Feed < ApplicationRecord
 
   TYPES = [ FILE, NOTE, ADDRESS, TAG, MIME ].freeze
   SINGLETON = [ TAG, ADDRESS, MIME ].freeze
+  FACETS = [ TAG, MIME ].freeze
   ORIGINS = %w[resource feed].freeze
 
   DEPTH = 4
@@ -107,6 +108,13 @@ class Feed < ApplicationRecord
     feed.nil? || !feed.named_by?(held)
   end
   def self.mime!(key) = singleton!(MIME, key)
+
+  def self.lonely(ids = nil)
+    held = where(type: FACETS, note: [ nil, "" ]).where.not(id: Edge.select(:a_id)).where.not(id: Edge.select(:b_id))
+    ids.nil? ? held : held.where(id: ids)
+  end
+
+  def self.forget_lonely!(ids = nil) = lonely(ids).destroy_all
 
   def self.singleton!(type, key)
     where(type: type).find_by(key: key.to_s) ||
@@ -260,13 +268,13 @@ class Feed < ApplicationRecord
       loose = dropped.pluck(:a_id, :b_id).flatten - [ id ]
       dropped.delete_all
       held.each { |tag| connect!(tag, inferred: true) }
-      Feed.tags.where(id: loose).where.not(id: Edge.where(a_id: loose).select(:a_id))
-          .where.not(id: Edge.where(b_id: loose).select(:b_id)).destroy_all
+      Feed.forget_lonely!(loose)
     end
   end
 
   def disconnect!(other)
     Edge.between(self, other)&.destroy
+    Feed.forget_lonely!([ id, other.id ])
   end
 
   def destroy_if_empty!
@@ -476,7 +484,9 @@ class Feed < ApplicationRecord
   private
 
     def forget_edges
+      neighbors = edges.pluck(:a_id, :b_id).flatten.uniq - [ id ]
       edges.delete_all
+      Feed.forget_lonely!(neighbors)
     end
 
     def index_for_search

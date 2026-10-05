@@ -42,6 +42,11 @@ shared: &shared
     queue: sync
     schedule: every day at 4:20am
 
+  forget_lonely_facets:
+    class: ForgetLonelyFacetsJob
+    queue: sync
+    schedule: every day at 4:40am
+
   rebuild_search_index:
     class: RebuildSearchIndexJob
     queue: sync
