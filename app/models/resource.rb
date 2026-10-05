@@ -48,6 +48,7 @@ class Resource < ApplicationRecord
 
   before_save :start_the_schedule, if: :sync_interval_changed?
   before_save :mirror_what_it_serves
+  after_commit :summarize_what_went_without, on: %i[create update], if: :newly_inferring?
 
   scope :active, -> { where(archived_at: nil) }
   scope :attended, -> { where.not(type: "database", key: INTERNAL.keys.map(&:to_s)) }
@@ -613,6 +614,17 @@ class Resource < ApplicationRecord
 
     def mirror_what_it_serves
       self.serving = self.class.serving
+    end
+
+    def newly_inferring?
+      return false unless inference? && archived_at.nil? && owner_subject.nil?
+
+      previously_new_record? || saved_change_to_details? || saved_change_to_archived_at? ||
+        saved_change_to_default_inference?
+    end
+
+    def summarize_what_went_without
+      SummarizeUnsummarizedJob.perform_later
     end
 
     def checked

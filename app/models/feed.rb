@@ -65,6 +65,11 @@ class Feed < ApplicationRecord
   scope :synced, -> { where(origin: "resource") }
   scope :minted, -> { where(origin: "feed") }
   scope :unembedded, -> { where(embedded_at: nil).order(:id) }
+  scope :unsummarized, -> {
+    where(type: FILE).where(id: Reference.where.not(analyzed_at: nil).select(:feed_id))
+                     .where.not(id: Analysis.where("steps ? 'summary'").select(:feed_id))
+                     .where.not(id: Analysis.open.select(:feed_id))
+  }
   scope :by_key, ->(value) { where(key: value.to_s) }
   scope :expired, -> { where(expires_at: ..Time.current) }
 
