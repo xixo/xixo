@@ -117,13 +117,40 @@ class VisionTest < ActiveSupport::TestCase
     assert_includes @server.prompts.last, "FRAME 1"
   end
 
+  test "an animation is described from frames across it, in order, and the prompt says it moves" do
+    inference!
+    @server.answer_json({ summary: "Text counts up from FRAME 1 to FRAME 3." })
+
+    analyze "animated.gif"
+
+    Tenant.switch(@tenant) { assert_equal 3, steps_at("animated.gif").dig("frames", "result") }
+
+    assert_equal 3, @server.attachments.last.length
+    assert(@server.attachments.last.all? { |image| image.start_with?("data:image/jpeg;base64,") })
+    assert_equal 3, @server.attachments.last.uniq.length, "each attachment is a different frame"
+    assert_includes @server.prompts.last, "An animation of 3 frames. The 3 images attached are frames from it, in order."
+    assert_includes @server.prompts.last, "what happens across the animation"
+  end
+
+  test "a still image sends one preview and says nothing of frames" do
+    inference!
+    @server.answer_json({ summary: "A printed sign." })
+
+    analyze "poster.png"
+
+    Tenant.switch(@tenant) { assert_nil steps_at("poster.png")["frames"] }
+
+    assert_equal 1, @server.attachments.last.length
+    assert_not_includes @server.prompts.last, "animation"
+  end
+
   test "a format tesseract and the model both read is still described" do
     inference!
     @server.answer_json({ summary: "A sign." })
 
     analyze "animated.gif"
 
-    assert_equal 1, @server.attachments.last.length
+    assert_equal 3, @server.attachments.last.length
 
     Tenant.switch(@tenant) do
       assert_equal "A sign.",

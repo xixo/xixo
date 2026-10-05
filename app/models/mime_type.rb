@@ -49,6 +49,8 @@ module MimeType
    .merge(RAW.index_with("image/x-dcraw"))
    .freeze
 
+  ANIMATABLE = %w[image/gif image/webp image/apng].freeze
+
   class << self
     def for_filename(name)
       BY_EXTENSION.fetch(extension(name), DEFAULT)
@@ -63,6 +65,7 @@ module MimeType
     end
 
     def image?(mime) = mime.to_s.start_with?("image/")
+    def animatable?(mime) = ANIMATABLE.include?(mime.to_s)
     def audio?(mime) = mime.to_s.start_with?("audio/")
     def video?(mime) = mime.to_s.start_with?("video/")
 

@@ -4,6 +4,8 @@ module Analyzer
     FLAT = 1.0
     OCR_CONTEXT = 4_000
     LOCATED_BY = "exiftool".freeze
+    FRAMES = 4
+    FRAME_WIDTH = 768
 
     def self.handles?(feed)
       MimeType.image?(feed.mime)
@@ -24,6 +26,7 @@ module Analyzer
           end
 
           step(:deviation) { run_command("vips", "deviate", path).strip.to_f }
+          step(:frames) { run_command("vipsheader", "-f", "n-pages", path).strip.to_i } if MimeType.animatable?(feed.mime)
 
           at = step(:location, digest: LOCATED_BY) { located(original) }
           placed(at) if at.present?
@@ -39,9 +42,10 @@ module Analyzer
 
         Filename: #{reference.filename}
         Dimensions: #{width}×#{height}
+        #{moving}
         #{taken_at}
         #{read_text}
-        #{summary_shape(SAYS)}
+        #{summary_shape(animated? ? MOVES : SAYS)}
       PROMPT
     end
 
@@ -49,8 +53,12 @@ module Analyzer
            "setting, and any text it carries. Name what you can identify rather " \
            "than its category, and transcribe any text exactly as it appears."
 
+    MOVES = "two or three sentences on what happens across the animation — people, objects, " \
+            "setting, what they do from frame to frame, and any text it carries. Name what you " \
+            "can identify rather than its category, and transcribe any text exactly as it appears."
+
     def summary_images
-      [ preview ]
+      animated? ? sampled_frames : [ preview ]
     end
 
     def captioned!
@@ -76,6 +84,30 @@ module Analyzer
                   .slice(:address, :neighbourhood, :city, :region, :country).transform_keys(&:to_s)
           rescue Resource::Failed, ArgumentError => e
             raise Analyzer::Failed, e.message
+          end
+        end
+      end
+
+      def frames = step_result(:frames).to_i
+
+      def animated? = frames > 1
+
+      def picked
+        (0...[ frames, FRAMES ].min).map { |at| at * frames / [ frames, FRAMES ].min }.uniq
+      end
+
+      def moving
+        "An animation of #{frames} frames. The #{picked.size} images attached are frames from it, in order." if animated?
+      end
+
+      def sampled_frames
+        @sampled_frames ||= with_tempfile do |path|
+          Dir.mktmpdir do |dir|
+            picked.map do |page|
+              still = File.join(dir, "#{page}.jpg")
+              run_command("vips", "thumbnail", "#{path}[page=#{page}]", still, FRAME_WIDTH.to_s)
+              File.binread(still)
+            end
           end
         end
       end
