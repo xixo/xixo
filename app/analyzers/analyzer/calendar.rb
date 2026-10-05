@@ -11,9 +11,9 @@ module Analyzer
     def analyze
       body = readable(reference.download.read)
 
-      events = step(:events) { parse(body) }
+      events = step(:events, digest: DECODED) { parse(body) }
 
-      step(:text, digest: WRITTEN_AS) { flatten(events).truncate(MAX_TEXT) }
+      step(:text, digest: "#{WRITTEN_AS}, #{DECODED}") { flatten(events).truncate(MAX_TEXT) }
     end
 
     SUMMARY_EVENTS = 20

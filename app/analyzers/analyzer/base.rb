@@ -3,6 +3,7 @@ require "open3"
 module Analyzer
   class Base
     MAX_TEXT = 200_000
+    DECODED = "decoded by its byte order mark, as UTF-8, or as Windows-1252".freeze
 
     attr_reader :feed, :reference, :analysis
 

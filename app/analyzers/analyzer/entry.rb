@@ -10,7 +10,7 @@ module Analyzer
 
     def analyze
       step(:entry) { entry_of(reference) }
-      step(:text) { body_of(reference).truncate(MAX_TEXT) }
+      step(:text, digest: DECODED) { body_of(reference).truncate(MAX_TEXT) }
     end
 
     private

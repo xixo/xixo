@@ -38,7 +38,7 @@ module Analyzer
       step(:size) { { "bytes" => reference.download.size } }
       step(:format) { sniffed }
 
-      step(:text) { legible } if printable?
+      step(:text, digest: DECODED) { legible } if printable?
       step(:listing) { entries } if archive?
     end
 

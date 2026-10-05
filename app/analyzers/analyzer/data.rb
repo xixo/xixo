@@ -9,9 +9,9 @@ module Analyzer
     def analyze
       body = readable(reference.download.read)
 
-      step(:shape) { shape_of(body) }
-      step(:tables, digest: Tables::ROWS.to_s) { tables_of(body) } if separator
-      step(:text) { body.strip.truncate(MAX_TEXT) }
+      step(:shape, digest: DECODED) { shape_of(body) }
+      step(:tables, digest: "#{Tables::ROWS} #{DECODED}") { tables_of(body) } if separator
+      step(:text, digest: DECODED) { body.strip.truncate(MAX_TEXT) }
     end
 
     def separator

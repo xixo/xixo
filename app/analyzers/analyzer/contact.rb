@@ -13,9 +13,9 @@ module Analyzer
     def analyze
       body = readable(reference.download.read)
 
-      contacts = step(:contacts) { parse(body) }
+      contacts = step(:contacts, digest: DECODED) { parse(body) }
 
-      step(:text) { flatten(contacts).truncate(MAX_TEXT) }
+      step(:text, digest: DECODED) { flatten(contacts).truncate(MAX_TEXT) }
     end
 
     private

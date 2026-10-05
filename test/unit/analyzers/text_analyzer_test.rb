@@ -6,12 +6,13 @@ class TextAnalyzerTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { @storage = Resource::Database.create!(key: "desk", name: "Desk") }
   end
 
-  def text_of(name, body)
+  def text_of(name, body, stored: nil)
     Tenant.switch(@tenant) do
       @storage.upload(name, body)
       feed = Feed.create!(type: Feed::FILE, key: name, title: name)
       Reference.record!(feed: feed, resource: @storage, locator_key: name, locator: { "key" => name })
       analysis = Analysis.open!(feed: feed, cause: "manual")
+      analysis.update!(steps: { "text" => stored }) if stored
 
       Analyzer.for(feed.reload, analysis: analysis).analyze
 
@@ -33,5 +34,11 @@ class TextAnalyzerTest < ActiveSupport::TestCase
 
   test "a UTF-8 byte order mark is dropped and the rest is untouched" do
     assert_equal "naïve 🙂", text_of("bom.txt", "\xEF\xBB\xBFnaïve 🙂".b)
+  end
+
+  test "text read before the decoder existed is read again" do
+    scrubbed = { "result" => "Caf\uFFFD", "started_at" => 1.day.ago.iso8601(3), "finished_at" => 1.day.ago.iso8601(3) }
+
+    assert_equal "Café", text_of("old.txt", "Caf\xE9".b, stored: scrubbed)
   end
 end

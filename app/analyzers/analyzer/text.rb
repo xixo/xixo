@@ -5,7 +5,7 @@ module Analyzer
     end
 
     def analyze
-      step(:text) { readable(reference.download.read).strip.truncate(MAX_TEXT) }
+      step(:text, digest: DECODED) { readable(reference.download.read).strip.truncate(MAX_TEXT) }
     end
   end
 end
