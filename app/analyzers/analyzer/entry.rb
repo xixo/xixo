@@ -20,7 +20,7 @@ module Analyzer
       end
 
       def body_of(reference)
-        content = reference.download.read.force_encoding("UTF-8").scrub
+        content = readable(reference.download.read)
 
         [ reference.feed.title, Markup.strip(content) ].compact_blank.join("\n\n").strip
       end

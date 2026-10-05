@@ -11,7 +11,7 @@ module Analyzer
     end
 
     def analyze
-      body = reference.download.read.force_encoding("UTF-8").scrub
+      body = readable(reference.download.read)
 
       contacts = step(:contacts) { parse(body) }
 

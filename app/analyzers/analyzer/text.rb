@@ -5,7 +5,7 @@ module Analyzer
     end
 
     def analyze
-      step(:text) { reference.download.read.force_encoding("UTF-8").scrub.strip.truncate(MAX_TEXT) }
+      step(:text) { readable(reference.download.read).strip.truncate(MAX_TEXT) }
     end
   end
 end

@@ -9,7 +9,7 @@ module Analyzer
     end
 
     def analyze
-      body = reference.download.read.force_encoding("UTF-8").scrub
+      body = readable(reference.download.read)
 
       events = step(:events) { parse(body) }
 

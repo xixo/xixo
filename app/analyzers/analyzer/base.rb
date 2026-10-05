@@ -294,6 +294,21 @@ module Analyzer
 
     private
 
+      UTF8_BOM = "\xEF\xBB\xBF".b
+      UTF16_BOMS = { "\xFF\xFE".b => Encoding::UTF_16LE, "\xFE\xFF".b => Encoding::UTF_16BE }.freeze
+
+      def readable(bytes)
+        bytes = bytes.to_s.b
+        found = UTF16_BOMS.find { |bom, _| bytes.start_with?(bom) }
+        return bytes.byteslice(2..).force_encoding(found.last).encode(Encoding::UTF_8, invalid: :replace, undef: :replace) if found
+
+        bytes = bytes.byteslice(UTF8_BOM.bytesize..) if bytes.start_with?(UTF8_BOM)
+        text = bytes.dup.force_encoding(Encoding::UTF_8)
+        return text if text.valid_encoding?
+
+        bytes.force_encoding(Encoding::Windows_1252).encode(Encoding::UTF_8, invalid: :replace, undef: :replace)
+      end
+
       def attempt
         yield
       rescue Analyzer::Failed

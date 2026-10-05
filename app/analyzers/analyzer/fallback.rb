@@ -122,7 +122,7 @@ module Analyzer
       end
 
       def legible
-        body = reference.download.read.to_s.force_encoding(Encoding::UTF_8).scrub
+        body = readable(reference.download.read)
         body = Markup.strip(body) if markup?(body)
 
         body.strip.truncate(MAX_TEXT)

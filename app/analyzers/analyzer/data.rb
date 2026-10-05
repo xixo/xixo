@@ -7,7 +7,7 @@ module Analyzer
     end
 
     def analyze
-      body = reference.download.read.force_encoding("UTF-8").scrub
+      body = readable(reference.download.read)
 
       step(:shape) { shape_of(body) }
       step(:tables, digest: Tables::ROWS.to_s) { tables_of(body) } if separator
