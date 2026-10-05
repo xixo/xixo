@@ -170,3 +170,10 @@
     - ask: and what number is on it?
       expect:
         - /\b218\b/
+
+- id: shed-key-gif
+  turns:
+    - ask: where is the shed key?
+      expect:
+        - /blue/i
+        - /pot/i
