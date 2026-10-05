@@ -314,6 +314,31 @@ Follow job progress in the worker's log:
 docker compose logs -f worker
 ```
 
+### Transcription
+
+The image includes `whisper-cli` and no model. Without one, audio and video are analyzed without a
+transcript, and each analysis logs `no transcription model is configured`. Download a whisper.cpp
+ggml model, mount its directory read-only into the worker, and name the file in
+`XIXO_WHISPER_MODEL`:
+
+```sh
+mkdir -p whisper
+curl -fL -o whisper/ggml-base.en.bin \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
+```
+
+```yaml
+  worker:
+    environment:
+      XIXO_WHISPER_MODEL: /models/whisper/ggml-base.en.bin
+    volumes:
+      - ./whisper:/models/whisper:ro
+```
+
+`ggml-base.en.bin` is 148 MB and transcribes English. Its SHA-256 is
+`a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002`. The other models in the same
+repository trade size for accuracy, and the ones without `.en` transcribe other languages.
+
 ### Mission Control at /jobs
 
 Mission Control is mounted at `/jobs`, on any tenant's host. Its HTTP basic authentication is on,
