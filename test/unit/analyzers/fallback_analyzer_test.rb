@@ -1,8 +1,7 @@
+require "rubygems/package"
 require "test_helper"
 
 class FallbackAnalyzerTest < ActiveSupport::TestCase
-  CORPUS = Rails.root.join("test/fixtures/corpus/other/archive.tar.gz")
-
   setup do
     @tenant = Tenant.create!(subdomain: "fallback-#{SecureRandom.hex(4)}", name: "Odds")
     Tenant.switch(@tenant) { @storage = Resource::Database.create!(key: "drawer", name: "Drawer") }
@@ -30,14 +29,31 @@ class FallbackAnalyzerTest < ActiveSupport::TestCase
     io.string
   end
 
+  def as_a_mac_tars(files)
+    io = StringIO.new("".b)
+    files.each do |name, body|
+      block(io, "PaxHeader/#{name}", "30 mtime=1757087520.000000000\n", "x")
+      block(io, "._#{name}", "\x00\x05\x16\x07".b, "0")
+      block(io, name, body, "0")
+    end
+    io.write("\0" * 1024)
+    io.string
+  end
+
+  def block(io, name, body, typeflag)
+    io.write(Gem::Package::TarHeader.new(name: name, size: body.bytesize, mode: 0o644, prefix: "", typeflag: typeflag).to_s)
+    io.write(body)
+    io.write("\0" * ((512 - (body.bytesize % 512)) % 512))
+  end
+
   def gzipped(bytes)
     io = StringIO.new("".b)
     Zlib::GzipWriter.wrap(io) { |gzip| gzip.write(bytes) }
     io.string
   end
 
-  test "a gzipped tar is listed entry by entry, and the summary is asked about the names" do
-    steps, analyzer = read("archive.tar.gz", CORPUS.binread)
+  test "a gzipped tar made on a Mac is listed by its files alone, and the summary is asked about the names" do
+    steps, analyzer = read("archive.tar.gz", gzipped(as_a_mac_tars("notes.txt" => "notes", "readme.md" => "# readme")))
 
     assert_equal "gzip", steps.dig("format", "observed")
     assert_equal %w[notes.txt readme.md], steps["listing"]
