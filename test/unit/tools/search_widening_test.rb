@@ -54,4 +54,17 @@ class SearchWideningTest < ActiveSupport::TestCase
     assert_nil reply["widened"]
     assert_equal 0, reply["count"]
   end
+
+  test "a page short of everything says how many there are and how to see the rest" do
+    Tenant.switch(@tenant) do
+      SearchIndex.index(Feed.create!(type: Feed::FILE, key: "Second plan.xlsx", title: "Second plan.xlsx"))
+      SearchIndex.refresh!
+    end
+
+    reply = searched(type: Feed::FILE, limit: 1)
+
+    assert_equal 1, reply["count"]
+    assert_equal 2, reply["total"]
+    assert_match(/These are 1 of 2\. Raise limit/, reply["note"])
+  end
 end

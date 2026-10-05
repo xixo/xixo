@@ -7,8 +7,8 @@ module Tool
       Search the whole catalog at once — every resource that has been synced, not one
       provider at a time. Matches titles, keys, paths, tags and text drawn out by analysis, and
       finds the passage inside a long document that means what was asked; a result found that
-      way carries the passage and where it starts. Omit the query to list the most recent feeds
-      of a type.
+      way carries the passage and where it starts. Omit the query to list the most recent feeds,
+      newest first. Every reply says how many matched in total.
     TEXT
 
     input_schema(
@@ -50,22 +50,34 @@ module Tool
     def self.call(server_context:, query: nil, type: nil, limit: 50)
       respond(server_context, { query: query, type: type, limit: limit }) do
         wanted = limit.to_i.clamp(1, 200)
-        feeds = searched(query, type, wanted)
-        widened = feeds.empty? && type.present? && query.present? ? searched(query, nil, wanted) : []
-        shown = widened.presence || feeds
-        passages = type.present? && widened.empty? ? {} : passages_for(query)
+        page = searched(query, type, wanted)
+        widened = page.nodes.empty? && type.present? && query.present?
+        page = searched(query, nil, wanted) if widened
+        widened &&= page.nodes.any?
+        passages = type.present? && !widened ? {} : passages_for(query)
 
         {
-          count: shown.size,
-          widened: (true if widened.any?),
-          note: ("Nothing of type #{type} matched, so these are every type that did. Leave type off to search everything." if widened.any?),
-          feeds: shown.map { |feed| found(feed, passages[feed.id]) }
+          count: page.nodes.size,
+          total: page.total,
+          widened: (true if widened),
+          note: noted(page, type, widened),
+          feeds: page.nodes.map { |feed| found(feed, passages[feed.id]) }
         }.compact
       end
     end
 
+    def self.noted(page, type, widened)
+      told = []
+      told << "Nothing of type #{type} matched, so these are every type that did. Leave type off to search everything." if widened
+      told << "These are #{page.nodes.size} of #{page.total}. Raise limit, up to 200, or narrow the query or type for the rest." if page.has_more
+      told.join(" ").presence
+    end
+
     def self.searched(query, type, limit)
-      Feed.search(query, type: type, limit: limit).reject { |feed| feed.id == Current.acting_for }
+      found = Feed.found(query, type: type, limit: limit)
+      kept = found.nodes.reject { |feed| feed.id == Current.acting_for }
+
+      Page.new(kept, found.has_more, nil, found.total - (found.nodes.size - kept.size))
     end
   end
 end

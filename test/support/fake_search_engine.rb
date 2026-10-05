@@ -272,9 +272,20 @@ class FakeSearchEngine
     def matching(name, filter, body)
       query = body.dig("query") || { "match_all" => {} }
 
-      @documents.fetch(name, {})
+      found = @documents.fetch(name, {})
         .select { |_, document| clause?(document, filter) && clause?(document, query) }
         .sort_by { |id, _| id.to_i }
+
+      sorted(found, body["sort"])
+    end
+
+    def sorted(found, sort)
+      return found if sort.blank?
+
+      field, direction = Array(sort).first.first
+      ordered = found.sort_by { |id, document| [ document[field].to_s, id.to_i ] }
+
+      direction.to_s == "desc" ? ordered.reverse : ordered
     end
 
     def clause?(document, query)

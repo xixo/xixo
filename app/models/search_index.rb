@@ -8,6 +8,11 @@ module SearchIndex
   LOOSE_AFTER_WORDS = 3
   SEMANTIC_MARGIN = 0.12
   SEMANTIC_FLOOR = ENV.fetch("XIXO_SEMANTIC_FLOOR", "0.55").to_f
+  UNASKED = %w[
+    a an and are as at be but by for if in into is it no not of on or such that the their then there
+    these they this to was will with what when where which who whom whose why how do does did i me my
+    mine we our us you your am have has had much many
+  ].freeze
 
   SETTINGS = {
     index: { knn: true },
@@ -15,14 +20,22 @@ module SearchIndex
       tokenizer: {
         path_parts: { type: "pattern", pattern: "[/\\\\\\-_.\\s]+" }
       },
+      filter: {
+        unasked: { type: "stop", stopwords: UNASKED }
+      },
       analyzer: {
         path: { type: "custom", tokenizer: "path_parts", filter: [ "lowercase" ] },
-        stemmed: { type: "custom", tokenizer: "standard", filter: [ "lowercase", "kstem" ] }
+        path_query: { type: "custom", tokenizer: "path_parts", filter: [ "lowercase", "unasked" ] },
+        stemmed: { type: "custom", tokenizer: "standard", filter: [ "lowercase", "kstem" ] },
+        stemmed_query: { type: "custom", tokenizer: "standard", filter: [ "lowercase", "unasked", "kstem" ] },
+        plain_query: { type: "custom", tokenizer: "standard", filter: [ "lowercase", "unasked" ] }
       }
     }
   }.freeze
 
-  STEMMED = { type: "text", analyzer: "stemmed" }.freeze
+  STEMMED = { type: "text", analyzer: "stemmed", search_analyzer: "stemmed_query" }.freeze
+  PATH = { type: "text", analyzer: "path", search_analyzer: "path_query" }.freeze
+  PLAIN = { type: "text", analyzer: "standard", search_analyzer: "plain_query", fields: { stemmed: STEMMED } }.freeze
 
   MAPPING = {
     dynamic: false,
@@ -30,13 +43,13 @@ module SearchIndex
       tenant_id: { type: "long" },
       type: { type: "keyword" },
       mime: { type: "keyword" },
-      tags: { type: "text", analyzer: "path", fields: { raw: { type: "keyword" } } },
-      key: { type: "text", analyzer: "path" },
-      title: { type: "text", analyzer: "path", fields: { stemmed: STEMMED } },
-      locator_key: { type: "text", analyzer: "path" },
-      note: { type: "text", fields: { stemmed: STEMMED } },
-      summary: { type: "text", fields: { stemmed: STEMMED } },
-      body: { type: "text", fields: { stemmed: STEMMED } },
+      tags: PATH.merge(fields: { raw: { type: "keyword" } }),
+      key: PATH,
+      title: PATH.merge(fields: { stemmed: STEMMED }),
+      locator_key: PATH,
+      note: PLAIN,
+      summary: PLAIN,
+      body: PLAIN,
       resource_ids: { type: "long" },
       created_at: { type: "date" },
       embedding: {
@@ -244,7 +257,8 @@ module SearchIndex
         index: alias_for(tenant),
         body: {
           query: { bool: { must: must } },
-          size: size, from: 0, track_total_hits: true, _source: false
+          size: size, from: 0, track_total_hits: true, _source: false,
+          **(query.present? ? {} : { sort: [ { created_at: "desc" } ] })
         }
       )
 
