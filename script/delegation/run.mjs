@@ -21,6 +21,11 @@ async function browse(work) {
 
   try {
     return await work(page)
+  } catch (error) {
+    const shot = `tmp/delegation-${step}.png`
+    await page.screenshot({ path: shot, fullPage: true }).catch(() => {})
+    error.message = `${error.message.split('\n')[0]} at ${page.url()}, seen in ${shot}`
+    throw error
   } finally {
     await browser.close()
   }
@@ -48,7 +53,7 @@ async function row(page) {
 
   return (
     await name
-      .locator('xpath=ancestor::*[contains(., "Put away")][1]')
+      .locator('xpath=ancestor::*[contains(concat(" ", @class, " "), " rcard ")][1]')
       .innerText()
   ).replace(/\s*\n\s*/g, ' | ')
 }
@@ -62,7 +67,7 @@ async function connect() {
     await page.waitForURL(`${xixo}/**`)
 
     await page.goto(`${xixo}/settings/resources`)
-    await page.getByRole('button', { name: 'Attach one' }).click()
+    await page.getByRole('button', { name: 'Attach', exact: true }).click()
     await page.getByText('An MCP server', { exact: true }).click()
 
     const form = page.getByRole('dialog')

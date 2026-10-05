@@ -174,7 +174,7 @@ def delegation
 
   puts "\n== ada attaches the stand-in for herself and connects it through masks\n\n"
   row = driven("connect")["row"]
-  passes("it comes back reachable and only hers: #{row}", row.include?("reachable") && row.include?("only you"))
+  passes("it comes back reachable and only hers: #{row}", row.include?("reachable") && row.include?("Only you"))
 
   state = in_xixo("state")
   passes("xixo holds a delegation and a cached upstream token, and nothing typed in",

@@ -14,11 +14,13 @@ Masks::Server::Tenant.switch(tenant) do
     provider.save!
     puts "registered with the stand-in as #{provider.client_id}"
 
+    granted = %w[openid profile email offline_access xixo:]
+
     people.each do |nickname|
       email = "#{nickname}@example.test"
       person = Masks::Server::Actor.locate(email) ||
-               Masks::Server::Actor.invite!(email: email, nickname: nickname,
-                                            scopes: "openid profile email offline_access xixo:")
+               Masks::Server::Actor.invite!(email: email, nickname: nickname, scopes: granted.join(" "))
+      person.update!(scopes: (person.scopes.split.reject { |scope| scope.end_with?(":") } | granted).join(" "))
       person.activate!(password, verifying_email: true)
       puts "#{email} can sign in"
     end
