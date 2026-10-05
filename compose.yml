@@ -23,7 +23,6 @@ x-app: &app
     - ./compose/no-dotenv:/rails/.env:ro
     - modules:/rails/node_modules
     - storage:/rails/storage
-    - ${XIXO_WHISPER_DIR:-${HOME}/.cache/whisper}:/models/whisper:ro
 
 x-env: &env
   POSTGRES_HOST: postgres
@@ -49,8 +48,8 @@ x-env: &env
   XIXO_PUBLIC_ORIGIN: http://xixo.localhost:${XIXO_PORT:-8180}
   MASKS_ISSUER_TEMPLATE: ${MASKS_ISSUER:-http://masks.localhost:12345}
   OLLAMA_URL: http://host.docker.internal:${XIXO_OLLAMA_PORT:-11434}/v1
-  XIXO_INFERENCE_ORIGINS: http://host.docker.internal:${XIXO_OLLAMA_PORT:-11434}
-  XIXO_WHISPER_MODEL: /models/whisper/${XIXO_WHISPER_FILE:-ggml-base.en.bin}
+  WHISPER_URL: http://host.docker.internal:${XIXO_WHISPER_PORT:-11435}/v1
+  XIXO_INFERENCE_ORIGINS: http://host.docker.internal:${XIXO_OLLAMA_PORT:-11434},http://host.docker.internal:${XIXO_WHISPER_PORT:-11435}
   XIXO_MCP_ORIGINS: http://mcp.localhost:${XIXO_MCP_OAUTH_PORT:-8190}
   DEV_ALLOWED_HOSTS: .xixo.localhost,xixo-vite
   DEV_CLIENT_PORT: ${XIXO_VITE_PORT:-8182}

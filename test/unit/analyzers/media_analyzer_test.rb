@@ -1,4 +1,5 @@
 require "test_helper"
+require_relative "../../support/fake_model_server"
 
 class MediaAnalyzerTest < ActiveSupport::TestCase
   setup do
@@ -30,7 +31,7 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("XIXO_WHISPER_MODEL")
+    ENV.delete("XIXO_INFERENCE_ORIGINS")
 
     @resource.client.list_objects_v2(bucket: @bucket).contents.each do |object|
       @resource.client.delete_object(bucket: @bucket, key: object.key)
@@ -82,9 +83,7 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
     end
   end
 
-  test "with no model configured the recording is still catalogued, and the log says why it is silent" do
-    ENV.delete("XIXO_WHISPER_MODEL")
-
+  test "with no backend serving transcription the recording is still catalogued, and the log says why it is silent" do
     analyze_feed_at "tone.m4a"
 
     Tenant.switch(@tenant) do
@@ -92,20 +91,17 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
 
       assert steps.dig("probe", "result").present?, "metadata does not need a model"
       assert_not steps.key?("transcript"), "an unconfigured transcriber is skipped, not a failed step"
-      assert_match(/transcript : no transcription model/, Analysis.newest_first.first.logs)
+      assert_match(/transcript : no model backend serves transcription/, Analysis.newest_first.first.logs)
     end
   end
 
-  test "a model that was named but is not there is refused by name" do
-    ENV["XIXO_WHISPER_MODEL"] = "/tmp/there-is-no-such-model.bin"
+  test "a backend that refuses the recording leaves a failed step that names it" do
+    listening!.refuse_transcription(500)
 
     analyze_feed_at "tone.m4a"
 
     Tenant.switch(@tenant) do
-      message = steps_at("tone.m4a").dig("transcript", "error", "message")
-
-      assert_match(%r{/tmp/there-is-no-such-model\.bin}, message)
-      assert_match(/not a file/, message)
+      assert_match(/\Awhisper: 127\.0\.0\.1 answered 500/, steps_at("tone.m4a").dig("transcript", "error", "message"))
     end
   end
 
@@ -121,7 +117,7 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
   end
 
   test "what was said becomes text, and the text becomes searchable" do
-    requires_transcription!
+    server = listening!.transcribes([ 0.4, " Morning, quick standup." ], [ 3.2, "Send the invoice for 4,200 today." ], [ 65.0, "  " ])
 
     analyze_feed_at "standup.m4a"
     SearchIndex.refresh!
@@ -129,9 +125,9 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       transcript = steps_at("standup.m4a").dig("transcript", "result")
 
-      assert_match(/\A\[00:00:\d{2}\] /, transcript, "each line opens with the moment it was said")
-      assert_match(/invoice/i, transcript)
-      assert_match(/4,200|4200/, transcript)
+      assert_equal "[00:00:00] Morning, quick standup.\n[00:00:03] Send the invoice for 4,200 today.", transcript,
+                   "each line opens with the moment it was said, and a segment with nothing said is dropped"
+      assert_equal [ { "model" => "whisper-1", "format" => "verbose_json", "wav" => true } ], server.heard
 
       assert_equal [ "standup.m4a" ], Feed.search("invoice", mime: "audio/mp4").pluck(:title),
                    "a spoken word is a searchable word or the transcript was for nothing"
@@ -165,7 +161,7 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
   end
 
   test "a recording with no sound in it is not silently reported as heard" do
-    requires_transcription!
+    listening!
 
     @resource.client.put_object(
       bucket: @bucket, key: "silent.mp4",
@@ -274,6 +270,17 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
   end
 
   private
+
+    def listening!
+      server = FakeModelServer.current.reset!
+      ENV["XIXO_INFERENCE_ORIGINS"] = server.origin
+      Tenant.switch(@tenant) do
+        Resource::OpenaiCompatible.create!(key: "whisper",
+                                           details: { "base_url" => server.base_url,
+                                                      "models" => { "transcription" => "whisper-1" } })
+      end
+      server
+    end
 
     def image_width(bytes)
       Tempfile.create([ "wave", ".jpg" ], binmode: true) do |file|

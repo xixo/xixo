@@ -306,6 +306,7 @@ A model backend. Anything speaking the OpenAI chat API — ollama, LM Studio, ll
 | `models.vision` | Vision model | string |  |  |  | Anything that has to look at an image. |
 | `models.agent` | Agent model | string |  |  |  | What a feed drives. It has to call tools. |
 | `models.embedding` | Embedding model | string |  |  |  | What search compares meaning with. Its vectors have to be the width the index was built for. |
+| `models.transcription` | Transcription model | string |  |  |  | What turns speech into text, through /audio/transcriptions. whisper.cpp's server, speaches, and OpenAI's whisper-1 all answer there. |
 | `embedding_prefixes.query` | Query prefix | string |  |  |  | Put before a search when it is embedded. Left off, xixo uses what nomic-embed-text, e5, mxbai and bge were trained with, and nothing for any other model. |
 | `embedding_prefixes.document` | Document prefix | string |  |  |  | Put before what is catalogued when it is embedded. Left off, as above. |
 | `routine_effort` | Effort on routine work | choice of `` `none` `minimal` `low` `medium` `high` |  |  |  | How hard a reasoning model thinks while filing what arrives. Sent as reasoning_effort. Ollama takes none, and OpenAI minimal or low. |

@@ -9,18 +9,6 @@ FROM docker.io/library/node:$NODE_VERSION-slim AS node
 FROM scratch AS masks-client
 COPY vendor/.keep /
 
-FROM docker.io/library/ruby:$RUBY_VERSION-slim AS whisper
-ARG WHISPER_COMMIT=7d75b14994ae7f59623e2471445e2355fe506ed2
-RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential ca-certificates cmake git && \
-    git init /src && git -C /src fetch --depth 1 https://github.com/ggml-org/whisper.cpp "$WHISPER_COMMIT" && \
-    git -C /src checkout FETCH_HEAD && \
-    cmake -S /src -B /build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DGGML_NATIVE=OFF \
-      -DGGML_OPENMP=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF \
-      -DCMAKE_EXE_LINKER_FLAGS="-static-libstdc++ -static-libgcc" && \
-    cmake --build /build --target whisper-cli -j "$(nproc)" && \
-    install -s /build/bin/whisper-cli /usr/local/bin/whisper-cli
-
 FROM docker.io/library/ruby:$RUBY_VERSION-slim
 
 WORKDIR /rails
@@ -34,7 +22,6 @@ RUN apt-get update -qq && \
     ln -s /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
-COPY --from=whisper /usr/local/bin/whisper-cli /usr/local/bin/whisper-cli
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
 RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \

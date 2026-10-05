@@ -27,6 +27,8 @@ class FakeModelServer
     @embedded = []
     @width = WIDTH
     @vectors = {}
+    @transcripts = []
+    @heard = []
     @busy = 0
     @server = TCPServer.new("127.0.0.1", 0)
     @port = @server.addr[1]
@@ -58,6 +60,8 @@ class FakeModelServer
       @embedded = []
       @width = WIDTH
       @vectors = {}
+      @transcripts = []
+      @heard = []
       @loaded = nil
     end
     self
@@ -80,6 +84,20 @@ class FakeModelServer
 
   def embedded
     @lock.synchronize { @embedded.dup }
+  end
+
+  def transcribes(*segments)
+    @lock.synchronize { @transcripts << segments.map { |start, text| { "start" => start, "text" => text } } }
+    self
+  end
+
+  def refuse_transcription(status)
+    @lock.synchronize { @transcripts << { "status" => status } }
+    self
+  end
+
+  def heard
+    @lock.synchronize { @heard.dup }
   end
 
   def serves(*models)
@@ -216,6 +234,7 @@ class FakeModelServer
       when %r{/models\z} then rendered(200, JSON.generate(models_payload))
       when %r{/chat/completions\z} then completion(body)
       when %r{/embeddings\z} then embeddings(body)
+      when %r{/audio/transcriptions\z} then transcription(body)
       when %r{\A/api/ps\z} then loaded_payload
       else rendered(404, "")
       end
@@ -232,6 +251,18 @@ class FakeModelServer
       rendered(200, JSON.generate({ "object" => "list", "data" => data }))
     rescue JSON::ParserError
       rendered(400, "")
+    end
+
+    def transcription(body)
+      field = ->(name) { body[/name="#{name}"\r\n\r\n([^\r]*)/, 1] }
+      segments = @lock.synchronize do
+        @heard << { "model" => field.call("model"), "format" => field.call("response_format"),
+                    "wav" => body.b.include?("RIFF".b) && body.b.include?("WAVE".b) }
+        @transcripts.shift || []
+      end
+      return rendered(segments["status"], "") if segments.is_a?(Hash)
+
+      rendered(200, JSON.generate("text" => segments.map { |segment| segment["text"] }.join(" "), "segments" => segments))
     end
 
     def vector_for(text)

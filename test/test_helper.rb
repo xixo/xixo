@@ -48,14 +48,6 @@ module ActiveSupport
       skip "drives a refusal only the in-process engine can be told to make"
     end
 
-    def requires_transcription!
-      model = ENV["XIXO_WHISPER_MODEL"].presence
-
-      return if model && File.file?(model) && system("command -v #{Analyzer::Media.binary} > /dev/null")
-
-      skip "asserts what whisper itself hears; set XIXO_WHISPER_MODEL to a ggml model file to run it"
-    end
-
     def issuer
       FakeIssuer.current
     end

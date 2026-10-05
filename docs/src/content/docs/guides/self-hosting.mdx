@@ -276,6 +276,27 @@ See [addresses](/concepts/adding/#addresses) and [security](/concepts/security/)
 A service on a Tailscale or Headscale network is reached through a `tailnet` resource instead. See
 [reach a tailnet](/guides/tailnet/).
 
+## Transcription
+
+Audio and video are transcribed by the resource that serves the `transcription` role. Without one,
+each recording is analyzed without a transcript, and the analysis logs `no model backend serves
+transcription`. Any server that answers OpenAI's `/audio/transcriptions` works. whisper.cpp's
+`whisper-server` runs a ggml model on the machine with the best GPU:
+
+```sh
+curl -fL -o ggml-base.en.bin \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
+whisper-server -m ggml-base.en.bin --host 0.0.0.0 --port 11435 \
+  --inference-path /v1/audio/transcriptions
+```
+
+Attach an `openai-compatible` resource with the base URL `http://<host>:11435/v1` and any name as
+its **Transcription model**, since whisper.cpp answers with the model it was started with. List its
+origin in `XIXO_INFERENCE_ORIGINS`, or reach it through a [tailnet](/guides/tailnet/). Its check
+sends a second of silence and passes when the server answers. `ggml-base.en.bin` is 148 MB and
+transcribes English. The other models in the same repository trade size for accuracy, and the ones
+without `.en` transcribe other languages.
+
 ## Minimum environment
 
 Every variable xixo reads, with its default, is on the [ENV vars](/reference/environment/) page. A
@@ -300,8 +321,8 @@ production deployment sets at least these:
 | `sync`, `export`, `default` | 5 | `BULK_CONCURRENCY` (default 1) |
 | `analysis` | `ANALYSIS_THREADS` (default 4) | `ANALYSIS_CONCURRENCY` (default 1) |
 
-The worker shells out to Chromium, LibreOffice, Tesseract, Poppler, FFmpeg, and whisper.cpp, which
-the image includes. The worker runs in its own container so that analysis does not slow down web
+The worker shells out to Chromium, LibreOffice, Tesseract, Poppler, and FFmpeg, which the image
+includes. The worker runs in its own container so that analysis does not slow down web
 requests, and so the two scale separately. To run jobs inside the web process on a small host, set
 `SOLID_QUEUE_IN_PUMA=1` on the web container and run no worker.
 
@@ -313,31 +334,6 @@ Follow job progress in the worker's log:
 ```sh
 docker compose logs -f worker
 ```
-
-### Transcription
-
-The image includes `whisper-cli` and no model. Without one, audio and video are analyzed without a
-transcript, and each analysis logs `no transcription model is configured`. Download a whisper.cpp
-ggml model, mount its directory read-only into the worker, and name the file in
-`XIXO_WHISPER_MODEL`:
-
-```sh
-mkdir -p whisper
-curl -fL -o whisper/ggml-base.en.bin \
-  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
-```
-
-```yaml
-  worker:
-    environment:
-      XIXO_WHISPER_MODEL: /models/whisper/ggml-base.en.bin
-    volumes:
-      - ./whisper:/models/whisper:ro
-```
-
-`ggml-base.en.bin` is 148 MB and transcribes English. Its SHA-256 is
-`a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002`. The other models in the same
-repository trade size for accuracy, and the ones without `.en` transcribe other languages.
 
 ### Mission Control at /jobs
 

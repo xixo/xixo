@@ -79,6 +79,23 @@ seeded.each do |tenant|
       end
     end
 
+    if (endpoint = ENV["WHISPER_URL"]).present?
+      ears = Resource::OpenaiCompatible.find_or_initialize_by(key: "whisper")
+      ears.assign_attributes(
+        name: "Transcription",
+        details: {
+          "base_url" => endpoint,
+          "models" => { "transcription" => ENV.fetch("WHISPER_MODEL", "whisper-1") }
+        }
+      )
+      ears.save!
+
+      unless ears.check
+        warn "  whisper unreachable at #{endpoint} — #{ears.check_error}"
+        warn "  recordings will be catalogued without transcripts until it answers"
+      end
+    end
+
     # Any OpenAI-compatible server is another row, reached by its own base_url. Nothing is
     # discovered: a backend exists here because it was declared, with its models named per
     # role. LM Studio and mlx both serve models ollama's library does not carry.

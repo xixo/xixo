@@ -18,6 +18,10 @@ class Resource
     AGENT_ROLE = "agent"
     TOOL_ROLES = [ AGENT_ROLE ].freeze
     EMBEDDING_ROLE = "embedding"
+    TRANSCRIPTION_ROLE = "transcription"
+    TRANSCRIBE_TIMEOUT = 900
+    HEARD_TYPE = "audio/wav"
+    SAMPLE_RATE = 16_000
     EFFORTS = %w[none minimal low medium high].freeze
     AS_IT_LIKES = "model".freeze
     ASKING = "Represent this sentence for searching relevant passages: ".freeze
@@ -70,6 +74,9 @@ class Resource
           field("models.embedding", "Embedding model",
                 help: "What search compares meaning with. Its vectors have to be the width " \
                       "the index was built for."),
+          field("models.transcription", "Transcription model",
+                help: "What turns speech into text, through /audio/transcriptions. whisper.cpp's server, " \
+                      "speaches, and OpenAI's whisper-1 all answer there."),
           field("embedding_prefixes.query", "Query prefix",
                 help: "Put before a search when it is embedded. Left off, xixo uses what nomic-embed-text, " \
                       "e5, mxbai and bge were trained with, and nothing for any other model."),
@@ -177,18 +184,19 @@ class Resource
         roomy!(model)
       end
       embeds! if models.key?(EMBEDDING_ROLE)
+      transcribes! if models.key?(TRANSCRIPTION_ROLE)
 
       true
     end
 
     def answers!
-      served = model_names
-      wanted = models.values.uniq
-      missing = wanted.reject { |name| served.include?(name) || served.include?("#{name}:latest") }
+      raise Resource::Unusable, "#{key}: no models are declared — set details.models" if models.empty?
 
-      if wanted.empty?
-        raise Resource::Unusable, "#{key}: no models are declared — set details.models"
-      end
+      wanted = models.except(TRANSCRIPTION_ROLE).values.uniq
+      return true if wanted.empty?
+
+      served = model_names
+      missing = wanted.reject { |name| served.include?(name) || served.include?("#{name}:latest") }
 
       if missing.any?
         raise Resource::Unusable,
@@ -199,7 +207,31 @@ class Resource
     end
 
     def probes?
-      TOOL_ROLES.any? { |role| models.key?(role) } || models.key?(EMBEDDING_ROLE)
+      TOOL_ROLES.any? { |role| models.key?(role) } || models.key?(EMBEDDING_ROLE) || models.key?(TRANSCRIPTION_ROLE)
+    end
+
+    def transcribes!
+      transcribe(self.class.silence)
+      true
+    end
+
+    def transcribe(audio)
+      model = model_for(TRANSCRIPTION_ROLE)
+      fields = [
+        [ "file", StringIO.new(audio.to_s.b), { filename: "heard.wav", content_type: HEARD_TYPE } ],
+        [ "model", model ],
+        [ "response_format", "verbose_json" ]
+      ]
+
+      lines(answer(dial("/audio/transcriptions"), TRANSCRIBE_TIMEOUT) { |uri| form(uri, fields) })
+    end
+
+    def self.silence(seconds = 1)
+      samples = SAMPLE_RATE * seconds
+      data = "\0".b * (samples * 2)
+
+      [ "RIFF", 36 + data.bytesize, "WAVE", "fmt ", 16, 1, 1, SAMPLE_RATE, SAMPLE_RATE * 2, 2, 16,
+        "data", data.bytesize ].pack("a4Va4a4VvvVVvva4V") + data
     end
 
     def roomy!(model = model_for(AGENT_ROLE))
@@ -557,6 +589,22 @@ class Resource
         refused!(response, uri)
       rescue JSON::ParserError
         raise Resource::Unusable, "#{key}: #{uri.host} did not answer with JSON"
+      end
+
+      def form(uri, fields)
+        Net::HTTP::Post.new(uri, headers.except("Content-Type")).tap do |request|
+          request.set_form(fields, "multipart/form-data")
+        end
+      end
+
+      def lines(heard)
+        segments = Array(heard["segments"])
+        return heard["text"].to_s.strip if segments.empty?
+
+        segments.filter_map do |segment|
+          said = segment["text"].to_s.strip
+          "[#{Time.at(segment['start'].to_f).utc.strftime('%H:%M:%S')}] #{said}" if said.present?
+        end.join("\n")
       end
 
       def posting(uri, body)

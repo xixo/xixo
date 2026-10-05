@@ -79,6 +79,41 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
     end
   end
 
+  test "a backend that only transcribes is checked by hearing a second of silence, not by listing its models" do
+    @server.serves([])
+
+    Tenant.switch(@tenant) do
+      whisper = Resource::OpenaiCompatible.create!(
+        key: "whisper", details: { "base_url" => @server.base_url, "models" => { "transcription" => "whisper-1" } }
+      )
+
+      assert whisper.check!
+      assert_equal [ { "model" => "whisper-1", "format" => "verbose_json", "wav" => true } ], @server.heard
+      assert_equal 0, @server.count_for("/v1/models")
+    end
+  end
+
+  test "a transcription backend that refuses the probe fails its check" do
+    @server.refuse_transcription(404)
+
+    Tenant.switch(@tenant) do
+      whisper = Resource::OpenaiCompatible.create!(
+        key: "whisper", details: { "base_url" => @server.base_url, "models" => { "transcription" => "whisper-1" } }
+      )
+
+      assert_match(/answered 404/, assert_raises(Resource::Unusable) { whisper.check! }.message)
+    end
+  end
+
+  test "transcription is a declared role, so a default chat model is never handed audio" do
+    Tenant.switch(@tenant) do
+      Resource::OpenaiCompatible.create!(key: "chat", details: { "base_url" => @server.base_url,
+                                                                  "models" => { "default" => "gemma3:4b" } })
+
+      assert_nil Resource.for_declared_role(:transcription)
+    end
+  end
+
   test "an unreachable endpoint records the failure rather than raising out of check" do
     Tenant.switch(@tenant) do
       gone = Resource::OpenaiCompatible.create!(

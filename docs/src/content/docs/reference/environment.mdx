@@ -133,9 +133,7 @@ server's disk, including other tenants' clones under `XIXO_GIT_ROOT`, and `ext` 
 
 | Variable | Default | |
 | --- | --- | --- |
-| `XIXO_WHISPER_MODEL` | none | The path to a whisper.cpp ggml model file, such as `/models/whisper/ggml-base.en.bin`. The image carries `whisper-cli` and no model. Unset, audio and video are analyzed without a transcript, and the analysis logs `no transcription model is configured`. |
-| `XIXO_WHISPER_BIN` | `whisper-cli` | The whisper.cpp command, found on `PATH` unless it is a path. |
-| `XIXO_TRANSCRIBE_SECONDS` | `3600` | How many seconds from the start of a recording are measured and transcribed. Whisper runs at about real time on a CPU. |
+| `XIXO_TRANSCRIBE_SECONDS` | `3600` | How many seconds from the start of a recording are measured and sent to the resource that serves `transcription`. |
 | `XIXO_CHROME_PATH` | detected | The Chrome or Chromium binary used to render snapshots. Unset, xixo looks in the usual places for the platform. The image includes Chromium. Without a browser, `web` resources report themselves unusable. |
 | `XIXO_CHROME_NO_SANDBOX` | `false` | Starts Chrome with `--no-sandbox`, for a container that cannot give Chrome the namespaces its sandbox needs. |
 
@@ -227,8 +225,7 @@ Read by `./dev`, the compose files, the seeds, and the test suite. A deployed se
 | `XIXO_MCP_OAUTH_PORT` | `8190` | The host port of the test MCP server that signs in with OAuth, at `http://mcp.localhost:8190`. Compose lists it in `XIXO_MCP_ORIGINS`. |
 | `XIXO_MCP_OAUTH_LIFETIME` | `120` | How many seconds the test MCP server's access tokens last. |
 | `XIXO_OLLAMA_PORT` | `11434` | The port of Ollama on the host. Compose points `OLLAMA_URL` and `XIXO_INFERENCE_ORIGINS` at it. |
-| `XIXO_WHISPER_DIR` | `~/.cache/whisper` | The host directory mounted read-only at `/models/whisper`. |
-| `XIXO_WHISPER_FILE` | `ggml-base.en.bin` | The model file in that directory. Compose sets `XIXO_WHISPER_MODEL` to it. |
+| `XIXO_WHISPER_PORT` | `11435` | The port of whisper.cpp's `whisper-server` on the host. Compose points `WHISPER_URL` and `XIXO_INFERENCE_ORIGINS` at it. |
 | `MASKS_ISSUER` | `http://masks.localhost:12345` | The masks issuer. Compose sets `MASKS_ISSUER_TEMPLATE` from it, and `compose.multi.yml` defaults it to `http://%{subdomain}.masks.localhost:12345`. |
 | `MASKS_CLIENT_DIR` | `../masks/client` | The masks client checkout that compose builds and mounts into the containers. |
 | `MASKS_CLIENT_PATH` | none | Where the `Gemfile` finds the masks client. When that directory holds a `masks.gemspec`, the gem comes from it. Otherwise the gem comes from RubyGems, or from `../masks/client` under `Gemfile.local`. Compose sets it to `/masks/client` as a build argument. |
@@ -243,7 +240,7 @@ Read by `./dev`, the compose files, the seeds, and the test suite. A deployed se
 ### Seeds
 
 `bin/rails db:seed` gives each tenant an `s3` resource when `S3_ENDPOINT` is set, and an
-`openai_compatible` resource when `OLLAMA_URL` is set.
+`openai_compatible` resource when `OLLAMA_URL` is set, and another when `WHISPER_URL` is set.
 
 | Variable | Default | |
 | --- | --- | --- |
@@ -257,6 +254,8 @@ Read by `./dev`, the compose files, the seeds, and the test suite. A deployed se
 | `OLLAMA_VISION_MODEL` | `gemma3:4b` | The model for the `vision` role. |
 | `OLLAMA_AGENT_MODEL` | `qwen3:8b` | The model for the `agent` role. |
 | `OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text` | The model for the `embedding` role. Its vectors must have `XIXO_EMBEDDING_DIMENSIONS` dimensions. |
+| `WHISPER_URL` | none | The base URL of a server that answers `/audio/transcriptions`, such as `http://host.docker.internal:11435/v1`. Set, the seeds attach it as `whisper`, serving the `transcription` role. |
+| `WHISPER_MODEL` | `whisper-1` | The model the `whisper` resource names. whisper.cpp's server answers with the model it was started with, whatever is named. |
 
 ### Tests
 

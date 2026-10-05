@@ -3,7 +3,6 @@ module Analyzer
     SAMPLE_RATE = "16000".freeze
     CHANNELS = "1".freeze
     DEFAULT_SPAN = 3600
-    DEFAULT_BINARY = "whisper-cli".freeze
     STREAMS = 8
     TAGS = %w[title artist album_artist album date genre composer comment].freeze
     SILENCE = "-50dB".freeze
@@ -14,7 +13,6 @@ module Analyzer
     BRIGHTNESS = [ [ 500, "dark" ], [ 2000, "middle" ], [ Float::INFINITY, "bright" ] ].freeze
     TEXTURE = [ [ 0.05, "tonal" ], [ 0.5, "mixed" ], [ Float::INFINITY, "noisy" ] ].freeze
     WRITTEN_AS = "a timestamp on each line".freeze
-    STAMPED = /\A\[(\d{2}:\d{2}:\d{2})\.\d+\s*-->[^\]]*\]\s*(.*)\z/
     STILLS = %w[mjpeg png gif bmp].freeze
     FRAMES = 8
     SCENE_SECONDS = 8
@@ -32,14 +30,6 @@ module Analyzer
       MimeType.audio?(feed.mime) || MimeType.video?(feed.mime)
     end
 
-    def self.model
-      ENV["XIXO_WHISPER_MODEL"].presence
-    end
-
-    def self.binary
-      ENV.fetch("XIXO_WHISPER_BIN", DEFAULT_BINARY)
-    end
-
     def self.span
       ENV.fetch("XIXO_TRANSCRIBE_SECONDS", DEFAULT_SPAN).to_i
     end
@@ -49,14 +39,22 @@ module Analyzer
         step(:probe, digest: TAGS.join(",")) { probe(path) }
         attempt { step(:signal) { signal(path) } } if audio?
 
-        if self.class.model.blank?
-          analysis&.log_skip(log_context, "transcript", "no transcription model is configured")
-        else
-          attempt { step(:transcript, digest: WRITTEN_AS) { transcribe(path) } }
-        end
+        heard(path)
 
         seen(path)
       end
+    end
+
+    def heard(path)
+      listening = Resource.for_declared_role(:transcription)
+
+      if listening.nil?
+        analysis&.log_skip(log_context, "transcript", "no model backend serves transcription")
+        return
+      end
+
+      digest = [ WRITTEN_AS, listening.key, listening.model_for(:transcription) ].join("/")
+      attempt { step(:transcript, digest: digest) { transcribe(path, listening) } }
     end
 
     def seen(path)
@@ -123,18 +121,7 @@ module Analyzer
         }.compact
       end
 
-      def transcribe(path)
-        model = self.class.model
-
-        if model.blank?
-          raise Analyzer::Failed,
-                "no transcription model is configured — set XIXO_WHISPER_MODEL to a ggml model file"
-        end
-
-        unless File.file?(model)
-          raise Analyzer::Failed, "XIXO_WHISPER_MODEL names #{model}, which is not a file"
-        end
-
+      def transcribe(path, listening)
         raise Analyzer::Failed, "#{reference.filename} carries no audio" unless audio?
 
         Dir.mktmpdir do |dir|
@@ -144,7 +131,9 @@ module Analyzer
                       "-t", self.class.span.to_s, "-ac", CHANNELS, "-ar", SAMPLE_RATE,
                       "-f", "wav", heard)
 
-          spoken(run_command(self.class.binary, "-m", model, "-f", heard, "-np"))
+          listening.transcribe(File.binread(heard)).truncate(MAX_TEXT)
+        rescue Resource::Unusable, Resource::Failed => e
+          raise Analyzer::Failed, e.message
         end
       end
 
@@ -215,15 +204,6 @@ module Analyzer
 
       def number(value)
         value && Float(value, exception: false)
-      end
-
-      def spoken(output)
-        output.to_s.lines.filter_map do |line|
-          stamp, said = line.strip.match(STAMPED)&.captures
-          next line.strip.presence if stamp.nil?
-
-          "[#{stamp}] #{said.strip}" if said.present?
-        end.join("\n").truncate(MAX_TEXT)
       end
 
       def scenes(path, seeing)

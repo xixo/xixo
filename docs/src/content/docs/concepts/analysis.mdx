@@ -109,9 +109,9 @@ summary where the photo was taken. The vision model's description of the image i
 title, artist, and album. For anything with a sound track, one `ffmpeg` pass records the `signal`
 step: integrated loudness and loudness range in LUFS, true peak, the silent spans, and the median
 spectral centroid and flatness. The summary prompt describes these as dynamics, brightness, and
-texture, and says when a recording is silent throughout. The `transcript` step runs `whisper-cli`
-over the first hour when `XIXO_WHISPER_MODEL` names a model file. Each line of the transcript opens
-with the moment it was said, such as `[00:03:12]`. When a resource serves the `vision` role, the
+texture, and says when a recording is silent throughout. When a resource serves the
+`transcription` role, the `transcript` step sends the first hour to it as 16 kHz mono audio. Each line
+of the transcript opens with the moment it was said, such as `[00:03:12]`. When a resource serves the `vision` role, the
 `scenes` step captions a video's frames: one for each eight seconds, up to eight, taken from the
 middle of each stretch. Each caption is kept with its moment, and the summary reads them after the
 transcript.
