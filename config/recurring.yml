@@ -45,7 +45,7 @@ shared: &shared
   rebuild_search_index:
     class: RebuildSearchIndexJob
     queue: sync
-    schedule: every day at 3am
+    schedule: every 10 minutes
 
 development:
   <<: *shared

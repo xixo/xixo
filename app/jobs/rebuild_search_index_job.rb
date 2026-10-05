@@ -2,6 +2,8 @@ class RebuildSearchIndexJob < ApplicationJob
   queue_as :sync
   across_tenants!
 
+  limits_concurrency to: 1, key: "rebuild_search_index", duration: 6.hours
+
   def perform
     return unless SearchIndex.stale?
 
