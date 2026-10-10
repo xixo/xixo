@@ -224,6 +224,28 @@ class PersonalResourcesTest < ActionDispatch::IntegrationTest
     assert Tenant.switch(@tenant) { run.reload.open? }
   end
 
+  test "a feed shows only the places its reader can reach, and serves bytes from those alone" do
+    feed, theirs = Tenant.switch(@tenant) do
+      feed = Feed.create!(type: Feed::FILE, key: "plan.txt", title: "plan.txt")
+      Reference.create!(feed: feed, resource: @shared, locator_key: "news/plan.txt", locator: {})
+      [ feed, Reference.create!(feed: feed, resource: @ada, locator_key: "ada/plan.txt", locator: {}) ]
+    end
+    places = "{ feed(id: #{feed.id}) { references { locatorKey } } }"
+
+    assert_equal %w[ada/plan.txt news/plan.txt],
+                 graphql("ada", places).dig("data", "feed", "references").pluck("locatorKey").sort
+    assert_equal %w[news/plan.txt], graphql("bob", places).dig("data", "feed", "references").pluck("locatorKey")
+
+    get "/references/#{theirs.id}/content", headers: headers("bob")
+    assert_response :not_found
+
+    split = graphql("bob", %(mutation { splitReference(input: { id: "#{theirs.id}" }) { feed { id } } }))
+    assert_match(/no reference with id/, split.dig("errors", 0, "message"))
+
+    described = as(grant_for("bob")) { Tool::Base.summarize(feed.reload) }
+    assert_equal %w[news/plan.txt], described[:references].pluck(:locator_key)
+  end
+
   test "a personal resource is never where everyone's drops land" do
     Tenant.switch(@tenant) do
       bucket = Resource::S3.new(key: "private-bucket", owner_subject: "ada", default_storage: true,

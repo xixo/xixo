@@ -109,7 +109,11 @@ everybody else: from the resources query, from every mutation that names a resou
 `resource` and `feed` tools, from the connect route, and from the MCP tools a personal MCP server
 offers. A type connected through masks starts as **Only me**.
 
-What a personal resource syncs is cataloged for the whole tenant, like anything else. A personal
+What a personal resource syncs is cataloged for the whole tenant, like anything else, but its places
+are its owner's. A feed lists only the references held in resources its reader can reach, and
+`/references/:id/content`, the `splitReference` mutation, and the `feed` tool refuse a reference in
+somebody else's personal resource, so nobody else reads its path or fetches its bytes with the
+owner's credentials. A personal
 resource is never the default for uploads or questions. An agent working on a feed reaches it only
 in a run its owner started. See [whose resources a run reaches](/concepts/agents/#whose-resources-a-run-reaches).
 

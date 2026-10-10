@@ -269,6 +269,10 @@ class Resource < ApplicationRecord
         raise(ArgumentError, "this tenant has no default #{capability} resource")
     end
 
+    def out_of_reach(grant)
+      where.not(id: reachable_by(grant)).ids.to_set
+    end
+
     def default_storage = default_for(:storage)
     def default_storage! = default_for!(:storage)
     def default_inference = default_for(:inference)

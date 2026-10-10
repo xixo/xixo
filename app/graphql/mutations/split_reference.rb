@@ -9,7 +9,7 @@ module Mutations
     field :feed, Types::FeedType, null: false
 
     def resolve(id:)
-      reference = Reference.find_by(id: id) ||
+      reference = Reference.reachable_by(context[:grant]).find_by(id: id) ||
                   refused("no reference with id #{id}")
 
       refused("a feed with one reference is already split") if

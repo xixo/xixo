@@ -132,7 +132,8 @@ module Tool
           mime: feed.mime,
           analyzed_at: feed.analyzed_at,
           expires_at: feed.expires_at,
-          references: feed.references.map { |reference| describe_reference(reference) }
+          references: feed.references.where(resource: Resource.reachable_by(Current.grant))
+                                     .map { |reference| describe_reference(reference) }
         }
       end
 

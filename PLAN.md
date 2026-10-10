@@ -36,8 +36,6 @@ and keeping apart. This file lists what is still open.
 
 ## Known gaps
 
-- **A personal resource's places show on the tenant's catalog.** `FeedType.references` lists every
-  place to anyone who can read the catalog.
 - **The headless browser resolves hosts for itself.** `Snapshot` checks each request it intercepts,
   and git and the MCP client are pinned to the vetted address.
 - **Nothing sets an analysis `gated`.** `Gated` marks the run.

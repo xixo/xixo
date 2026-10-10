@@ -22,6 +22,7 @@ class Reference < ApplicationRecord
   scope :originals, -> { where(role: ORIGINAL) }
   scope :derived, -> { where(role: DERIVED) }
   scope :in_role, ->(role) { where(role: role.to_s) }
+  scope :reachable_by, ->(grant) { where(resource: Resource.reachable_by(grant)) }
 
   scope :joinable, -> {
     originals.where(gone_at: nil, kept_apart: false)

@@ -53,6 +53,12 @@ module Types
 
     def time_allowed = object.time_allowed.to_i
 
+    def references
+      hidden = context[:out_of_reach] ||= Resource.out_of_reach(context[:grant])
+
+      object.references.reject { |reference| hidden.include?(reference.resource_id) }
+    end
+
     def summary
       object.summary || excerpt
     end

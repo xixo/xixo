@@ -42,7 +42,7 @@ class ContentController < ApplicationController
     end
 
     def find_reference
-      Reference.find_by(id: params[:id])
+      Reference.reachable_by(grant).find_by(id: params[:id])
     end
 
     def stream(io)
