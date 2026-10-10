@@ -73,6 +73,12 @@ class Feed < ApplicationRecord
                      .where.not(id: Analysis.open.select(:feed_id))
   }
   scope :by_key, ->(value) { where(key: value.to_s) }
+  scope :readable_by, ->(grant) { readable_to(grant&.speaks_for) }
+  scope :readable_to, lambda { |subject|
+    next where(readers: nil) if subject.blank?
+
+    where(readers: nil).or(where("feeds.readers @> ARRAY[?]::varchar[]", subject))
+  }
   scope :expired, -> { where(expires_at: ..Time.current) }
   scope :unattended, lambda {
     files.where(parent_id: nil, expires_at: nil, note: [ nil, "" ])
@@ -83,10 +89,40 @@ class Feed < ApplicationRecord
   normalizes :title, with: ->(value) { value.to_s.squish.presence }
 
   before_destroy :forget_edges
+  before_create :inherit_readers
 
   after_commit :index_for_search, on: [ :create, :update ]
   after_commit :reconsider_embedding, on: :update
   after_commit :remove_from_search, on: :destroy
+
+  def readable_by?(grant)
+    readers.nil? || readers.include?(grant&.speaks_for)
+  end
+
+  def root
+    held = self
+    DEPTH.times { held = held.parent || break }
+    held
+  end
+
+  def settle_readers!
+    held = root.owning_readers
+    return false if held == readers
+
+    update_columns(readers: held)
+    SearchIndex.index(Feed.for_indexing.find_by(id: id) || self)
+    PassageIndex.index_all(passages.where.not(embedded_at: nil))
+    children.each(&:settle_readers!)
+    true
+  end
+
+  def owning_readers
+    owners = Reference.originals.where(feed_id: id).joins(:resource).distinct.pluck("resources.owner_subject")
+    return readers if owners.empty?
+    return nil if owners.include?(nil)
+
+    owners.sort
+  end
 
   def file? = type == FILE
   def note? = type == NOTE
@@ -147,17 +183,17 @@ class Feed < ApplicationRecord
     addresses.by_key(key.to_s.start_with?("/") ? key : "/#{key}").first
   end
 
-  def self.search(query, type: nil, mime: nil, tag: nil, limit: 50)
-    ids = SearchIndex.search(query, type: type, mime: mime, tag: tag, limit: limit)
+  def self.search(query, reader: Current.grant&.speaks_for, type: nil, mime: nil, tag: nil, limit: 50)
+    ids = SearchIndex.search(query, reader: reader, type: type, mime: mime, tag: tag, limit: limit)
     return none if ids.empty?
 
-    where(id: ids).in_order_of(:id, ids)
+    readable_to(reader).where(id: ids).in_order_of(:id, ids)
   end
 
   def self.found(query, type: nil, mime: nil, tag: nil, limit: 50, from: 0)
     held = SearchIndex.page(query, type: type, mime: mime, tag: tag, limit: limit, from: from)
     ids = held[:ids]
-    nodes = ids.empty? ? [] : where(id: ids).in_order_of(:id, ids).to_a
+    nodes = ids.empty? ? [] : readable_by(Current.grant).where(id: ids).in_order_of(:id, ids).to_a
 
     Page.at(nodes, from: from, total: held[:total])
   end
@@ -223,7 +259,9 @@ class Feed < ApplicationRecord
     scope = scope.under(selector[:folder]) if selector[:folder].present?
     scope = scope.where(created_at: moment(selector[:since])..) if selector[:since].present?
     scope = scope.where(created_at: ...moment(selector[:before])) if selector[:before].present?
-    scope = scope.where(id: search(selector[:query]).ids) if selector[:query].present?
+    if selector[:query].present?
+      scope = scope.where(id: search(selector[:query], reader: selector.fetch(:reader) { Current.grant&.speaks_for }).ids)
+    end
     scope
   end
 
@@ -528,6 +566,10 @@ class Feed < ApplicationRecord
       neighbors = edges.pluck(:a_id, :b_id).flatten.uniq - [ id ]
       edges.delete_all
       Feed.forget_lonely!(neighbors)
+    end
+
+    def inherit_readers
+      self.readers = parent.readers if parent
     end
 
     def index_for_search

@@ -5,32 +5,35 @@ class RebuildSearchIndexJob < ApplicationJob
   limits_concurrency to: 1, key: "rebuild_search_index", duration: 6.hours
 
   def perform
-    return unless SearchIndex.stale?
-
-    started = Time.current
-    target = SearchIndex.build!
-    expected = 0
-
-    begin
-      Tenant.find_each do |tenant|
-        Tenant.switch(tenant) do
-          run = Run.start!(kind: "reindex", selector: { "index" => target })
-          expected += Feed.count
-
-          ReindexFeedsJob.perform_now(tenant.id, target, run.id)
-        end
-      end
-
-      SearchIndex.promote!(target, at_least: expected)
-    rescue StandardError
-      SearchIndex.client.indices.delete(index: target, ignore: 404)
-      raise
-    end
-
-    catch_up(started)
+    rebuild if SearchIndex.stale?
+    PassageIndex.fill! unless PassageIndex.filled?
   end
 
   private
+
+    def rebuild
+      started = Time.current
+      target = SearchIndex.build!
+      expected = 0
+
+      begin
+        Tenant.find_each do |tenant|
+          Tenant.switch(tenant) do
+            run = Run.start!(kind: "reindex", selector: { "index" => target })
+            expected += Feed.count
+
+            ReindexFeedsJob.perform_now(tenant.id, target, run.id)
+          end
+        end
+
+        SearchIndex.promote!(target, at_least: expected)
+      rescue StandardError
+        SearchIndex.client.indices.delete(index: target, ignore: 404)
+        raise
+      end
+
+      catch_up(started)
+    end
 
     def catch_up(started)
       Tenant.find_each do |tenant|

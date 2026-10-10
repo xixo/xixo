@@ -27,9 +27,9 @@ module Types
     end
 
     def feed(id: nil, key: nil)
-      return Feed.find_by(id: id) if id.present?
+      return readable.find_by(id: id) if id.present?
 
-      Feed.address(key) if key.present?
+      readable.address(key) if key.present?
     end
 
     field :feeds, Types::FeedPageType, null: false, grants: "xixo:catalog:read" do
@@ -48,10 +48,10 @@ module Types
 
     def feeds(type: nil, types: nil, mime: nil, resource_id: nil, tag: nil, connected_to: nil,
               top_level: false, after: nil, limit: nil)
-      scope = Feed.matching({ type: types.presence || type, mime: mime, resource_id: resource_id,
-                              tag: tag }.compact)
+      scope = readable.matching({ type: types.presence || type, mime: mime, resource_id: resource_id,
+                                  tag: tag }.compact)
       scope = scope.where(parent_id: nil) if top_level
-      scope = scope.where(id: Feed.connected_to(Feed.find(connected_to)).select(:id)) if connected_to.present?
+      scope = scope.where(id: Feed.connected_to(readable.find(connected_to)).select(:id)) if connected_to.present?
 
       Page.of(scope, after: after, limit: limit)
     end
@@ -73,7 +73,7 @@ module Types
     field :types, [ Types::TypeCountType ], null: false, grants: "xixo:catalog:read"
 
     def types
-      Feed.where(parent_id: nil).group(:type).order(count_all: :desc).count.map do |type, count|
+      readable.where(parent_id: nil).group(:type).order(count_all: :desc).count.map do |type, count|
         { type: type, count: count }
       end
     end
@@ -146,7 +146,7 @@ module Types
     end
 
     def analysis(id:)
-      Analysis.find_by(id: id)
+      Analysis.readable_by(context[:grant]).find_by(id: id)
     end
 
     field :analyses, Types::AnalysisPageType, null: false, grants: "xixo:catalog:read" do
@@ -157,7 +157,7 @@ module Types
     end
 
     def analyses(feed_id: nil, status: nil, after: nil, limit: nil)
-      scope = Analysis.all
+      scope = Analysis.readable_by(context[:grant])
       scope = scope.where(feed_id: feed_id) if feed_id.present?
       scope = scope.where(status: status) if status.present?
 
@@ -173,12 +173,18 @@ module Types
     end
 
     def audit_events(status: nil, actor: nil, feed: nil, after: nil, limit: nil)
-      scope = AuditEvent.includes(:feed, analysis: :feed)
+      scope = AuditEvent.readable_by(context[:grant]).includes(:feed, analysis: :feed)
       scope = scope.where(status: status) if status.present?
       scope = scope.where(actor: actor) if actor.present?
       scope = scope.where(feed_id: feed).or(scope.where(analysis: Analysis.where(feed_id: feed))) if feed.present?
 
       Page.of(scope, after: after, limit: limit)
     end
+
+    private
+
+      def readable
+        Feed.readable_by(context[:grant])
+      end
   end
 end

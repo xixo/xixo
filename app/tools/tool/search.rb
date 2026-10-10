@@ -62,7 +62,7 @@ module Tool
           total: page.total,
           widened: (true if widened),
           note: noted(page, type, widened),
-          feeds: page.nodes.map { |feed| found(feed, passages[feed.id]) }
+          feeds: page.nodes.tap { |nodes| Current.grant.read_privately!(nodes) }.map { |feed| found(feed, passages[feed.id]) }
         }.compact
       end
     end

@@ -143,6 +143,7 @@ class AnalyzeFeedJob < ApplicationJob
                                about: asking.about, leaving_out: [ feed ], analysis: analysis).call
       answered = looked_up(feed, asking) || answered if answered.reason == :world
 
+      grant.keep_to_reader!(feed)
       said = asking.tidied(answered.said)
       noted(answered.with(said: said))
       spoken(said)

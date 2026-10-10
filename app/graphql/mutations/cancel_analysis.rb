@@ -9,7 +9,7 @@ module Mutations
           description: "True when the analysis was open and is now cancelled. False when it had already finished."
 
     def resolve(id:)
-      analysis = Analysis.find_by(id: id) || raise(GraphQL::ExecutionError, "no analysis with id #{id}")
+      analysis = Analysis.readable_by(context[:grant]).find_by(id: id) || raise(GraphQL::ExecutionError, "no analysis with id #{id}")
 
       { cancelled: analysis.cancel!, analysis: analysis }
     end

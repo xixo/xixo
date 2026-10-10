@@ -231,8 +231,13 @@ class Reference < ApplicationRecord
     end
 
     def reindex_feed
+      left = feed_id_previously_was if feed_id_previously_changed?
+      Feed.find_by(id: left)&.settle_readers! if left
+
       subject = Feed.find_by(id: feed_id)
       return if subject.nil?
+
+      subject.settle_readers!
 
       SearchIndex.index(subject)
       Feed.where(id: feed_id).where.not(embedded_at: nil).update_all(embedded_at: nil)

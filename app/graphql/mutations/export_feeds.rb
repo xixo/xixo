@@ -16,6 +16,7 @@ module Mutations
       refused("#{destination.key} is not storage") unless destination.storage?
 
       selector = { "query" => query, "type" => type, "resource_id" => resource_id }.compact
+                                                                                   .merge("reader" => context[:grant].speaks_for)
       run = Run.start!(kind: "export", resource: destination, selector: selector)
       ExportItemsJob.perform_later(destination.tenant_id, destination.id, selector, run.id)
 

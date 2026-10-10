@@ -15,6 +15,12 @@ class AuditEvent < ApplicationRecord
   validates :actor, inclusion: { in: ACTORS }
 
   scope :newest_first, -> { order(id: :desc) }
+  scope :readable_by, lambda { |grant|
+    readable = Feed.readable_by(grant).select(:id)
+
+    where("audit_events.feed_id IS NULL OR audit_events.feed_id IN (?)", readable)
+      .where("audit_events.analysis_id IS NULL OR audit_events.analysis_id IN (?)", Analysis.where(feed_id: readable).select(:id))
+  }
 
   class << self
     def record(channel:, action:, status:, grant: nil, context: {}, told: nil, feed: nil, **attributes)

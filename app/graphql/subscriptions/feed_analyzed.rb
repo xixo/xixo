@@ -12,6 +12,8 @@ module Subscriptions
     end
 
     def update(id: nil)
+      return :no_update unless object.readable_by?(context[:grant])
+
       { feed: object }
     end
   end

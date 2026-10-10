@@ -171,4 +171,23 @@ class PassageTest < ActiveSupport::TestCase
       Current.grant = nil
     end
   end
+
+  test "a passage of someone's personal file is found by them alone, and survives a refill of the index" do
+    vector = Array.new(WIDTH) { |index| index.zero? ? 1.0 : 0.0 }
+
+    Tenant.switch(@tenant) do
+      mine = Feed.create!(type: Feed::FILE, key: "diary.txt", title: "diary.txt")
+      mine.update_columns(readers: [ "ada" ])
+      Passage.create!(feed: mine, position: 0, starts_at: 0, ends_at: 10, text: "the safe code",
+                      embedding: vector, embedded_at: Time.current)
+
+      PassageIndex.fill!
+      PassageIndex.refresh!
+
+      assert PassageIndex.filled?
+      assert_equal [ mine.id ], PassageIndex.nearest(vector, tenant: @tenant, reader: "ada", limit: 5).map(&:feed_id)
+      assert_empty PassageIndex.nearest(vector, tenant: @tenant, reader: "bob", limit: 5)
+      assert_empty PassageIndex.nearest(vector, tenant: @tenant, reader: nil, limit: 5)
+    end
+  end
 end

@@ -26,6 +26,7 @@ class Analysis < ApplicationRecord
   before_create :remember_who_asked
 
   scope :open, -> { where(status: OPEN) }
+  scope :readable_by, ->(grant) { where(feed_id: Feed.readable_by(grant).select(:id)) }
   scope :settled, -> { where(status: SETTLED) }
   scope :newest_first, -> { reorder(id: :desc) }
   scope :past_deadline, -> { open.where(deadline: ...Time.current) }

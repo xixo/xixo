@@ -45,6 +45,6 @@ class ExportItemsJob < ApplicationJob
   private
 
     def select(selector)
-      Feed.referenced.matching(selector)
+      Feed.referenced.readable_to(selector["reader"]).matching(selector)
     end
 end

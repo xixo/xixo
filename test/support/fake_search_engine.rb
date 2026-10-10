@@ -33,6 +33,10 @@ class FakeSearchEngine
       { "_shards" => { "successful" => 1 } }
     end
 
+    def get(index:, **)
+      @engine.matching_indices(index)
+    end
+
     def get_mapping(index:, **)
       @engine.mapping_of(index)
     end
@@ -195,6 +199,15 @@ class FakeSearchEngine
     end
   end
 
+  def matching_indices(pattern)
+    @monitor.synchronize do
+      found = @indices.keys.select { |name| File.fnmatch(pattern, name) }
+      raise Errors::NotFound, "no index matches #{pattern}" if found.empty?
+
+      found.index_with { |name| { "mappings" => @mappings.fetch(name, {}) } }
+    end
+  end
+
   def known?(name)
     @monitor.synchronize { @indices.key?(name) || @indices.any? { |_, held| held.key?(name) } }
   end
@@ -306,6 +319,8 @@ class FakeSearchEngine
       when "match_all" then true
       when "bool" then Array(held["must"]).all? { |one| clause?(document, one) }
       when "term" then held.all? { |field, value| holds?(document[field.delete_suffix(".raw")], value) }
+      when "terms"
+        held.all? { |field, values| Array(values).any? { |value| holds?(document[field.delete_suffix(".raw")], value) } }
       when "multi_match" then multi_match?(document, held)
       else raise ArgumentError, "the fake engine does not understand #{name}"
       end

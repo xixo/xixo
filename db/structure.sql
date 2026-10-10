@@ -334,7 +334,8 @@ CREATE TABLE public.feeds (
     updated_at timestamp(6) without time zone NOT NULL,
     timeout integer,
     expires_at timestamp(6) without time zone,
-    passages_digest character varying
+    passages_digest character varying,
+    readers character varying[]
 );
 
 ALTER TABLE ONLY public.feeds FORCE ROW LEVEL SECURITY;
@@ -1214,6 +1215,13 @@ CREATE INDEX index_feeds_on_parent_id ON public.feeds USING btree (parent_id);
 
 
 --
+-- Name: index_feeds_on_readers; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feeds_on_readers ON public.feeds USING gin (readers);
+
+
+--
 -- Name: index_feeds_on_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1930,6 +1938,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261010230000'),
 ('20261010200000'),
 ('20261010160000'),
 ('20261003200000'),

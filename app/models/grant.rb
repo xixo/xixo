@@ -73,6 +73,21 @@ class Grant
     true
   end
 
+  def read_privately!(feeds)
+    @privately = true if Array(feeds).any? { |feed| feed.readers.present? }
+  end
+
+  def privately?
+    @privately == true
+  end
+
+  def keep_to_reader!(feed)
+    return unless privately? && speaks_for.present?
+
+    feed.update_columns(readers: [ speaks_for ])
+    SearchIndex.index(feed)
+  end
+
   def reaches!(side)
     return true unless agent?
 

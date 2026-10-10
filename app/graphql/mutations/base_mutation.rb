@@ -10,7 +10,7 @@ module Mutations
     private
 
       def feed!(id)
-        Feed.find_by(id: id) || raise(GraphQL::ExecutionError, "no feed with id #{id}")
+        Feed.readable_by(context[:grant]).find_by(id: id) || raise(GraphQL::ExecutionError, "no feed with id #{id}")
       end
 
       def resource!(id)

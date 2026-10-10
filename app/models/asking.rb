@@ -88,7 +88,7 @@ class Asking
 
     def drawn
       ids = earlier.reverse.flat_map { |turn| Array(turn.analysis.step_result("drew_on")).map(&:to_i) }.uniq
-      held = Feed.where(id: ids).where.not(id: feed.id).where.not(type: [ Feed::TAG, Feed::MIME ]).index_by(&:id)
+      held = Feed.readable_by(Current.grant).where(id: ids).where.not(id: feed.id).where.not(type: [ Feed::TAG, Feed::MIME ]).index_by(&:id)
 
       ids.filter_map { |id| held[id] }
     end

@@ -275,7 +275,7 @@ module Tool
     def self.exported(destination, given)
       destination.storage! || raise(ArgumentError, "#{destination.key} is not storage")
 
-      selector = selector_from(**given.symbolize_keys.slice(*SELECTOR_KEYS))
+      selector = selector_from(**given.symbolize_keys.slice(*SELECTOR_KEYS)).merge("reader" => Current.grant.speaks_for)
       run = ::Run.start!(kind: "export", resource: destination, selector: selector)
       ExportItemsJob.perform_later(destination.tenant_id, destination.id, selector, run.id)
 

@@ -119,7 +119,8 @@ reaches only the resources everyone can use. Starting a run on somebody else's f
 resources and never theirs.
 
 The grant's subject stays `feed:` and the key either way, so the audit trail and the run budget
-still name the feed. What the agent writes is cataloged for the whole tenant, including anything it
+still name the feed. An agent's run reads only the feeds the person it speaks for can read, and a run
+that speaks for nobody reads only what everyone can. What the agent writes is cataloged for the whole tenant, including anything it
 read from a personal resource.
 
 ## Asking

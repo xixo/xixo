@@ -20,7 +20,7 @@ module Mutations
       refused("no more than #{MOST} items can be tagged at once") if ids.size > MOST
 
       wanted = ids.uniq
-      held = Feed.where(id: wanted).index_by { |feed| feed.id.to_s }
+      held = Feed.readable_by(context[:grant]).where(id: wanted).index_by { |feed| feed.id.to_s }
       missing = wanted.find { |id| !held.key?(id.to_s) }
 
       refused("no feed with id #{missing}") if missing

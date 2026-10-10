@@ -1,6 +1,7 @@
 module SearchIndex
   class Failed < StandardError; end
 
+  EVERYONE = "*".freeze
   VECTOR_DIMENSIONS = ENV.fetch("XIXO_EMBEDDING_DIMENSIONS", 768).to_i
   CANDIDATES = 200
   FUSION_RANK = 60
@@ -51,6 +52,7 @@ module SearchIndex
       summary: PLAIN,
       body: PLAIN,
       resource_ids: { type: "long" },
+      readers: { type: "keyword" },
       created_at: { type: "date" },
       embedding: {
         type: "knn_vector",
@@ -205,49 +207,59 @@ module SearchIndex
         summary: [ *feed.summaries, feed.described_text ].compact_blank.join("\n"),
         body: feed.readable_text,
         resource_ids: originals(feed).map(&:resource_id),
+        readers: feed.readers.presence || [ EVERYONE ],
         created_at: feed.created_at,
         embedding: feed.embedding.presence
       }.compact
     end
 
-    def search(query, tenant: Current.tenant, type: nil, mime: nil, tag: nil, limit: 50, least: LOOSE_MATCH)
-      page(query, tenant: tenant, type: type, mime: mime, tag: tag, limit: limit, least: least)[:ids]
+    def search(query, tenant: Current.tenant, reader: Current.grant&.speaks_for, type: nil, mime: nil, tag: nil, limit: 50,
+               least: LOOSE_MATCH)
+      page(query, tenant: tenant, reader: reader, type: type, mime: mime, tag: tag, limit: limit, least: least)[:ids]
     end
 
-    def page(query, tenant: Current.tenant, type: nil, mime: nil, tag: nil, limit: 50, from: 0, least: LOOSE_MATCH)
+    def page(query, tenant: Current.tenant, reader: Current.grant&.speaks_for, type: nil, mime: nil, tag: nil, limit: 50, from: 0,
+             least: LOOSE_MATCH)
       raise ArgumentError, "no tenant" if tenant.nil?
 
       facets = { type: type, mime: mime, tag: tag }
+      visible = readable(reader)
       vector = wanted_vector(query, limit: limit, from: from)
 
       if vector.nil?
-        held = lexical(query, tenant: tenant, limit: limit, from: from, least: least, **facets)
+        held = lexical(query, tenant: tenant, visible: visible, limit: limit, from: from, least: least, **facets)
         return held.merge(worded: held[:ids])
       end
 
-      found = lexical(query, tenant: tenant, limit: CANDIDATES, from: 0, least: least, **facets)
-      passages = facets.compact_blank.empty? ? PassageIndex.nearest(vector, tenant: tenant, limit: CANDIDATES) : []
-      fused = fuse(found[:ids], nearest(vector, tenant: tenant, limit: CANDIDATES, **facets), passages.map(&:feed_id).uniq)
+      found = lexical(query, tenant: tenant, visible: visible, limit: CANDIDATES, from: 0, least: least, **facets)
+      passages = if facets.compact_blank.empty?
+        PassageIndex.nearest(vector, tenant: tenant, reader: reader, limit: CANDIDATES)
+      else
+        []
+      end
+      fused = fuse(found[:ids], nearest(vector, tenant: tenant, visible: visible, limit: CANDIDATES, **facets),
+                   passages.map(&:feed_id).uniq)
 
       { ids: fused.drop(from).first(limit), total: [ found[:total], fused.length ].max, worded: found[:ids] }
     end
 
-    def lexical(query, tenant:, limit:, from:, type: nil, mime: nil, tag: nil, least: LOOSE_MATCH)
+    def lexical(query, tenant:, limit:, from:, visible: readable(Current.grant&.speaks_for), type: nil, mime: nil, tag: nil,
+                least: LOOSE_MATCH)
       facets = { type: type, mime: mime, tag: tag }
       wanted = from + limit
-      strict = matched(query, tenant: tenant, size: wanted, **facets)
+      strict = matched(query, tenant: tenant, visible: visible, size: wanted, **facets)
 
       if strict[:total] >= wanted || query.to_s.split.size < LOOSE_AFTER_WORDS
         return { ids: strict[:ids].drop(from).first(limit), total: strict[:total] }
       end
 
-      loose = matched(query, tenant: tenant, size: wanted, least: least, **facets)
+      loose = matched(query, tenant: tenant, visible: visible, size: wanted, least: least, **facets)
 
       { ids: (strict[:ids] + loose[:ids]).uniq.drop(from).first(limit),
         total: [ strict[:total], loose[:total] ].max }
     end
 
-    def matched(query, tenant:, size:, least: nil, type: nil, mime: nil, tag: nil)
+    def matched(query, tenant:, size:, visible: readable(Current.grant&.speaks_for), least: nil, type: nil, mime: nil, tag: nil)
       must = if query.present?
         [ { multi_match: {
           query: query, fields: FIELDS,
@@ -258,6 +270,7 @@ module SearchIndex
       end
 
       must.concat(faceted(type: type, mime: mime, tag: tag))
+      must << visible
 
       response = client.search(
         index: alias_for(tenant),
@@ -274,8 +287,8 @@ module SearchIndex
       }
     end
 
-    def nearest(vector, tenant:, limit:, type: nil, mime: nil, tag: nil)
-      must = [ { term: { tenant_id: tenant.id } } ]
+    def nearest(vector, tenant:, limit:, visible: readable(Current.grant&.speaks_for), type: nil, mime: nil, tag: nil)
+      must = [ { term: { tenant_id: tenant.id } }, visible ]
       must.concat(faceted(type: type, mime: mime, tag: tag))
 
       response = client.search(
@@ -308,6 +321,10 @@ module SearchIndex
       norms = Math.sqrt(one.sum { |a| a * a }) * Math.sqrt(other.sum { |b| b * b })
 
       norms.zero? ? 0.0 : dot / norms
+    end
+
+    def readable(reader)
+      { terms: { readers: [ EVERYONE, reader ].compact_blank } }
     end
 
     def faceted(type:, mime:, tag:)

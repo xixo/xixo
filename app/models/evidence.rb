@@ -67,6 +67,7 @@ class Evidence
       left = BUDGET
       ranked = candidates
       deep, wide = ranked.first(FEEDS), ranked.drop(FEEDS)
+      Current.grant&.read_privately!(ranked.first(FEEDS + GLANCED))
 
       @glimpses = wide.lazy.filter_map do |feed|
         gist = feed.summary.presence || feed.described_text
@@ -95,7 +96,7 @@ class Evidence
       ids = (@first.map(&:id) + found[:worded].first(WORDED) + found[:ids]).uniq
       asked = Analysis.where(cause: "ask").select(:feed_id)
 
-      Feed.where(id: ids).in_order_of(:id, ids).where.not(id: @leaving_out.map(&:id)).where.not(id: asked)
+      Feed.readable_by(Current.grant).where(id: ids).in_order_of(:id, ids).where.not(id: @leaving_out.map(&:id)).where.not(id: asked)
           .where.not(type: [ Feed::TAG, Feed::MIME ]).includes(:analyses, children: :analyses).to_a
     end
 

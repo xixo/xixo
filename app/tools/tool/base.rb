@@ -89,7 +89,7 @@ module Tool
       end
 
       def named(id)
-        feed = id.presence && Feed.find_by(id: id)
+        feed = id.presence && readable.find_by(id: id)
         feed ? (feed.title.presence || feed.key) : id.presence && "feed #{id}"
       end
 
@@ -103,6 +103,7 @@ module Tool
 
       def made!(feed)
         Current.confined_to&.add(feed.id)
+        Current.grant&.keep_to_reader!(feed)
         feed
       end
 
@@ -118,6 +119,7 @@ module Tool
         return if made_here?(feed)
 
         Current.grant.reaches!(:catalog)
+        Current.grant.read_privately!(feed)
       end
 
       def touched!(feed)
@@ -131,7 +133,11 @@ module Tool
       end
 
       def feed!(id)
-        Feed.find_by(id: id) || raise(ArgumentError, "no feed with id #{id}")
+        readable.find_by(id: id) || raise(ArgumentError, "no feed with id #{id}")
+      end
+
+      def readable
+        Feed.readable_by(Current.grant)
       end
 
       def resource!(id)

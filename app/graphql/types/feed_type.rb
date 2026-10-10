@@ -75,18 +75,18 @@ module Types
       Details.of(object.analysis)
     end
 
-    def connected_count = object.edges.count
+    def connected_count = object.connected.readable_by(context[:grant]).count
 
     def staged = object.staged?
 
     def asked = object.asked?
 
     def children
-      object.children.limit(CONNECTED)
+      object.children.readable_by(context[:grant]).limit(CONNECTED)
     end
 
     def connected
-      object.connected.order(created_at: :desc).limit(CONNECTED)
+      object.connected.readable_by(context[:grant]).order(created_at: :desc).limit(CONNECTED)
     end
 
     def tags

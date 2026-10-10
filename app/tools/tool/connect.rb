@@ -56,7 +56,7 @@ module Tool
     end
 
     def self.about(arguments)
-      Feed.find_by(id: arguments[:a])
+      readable.find_by(id: arguments[:a])
     end
 
     def self.unfit!(one, tag)

@@ -101,10 +101,10 @@ module Tool
     end
 
     def self.about(arguments)
-      return Feed.find_by(id: arguments[:id]) if arguments[:id].present?
+      return readable.find_by(id: arguments[:id]) if arguments[:id].present?
 
       key = arguments[:key].to_s
-      key.present? ? Feed.address(key) || Feed.by_key(key).first : nil
+      key.present? ? readable.address(key) || readable.by_key(key).first : nil
     end
 
     def self.act(verb, id:, key:, title:, note:, type:, prompt:, resource: nil, reason: nil, lasts: nil, from: nil,
@@ -148,7 +148,7 @@ module Tool
       return feed!(id) if id.present?
       raise ArgumentError, "feed needs an id or a key" if key.blank?
 
-      Feed.address(key) || Feed.by_key(key.to_s).first ||
+      readable.address(key) || readable.by_key(key.to_s).first ||
         raise(ArgumentError, "no feed at #{key}")
     end
 
@@ -187,7 +187,7 @@ module Tool
           tags: feed.tags.map(&:key),
           mimes: feed.mimes.map(&:key),
           staged: staged(feed),
-          connected: feed.connected.limit(50).map { |held| { id: held.id.to_s, key: held.key } },
+          connected: feed.connected.readable_by(Current.grant).limit(50).map { |held| { id: held.id.to_s, key: held.key } },
           steps: steps.except(*SHOWN_ELSEWHERE).transform_values { |step|
             step.key?("error") ? { "error" => step["error"]["message"] } : gist(step["result"])
           }

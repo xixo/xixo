@@ -109,12 +109,21 @@ everybody else: from the resources query, from every mutation that names a resou
 `resource` and `feed` tools, from the connect route, and from the MCP tools a personal MCP server
 offers. A type connected through masks starts as **Only me**.
 
-What a personal resource syncs is cataloged for the whole tenant, like anything else, but its places
-are its owner's. A feed lists only the references held in resources its reader can reach, and
-`/references/:id/content`, the `splitReference` mutation, and the `feed` tool refuse a reference in
-somebody else's personal resource, so nobody else reads its path or fetches its bytes with the
-owner's credentials. A personal
-resource is never the default for uploads or questions. An agent working on a feed reaches it only
+What a personal resource syncs is its owner's to read. Each feed records its readers in `readers`:
+nothing, which means everyone, when a shared resource holds the file or nothing holds it at all, or
+the owners of the personal resources that are the only places holding it. A feed extracted from
+another, such as an attachment or a page, has the readers of the feed it came from. A copy of the
+same file in a shared resource makes it everyone's.
+
+xixo checks `readers` everywhere a feed is read. `Feed.readable_by` narrows the `feed`, `feeds`,
+`search`, `types`, `analysis`, `analyses`, and `auditEvents` queries, a feed's connections and
+children, every mutation that names a feed, the `search`, `feed`, and `connect` tools,
+`/references/:id/content`, the evidence an answer reads, the counts the model is told, and an export,
+which records who asked for it. The search index and the passage index carry the same readers on each
+document, and every query filters by them, so another person's personal file is never a candidate.
+`feedAnalyzed` sends nothing about a feed the subscriber cannot read. A feed lists only the references
+held in resources its reader can reach, so nobody else reads its path or fetches its bytes with the
+owner's credentials. A personal resource is never the default for uploads or questions. An agent working on a feed reaches it only
 in a run its owner started. See [whose resources a run reaches](/concepts/agents/#whose-resources-a-run-reaches).
 
 ## Syncing

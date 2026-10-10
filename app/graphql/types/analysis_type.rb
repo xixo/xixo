@@ -27,7 +27,7 @@ module Types
 
     def drew_on
       ids = Array(object.step_result("drew_on")).map(&:to_i)
-      found = Feed.where(id: ids).index_by(&:id)
+      found = Feed.readable_by(context[:grant]).where(id: ids).index_by(&:id)
 
       ids.filter_map { |id| found[id] }
     end

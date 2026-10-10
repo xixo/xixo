@@ -86,7 +86,7 @@ class Intake
       end
 
       def already_at(key)
-        placed = Reference.originals.where(locator_key: key, resource: Resource.stores)
+        placed = Reference.originals.where(locator_key: key, resource: Resource.stores.shared)
                           .joins(:resource).order("resources.default_storage DESC", :id).first
 
         placed&.feed || waiting_at(key)
