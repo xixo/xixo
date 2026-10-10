@@ -455,6 +455,38 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
     end
   end
 
+  test "a check asked for just after another keeps the last result until its probe finishes" do
+    @server.serves(*MODELS.values, "qwen3:8b")
+
+    Tenant.switch(@tenant) do
+      @resource.update!(details: @resource.details.merge("models" => MODELS.merge("agent" => "qwen3:8b")))
+      checked = 1.minute.ago.change(usec: 0)
+      @resource.update_columns(checked_at: checked, check_error: nil)
+
+      assert @resource.check
+      @resource.reload
+
+      assert_predicate @resource, :checking?
+      assert_equal checked, @resource.checked_at
+
+      2.times { @server.answer_tool_call("search", query: "invoice") }
+      perform_enqueued_jobs(only: CheckResourceJob)
+      @resource.reload
+
+      assert_not @resource.checking?
+      assert_operator @resource.checked_at, :>, checked
+      assert_equal 2, @server.count_for("/v1/chat/completions")
+    end
+  end
+
+  test "a probe whose worker never finished stops reading as checking" do
+    Tenant.switch(@tenant) do
+      @resource.update_columns(probing_since: (Resource::PROBE_ABANDONED_AFTER + 1.minute).ago)
+
+      assert_not @resource.checking?
+    end
+  end
+
   test "a check refuses a model never pulled at once, with nothing left to probe" do
     @server.serves(*MODELS.values)
 

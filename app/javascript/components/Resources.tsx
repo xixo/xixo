@@ -53,6 +53,7 @@ interface Resource {
   key: string
   name?: string | null
   healthy: boolean
+  checking: boolean
   checkedAt?: string | null
   checkError?: string | null
   syncing: boolean
@@ -76,9 +77,12 @@ interface Resource {
   via?: string | null
 }
 
+const CHECKING_POLL = 2000
+
 function toneFor(resource: Resource) {
   if (resource.syncing) return 'var(--busy)'
   if (resource.needsConnect) return 'var(--bad)'
+  if (resource.checking) return 'var(--busy)'
   if (!resource.checkedAt) return 'var(--edge)'
 
   return resource.healthy ? 'var(--ok)' : 'var(--bad)'
@@ -88,6 +92,7 @@ function standing(resource: Resource) {
   if (resource.syncing) return 'syncing'
   if (resource.needsConnect)
     return resource.connectedBy ? 'needs reconnecting' : 'not connected yet'
+  if (resource.checking) return 'checking'
   if (!resource.checkedAt) return 'never checked'
 
   return resource.healthy ? 'reachable' : 'failing'
@@ -153,6 +158,15 @@ export function Resources() {
     if (landed) arrived.current?.scrollIntoView({ block: 'center' })
   }, [landed])
 
+  const checking = (data?.resources ?? []).some((resource) => resource.checking)
+
+  useEffect(() => {
+    if (!checking) return
+
+    const polling = window.setInterval(refetch, CHECKING_POLL)
+    return () => window.clearInterval(polling)
+  }, [checking, refetch])
+
   if (loading && !data) return <Loader size="sm" color="var(--accent)" />
   if (error) return <Alert color="red">{error.message}</Alert>
 
@@ -173,7 +187,11 @@ export function Resources() {
 
       say(
         answered.checkResource?.ok
-          ? { text: `${resource.key} answers.` }
+          ? {
+              text: answered.checkResource.resource.checking
+                ? `${resource.key} answers. Its models are being tried now.`
+                : `${resource.key} answers.`,
+            }
           : {
               text:
                 answered.checkResource?.resource.checkError ??
@@ -401,7 +419,9 @@ function ResourceCard({
       ref={landedRef}
       className="rcard"
       data-landed={landed}
-      data-failing={Boolean(resource.checkError || resource.needsConnect)}
+      data-failing={Boolean(
+        (resource.checkError && !resource.checking) || resource.needsConnect,
+      )}
       style={{ '--tone': tone, '--state': toneFor(resource) } as CSSProperties}
     >
       <div className="rcard-top">
@@ -417,7 +437,10 @@ function ResourceCard({
               : 'not checked yet')
           }
         >
-          <span className="rcard-state" data-busy={resource.syncing}>
+          <span
+            className="rcard-state"
+            data-busy={resource.syncing || resource.checking}
+          >
             {standing(resource)}
           </span>
         </Tooltip>

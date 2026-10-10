@@ -23,6 +23,9 @@ module Types
     field :checked_at, GraphQL::Types::ISO8601DateTime
     field :check_error, String
     field :healthy, Boolean, null: false, method: :healthy?
+    field :checking, Boolean, null: false, method: :checking?,
+          description: "Whether a check that asked more than whether it answers is still running. " \
+                       "Its last finished check stays in checkedAt and checkError until this one ends."
     field :settings, GraphQL::Types::JSON, null: false,
           description: "What each field the type declares holds, for the fields kept in the clear. " \
                        "Nothing held encrypted is ever read back."

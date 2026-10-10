@@ -80,11 +80,13 @@ When the account stops working, it shows **needs reconnecting** and a **Reconnec
 ## Check it
 
 **Resources** groups resources under **Storage**, **Models**, and **Tools**, one card each. Each
-card shows its state: **reachable**, **failing**, **never checked**, **syncing**, or one of the
-connection states above.
+card shows its state: **reachable**, **failing**, **never checked**, **checking**, **syncing**, or
+one of the connection states above.
 
 1. Choose **Check** from the **⋯** menu on the resource's card.
-2. xixo reports that the resource answers, or shows the error on the card.
+2. xixo reports that the resource answers, or shows the error on the card. A model server reads
+   **checking** while xixo tries its models in the background, and the card updates when that
+   finishes.
 
 xixo also checks every resource on its own every six hours.
 

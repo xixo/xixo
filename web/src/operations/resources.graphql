@@ -16,6 +16,7 @@ query Resources($archived: Boolean) {
     checkedAt
     checkError
     healthy
+    checking
     archivedAt
     settings
     heldCredentials
@@ -61,6 +62,7 @@ mutation CheckResource($id: ID!) {
       checkedAt
       checkError
       healthy
+      checking
     }
   }
 }

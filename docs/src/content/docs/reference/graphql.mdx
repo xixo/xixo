@@ -452,6 +452,7 @@ Resolves only for a token carrying `xixo:resources:read`.
 | `changeable` | `Boolean!` | Whether it has a form to change. A type xixo makes for itself does not. |
 | `checkError` | `String` |  |
 | `checkedAt` | `ISO8601DateTime` |  |
+| `checking` | `Boolean!` | Whether a check that asked more than whether it answers is still running. Its last finished check stays in checkedAt and checkError until this one ends. |
 | `connectUrl` | `String` | Where to send the browser to connect it, for a resource that connects through masks. |
 | `connectedBy` | `String` | The subject of whoever connected it. |
 | `defaultInference` | `Boolean!` |  |

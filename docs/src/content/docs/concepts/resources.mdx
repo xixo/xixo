@@ -169,7 +169,12 @@ resource uses it.
 ## Health, internal stores, and archiving
 
 A check calls the type's `check!` and records `checked_at` and `check_error`. A resource is healthy
-when it has been checked and the last check raised no error. `ScheduleChecksJob` runs every hour. It
+when it has been checked and the last check raised no error. An `openai-compatible` resource with an
+agent, embedding, or transcription model first asks only whether the server lists its models. If it
+does, the check sets `probing_since` and hands the rest to a `CheckResourceJob`, which tries tool
+calls, the context window, embeddings, and transcription. The resource reads as checking until that
+job records its result, and keeps its last `checked_at` and `check_error` meanwhile. A probe that has
+not finished in fifteen minutes stops reading as checking. `ScheduleChecksJob` runs every hour. It
 finds resources that were never checked or not checked in six hours, and checks each one in its own
 job, so a resource that stopped answering shows it before a sync or a tool call reaches it. It skips
 a resource that is syncing, since the sync tests it better. Checking an MCP server asks it again for

@@ -19,6 +19,7 @@ class Resource < ApplicationRecord
   MINIMUM_SYNC_INTERVAL = 1.minute
   SYNC_ABANDONED_AFTER = 6.hours
   CHECKED_EVERY = 6.hours
+  PROBE_ABANDONED_AFTER = 15.minutes
   MAX_HOPS = 4
   MAX_TEXT = 100_000
   GLIMPSE_BYTES = MAX_TEXT * 4
@@ -60,6 +61,7 @@ class Resource < ApplicationRecord
   scope :not_syncing, -> {
     where(sync_started_at: nil).or(where(sync_started_at: ...SYNC_ABANDONED_AFTER.ago))
   }
+  scope :probing, -> { where(probing_since: PROBE_ABANDONED_AFTER.ago..) }
   scope :due_for_sync, -> { scheduled.not_syncing.where(next_sync_at: ..Time.current) }
   scope :due_for_check, -> {
     attended.active.not_syncing.where(checked_at: nil).or(
@@ -405,7 +407,7 @@ class Resource < ApplicationRecord
       answers!
       next record_check(nil) unless probes?
 
-      update_columns(checked_at: nil, check_error: nil)
+      update_columns(probing_since: Time.current)
       CheckResourceJob.perform_later(id)
     end
   end
@@ -426,7 +428,7 @@ class Resource < ApplicationRecord
   end
 
   def checking?
-    checked_at.nil? && check_error.nil?
+    probing_since.present? && probing_since > PROBE_ABANDONED_AFTER.ago
   end
 
   def healthy?
@@ -637,7 +639,8 @@ class Resource < ApplicationRecord
     end
 
     def record_check(error)
-      update_columns(checked_at: Time.current, check_error: error, **(error.nil? ? { needs_connect_at: nil } : {}))
+      update_columns(checked_at: Time.current, check_error: error, probing_since: nil,
+                     **(error.nil? ? { needs_connect_at: nil } : {}))
     end
 
     def next_sync_after(finished)
