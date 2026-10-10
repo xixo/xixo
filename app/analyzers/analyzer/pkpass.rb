@@ -12,7 +12,7 @@ module Analyzer
     def analyze
       pass = step(:pass) { parse(read_pass_json) }
 
-      step(:text) { flatten(pass).truncate(MAX_TEXT) }
+      step(:text) { capped(flatten(pass)) }
     end
 
     private

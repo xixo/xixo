@@ -16,7 +16,7 @@ module Analyzer
 
     def analyze
       step(:page) { visited(reference) }
-      step(:text) { read(reference).truncate(MAX_TEXT) }
+      step(:text) { capped(read(reference)) }
     end
 
     def summary_prompt

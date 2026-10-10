@@ -41,4 +41,20 @@ class TextAnalyzerTest < ActiveSupport::TestCase
 
     assert_equal "Café", text_of("old.txt", "Caf\xE9".b, stored: scrubbed)
   end
+
+  test "text past the most that is read says how much was left out, and still says so once it is cached" do
+    Tenant.switch(@tenant) do
+      @storage.upload("long.txt", "word " * 50_000)
+      feed = Feed.create!(type: Feed::FILE, key: "long.txt", title: "long.txt")
+      Reference.record!(feed: feed, resource: @storage, locator_key: "long.txt", locator: { "key" => "long.txt" })
+
+      2.times do
+        analysis = Analysis.open!(feed: feed, cause: "manual")
+        Analyzer.for(feed.reload, analysis: analysis).run
+        rows = Details.of(analysis.reload).map { |row| [ row.group, row.label, row.value ] }
+
+        assert_includes rows, [ "Left out", "Text", "only the first 200,000 of 249,999 characters were read" ]
+      end
+    end
+  end
 end

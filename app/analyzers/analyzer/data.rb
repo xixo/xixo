@@ -11,7 +11,7 @@ module Analyzer
 
       step(:shape, digest: DECODED) { shape_of(body) }
       step(:tables, digest: "#{Tables::ROWS} #{DECODED}") { tables_of(body) } if separator
-      step(:text, digest: DECODED) { body.strip.truncate(MAX_TEXT) }
+      step(:text, digest: DECODED) { capped(body.strip) }
     end
 
     def separator

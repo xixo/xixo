@@ -131,7 +131,7 @@ module Analyzer
                       "-t", self.class.span.to_s, "-ac", CHANNELS, "-ar", SAMPLE_RATE,
                       "-f", "wav", heard)
 
-          listening.transcribe(File.binread(heard)).truncate(MAX_TEXT)
+          capped(listening.transcribe(File.binread(heard)))
         rescue Resource::Unusable, Resource::Failed => e
           raise Analyzer::Failed, e.message
         end

@@ -125,7 +125,7 @@ module Analyzer
         body = readable(reference.download.read)
         body = Markup.strip(body) if markup?(body)
 
-        body.strip.truncate(MAX_TEXT)
+        capped(body.strip)
       end
 
       def markup?(body)

@@ -15,7 +15,7 @@ module Analyzer
 
       contacts = step(:contacts, digest: DECODED) { parse(body) }
 
-      step(:text, digest: DECODED) { flatten(contacts).truncate(MAX_TEXT) }
+      step(:text, digest: DECODED) { capped(flatten(contacts)) }
     end
 
     private
@@ -44,7 +44,10 @@ module Analyzer
           when "END:VCARD"
             contacts << current if current.present?
             current = nil
-            break if contacts.size >= MAX_CONTACTS
+            if contacts.size >= MAX_CONTACTS
+              left_out("contacts", "only the first #{MAX_CONTACTS} contacts were read")
+              break
+            end
           else
             assign(current, line) if current
           end

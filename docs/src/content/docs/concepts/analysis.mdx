@@ -73,6 +73,12 @@ the `dropped` step records what, such as "read 50 of 312" comments, the log says
 **Details** shows it under **Left out**. A git sync does not catalog a file larger than 2 MB. It
 writes the file's path and size to the sync run's log instead.
 
+The analyzers have limits of their own, and each one is recorded the same way. Text past 200,000
+characters is cut, and **Left out** says how much of it was read. OCR reads the first 30 pages of a
+PDF with no text layer, a vCard file is read to its first 500 contacts, and the summary is written
+from the first 10,000 characters. A step that cuts something keeps the note with its result, so an
+analysis that reuses the step still shows it.
+
 ## The analyzer
 
 `Analyzer.for` picks an analyzer by the feed's mime type. It walks `Analyzer.all` in order and takes

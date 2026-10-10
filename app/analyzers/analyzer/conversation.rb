@@ -25,7 +25,7 @@ module Analyzer
         next if turn.said.blank?
 
         "Asked: #{turn.question}\nAnswered: #{turn.said}"
-      end.join("\n\n").truncate(MAX_TEXT)
+      end.join("\n\n").then { |text| capped(text) }
     end
 
     def summary_noun

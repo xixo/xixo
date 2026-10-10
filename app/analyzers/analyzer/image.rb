@@ -30,7 +30,7 @@ module Analyzer
           at = step(:location, digest: LOCATED_BY) { located(original) }
           placed(at) if at.present?
 
-          step(:ocr) { read(path).strip.truncate(MAX_TEXT) }
+          step(:ocr) { capped(read(path).strip) }
         end
       end
     end

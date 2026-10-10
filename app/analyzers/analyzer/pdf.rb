@@ -29,9 +29,9 @@ module Analyzer
 
       def readable(path, pages)
         layered = run_command("pdftotext", "-q", path, "-").strip
-        return layered.truncate(MAX_TEXT) unless sparse?(layered, pages)
+        return capped(layered) unless sparse?(layered, pages)
 
-        recognized(path, pages).presence&.truncate(MAX_TEXT) || layered
+        recognized(path, pages).presence&.then { |text| capped(text) } || layered
       end
 
       def sparse?(text, pages)
@@ -40,6 +40,7 @@ module Analyzer
 
       def recognized(path, pages)
         last = pages.positive? ? [ pages, OCR_PAGES ].min : OCR_PAGES
+        left_out("pages", "OCR read the first #{OCR_PAGES} of its #{pages} pages") if pages > OCR_PAGES
 
         Dir.mktmpdir do |dir|
           run_command("pdftoppm", "-r", OCR_DPI, "-gray", "-png", "-f", "1", "-l", last.to_s, path, File.join(dir, "page"))

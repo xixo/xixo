@@ -13,7 +13,7 @@ module Analyzer
     def analyze
       as_pdf do |pdf|
         step(:info) { Pdf.parse_info(run_command("pdfinfo", pdf)) }
-        step(:text) { run_command("pdftotext", "-q", pdf, "-").strip.truncate(MAX_TEXT) }
+        step(:text) { capped(run_command("pdftotext", "-q", pdf, "-").strip) }
       end
     end
 

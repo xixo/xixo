@@ -13,7 +13,7 @@ module Analyzer
 
       events = step(:events, digest: DECODED) { parse(body) }
 
-      step(:text, digest: "#{WRITTEN_AS}, #{DECODED}") { flatten(events).truncate(MAX_TEXT) }
+      step(:text, digest: "#{WRITTEN_AS}, #{DECODED}") { capped(flatten(events)) }
     end
 
     SUMMARY_EVENTS = 20

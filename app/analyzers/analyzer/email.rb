@@ -35,7 +35,7 @@ module Analyzer
 
       headers = step(:headers) { headers_of(message) }
       step(:attachments) { attachments_of(message) }
-      step(:text, digest: WRITTEN_AS) { [ headed(headers), body_of(message) ].compact_blank.join("\n\n").truncate(MAX_TEXT) }
+      step(:text, digest: WRITTEN_AS) { capped([ headed(headers), body_of(message) ].compact_blank.join("\n\n")) }
     end
 
     WRITTEN_AS = "headers, then the body".freeze

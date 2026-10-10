@@ -19,7 +19,7 @@ module Analyzer
       opened do |zip|
         book = step(:book) { describe(zip) }
 
-        step(:text) { [ facts(book), chapters(zip, book) ].compact_blank.join("\n\n").truncate(MAX_TEXT) }
+        step(:text) { capped([ facts(book), chapters(zip, book) ].compact_blank.join("\n\n")) }
       end
     end
 
