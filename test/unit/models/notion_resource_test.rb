@@ -172,6 +172,40 @@ class NotionResourceTest < ActiveSupport::TestCase
     assert_not_requested :get, "#{API}/blocks/b3/children", query: hash_including({})
   end
 
+  test "what the nesting stopped before is said, so the page does not look whole" do
+    stub_blocks(PAGE_ID, [ block("paragraph", "Outer", id: "b1", children: true) ])
+    stub_blocks("b1", [ block("paragraph", "Inner", id: "b2", children: true) ])
+    stub_blocks("b2", [ block("paragraph", "Deeper", id: "b3", children: true) ])
+
+    reference = Reference.new(resource: @resource, locator: { "id" => PAGE_ID })
+    Tenant.switch(@tenant) { reference.download }
+
+    assert_equal({ "nesting" => "left out what is nested under 1 block 3 levels down" }, reference.dropped)
+  end
+
+  test "a page longer than the blocks it reads says it stopped" do
+    stub_request(:get, "#{API}/blocks/#{PAGE_ID}/children")
+      .with(query: hash_including({}))
+      .to_return(json_response(results: Array.new(Resource::Notion::BLOCKS) { |index| block("paragraph", "Line #{index}") },
+                               has_more: true, next_cursor: "more"))
+
+    reference = Reference.new(resource: @resource, locator: { "id" => PAGE_ID })
+    Tenant.switch(@tenant) { reference.download }
+
+    assert_equal({ "blocks" => "read the first 2,000 blocks of 1 list that holds more" }, reference.dropped)
+    assert_requested :get, "#{API}/blocks/#{PAGE_ID}/children", query: hash_including({}),
+                     times: Resource::Notion::MAX_BLOCKS / Resource::Notion::BLOCKS
+  end
+
+  test "a page read whole leaves nothing out" do
+    stub_blocks(PAGE_ID, [ block("paragraph", "Only this") ])
+
+    reference = Reference.new(resource: @resource, locator: { "id" => PAGE_ID })
+    Tenant.switch(@tenant) { reference.download }
+
+    assert_equal({}, reference.dropped)
+  end
+
   test "a block page that has gone leaves what was already read rather than failing the item" do
     stub_request(:get, "#{API}/blocks/#{PAGE_ID}/children")
       .with(query: hash_including({})).to_return(status: 404, body: "{}")

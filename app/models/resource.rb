@@ -574,6 +574,15 @@ class Resource < ApplicationRecord
     reference
   end
 
+  def dropped
+    @dropped
+  end
+
+  def reading
+    @dropped = {}
+    yield
+  end
+
   def delegated?
     false
   end
@@ -659,6 +668,10 @@ class Resource < ApplicationRecord
 
       raise Refused, "#{key} cannot be deleted while #{dependents.to_sentence} " \
                      "#{dependents.one? ? 'is' : 'are'} reached through it"
+    end
+
+    def dropped!(what, said)
+      (@dropped ||= {})[what.to_s] = said
     end
 
     def escaped_path(path)

@@ -186,6 +186,18 @@ class GitResourceTest < ActiveSupport::TestCase
     end
   end
 
+  test "a blob larger than the cap is named in the sync's log with its size" do
+    commit("big.bin", "x" * (Resource::Git::MAX_BLOB + 1))
+
+    run = Tenant.switch(@tenant) { Run.start!(kind: "sync", resource: @resource) }
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id, run.id) }
+
+    logs = Tenant.switch(@tenant) { run.reload.logs }
+
+    assert_match(/\[-\] : sync : big\.bin : skipped : 2 MB, over the 2 MB limit for a file/, logs)
+    assert_no_match(/README/, logs)
+  end
+
   test "a prefix narrows the walk to one directory" do
     found = Tenant.switch(@tenant) { @resource.command(:list, prefix: "lib") }
 

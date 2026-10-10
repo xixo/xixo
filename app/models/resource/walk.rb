@@ -5,6 +5,7 @@ class Resource
     FULL_EVERY = 1.day
 
     attr_reader :resource
+    attr_accessor :run
 
     class << self
       def begin!(resource)
@@ -72,6 +73,10 @@ class Resource
       return 0 if keys.empty?
 
       originals.where(locator_key: keys).update_all(gone_at: Time.current)
+    end
+
+    def skipped(locator_key, said)
+      run&.log_skip("sync", locator_key, "skipped", said)
     end
 
     def finish!(started)

@@ -14,7 +14,8 @@ class Details
     "info" => "Document",
     "signal" => "Sound",
     "location" => "Coordinates",
-    "listing" => "Contents"
+    "listing" => "Contents",
+    "dropped" => "Left out"
   }.freeze
 
   FIRST = %w[

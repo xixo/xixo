@@ -143,8 +143,12 @@ class Resource
       repo = locator.fetch("repo")
       number = locator.fetch("number")
       issue = api_get("/repos/#{repo}/issues/#{number}")
+      said = comments(repo, number, locator["comments"])
+      total = issue["comments"].to_i
 
-      StringIO.new(written(repo, issue, comments(repo, number, locator["comments"])))
+      dropped!("comments", "read #{said.size} of #{total.to_fs(:delimited)}") if total > said.size
+
+      StringIO.new(written(repo, issue, said))
     end
 
     def command_list(repo: nil, limit: nil)

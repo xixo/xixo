@@ -29,6 +29,7 @@ class Staged
   def updated_at = blob.created_at
   def changed_at = nil
   def locator = {}
+  def dropped = nil
 
   def path = blob.metadata[PATH].presence || blob.filename.to_s
   def locator_key = path

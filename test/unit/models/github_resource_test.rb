@@ -176,6 +176,46 @@ class GithubResourceTest < ActiveSupport::TestCase
     assert_match(/Reproduced on 2\.1/, text)
   end
 
+  test "an issue with more comments than it reads says how many it read, where its details show" do
+    stub_request(:get, "#{API}/repos/acme/widgets/issues/7")
+      .to_return(json_response(number: 7, title: "Widget jams", body: "It jams.", state: "open",
+                               user: { login: "ash" }, comments: 312))
+    stub_request(:get, "#{API}/repos/acme/widgets/issues/7/comments")
+      .with(query: hash_including({ "per_page" => "50" }))
+      .to_return(json_response(Array.new(50) { |index| { body: "Me too #{index}", user: { login: "bea" } } }))
+
+    Tenant.switch(@tenant) do
+      reference = @resource.keep!({ "repo" => "acme/widgets", "number" => 7, "title" => "Widget jams",
+                                    "state" => "open", "updated_at" => "2026-09-01T00:00:00Z",
+                                    "comments" => 312 })
+      analysis = Analysis.open!(feed: reference.feed, cause: "manual")
+
+      Analyzer.for(reference.feed.reload, analysis: analysis).run
+      analysis.reload
+
+      rows = Details.of(analysis).map { |row| [ row.group, row.label, row.value ] }
+
+      assert_includes rows, [ "Left out", "Comments", "read 50 of 312" ]
+      assert_match(/dropped : comments : read 50 of 312/, analysis.logs)
+    end
+  end
+
+  test "an issue read whole leaves nothing out" do
+    stub_request(:get, "#{API}/repos/acme/widgets/issues/7")
+      .to_return(json_response(number: 7, title: "Widget jams", body: "…", state: "open",
+                               user: { login: "ash" }, comments: 1))
+    stub_request(:get, "#{API}/repos/acme/widgets/issues/7/comments")
+      .with(query: hash_including({}))
+      .to_return(json_response([ { body: "Same", user: { login: "bea" } } ]))
+
+    Tenant.switch(@tenant) do
+      reference = Reference.new(resource: @resource, locator: { "repo" => "acme/widgets", "number" => 7 })
+      reference.download
+
+      assert_equal({}, reference.dropped)
+    end
+  end
+
   test "get and list read only the repositories it was attached with" do
     Tenant.switch(@tenant) do
       assert_raises(ArgumentError) { @resource.command(:get, key: "evil/secrets/issues/1") }

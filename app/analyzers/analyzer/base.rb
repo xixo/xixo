@@ -3,6 +3,7 @@ require "open3"
 module Analyzer
   class Base
     MAX_TEXT = 200_000
+    LEFT_OUT = "dropped".freeze
     DECODED = "decoded by its byte order mark, as UTF-8, or as Windows-1252".freeze
 
     attr_reader :feed, :reference, :analysis
@@ -38,6 +39,7 @@ module Analyzer
           attempt { describe! } if reference && self.class.carries_bytes? && Metadata.describes?(feed.mime)
           attempt { analyze } if reference
         end
+        left_out!
         attempt { summarize! }
         attempt { captioned! }
       ensure
@@ -374,6 +376,15 @@ module Analyzer
 
       def write_step!(name, entry)
         analysis&.write_step!(name, entry)
+      end
+
+      def left_out!
+        said = reference&.dropped
+        return if said.nil?
+
+        now = Time.current.iso8601(3)
+        write_step!(LEFT_OUT, { "started_at" => now, "finished_at" => now, "result" => said })
+        said.each { |what, told| analysis&.log_skip(log_context, LEFT_OUT, what, told) }
       end
 
       def stamp_analyzed!

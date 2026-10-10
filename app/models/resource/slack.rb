@@ -121,8 +121,12 @@ class Resource
       channel = locator.fetch("channel")
       found = called("/conversations.replies", channel: channel, ts: locator.fetch("ts"),
                                                limit: REPLIES)
+      messages = Array(found["messages"])
+      text = flattened(messages.map { |message| spoken(message) })
 
-      StringIO.new(flattened(Array(found["messages"]).map { |message| spoken(message) }))
+      dropped!("replies", "read the first #{messages.size} messages of the thread") if found["has_more"]
+      unnamed(messages)
+      StringIO.new(text)
     end
 
     def command_list(channel: nil, limit: nil)
@@ -258,6 +262,16 @@ class Resource
         end
       rescue Resource::Failed
         {}
+      end
+
+      def unnamed(messages)
+        return if people.size < PEOPLE * PEOPLE_PAGES
+
+        left = messages.filter_map { |message| message["user"].presence }.uniq.reject { |id| people.key?(id) }
+        return if left.empty?
+
+        dropped!("people", "#{left.size} #{left.one? ? 'person' : 'people'} shown by id, since only the first " \
+                           "#{(PEOPLE * PEOPLE_PAGES).to_fs(:delimited)} members are named")
       end
 
       def people_key

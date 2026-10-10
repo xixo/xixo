@@ -113,8 +113,11 @@ class Resource
 
     def download(locator)
       id = locator.fetch("id")
+      @unread = Hash.new(0)
+      text = flattened(locator["title"], written(id))
 
-      StringIO.new(flattened(locator["title"], written(id)))
+      left_out
+      StringIO.new(text)
     end
 
     def command_list(query: nil, limit: nil)
@@ -164,7 +167,9 @@ class Resource
         found = api_get("/blocks/#{id}/children", page_size: BLOCKS, start_cursor: cursor)
         held += Array(found["results"])
 
-        return held unless found["has_more"] && found["next_cursor"].present? && held.length < MAX_BLOCKS
+        more = found["has_more"] && found["next_cursor"].present?
+        @unread["cut"] += 1 if more && held.length >= MAX_BLOCKS && @unread
+        return held unless more && held.length < MAX_BLOCKS
 
         blocks(id, found["next_cursor"], held)
       rescue Api::Gone
@@ -179,7 +184,23 @@ class Resource
 
         return line if block["has_children"].blank?
 
+        @unread["deep"] += 1 if depth == 1 && @unread
         [ line, indented(written(block["id"], depth: depth - 1)) ].compact_blank.join("\n")
+      end
+
+      def left_out
+        cut, deep = @unread.values_at("cut", "deep")
+        @unread = nil
+
+        if cut.positive?
+          dropped!("blocks", "read the first #{MAX_BLOCKS.to_fs(:delimited)} blocks of " \
+                             "#{cut} #{'list'.pluralize(cut)} that #{cut == 1 ? 'holds' : 'hold'} more")
+        end
+
+        return unless deep.positive?
+
+        dropped!("nesting", "left out what is nested under #{deep} #{'block'.pluralize(deep)} " \
+                            "#{DEPTH} levels down")
       end
 
       def child_title(block, type)

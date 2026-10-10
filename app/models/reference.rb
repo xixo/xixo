@@ -184,7 +184,11 @@ class Reference < ApplicationRecord
   end
 
   def download
-    resource.download(locator)
+    resource.reading { resource.download(locator) }
+  end
+
+  def dropped
+    resource.dropped
   end
 
   def path

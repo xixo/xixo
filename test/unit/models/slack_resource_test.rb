@@ -181,6 +181,55 @@ class SlackResourceTest < ActiveSupport::TestCase
     assert_match(/bea: Reproduced on 2\.1/, text)
   end
 
+  test "a thread longer than one page of replies says it read only the first" do
+    stub_request(:get, "#{API}/conversations.replies")
+      .with(query: hash_including({ "channel" => "C1", "ts" => "1.0" }))
+      .to_return(ok(has_more: true, messages: [ posted("1.0", "Widget jams"), posted("2.0", "Again") ]))
+
+    reference = Reference.new(resource: @resource, locator: { "channel" => "C1", "ts" => "1.0" })
+    Tenant.switch(@tenant) { reference.download }
+
+    assert_equal({ "replies" => "read the first 2 messages of the thread" }, reference.dropped)
+  end
+
+  test "people past the members it names are counted, once the list is full" do
+    pages = Array.new(Resource::Slack::PEOPLE_PAGES) do |page|
+      members = Array.new(Resource::Slack::PEOPLE) do |index|
+        { "id" => "M#{page}-#{index}", "profile" => { "display_name" => "m#{page}-#{index}" } }
+      end
+
+      ok(members: members, response_metadata: { next_cursor: "more" })
+    end
+    stub_request(:get, "#{API}/users.list").with(query: hash_including({})).to_return(*pages)
+    stub_request(:get, "#{API}/conversations.replies")
+      .with(query: hash_including({ "channel" => "C1", "ts" => "1.0" }))
+      .to_return(ok(messages: [
+        posted("1.0", "Widget jams", user: "M0-1"),
+        posted("2.0", "Me too", user: "U8"),
+        posted("3.0", "And me", user: "U9"),
+        posted("4.0", "Again", user: "U9")
+      ]))
+
+    reference = Reference.new(resource: @resource, locator: { "channel" => "C1", "ts" => "1.0" })
+    text = Tenant.switch(@tenant) { reference.download.read }
+
+    assert_match(/m0-1: Widget jams/, text)
+    assert_match(/U8: Me too/, text)
+    assert_equal({ "people" => "2 people shown by id, since only the first 1,000 members are named" },
+                 reference.dropped)
+  end
+
+  test "an unknown speaker in a workspace small enough to name whole is not a truncation" do
+    stub_request(:get, "#{API}/conversations.replies")
+      .with(query: hash_including({}))
+      .to_return(ok(messages: [ posted("1.0", "Hello", user: "B1") ]))
+
+    reference = Reference.new(resource: @resource, locator: { "channel" => "C1", "ts" => "1.0" })
+    Tenant.switch(@tenant) { reference.download }
+
+    assert_equal({}, reference.dropped)
+  end
+
   test "a file shared without a word is still catalogued by its name" do
     Tenant.switch(@tenant) do
       shared = { "channel" => "C1", "channel_name" => "general", "text" => "",

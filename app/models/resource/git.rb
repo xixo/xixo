@@ -101,7 +101,7 @@ class Resource
         changed_since(since, prefix, walk)
       else
         walk&.start_over! if since.present?
-        entries(prefix)
+        entries(prefix, walk)
       end
 
       resumed = cursor.present? && found.index { |entry| entry.path == cursor }
@@ -157,18 +157,21 @@ class Resource
 
     private
 
-      def entries(prefix)
+      def entries(prefix, walk = nil)
         under = prefix.to_s.delete_prefix("/").chomp("/")
         wanted = under.present? ? [ "--", under ] : []
         listed = git("ls-tree", "-r", "-l", HEAD, *wanted)
 
-        listed.lines.filter_map do |line|
-          held = parsed(line)
+        listed.lines.filter_map { |line| small(parsed(line), walk) }
+      end
 
-          next if held.nil? || held.size > MAX_BLOB
+      def small(entry, walk)
+        return nil if entry.nil?
+        return entry if entry.size <= MAX_BLOB
 
-          held
-        end
+        walk&.skipped(entry.path, "#{entry.size.to_fs(:human_size)}, over the " \
+                                  "#{MAX_BLOB.to_fs(:human_size)} limit for a file")
+        nil
       end
 
       def changed_since(since, prefix, walk)
@@ -179,15 +182,11 @@ class Resource
         walk.gone(changed.fetch("D", []))
 
         named = changed.except("D").values.flatten.sort
-        named.each_slice(NAMED).flat_map { |paths| entries_named(paths) }.sort_by(&:path)
+        named.each_slice(NAMED).flat_map { |paths| entries_named(paths, walk) }.sort_by(&:path)
       end
 
-      def entries_named(paths)
-        git("ls-tree", "-l", HEAD, "--", *paths).lines.filter_map do |line|
-          held = parsed(line)
-
-          held if held && held.size <= MAX_BLOB
-        end
+      def entries_named(paths, walk)
+        git("ls-tree", "-l", HEAD, "--", *paths).lines.filter_map { |line| small(parsed(line), walk) }
       end
 
       def holds?(sha)

@@ -66,6 +66,13 @@ are flattened into one row each, a list of records such as attachments or events
 record, and a row an earlier step already showed is not repeated. Embedded metadata comes last.
 Text, captions, scenes, tables, the summary, and the bookkeeping steps are left out.
 
+Some resources read only part of what the source holds. GitHub reads an issue's first 50 comments,
+Notion reads 2,000 blocks of each list and stops three levels down, and Slack reads one page of a
+thread's replies and names the first 1,000 members of a workspace. When a read leaves something out,
+the `dropped` step records what, such as "read 50 of 312" comments, the log says the same, and
+**Details** shows it under **Left out**. A git sync does not catalog a file larger than 2 MB. It
+writes the file's path and size to the sync run's log instead.
+
 ## The analyzer
 
 `Analyzer.for` picks an analyzer by the feed's mime type. It walks `Analyzer.all` in order and takes

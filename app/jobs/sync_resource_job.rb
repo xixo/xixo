@@ -94,7 +94,9 @@ class SyncResourceJob < ApplicationJob
     end
 
     def walk_for(resource, cursor)
-      @walk ||= cursor.nil? ? Resource::Walk.begin!(resource) : Resource::Walk.resume(resource)
+      @walk ||= (cursor.nil? ? Resource::Walk.begin!(resource) : Resource::Walk.resume(resource)).tap do |walk|
+        walk.run = run
+      end
     end
 
     def resource_for(resource_id)
