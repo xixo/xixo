@@ -52,6 +52,30 @@ class ResourceDeclaringTest < ActiveSupport::TestCase
     end
   end
 
+  test "a default chosen since the last boot survives declaring again" do
+    Tenant.switch(@tenant) do
+      Resource.declare!(declaring)
+      bucket = Resource::Database.create!(key: "database", name: "Storage")
+      bucket.make_default_storage!
+
+      Resource.declare!(declaring)
+
+      assert_equal bucket, Resource.default_storage
+    end
+  end
+
+  test "a declared default takes over once the chosen one is put away" do
+    Tenant.switch(@tenant) do
+      bucket = Resource::Database.create!(key: "database", name: "Storage")
+      bucket.make_default_storage!
+      bucket.update!(archived_at: Time.current)
+
+      Resource.declare!(declaring)
+
+      assert_equal "files", Resource.default_storage.key
+    end
+  end
+
   test "only what the type declares is read, so a stray key never lands" do
     Tenant.switch(@tenant) do
       Resource.declare!(declaring("settings" => { "root" => @root.to_s, "sudo" => "yes" }))

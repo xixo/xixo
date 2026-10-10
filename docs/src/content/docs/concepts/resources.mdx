@@ -42,7 +42,9 @@ forgets every vector.
 `config/resources.yml` is ERB, keyed by environment, and reads every host and secret from the
 environment. The shipped file declares a `files` filesystem resource as the default storage.
 `Resource.declare!` reconciles it in each tenant. It creates or updates each declared key and never
-deletes. A resource removed from the file stays attached, so nobody using it loses it.
+deletes. A resource removed from the file stays attached, so nobody using it loses it. A declared
+`default_storage` or `default_inference` takes the default only while the tenant has none, so a
+default chosen in the app survives every boot.
 
 In development, `db/seeds.rb` attaches a database store, an S3 bucket in MinIO, a `web` resource,
 and an Ollama inference resource. See the [quickstart](/quickstart/#resources).

@@ -237,7 +237,7 @@ class Resource < ApplicationRecord
       resource.save!
 
       DEFAULTABLE.each_key do |capability|
-        resource.make_default_for!(capability) if spec["default_#{capability}"]
+        resource.make_default_for!(capability) if spec["default_#{capability}"] && default_for(capability).nil?
       end
 
       resource
