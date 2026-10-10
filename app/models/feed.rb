@@ -25,7 +25,7 @@ class Feed < ApplicationRecord
 
   RESERVED = %w[
     mcp graphql graphiql auth connect references feeds resources runs settings
-    jobs up assets vite rails cable audit uploads analyses
+    jobs up assets vite rails cable audit uploads share analyses
     recede resume refresh
   ].freeze
 

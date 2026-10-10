@@ -11,6 +11,7 @@ reference to where it is, and xixo never moves it. Both ways end in an
 | Way in | Needs | Lands as |
 | --- | --- | --- |
 | `POST /uploads` | `xixo:catalog:write` | a staged file, cause `upload` |
+| `POST /share` | `xixo:catalog:write` | a staged file at `shared/<time>-<name>`, a note, a fetch, or a snapshot |
 | `addNote` | `xixo:catalog:write` | a staged `text/markdown` file at `notes/<time>-<name>.md` |
 | `fetchUrl` | `xixo:catalog:write` | a staged file at `downloads/<time>-<name>` |
 | `askCatalog` | `xixo:catalog:write` | a note keyed by the question, with no bytes, cause `ask` |

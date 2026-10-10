@@ -1,0 +1,52 @@
+---
+title: Install xixo on a phone
+description: Add xixo to a phone's home screen and share files, links, and text to it.
+---
+
+At the end of this guide, xixo opens from your phone's home screen in a window of its own, and on
+Android it is listed in the share sheet. A phone installs xixo only over `https`, so the address you
+open must be your xixo's public origin. See [self-hosting](/guides/self-hosting/).
+
+## Install on Android
+
+1. Open your xixo in Chrome and sign in.
+2. Open the menu and choose **Add to home screen**, then **Install**.
+
+xixo opens from the icon without the browser's address bar. It also appears in the share sheet of
+other apps.
+
+## Install on an iPhone or iPad
+
+1. Open your xixo in Safari and sign in.
+2. Choose the share button, then **Add to Home Screen**.
+3. Choose **Add**.
+
+Safari does not list installed web apps in the share sheet, so sharing to xixo works on Android only.
+
+## Share to xixo
+
+1. In another app, choose **Share**.
+2. Choose **xixo**.
+
+xixo opens on what arrived and says what became of it:
+
+- A file is staged the way a dropped file is and opens on its item. It is stored at
+  `shared/<time>-<name>`. Several files open on the catalog with a count of each.
+- A file whose bytes are already in the catalog is not stored again. When it is the only file shared,
+  xixo opens on the item that holds those bytes.
+- A link to a page is rendered when a web resource is attached. A link to a file, such as a PDF, is
+  fetched into storage.
+- Text, and a link that cannot be rendered or fetched, is kept as a note. The note is named by the
+  shared title, or by its first line when no title came with it.
+
+A file is refused when no attached storage accepts its type at its size. The same limits apply as
+for an upload. See [staging](/concepts/adding/#staging).
+
+## When a share does not land
+
+- **Sign in first.** A share from a phone that is not signed in opens the sign-in page, and what was
+  shared is not kept. Sign in, then share again.
+- **Your sign-in may read the catalog but not add to it.** Sharing needs `xixo:catalog:write`. See
+  [scopes](/reference/scopes/).
+- **That share could not be kept.** No attached storage accepts it. Attach storage on **Resources**.
+  See [attaching a resource](/guides/attach-a-resource/).

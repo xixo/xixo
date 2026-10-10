@@ -40,7 +40,7 @@ See [tenants](/concepts/tenants/#isolation) and [search](/concepts/search/#tenan
 
 ## Tokens
 
-`/graphql`, `/mcp`, `/uploads`, and `/references/:id/content` each verify a masks access token. A
+`/graphql`, `/mcp`, `/uploads`, `/share`, and `/references/:id/content` each verify a masks access token. A
 token is accepted only when its issuer is this tenant's masks issuer, its audience is this tenant's
 origin followed by `/mcp`, and any `tenant` claim names this tenant. Production refuses to boot
 without `XIXO_PUBLIC_ORIGIN`, so the audience never comes from a request's `Host` header.
@@ -50,6 +50,10 @@ without `XIXO_PUBLIC_ORIGIN`, so the audience never comes from a request's `Host
   [scopes](/reference/scopes/).
 - A browser request carrying the session cookie also needs the page's CSRF token. A request with a
   bearer token does not.
+- `POST /share` receives what a phone's share sheet sends, which carries no CSRF token. It accepts a
+  cookie-only request when the browser marks it `Sec-Fetch-Site: none` or `same-origin` and any
+  `Origin` it sends is this tenant's origin. A browser that sends no `Sec-Fetch-Site` must send this
+  origin as `Origin`. A post from another site, including another tenant's subdomain, is refused.
 - An `Mcp-Session-Id` belongs to the subject that opened it. xixo refuses it from anyone else.
 - `xixo:settings:admin` is never requested at sign-in.
 

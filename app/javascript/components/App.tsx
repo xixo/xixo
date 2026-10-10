@@ -27,6 +27,7 @@ import { Mark } from './Mark'
 import { Resources } from './Resources'
 import { SayProvider } from './Say'
 import { Settings, SignedIn } from './Settings'
+import { Shared } from './Shared'
 import { UploadsProvider } from './Uploads'
 
 const VERBS: [string, string][] = [
@@ -162,6 +163,8 @@ function Shell({
           </Tooltip>
         </div>
       </header>
+
+      <Shared />
 
       <main className="shell-main">
         <Fallen key={location.pathname}>

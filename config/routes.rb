@@ -8,6 +8,7 @@ Rails.application.routes.draw do
   post "/graphql", to: "graphql#execute"
 
   post "/uploads", to: "uploads#create"
+  post "/share", to: "shares#create"
 
   get "/references/:id/content", to: "content#show", as: :reference_content
 

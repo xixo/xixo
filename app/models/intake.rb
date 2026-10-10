@@ -3,6 +3,8 @@ class Intake
 
   MAX_KEY = Feed::MAX_KEY
   MAX_NAME = 180
+  MAX_NOTE = 1.megabyte
+  NOTE_TITLE = 80
 
   Landed = Data.define(:feed, :staged, :analysis) do
     def initialize(feed:, staged: nil, analysis: nil) = super
@@ -38,6 +40,17 @@ class Intake
       Landed.new(feed: feed, staged: staged, analysis: feed.analyze!(cause: cause))
     end
 
+    def note!(body, title: nil)
+      text = body.to_s
+
+      raise Unusable, "a note needs something in it" if text.strip.empty?
+      raise Unusable, "that note is longer than #{MAX_NOTE} bytes" if text.bytesize > MAX_NOTE
+
+      named = title.presence || first_line(text)
+
+      write!(path: filed("notes", "#{named}.md"), body: text, mime: MimeType::NOTE, title: named)
+    end
+
     def key_for(given)
       segments = given.to_s.tr("\\", "/").split("/").filter_map do |segment|
         cleaned = segment.gsub(/[[:cntrl:]]/, "").strip
@@ -67,6 +80,10 @@ class Intake
     end
 
     private
+
+      def first_line(text)
+        text.lines.first.to_s.strip.delete_prefix("#").strip.truncate(NOTE_TITLE).presence || "Note"
+      end
 
       def already_at(key)
         placed = Reference.originals.where(locator_key: key, resource: Resource.stores)
