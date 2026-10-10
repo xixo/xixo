@@ -49,9 +49,23 @@ analysis never describes bytes that have since changed.
 Every object a sync walks past sets its reference's `seen_at`. When a sync finishes, xixo sets
 `gone_at` on each original reference in that resource that was last seen before the sync began,
 because the source no longer has it. This does not happen after a sync that was cancelled, ran past
-its deadline, was gated, or was a dry run. Nothing is deleted. The feed, its analysis, and its notes
-stay, and the item page says where the file is no longer found. A later sync or `keep` that finds it
-again clears `gone_at`.
+its deadline, was gated, or was a dry run. Nothing is deleted then. The feed, its analysis, and its
+notes stay, and the item page says where the file is no longer found. A later sync or `keep` that
+finds it again clears `gone_at`.
+
+`ForgetGoneJob` runs every day at 4:50 a.m. in every tenant. It forgets each `xixo:file` feed whose
+originals all have a `gone_at` more than 30 days old (`Feed::GONE_FOR`), and records each one in the
+audit log. A feed with at least one original still found is left alone, and so is a feed that
+someone kept:
+
+- a feed with a note, which a person or an agent wrote,
+- a feed with an `expires_at`, which follows its own lifetime instead,
+- a feed with an edge that is not `inferred`, such as a tag or a connection a person or an agent
+  made, or a question's answer that drew on it (an edge to a content type does not count),
+- a feed with an analysis still open, until that analysis finishes, and
+- an extracted child, which goes with its parent.
+
+A kept feed stays in the catalog with its places marked as gone.
 
 Only a full walk can tell what is missing. A walk of only what changed has no information about what
 it did not visit, so it marks nothing as gone. The exception is a source that reports deletions

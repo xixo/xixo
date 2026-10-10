@@ -37,6 +37,11 @@ shared: &shared
     queue: sync
     schedule: every hour at minute 37
 
+  forget_gone:
+    class: ForgetGoneJob
+    queue: sync
+    schedule: every day at 4:50am
+
   sweep_runs:
     class: SweepRunsJob
     queue: sync

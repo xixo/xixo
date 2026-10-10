@@ -48,6 +48,9 @@ feeds whose date has passed. Forgetting removes the feed's references, analyses,
 deletes any bytes xixo created for it, the same as forgetting it by hand. This suits things that go
 stale, such as a forecast, a price, or an API response.
 
+A file whose every original has been gone from its source for 30 days is forgotten as well, unless
+something keeps it. See [noticing what is gone](/concepts/references/#noticing-what-is-gone).
+
 When an agent answers a question, anything it creates or keeps (a note, a page snapshot, or a kept
 object) lasts 30 days. The agent can pass `lasts` as `forever` or as a number of days to change
 that. Keeping something that already existed leaves its lifetime unchanged. Outside a question,

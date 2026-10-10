@@ -22,6 +22,7 @@ class Feed < ApplicationRecord
   MIN_TIMEOUT = 1.minute
   MAX_TIMEOUT = 1.day
   GIST = %w[title note].freeze
+  GONE_FOR = 30.days
 
   RESERVED = %w[
     mcp graphql graphiql auth connect references feeds resources runs settings
@@ -73,6 +74,11 @@ class Feed < ApplicationRecord
   }
   scope :by_key, ->(value) { where(key: value.to_s) }
   scope :expired, -> { where(expires_at: ..Time.current) }
+  scope :unattended, lambda {
+    files.where(parent_id: nil, expires_at: nil, note: [ nil, "" ])
+         .where.not(id: Edge.where(inferred: false).where.not(b_id: Feed.mimes.select(:id)).select(:a_id))
+         .where.not(id: Edge.where(inferred: false).where.not(a_id: Feed.mimes.select(:id)).select(:b_id))
+  }
 
   normalizes :title, with: ->(value) { value.to_s.squish.presence }
 
@@ -115,6 +121,18 @@ class Feed < ApplicationRecord
   end
 
   def self.forget_lonely!(ids = nil) = lonely(ids).destroy_all
+
+  def self.long_gone
+    unattended.where(id: Reference.originals.select(:feed_id))
+              .where.not(id: Analysis.open.select(:feed_id))
+              .where.not(id: Reference.originals.where("gone_at IS NULL OR gone_at > ?", GONE_FOR.ago).select(:feed_id))
+  end
+
+  def self.placeless(ids)
+    unattended.where(id: ids)
+              .where.not(id: Reference.originals.select(:feed_id))
+              .where.not(id: ActiveStorage::Attachment.where(record_type: name, name: "upload").select(:record_id))
+  end
 
   def self.singleton!(type, key)
     where(type: type).find_by(key: key.to_s) ||

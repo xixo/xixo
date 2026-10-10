@@ -39,8 +39,6 @@ and keeping apart. This file lists what is still open.
   and git and the MCP client are pinned to the vetted address.
 - **Nothing sets an analysis `gated`.** `Gated` marks the run.
 - **`SearchIndex.document` reads a feed's tags with one query per feed.**
-- **Something deleted at the source is marked gone and never removed.** Nothing forgets a feed whose
-  every place has a `gone_at`.
 - **Only git, IMAP, GitHub, and OneDrive walk what changed.** Notion and Slack walk everything.
 - **A OneDrive folder renamed between full walks leaves its files' paths stale** until the next full
   walk, at most a day later. A file under a folder moved out of the resource's folder is noticed as
