@@ -19,6 +19,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | `analyses`<br />`feedId: ID`<br />`status: String`<br />`after: ID`<br />`limit: Int` | [`AnalysisPage!`](#analysispage) | `xixo:catalog:read` |  |
 | `analysis`<br />`id: ID!` | [`Analysis`](#analysis) | `xixo:catalog:read` |  |
 | `auditEvents`<br />`status: String`<br />`actor: String`<br />`feed: ID`<br />`after: ID`<br />`limit: Int` | [`AuditEventPage!`](#auditeventpage) | `xixo:catalog:read` |  |
+| `discovered`<br />`via: String!` | [`[DiscoveredNode!]!`](#discoverednode) | `xixo:resources:read` | What a transport reaches, offered as resources to attach. Asking for services also knocks on a few well-known ports of each machine that is online. |
 | `feed`<br />`id: ID`<br />`key: String` | [`Feed`](#feed) | `xixo:catalog:read` |  |
 | `feeds`<br />`type: String`<br />`types: [String!]`<br />`mime: String`<br />`resourceId: ID`<br />`tag: String`<br />`connectedTo: ID`<br />`topLevel: Boolean`<br />`after: ID`<br />`limit: Int` | [`FeedPage!`](#feedpage) | `xixo:catalog:read` |  |
 | `resourceTypes` | [`[Attaching!]!`](#attaching) | `xixo:resources:read` | Every type that can be attached, and what each of them needs. |
@@ -174,6 +175,7 @@ What one type of resource needs before it can answer. Resolves only for a token 
 
 | Field | Type | Description |
 | --- | --- | --- |
+| `addressedBy` | `String` | The field that holds the address it is reached at, for a type a transport can reach. |
 | `blurb` | `String!` |  |
 | `capabilities` | `[String!]!` |  |
 | `delegated` | `Boolean!` | Connected through masks with somebody's own account, rather than by typing a credential. |
@@ -322,6 +324,31 @@ Resolves only for a token carrying `xixo:catalog:read`.
 | `label` | `String!` | What the value is, in words, such as Lens ID or Page size. |
 | `step` | `String!` | The name of the analysis step it was read from. |
 | `value` | `String!` | The value as text, cut to 400 characters. |
+
+### DiscoveredNode
+
+A machine a transport reaches, as its network names it. Nothing else the network knows about it, such as its keys, its owner, or its operating system, is read back. Resolves only for a token carrying `xixo:resources:read`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `address`<br />`type: String!` | `String` | What the address field of a type would hold to reach it. Empty for a type that cannot be reached through a transport. |
+| `addresses` | `[String!]!` | Its addresses on the network, IPv4 first. |
+| `dnsName` | `String` | Its full name on the network, when the network names it. |
+| `hostName` | `String` | The name the machine gives itself. |
+| `lastSeenAt` | `ISO8601DateTime` | When the network last saw it, for a machine that is offline. |
+| `online` | `Boolean!` | Whether the network sees it now. |
+| `services` | [`[DiscoveredService!]!`](#discoveredservice) | The well-known ports that answered when the machine was asked. Empty for a machine that is offline, or when the ports were not asked. |
+
+### DiscoveredService
+
+A well-known port that answered on a node a transport reaches. Resolves only for a token carrying `xixo:resources:read`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `address` | `String!` | What that type's address field would hold to reach it. |
+| `name` | `String!` | What usually listens on the port, such as ollama. |
+| `port` | `Int!` |  |
+| `type` | `String!` | The type of resource that reaches it. |
 
 ### ExportFeedsPayload
 
@@ -477,6 +504,9 @@ Resolves only for a token carrying `xixo:resources:read`.
 | `name` | `String` |  |
 | `needsConnect` | `Boolean!` | Whether somebody has to connect it through masks, or connect it again, before it answers. |
 | `nextSyncAt` | `ISO8601DateTime` |  |
+| `offline` | `Boolean!` | Whether the machine it lives on was offline on its transport at the last check or sync. Its checks ask only the transport, and its scheduled syncs wait, until the machine is back. |
+| `offlineHost` | `String` | The name of the machine that is offline. |
+| `offlineLastSeenAt` | `ISO8601DateTime` | When the transport last saw the machine that is offline. Empty for one it has never seen. |
 | `personal` | `Boolean!` | Whether only the person who attached it can see and use it. |
 | `routable` | `Boolean!` | Whether it can be reached through a transport, such as a tailnet. |
 | `settings` | `JSON!` | What each field the type declares holds, for the fields kept in the clear. Nothing held encrypted is ever read back. |

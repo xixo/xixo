@@ -17,6 +17,9 @@ query Resources($archived: Boolean) {
     checkError
     healthy
     checking
+    offline
+    offlineHost
+    offlineLastSeenAt
     archivedAt
     settings
     heldCredentials
@@ -70,6 +73,9 @@ mutation CheckResource($id: ID!) {
       checkError
       healthy
       checking
+      offline
+      offlineHost
+      offlineLastSeenAt
     }
   }
 }
@@ -113,6 +119,23 @@ mutation ExportFeeds($destinationId: ID, $type: String, $query: String) {
   }
 }
 
+query Discovered($via: String!, $type: String!) {
+  discovered(via: $via) {
+    hostName
+    dnsName
+    addresses
+    online
+    lastSeenAt
+    address(type: $type)
+    services {
+      name
+      port
+      type
+      address
+    }
+  }
+}
+
 query ResourceTypes {
   resourceTypes {
     type
@@ -123,6 +146,7 @@ query ResourceTypes {
     syncs
     delegated
     routable
+    addressedBy
     fields {
       name
       label

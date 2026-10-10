@@ -5,6 +5,7 @@ class Resource < ApplicationRecord
 
   class Unusable < Failed; end
   class Skipped < Failed; end
+  class Offline < Unusable; end
   class Refused < ArgumentError; end
 
   include TenantScoped
@@ -31,6 +32,7 @@ class Resource < ApplicationRecord
   DEFAULTABLE = { storage: :default_storage, inference: :default_inference }.freeze
   INTERNAL = { children: "Extracted children", derived: "Previews and thumbnails" }.freeze
   INTERNAL_MARK = "internal".freeze
+  ADDRESSED_BY = %w[url endpoint base_url host].freeze
 
   TYPES = %w[
     s3 filesystem webdav caldav carddav imap rss web openai-compatible oauth-google database
@@ -67,11 +69,13 @@ class Resource < ApplicationRecord
     where(sync_started_at: nil).or(where(sync_started_at: ...SYNC_ABANDONED_AFTER.ago))
   }
   scope :probing, -> { where(probing_since: PROBE_ABANDONED_AFTER.ago..) }
-  scope :due_for_sync, -> { scheduled.not_syncing.where(next_sync_at: ..Time.current) }
+  scope :online, -> { where(offline_host: nil) }
+  scope :due_for_sync, -> { scheduled.not_syncing.online.where(next_sync_at: ..Time.current) }
   scope :due_for_check, -> {
     attended.active.not_syncing.where(checked_at: nil)
       .or(attended.active.not_syncing.where(checked_at: ...CHECKED_EVERY.ago))
       .or(attended.active.not_syncing.where.not(check_error: nil).where(checked_at: ...FAILING_CHECKED_EVERY.ago))
+      .or(attended.active.not_syncing.where.not(offline_host: nil).where(checked_at: ...FAILING_CHECKED_EVERY.ago))
   }
 
   class << self
@@ -152,6 +156,26 @@ class Resource < ApplicationRecord
 
     def routable?
       false
+    end
+
+    def addressed_by
+      return unless routable?
+
+      named = Array(attaching&.fetch(:fields)).map { |field| field[:name] }
+      ADDRESSED_BY.find { |held| named.include?(held) }
+    end
+
+    def address_on(host, port: nil)
+      field = addressed_by
+      return if field.nil?
+      return host if field == "host"
+
+      shown = host.include?(":") ? "[#{host}]" : host
+      "http://#{shown}#{":#{port}" if port}#{address_path}"
+    end
+
+    def address_path
+      "/"
     end
 
     def declared_only?
@@ -345,6 +369,44 @@ class Resource < ApplicationRecord
     []
   end
 
+  def offline_peer(_host)
+    nil
+  end
+
+  def discovered(services: false)
+    []
+  end
+
+  def target_host
+    field = self.class.addressed_by
+    held = field && details.to_h[field].to_s.strip
+    return if held.blank?
+
+    Tailnet::Node.normalized(held.include?("://") ? URI.parse(held).host : held.split("/").first)
+  rescue URI::InvalidURIError
+    nil
+  end
+
+  def offline?
+    offline_host.present?
+  end
+
+  def offline_reason
+    return unless offline?
+
+    seen = offline_last_seen_at ? "last seen #{offline_last_seen_at.utc.iso8601}" : "never seen"
+    "#{offline_host} is offline on #{via&.key || 'its transport'}, #{seen}"
+  end
+
+  def answering!
+    peer = away_peer
+    return came_back! if peer.nil?
+
+    update_columns(offline_host: peer["host_name"] || target_host, offline_last_seen_at: peer["last_seen"],
+                   checked_at: Time.current, check_error: nil, probing_since: nil)
+    raise Offline, offline_reason
+  end
+
   def reached(target)
     via.present? ? via.reach!(target) : target
   end
@@ -443,11 +505,11 @@ class Resource < ApplicationRecord
   end
 
   def healthy?
-    checked_at.present? && check_error.nil?
+    checked_at.present? && check_error.nil? && !offline?
   end
 
   def down?
-    needs_connect? || (checked_at.present? && check_error.present?)
+    needs_connect? || offline? || (checked_at.present? && check_error.present?)
   end
 
   def command(name, arguments = {})
@@ -675,11 +737,26 @@ class Resource < ApplicationRecord
 
     def checked
       through!
+      answering!
       yield
       true
+    rescue Offline
+      false
     rescue NotImplementedError, StandardError => e
       record_check("#{e.class}: #{e.message}")
       false
+    end
+
+    def away_peer
+      host = via && target_host
+      host && via.offline_peer(host)
+    end
+
+    def came_back!
+      return unless offline?
+
+      resumed = sync_interval.present? ? { next_sync_at: [ next_sync_at, Time.current ].compact.min } : {}
+      update_columns(offline_host: nil, offline_last_seen_at: nil, **resumed)
     end
 
     def record_check(error)

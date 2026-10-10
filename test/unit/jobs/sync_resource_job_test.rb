@@ -326,6 +326,7 @@ class SyncResourceJobTest < ActiveSupport::TestCase
   test "an object is saved with the cursor its page began at, so a resumed sync misses none of that page" do
     pages = { nil => [ %w[a b], "b" ], "b" => [ %w[c d], "d" ] }
     paged = Object.new
+    paged.define_singleton_method(:answering!) { nil }
     paged.define_singleton_method(:each_page) do |cursor:, walk: nil, &block|
       while (page = pages[cursor])
         block.call(*page)

@@ -6,16 +6,11 @@ and keeping apart. This file lists what is still open.
 
 ## Next
 
-- **A resource behind a transport that comes and goes.** A peer that is off fails each check with a
-  connection error. Read the peer's state from tailscaled, report the resource as offline for that
-  reason, and resume its syncs when the peer returns.
 - **An agent.** A program on each machine that enrolls with xixo as a masks client, dials xixo, and
   reports the machine's health. It then offers the machine's folders and model server as resources
   reached through it, and later pulls analysis jobs, so a file is read where it lives and only its
   text reaches xixo. It runs natively on macOS, where a container cannot see the GPU or the real
   disks, and may run in a container on Linux.
-- **Discovery.** A transport offers what it can reach as resources to attach, such as a tailnet's
-  nodes from tailscaled's status.
 
 ## Not yet verified
 

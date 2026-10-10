@@ -96,3 +96,18 @@ fails with `<key> is reached through tailnet, which is down`.
 
 To move an existing resource onto the tailnet, change it and set **Reached through**, or pass `via`
 to `updateResource`. An empty `via` reaches it directly again.
+
+## Pick a machine from the tailnet
+
+When **Reached through** is `tailnet`, the attach dialog lists the tailnet's machines under **On
+tailnet**. Choosing one fills in its tailnet address. See
+[a resource on a network](/guides/attach-a-resource/#a-resource-on-a-network).
+
+## When a machine is off
+
+A resource on a machine that is off the tailnet reads **offline** in the app and shows no error.
+xixo asks tailscaled about the machine instead of dialing it, and holds the
+resource's scheduled syncs. When tailscaled reports the machine online again, the next check, at
+most ten minutes later, clears **offline** and starts the sync that was held. Choose **Check** from
+the resource's **⋯** menu to look sooner. See
+[a machine that is offline](/concepts/resources/#a-machine-that-is-offline).

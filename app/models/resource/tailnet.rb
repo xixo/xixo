@@ -6,6 +6,15 @@ class Resource
     LOCAL_API = "local-tailscaled.sock".freeze
     TIMEOUT = 5
     MAX_STATUS = 8.megabytes
+    MAX_NODES = 256
+    MAX_PROBED = 32
+    PROBE_TIMEOUT = 0.5
+    NEVER = Time.utc(1971)
+    SERVICES = [
+      { "name" => "ollama", "port" => 11_434, "type" => "openai-compatible" },
+      { "name" => "lm-studio", "port" => 1234, "type" => "openai-compatible" },
+      { "name" => "imaps", "port" => 993, "type" => "imap" }
+    ].freeze
 
     serves :transport
 
@@ -15,6 +24,17 @@ class Resource
 
     def self.socket
       ENV.fetch("XIXO_TAILSCALE_SOCKET", "")
+    end
+
+    def self.command_schema
+      { discover: {} }
+    end
+
+    def self.listening?(address, port)
+      Socket.tcp(address, port, connect_timeout: PROBE_TIMEOUT).close
+      true
+    rescue SystemCallError, IOError, SocketError
+      false
     end
 
     def self.declared
@@ -36,6 +56,30 @@ class Resource
       raise Resource::Failed, "#{key}: tailscaled is #{state.presence || 'in no state it names'}"
     end
 
+    def offline_peer(host)
+      named = Node.normalized(host)
+      return if named.nil?
+
+      nodes.find { |node| !node["online"] && Node.answers_to?(node, named) }
+    end
+
+    def discovered(services: false)
+      found = nodes
+      services ? probed(found) : found
+    end
+
+    def command_discover
+      { "transport" => key, "nodes" => discovered(services: true) }
+    end
+
+    def nodes
+      peers = status["Peer"]
+      return [] unless peers.is_a?(Hash)
+
+      peers.values.first(MAX_NODES).filter_map { |peer| Node.from(peer, covers) }
+           .sort_by { |node| [ node["online"] ? 0 : 1, node["host_name"].to_s ] }
+    end
+
     def status
       JSON.parse(local("/localapi/v0/status"))
     rescue JSON::ParserError
@@ -43,6 +87,24 @@ class Resource
     end
 
     private
+
+      def probed(found)
+        asked = found.select { |node| node["online"] && node["addresses"].any? }.first(MAX_PROBED)
+        knocks = asked.flat_map { |node| SERVICES.map { |service| [ node, service ] } }
+
+        heard = knocks.map do |node, service|
+          Thread.new { [ node, service ] if self.class.listening?(node["addresses"].first, service["port"]) }
+        end.filter_map(&:value)
+
+        found.map do |node|
+          node.merge("services" => heard.select { |held, _| held.equal?(node) }.map { |_, service| offered(node, service) })
+        end
+      end
+
+      def offered(node, service)
+        address = Resource.find_sti_class(service["type"]).address_on(node["addresses"].first, port: service["port"])
+        service.merge("address" => address)
+      end
 
       def local(path)
         socket = self.class.socket

@@ -89,6 +89,19 @@ module Types
       scope.order(:type, :key)
     end
 
+    field :discovered, [ Types::DiscoveredNodeType ], null: false, grants: "xixo:resources:read",
+          extras: [ :lookahead ],
+          description: "What a transport reaches, offered as resources to attach. Asking for services " \
+                       "also knocks on a few well-known ports of each machine that is online." do
+      argument :via, String, required: true, description: "The key of the transport."
+    end
+
+    def discovered(via:, lookahead:)
+      Resource.transport!(via, context[:grant]).discovered(services: lookahead.selects?(:services))
+    rescue Resource::Refused, Resource::Failed => e
+      raise GraphQL::ExecutionError, e.message
+    end
+
     field :resource_types, [ Types::AttachingType ], null: false, grants: "xixo:resources:read",
           description: "Every type that can be attached, and what each of them needs."
 
@@ -99,7 +112,8 @@ module Types
           capabilities: klass.capabilities.map(&:to_s),
           syncs: klass.method_defined?(:each_page),
           delegated: klass.delegated?,
-          routable: klass.routable?
+          routable: klass.routable?,
+          addressed_by: klass.addressed_by
         )
       end
     end

@@ -23,6 +23,13 @@ module Types
     field :checked_at, GraphQL::Types::ISO8601DateTime
     field :check_error, String
     field :healthy, Boolean, null: false, method: :healthy?
+    field :offline, Boolean, null: false, method: :offline?,
+          description: "Whether the machine it lives on was offline on its transport at the last check or sync. " \
+                       "Its checks ask only the transport, and its scheduled syncs wait, until the machine is back."
+    field :offline_host, String,
+          description: "The name of the machine that is offline."
+    field :offline_last_seen_at, GraphQL::Types::ISO8601DateTime,
+          description: "When the transport last saw the machine that is offline. Empty for one it has never seen."
     field :checking, Boolean, null: false, method: :checking?,
           description: "Whether a check that asked more than whether it answers is still running. " \
                        "Its last finished check stays in checkedAt and checkError until this one ends."

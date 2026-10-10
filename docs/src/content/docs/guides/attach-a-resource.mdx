@@ -19,7 +19,9 @@ You need to be signed in with `xixo:resources:command`, which the browser app as
 5. Optionally fill in **Called**, the name shown in listings.
 6. Under **Who can use it**, leave **Everyone here** selected, or choose **Only me**. See
    [a personal resource](#a-personal-resource).
-7. Fill in the fields under **Connection**. Required fields are marked with an asterisk.
+7. Fill in the fields under **Connection**. Required fields are marked with an asterisk. For a
+   type that can be reached through a network, such as a tailnet, set **Reached through** first.
+   See [a resource on a network](#a-resource-on-a-network).
 8. Choose **Attach it**.
 
 xixo saves the resource and checks it straight away. When the check passes, the dialog closes. When
@@ -80,8 +82,10 @@ When the account stops working, it shows **needs reconnecting** and a **Reconnec
 ## Check it
 
 **Resources** groups resources under **Storage**, **Models**, and **Tools**, one card each. Each
-card shows its state: **reachable**, **failing**, **never checked**, **checking**, **syncing**, or
-one of the connection states above.
+card shows its state: **reachable**, **failing**, **offline**, **never checked**, **checking**,
+**syncing**, or one of the connection states above. **offline** means the machine the resource lives
+on is off the network it is reached through. Hover over the state to see when the machine was last
+seen. Its scheduled syncs wait until the machine is back, and then start.
 
 1. Choose **Check** from the **⋯** menu on the resource's card.
 2. xixo reports that the resource answers, or shows the error on the card. A model server reads
@@ -142,6 +146,23 @@ render is skipped and logged in the run, and the sync carries on with the rest. 
 watchlist of a resource that has a schedule is refused until the schedule is cleared. An agent
 adds an address with the `resource` tool's `watch` command and takes one off with `unwatch`.
 Taking the last address off with `unwatch` also clears the schedule.
+
+## A resource on a network
+
+A type such as **WebDAV**, **A mailbox**, or **A model backend** can be reached through a network
+xixo is on, such as a [tailnet](/guides/tailnet/).
+
+1. Under **Connection**, set **Reached through** to the network.
+2. Choose a machine from **On** followed by the network's name. It lists the machines the network
+   reaches, each with its address, and marks the ones that are offline. A machine where a model
+   server or a mailbox answers on its usual port names it, such as **ollama**.
+3. xixo fills in the address field with the machine's address on the network, and the name with
+   the machine's name if you have not typed one. A model server found on its usual port gets its
+   full **Base URL**.
+4. Check the address, adding a port or path the service needs, and fill in the other fields.
+
+The `resource` tool's `discover` command lists the same machines over MCP, and the `discovered`
+query lists them over GraphQL.
 
 ## A personal resource
 

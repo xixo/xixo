@@ -41,6 +41,8 @@ import {
 import { type CSSProperties, useState } from 'react'
 import {
   AttachResourceDocument,
+  DiscoveredDocument,
+  type DiscoveredQuery,
   ResourceTypesDocument,
   type ResourceTypesQuery,
   UpdateResourceDocument,
@@ -52,6 +54,8 @@ type Attaching = ResourceTypesQuery['resourceTypes'][number]
 type Field = Attaching['fields'][number]
 
 type Typed = Record<string, string | boolean>
+
+type Node = DiscoveredQuery['discovered'][number]
 
 export interface Editing {
   id: string
@@ -163,6 +167,21 @@ function grouped(types: readonly Attaching[]) {
   ].filter((section) => section.types.length > 0)
 }
 
+function named(node: Node, type: string) {
+  const services = node.services
+    .filter((service) => service.type === type)
+    .map((service) => service.name)
+
+  return [
+    node.hostName ?? node.addresses[0] ?? 'a machine',
+    node.addresses[0],
+    node.online ? null : 'offline',
+    ...services,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
 function asked(field: Field, typed: Typed) {
   return (field.shownWhen ?? []).every((condition) =>
     condition.values.includes(`${typed[condition.field] ?? ''}`),
@@ -243,6 +262,7 @@ export function Attach({
     setKey((held) => held || next.type)
     setTyped(seeded(next))
     setPersonal(next.delegated)
+    setFound(null)
     setRefused(null)
     setWarned(null)
   }
@@ -255,6 +275,30 @@ export function Attach({
   )
   const ready = key.trim().length > 0 && missing.length === 0
   const routed = Boolean(type?.routable) && transports.length > 0
+  const addressedBy = type?.addressedBy ?? null
+  const offering = !editing && routed && via !== DIRECT && addressedBy !== null
+  const discovery = useQuery(
+    DiscoveredDocument,
+    { via, type: type?.type ?? '' },
+    { skip: !offering },
+  )
+  const nodes = offering ? (discovery.data?.discovered ?? []) : []
+  const [found, setFound] = useState<string | null>(null)
+
+  const take = (picked: string | null) => {
+    setFound(picked)
+
+    const node = picked === null ? undefined : nodes[Number(picked)]
+    if (!node || !type || !addressedBy) return
+
+    const address =
+      node.services.find((service) => service.type === type.type)?.address ??
+      node.address
+
+    if (address) setTyped((held) => ({ ...held, [addressedBy]: address }))
+    if (node.hostName && (!key.trim() || key === type.type))
+      setKey(node.hostName)
+  }
 
   async function save() {
     if (!type || !editing) return
@@ -505,6 +549,49 @@ export function Attach({
               <div className="label">
                 {type.delegated ? 'Before you connect' : 'Connection'}
               </div>
+              {routed && (
+                <Select
+                  size="md"
+                  label="Reached through"
+                  description="A network xixo dials it over. Through one, only addresses on that network are reached."
+                  allowDeselect={false}
+                  value={via}
+                  onChange={(next) => {
+                    setVia(next ?? DIRECT)
+                    setFound(null)
+                  }}
+                  data={[
+                    { value: DIRECT, label: 'Directly' },
+                    ...transports.map((held) => ({ value: held, label: held })),
+                  ]}
+                />
+              )}
+              {offering && (
+                <Select
+                  size="md"
+                  label={`On ${via}`}
+                  description={
+                    discovery.error
+                      ? `${via} could not say what it reaches: ${discovery.error.message}`
+                      : `The machines ${via} reaches. Picking one fills in its address.`
+                  }
+                  placeholder={
+                    discovery.loading
+                      ? 'Looking…'
+                      : nodes.length === 0
+                        ? 'Nothing found'
+                        : 'Pick a machine'
+                  }
+                  disabled={discovery.loading || nodes.length === 0}
+                  clearable
+                  value={found}
+                  onChange={take}
+                  data={nodes.map((node, index) => ({
+                    value: `${index}`,
+                    label: named(node, type.type),
+                  }))}
+                />
+              )}
               {shown.map((field) => (
                 <Asked
                   key={field.name}
@@ -516,20 +603,6 @@ export function Attach({
                   }
                 />
               ))}
-              {routed && (
-                <Select
-                  size="md"
-                  label="Reached through"
-                  description="A network xixo dials it over. Through one, only addresses on that network are reached."
-                  allowDeselect={false}
-                  value={via}
-                  onChange={(next) => setVia(next ?? DIRECT)}
-                  data={[
-                    { value: DIRECT, label: 'Directly' },
-                    ...transports.map((held) => ({ value: held, label: held })),
-                  ]}
-                />
-              )}
             </Stack>
           )}
 

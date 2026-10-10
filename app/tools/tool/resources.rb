@@ -3,7 +3,7 @@ module Tool
     tool_name "resource"
     scope "xixo:resources:read"
 
-    READ = %w[list types describe runs get parameters search forecast find reverse nearby ask].freeze
+    READ = %w[list types describe runs get parameters search forecast find reverse nearby ask discover].freeze
     PLACES = %w[find reverse nearby].freeze
     WRITE = %w[attach change default check sync keep export cancel put snapshot watch unwatch].freeze
     RUNS = %w[sync export].freeze
@@ -28,7 +28,9 @@ module Tool
       "...", "wanted": "..."}: use it for anything no tool here could answer or do, say what would have
       helped, and carry on; it always answers that it cannot. do=types lists what can be attached and the settings each type takes, and
       do=attach with a new key and input {"type": "...", "settings": {...}, "via": "..."} attaches
-      one, reached through the transport named in via if there is one. do=change with input {"name":
+      one, reached through the transport named in via if there is one. do=discover on a transport, such as a
+      tailnet, lists the machines it reaches, whether each is online, and the well-known services that
+      answered on them, each with the type and address to attach it with. do=change with input {"name":
       "...", "settings": {...}, "via": "..."} changes one, keeping every setting it is not given, and
       an empty via reaches it directly. do=default makes one the default for what it serves, storage
       or inference, named with input {"for": "..."} when it serves both. Credentials never travel
@@ -84,7 +86,7 @@ module Tool
       "check" => "checked", "sync" => "synced", "cancel" => "cancelled a run on", "export" => "exported to",
       "keep" => "kept a page through", "snapshot" => "snapshotted a page through",
       "watch" => "watched a page through", "unwatch" => "stopped watching a page through", "put" => "stored a file in",
-      "parameters" => "read the parameters of"
+      "parameters" => "read the parameters of", "discover" => "looked at what is reached through"
     }.freeze
 
     def self.saying(arguments)
@@ -223,7 +225,7 @@ module Tool
     def self.health(resource)
       return { checking: true } if resource.checking?
 
-      { healthy: resource.healthy?, error: resource.check_error }.compact
+      { healthy: resource.healthy?, error: resource.check_error, offline: resource.offline_reason }.compact
     end
 
     def self.defaulted(resource, given)
@@ -241,8 +243,9 @@ module Tool
           default_inference: resource.default_inference?,
           syncable: resource.syncable?, syncing: resource.syncing?,
           synced_at: resource.synced_at, checked_at: resource.checked_at,
-          check_error: resource.check_error
-        }
+          check_error: resource.check_error,
+          offline: resource.offline_reason
+        }.compact
       end
 
       { count: resources.size, resources: resources }

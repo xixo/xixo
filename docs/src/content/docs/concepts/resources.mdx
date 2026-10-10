@@ -32,7 +32,7 @@ A tenant has at most one default storage and one default inference resource, and
 that serves the matching capability can hold either one. Making a resource the default clears the
 flag on the previous one. Snapshots go to the default storage unless the `web` resource names
 another, an upload that nothing placed goes there, and inference uses the default when more than one
-resource serves a role. When the default's last check failed or it needs connecting again,
+resource serves a role. When the default's last check failed, its machine is offline, or it needs connecting again,
 inference uses the first other resource serving the role that is not down, and returns to the
 default once a check passes. Embeddings never move this way, because a different embedding model
 forgets every vector.
@@ -166,6 +166,40 @@ transport takes only an `http` or `https` URL, since the address check does not 
 
 Checking a resource with a `via` checks the transport first. If the transport fails, the resource
 fails with `<key> is reached through <transport>, which is down`, followed by the transport's error.
+
+### A machine that is offline
+
+tailscaled's status says whether each machine on the tailnet is online, and when it was last seen.
+Before a check or a sync dials a resource reached through a tailnet, xixo reads the host from the
+field the type keeps its address in (`url`, `endpoint`, `base_url`, or `host`). It looks for a peer
+with that address, host name, or name on the tailnet. When that peer is offline, xixo records its
+name in `offline_host` and when it was last seen in `offline_last_seen_at`, and dials nothing.
+
+A resource that is offline is down and not healthy, and its `check_error` stays empty. The app shows
+it as **offline**, with when the machine was last seen. A sync that finds the machine offline raises
+`Resource::Offline`, which fails the run once without retrying it. `ScheduleSyncsJob` skips a
+resource that is offline. `ScheduleChecksJob` checks it again ten minutes after its last check, and
+that check asks only tailscaled. When the machine is back, the check clears both columns, moves a
+scheduled resource's next sync to now, and goes on to check the resource as usual. Inference passes
+over a model server that is offline the same way it passes over one that failed its check.
+
+A resource reached directly is never offline, and neither is one whose host the tailnet does not
+list. Each fails its check with the error the connection raised.
+
+### What a transport reaches
+
+The `discovered` query takes a transport's key and lists the machines it reaches. For a tailnet,
+these are the peers in tailscaled's status, the online ones first. Each has its host name, its name
+on the tailnet, its addresses on the tailnet, whether it is online, and when it was last seen. xixo
+reads nothing else from the status, so a peer's keys, owner, tags, and operating system stay on the
+server. An address outside the tailnet's ranges is dropped. `address(type:)` gives what that type's
+address field would hold to reach the machine, and `addressedBy` on `resourceTypes` names the field.
+
+Asking for `services` also tries a TCP connection to a few well-known ports on each machine that is
+online, for half a second each: 11434 for ollama, 1234 for LM Studio, and 993 for IMAP. Each port
+that accepts is listed with the type that reaches it and the address to give that type. At most 32
+machines are asked. The `resource` tool's `discover` command returns the same list, services
+included. Discovery changes nothing, and it is refused for a transport the grant cannot reach.
 
 `via` is set by the `via` argument of `attachResource` and `updateResource`, by the "Reached through"
 field when a resource is attached or changed in the app, or by a `via` key in `config/resources.yml`.

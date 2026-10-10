@@ -30,6 +30,7 @@ class SyncResourceJob < ApplicationJob
 
   def build_enumerator(_tenant_id, resource_id, _run_id = nil, cursor:)
     resource = resource_for(resource_id)
+    resource.answering!
     walk = walk_for(resource, cursor)
 
     objects = Enumerator.new do |yielder|

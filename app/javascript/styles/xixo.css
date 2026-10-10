@@ -38,6 +38,7 @@
   --ok: var(--k-data);
   --busy: var(--k-text);
   --bad: var(--k-pdf);
+  --away: var(--muted);
 
   --s1: 4px;
   --s2: 8px;

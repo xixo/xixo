@@ -59,6 +59,9 @@ interface Resource {
   checking: boolean
   checkedAt?: string | null
   checkError?: string | null
+  offline: boolean
+  offlineHost?: string | null
+  offlineLastSeenAt?: string | null
   syncing: boolean
   syncable: boolean
   defaultStorage: boolean
@@ -86,6 +89,7 @@ function toneFor(resource: Resource) {
   if (resource.syncing) return 'var(--busy)'
   if (resource.needsConnect) return 'var(--bad)'
   if (resource.checking) return 'var(--busy)'
+  if (resource.offline) return 'var(--away)'
   if (!resource.checkedAt) return 'var(--edge)'
 
   return resource.healthy ? 'var(--ok)' : 'var(--bad)'
@@ -96,9 +100,26 @@ function standing(resource: Resource) {
   if (resource.needsConnect)
     return resource.connectedBy ? 'needs reconnecting' : 'not connected yet'
   if (resource.checking) return 'checking'
+  if (resource.offline) return 'offline'
   if (!resource.checkedAt) return 'never checked'
 
   return resource.healthy ? 'reachable' : 'failing'
+}
+
+function told(resource: Resource) {
+  if (resource.offline) {
+    const host = resource.offlineHost ?? 'its machine'
+
+    return resource.offlineLastSeenAt
+      ? `${host} was last seen ${ago(resource.offlineLastSeenAt)}`
+      : `${host} has not been seen on ${resource.via ?? 'its network'}`
+  }
+
+  if (resource.checkError) return resource.checkError
+
+  return resource.checkedAt
+    ? `checked ${ago(resource.checkedAt)}`
+    : 'not checked yet'
 }
 
 export function Resources() {
@@ -206,6 +227,16 @@ export function Resources() {
       const answered = await check.execute({ id: resource.id })
 
       if (!answered) return
+
+      const checked = answered.checkResource?.resource
+
+      if (checked?.offline) {
+        say({
+          text: `${resource.key} is offline. ${told({ ...resource, ...checked })}.`,
+        })
+        refetch()
+        return
+      }
 
       say(
         answered.checkResource?.ok
@@ -475,14 +506,7 @@ function ResourceCard({
           <Glyph size={20} stroke={1.6} />
         </span>
 
-        <Tooltip
-          label={
-            resource.checkError ??
-            (resource.checkedAt
-              ? `checked ${ago(resource.checkedAt)}`
-              : 'not checked yet')
-          }
-        >
+        <Tooltip label={told(resource)}>
           <span
             className="rcard-state"
             data-busy={resource.syncing || resource.checking}

@@ -62,6 +62,10 @@ class Resource
       true
     end
 
+    def self.address_path
+      "/v1"
+    end
+
     def self.attaching
       {
         label: "A model backend",
