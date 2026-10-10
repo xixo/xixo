@@ -186,7 +186,8 @@ needs the keys as well as the database.
    | `deterministic_key` | `ENCRYPTION_DETERMINISTIC_KEY` |
    | `key_derivation_salt` | `ENCRYPTION_KEY_DERIVATION_SALT` |
 
-   Do not use the `dev_only_` values from `.env.example` or `compose.yml`.
+   Do not use the `dev_only_` values from `.env.example` or `compose.yml`. Production refuses to boot
+   when any of the four is unset or starts with `dev_only_`.
 
 :::caution
 Keep the encryption keys with your database backups, and unchanged for the life of the database.

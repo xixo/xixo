@@ -39,6 +39,17 @@ Rails.application.configure do
           "so without it the request's Host header would choose."
   end
 
+  if ENV["SECRET_KEY_BASE_DUMMY"].blank?
+    published = %w[SECRET_KEY_BASE ENCRYPTION_PRIMARY_KEY ENCRYPTION_DETERMINISTIC_KEY ENCRYPTION_KEY_DERIVATION_SALT]
+                .select { |name| ENV[name].blank? || ENV[name].start_with?("dev_only_") }
+
+    if published.any?
+      raise "#{published.to_sentence} #{published.one? ? 'is' : 'are'} unset or a published development value. " \
+            "Anyone with the repository could forge sessions or read encrypted credentials, so generate " \
+            "your own as the self-hosting guide describes."
+    end
+  end
+
   if ENV["XIXO_HOST_SUFFIX"].present?
     config.hosts << ".#{ENV['XIXO_HOST_SUFFIX']}"
     config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
