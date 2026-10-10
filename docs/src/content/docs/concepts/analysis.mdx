@@ -102,6 +102,15 @@ else is read as Windows-1252, the superset of Latin-1 that older text files are 
 PDF is taken to be a scan: its first 30 pages are rendered at 200 dpi and read with `tesseract`, and
 the log says how many pages were read that way.
 
+`Doc` converts a Word, OpenDocument, or legacy `.doc` file to a PDF with LibreOffice, which gives it
+a page count. A `.docx` or `.odt` file's text is read from the document itself: each heading becomes a
+markdown heading at its level, so it starts a section of the outline, and each table row becomes one
+line with its cells separated by `|`. A legacy `.doc` file, and a document whose XML cannot be read,
+takes its text from the PDF.
+
+HTML in an email, an RSS or Atom entry, or a file read as text keeps its structure the same way. Each
+`h1` to `h6` becomes a markdown heading, and each paragraph, list item, and table row starts a line.
+
 `Xlsx` writes every sheet into the text, each under its name, and records under `outline` where
 each sheet starts. `Xlsx`, and `Data` for a CSV or TSV file, also keep each sheet's rows under the
 step `tables`, up to 5,000 rows a sheet. The header is the widest of a sheet's first ten rows, so a

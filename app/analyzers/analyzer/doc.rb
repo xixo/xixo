@@ -10,14 +10,21 @@ module Analyzer
       DOCS.include?(feed.mime)
     end
 
+    READ_AS = "headings and tables from the document itself, else the pdf's text".freeze
+
     def analyze
-      as_pdf do |pdf|
+      as_pdf do |source, pdf|
         step(:info) { Pdf.parse_info(run_command("pdfinfo", pdf)) }
-        step(:text) { capped(run_command("pdftotext", "-q", pdf, "-").strip) }
+        step(:text, digest: READ_AS) { capped(written(source, pdf)) }
       end
     end
 
     private
+
+      def written(source, pdf)
+        headed = Wordprocessing.text(source, feed.mime) if Wordprocessing.reads?(feed.mime)
+        headed.presence || run_command("pdftotext", "-q", pdf, "-").strip
+      end
 
       def as_pdf
         with_tempfile do |source|
@@ -28,7 +35,7 @@ module Analyzer
             pdf = Dir[File.join(dir, "*.pdf")].first
             raise Analyzer::Failed, "libreoffice produced no pdf" if pdf.nil?
 
-            yield pdf
+            yield source, pdf
           end
         end
       end

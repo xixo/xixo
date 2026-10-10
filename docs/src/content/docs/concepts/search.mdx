@@ -135,7 +135,8 @@ ways cannot be compared. The vector's dimension is `XIXO_EMBEDDING_DIMENSIONS`,
 
 A feed whose text is longer than 1,500 characters is also cut into passages of up to 1,500
 characters. A passage never crosses into the next section of the feed's outline: a sheet of a
-workbook, a markdown heading, a page of a PDF, or a minute of a transcript. Within a section, each
+workbook, a markdown heading or a heading in a Word document or a web page, a page of a PDF, or a
+minute of a transcript. Within a section, each
 passage ends at the first of a paragraph, a line, a sentence, a clause, or a word found in its last
 40 percent, and the next starts 200 characters before it ends, so a clause across a boundary is
 whole in one of them. A passage that ends at a section starts the next one there. The `passages` table holds each passage's text, where it starts and ends, and its

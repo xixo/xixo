@@ -10,7 +10,7 @@ module Analyzer
 
     def analyze
       step(:entry) { entry_of(reference) }
-      step(:text, digest: DECODED) { capped(body_of(reference)) }
+      step(:text, digest: "#{DECODED}, #{Markup::READ_AS}") { capped(body_of(reference)) }
     end
 
     private
