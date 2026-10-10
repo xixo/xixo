@@ -233,7 +233,7 @@ class Resource
 
         response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true,
                                    open_timeout: OPEN_TIMEOUT, read_timeout: READ_TIMEOUT) do |http|
-          http.request(Net::HTTP::Get.new(uri, headers))
+          http.request(Net::HTTP::Get.new(uri, headers)) { |held| drain(held, uri.host, limit: MAX_BYTES) }
         end
 
         return response["location"] if response.is_a?(Net::HTTPRedirection) && response["location"].present?

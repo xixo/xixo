@@ -298,6 +298,37 @@ class GithubResourceTest < ActiveSupport::TestCase
     end
   end
 
+  test "an answer larger than the limit is refused as it arrives" do
+    stub_request(:get, "#{API}/user").to_return(json_response(login: "a" * 4096))
+
+    stub_const(Resource::Api, :MAX_BYTES, 1024) do
+      failed = Tenant.switch(@tenant) { assert_raises(Resource::Failed) { @resource.api_get("/user") } }
+
+      assert_match(/api\.github\.com sent more than 1024 bytes/, failed.message)
+    end
+  end
+
+  test "a refusal larger than the limit is refused the same way" do
+    stub_request(:get, "#{API}/user").to_return(status: 403, body: "x" * 4096)
+
+    stub_const(Resource::Api, :MAX_BYTES, 1024) do
+      failed = Tenant.switch(@tenant) { assert_raises(Resource::Failed) { @resource.api_get("/user") } }
+
+      assert_match(/sent more than 1024 bytes/, failed.message)
+    end
+  end
+
+  test "bytes asked for with their own limit stop there" do
+    stub_request(:get, "#{API}/raw").to_return(status: 200, body: "x" * 300)
+
+    failed = Tenant.switch(@tenant) do
+      assert_raises(Resource::Failed) { @resource.api_bytes("/raw", max_bytes: 100) }
+    end
+
+    assert_match(/sent more than 100 bytes/, failed.message)
+    assert_equal "x" * 300, Tenant.switch(@tenant) { @resource.api_bytes("/raw", max_bytes: 300) }
+  end
+
   private
 
     def stub_issues(page:, count:, from:)

@@ -2,6 +2,7 @@ require "net/http"
 
 module PublicFetch
   extend ActiveSupport::Concern
+  include Draining
 
   class Blocked < Resource::Failed; end
 
@@ -79,23 +80,9 @@ module PublicFetch
       started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
       PublicAddress.start(pinned, open_timeout: OPEN_TIMEOUT, read_timeout: READ_TIMEOUT) do |http|
-        http.request(build.call(pinned.uri)) { |response| drain(response, pinned.uri, started) }
-      end
-    end
-
-    def drain(response, uri, started)
-      held = +"".b
-
-      response.read_body do |chunk|
-        held << chunk
-
-        raise Resource::Failed, "#{key}: #{uri.host} sent more than #{MAX_BYTES} bytes" if held.bytesize > MAX_BYTES
-
-        if Process.clock_gettime(Process::CLOCK_MONOTONIC) - started > TOTAL_TIMEOUT
-          raise Resource::Failed, "#{key}: #{uri.host} was still sending after #{TOTAL_TIMEOUT}s"
+        http.request(build.call(pinned.uri)) do |response|
+          drain(response, pinned.uri.host, limit: MAX_BYTES, started: started, total: TOTAL_TIMEOUT)
         end
       end
-
-      response.body = held
     end
 end

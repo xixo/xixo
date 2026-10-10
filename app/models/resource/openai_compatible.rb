@@ -3,6 +3,8 @@ require "json"
 
 class Resource
   class OpenaiCompatible < Resource
+    include Draining
+
     DEFAULT_ROLE = "default"
     OPEN_TIMEOUT = 5
     READ_TIMEOUT = 120
@@ -13,6 +15,7 @@ class Resource
     VISION_JSON_ATTEMPTS = 10
     MAX_PROMPT = 40_000
     MAX_IMAGE = 8.megabytes
+    MAX_BYTES = 16.megabytes
     IMAGE_TYPE = "image/jpeg"
     JSON_SYSTEM = "Respond with valid JSON only. No markdown, no explanation."
     AGENT_ROLE = "agent"
@@ -651,7 +654,10 @@ class Resource
         http.open_timeout = OPEN_TIMEOUT
         http.read_timeout = timeout
         http.start do |held|
-          held.request(build.call(uri)) { |response| reading.read(response) if reading && response.is_a?(Net::HTTPSuccess) }
+          held.request(build.call(uri)) do |response|
+            gathered = reading.from(response) if reading && response.is_a?(Net::HTTPSuccess)
+            drain(response, uri.host, limit: MAX_BYTES, into: gathered)
+          end
         end
       rescue Net::OpenTimeout, Net::ReadTimeout
         raise Resource::Failed, "#{key}: #{uri.host} did not answer in #{timeout}s"

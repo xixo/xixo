@@ -572,4 +572,80 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
     assert_equal "Each jar holds one litre.", said["reasoning"]
     assert_equal "Four.", said["content"]
   end
+
+  test "an answer that never ends is cut off at the limit instead of held in memory" do
+    endless("application/json", %({"data": [{"id": "#{"m" * 1000}"}, )) do |origin|
+      resource = against(origin)
+
+      stub_const(Resource::OpenaiCompatible, :MAX_BYTES, 64.kilobytes) do
+        failed = Timeout.timeout(15) { assert_raises(Resource::Failed) { resource.answers! } }
+
+        assert_match(/127\.0\.0\.1 sent more than #{64.kilobytes} bytes/, failed.message)
+      end
+    end
+  end
+
+  test "a streamed turn that never ends is cut off at the limit too" do
+    event = "data: #{JSON.generate('choices' => [ { 'delta' => { 'content' => 'x' * 1000 } } ])}\n\n"
+
+    endless("text/event-stream", event) do |origin|
+      resource = against(origin)
+
+      stub_const(Resource::OpenaiCompatible, :MAX_BYTES, 64.kilobytes) do
+        failed = Timeout.timeout(15) do
+          assert_raises(Resource::Failed) do
+            resource.converse(messages: [ { role: "user", content: "hello" } ], role: "fast")
+          end
+        end
+
+        assert_match(/sent more than #{64.kilobytes} bytes/, failed.message)
+      end
+    end
+  end
+
+  test "a refusal with an endless body is cut off at the limit as well" do
+    endless("text/plain", "no " * 1000, status: "500 Internal Server Error") do |origin|
+      resource = against(origin)
+
+      stub_const(Resource::OpenaiCompatible, :MAX_BYTES, 64.kilobytes) do
+        failed = Timeout.timeout(15) { assert_raises(Resource::Failed) { resource.answers! } }
+
+        assert_match(/sent more than/, failed.message)
+      end
+    end
+  end
+
+  private
+
+    def against(origin)
+      ENV["XIXO_INFERENCE_ORIGINS"] = origin
+
+      Tenant.switch(@tenant) do
+        Resource::OpenaiCompatible.create!(
+          key: "endless-#{SecureRandom.hex(3)}", name: "Endless",
+          details: { "base_url" => "#{origin}/v1", "models" => MODELS }
+        )
+      end
+    end
+
+    def endless(type, chunk, status: "200 OK")
+      server = TCPServer.new("127.0.0.1", 0)
+      sending = Thread.new do
+        socket = server.accept
+        nil until socket.gets.to_s.strip.empty?
+        socket.write("HTTP/1.1 #{status}\r\nContent-Type: #{type}\r\nConnection: close\r\n\r\n")
+        loop { socket.write(chunk) }
+      rescue Errno::EPIPE, Errno::ECONNRESET, IOError
+        nil
+      ensure
+        socket&.close
+      end
+
+      WebMock.disable!
+      yield "http://127.0.0.1:#{server.addr[1]}"
+    ensure
+      WebMock.enable!
+      sending&.kill
+      server&.close
+    end
 end

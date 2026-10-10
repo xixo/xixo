@@ -89,6 +89,12 @@ ones included. `XIXO_ALLOW_PRIVATE_FETCH` lifts the range check for downloads, s
 resources other than search, and still refuses other schemes. See
 [outbound connections](/reference/environment/#outbound-connections).
 
+xixo reads every response as it arrives and stops at a limit, so an answer that never ends is cut
+off before it fills memory. The limit is 5 MB, with 60 seconds to send it, for a fetch on someone's
+behalf. It is 8 MB for the APIs of GitHub, Notion, Slack, Google Drive, and Microsoft Graph, and 16 MB
+for a model backend, a streamed answer included. A response over its limit fails with the host and
+the limit in the error.
+
 A resource reached through a transport, such as a tailnet, connects only to addresses the transport
 covers. None of the settings above widen that. See
 [reaching through another resource](/concepts/resources/#reaching-through-another-resource).

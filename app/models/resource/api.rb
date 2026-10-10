@@ -3,6 +3,8 @@ require "json"
 
 class Resource
   class Api < Resource
+    include Draining
+
     class Gone < Resource::Failed; end
     class Expired < Resource::Failed; end
 
@@ -70,7 +72,7 @@ class Resource
 
       def answer(verb, path, query: {}, body: nil, bytes: nil, retried: false)
         uri = endpoint(path, query)
-        response = exchange(uri, verb, body)
+        response = exchange(uri, verb, body, limit: bytes || MAX_BYTES)
 
         case response
         when Net::HTTPUnauthorized
@@ -88,24 +90,16 @@ class Resource
         when Net::HTTPServerError
           raise Resource::Failed, "#{key}: #{self.class.service} answered #{response.code}"
         when Net::HTTPSuccess
-          bytes ? bounded(response, bytes) : parsed(response)
+          bytes ? response.body.to_s : parsed(response)
         else
           raise Resource::Unusable, "#{key}: #{self.class.service} answered #{response.code} — #{refused(response)}"
         end
       end
 
       def parsed(response)
-        JSON.parse(bounded(response).presence || "{}")
+        JSON.parse(response.body.to_s.presence || "{}")
       rescue JSON::ParserError
         raise Resource::Failed, "#{key}: #{self.class.service} did not answer with JSON"
-      end
-
-      def bounded(response, limit = MAX_BYTES)
-        held = response.body.to_s
-
-        raise Resource::Failed, "#{key}: more than #{limit} bytes" if held.bytesize > limit
-
-        held
       end
 
       def refused(response)
@@ -116,10 +110,10 @@ class Resource
         response.body.to_s.squish.truncate(120).presence || "no reason given"
       end
 
-      def exchange(uri, verb, body)
+      def exchange(uri, verb, body, limit: MAX_BYTES)
         Net::HTTP.start(uri.hostname, uri.port, use_ssl: true,
                         open_timeout: OPEN_TIMEOUT, read_timeout: READ_TIMEOUT) do |http|
-          http.request(built(uri, verb, body))
+          http.request(built(uri, verb, body)) { |response| drain(response, uri.host, limit: limit) }
         end
       rescue Net::OpenTimeout, Net::ReadTimeout
         raise Resource::Failed, "#{key}: #{uri.host} did not answer in #{READ_TIMEOUT}s"

@@ -12,9 +12,9 @@ class Resource
         @calls = {}
       end
 
-      def read(response)
+      def from(response)
         @streamed = response.content_type == "text/event-stream"
-        response.read_body { |chunk| self << chunk }
+        self
       end
 
       def <<(chunk)
