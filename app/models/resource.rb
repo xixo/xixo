@@ -516,6 +516,23 @@ class Resource < ApplicationRecord
     false
   end
 
+  def delete!
+    refuse_deleting!
+
+    held = Feed.referencing(id).pluck(:id)
+    places = references.originals.count
+
+    transaction do
+      Reference.where(resource_id: id).delete_all
+      Run.where(resource_id: id).delete_all
+      ResourceBlob.where(resource_id: id).delete_all
+      destroy!
+    end
+
+    ForgetPlacelessJob.enqueue(held, cause: key)
+    places
+  end
+
   def personal?
     owner_subject.present?
   end
@@ -569,6 +586,18 @@ class Resource < ApplicationRecord
   end
 
   private
+
+    def refuse_deleting!
+      raise Refused, "#{key} is a store xixo keeps for itself" if internal?
+      raise Refused, "#{key} is still in use; put it away before deleting it" if archived_at.nil?
+      raise Refused, "#{key} is busy with a run; wait for it or cancel it" if syncing? || Run.open.exists?(resource_id: id)
+
+      dependents = Resource.where(via_id: id).where.not(id: id).pluck(:key)
+      return if dependents.empty?
+
+      raise Refused, "#{key} cannot be deleted while #{dependents.to_sentence} " \
+                     "#{dependents.one? ? 'is' : 'are'} reached through it"
+    end
 
     def escaped_path(path)
       parts = path.to_s.split("/").reject(&:empty?)

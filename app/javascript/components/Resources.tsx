@@ -22,6 +22,7 @@ import {
   IconSparkles,
   IconStar,
   IconStarFilled,
+  IconTrash,
 } from '@tabler/icons-react'
 import {
   type CSSProperties,
@@ -34,6 +35,7 @@ import { useParams } from 'react-router-dom'
 import {
   ArchiveResourceDocument,
   CheckResourceDocument,
+  DeleteResourceDocument,
   ResourcesDocument,
   SetDefaultInferenceDocument,
   SetDefaultStorageDocument,
@@ -46,6 +48,7 @@ import { ago, dated } from '../when'
 import { Attach, type Editing, glyphFor } from './Attach'
 import { useAloud, useSay } from './Say'
 import { Intro } from './Settings'
+import { Sure } from './Sure'
 
 interface Resource {
   id: string
@@ -133,6 +136,25 @@ export function Resources() {
   )
 
   const [putting, setPutting] = useState<string | null>(null)
+  const remove = useAloud(
+    DeleteResourceDocument,
+    'That resource could not be deleted.',
+  )
+  const [deleting, setDeleting] = useState<Resource | null>(null)
+
+  const deleteIt = async (resource: Resource) => {
+    const answered = await remove.execute({ id: resource.id })
+
+    if (!answered) return
+
+    const places = answered.deleteResource?.places ?? 0
+
+    setDeleting(null)
+    say({
+      text: `${resource.key} is deleted. xixo stopped pointing at ${places} ${places === 1 ? 'place' : 'places'} in it.`,
+    })
+    refetch()
+  }
 
   const putAway = async (resource: Resource, archived: boolean) => {
     setPutting(resource.id)
@@ -240,6 +262,7 @@ export function Resources() {
     },
     change: (resource) => setEditing(resource),
     putAway,
+    remove: (resource) => setDeleting(resource),
   }
 
   return (
@@ -338,10 +361,32 @@ export function Resources() {
         </section>
       ))}
 
+      {deleting && (
+        <Sure
+          opened
+          onClose={() => setDeleting(null)}
+          title={`Delete ${deleting.key}?`}
+          verb="Delete it"
+          loading={remove.loading}
+          onSure={() => deleteIt(deleting)}
+        >
+          xixo stops pointing at the{' '}
+          <strong>
+            {deleting.itemsCount.toLocaleString()}{' '}
+            {deleting.itemsCount === 1 ? 'item' : 'items'}
+          </strong>{' '}
+          it catalogued and frees the key <strong>{deleting.key}</strong>. An
+          item found nowhere else is forgotten, unless it has a note, a
+          lifetime, or a tag or connection someone made. What the resource holds
+          is not touched, except a <span className="mono">database</span>{' '}
+          resource, whose files live in xixo and are deleted with it.
+        </Sure>
+      )}
+
       {resources.length === 0 && (
         <div className="settings-empty">
           {shelved
-            ? 'Nothing has been put away. A resource you stop using goes here rather than being deleted, and what it catalogued stays searchable.'
+            ? 'Nothing has been put away. A resource you stop using goes here, and what it catalogued stays searchable until you delete it.'
             : 'No resources are attached yet. Attach one and its contents become items you can search.'}
         </div>
       )}
@@ -357,6 +402,7 @@ interface Acts {
   schedule: (resource: Resource, seconds: number | null) => Promise<boolean>
   change: (resource: Resource) => void
   putAway: (resource: Resource, archived: boolean) => void
+  remove: (resource: Resource) => void
 }
 
 const SHELVES = [
@@ -505,16 +551,29 @@ function ResourceCard({
             <span className="rcard-when">
               put away {dated(resource.archivedAt)}
             </span>
-            <Button
-              size="compact-sm"
-              radius="xl"
-              variant="default"
-              leftSection={<IconArchiveOff size={14} />}
-              loading={putting}
-              onClick={() => acts.putAway(resource, false)}
-            >
-              Put back
-            </Button>
+            <div className="rcard-actions">
+              <Button
+                size="compact-sm"
+                radius="xl"
+                variant="subtle"
+                color="red"
+                leftSection={<IconTrash size={14} />}
+                disabled={putting}
+                onClick={() => acts.remove(resource)}
+              >
+                Delete
+              </Button>
+              <Button
+                size="compact-sm"
+                radius="xl"
+                variant="default"
+                leftSection={<IconArchiveOff size={14} />}
+                loading={putting}
+                onClick={() => acts.putAway(resource, false)}
+              >
+                Put back
+              </Button>
+            </div>
           </>
         ) : (
           <>

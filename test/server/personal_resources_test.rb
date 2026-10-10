@@ -67,6 +67,19 @@ class PersonalResourcesTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "a personal resource is deleted only by its owner" do
+    Tenant.switch(@tenant) { @ada.update!(archived_at: Time.current) }
+    deleting = %(mutation { deleteResource(input: { id: "#{@ada.id}" }) { deleted } })
+
+    refused = graphql("bob", deleting)
+
+    assert_match(/no resource with id/, refused.dig("errors", 0, "message"))
+    Tenant.switch(@tenant) { assert Resource.exists?(@ada.id) }
+
+    assert_equal true, graphql("ada", deleting).dig("data", "deleteResource", "deleted")
+    Tenant.switch(@tenant) { assert_not Resource.exists?(@ada.id) }
+  end
+
   test "attaching one as only mine makes it mine" do
     body = graphql("bob", ATTACH, settings: { "url" => "https://bob.example.com/feed.xml" }, personal: true)
 

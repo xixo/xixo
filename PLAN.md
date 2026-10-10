@@ -45,7 +45,6 @@ and keeping apart. This file lists what is still open.
   gone only by that walk.
 - **Truncation is silent.** GitHub reads 50 comments, Notion 2,000 blocks three deep, git skips
   blobs over 2 MB, and Slack names the first 1,000 users.
-- **A resource cannot be deleted**, only archived and attached again under another key.
 - **A revoked delegation reaches xixo only when its cached upstream token lapses.** xixo uses the
   token until `Resource::Delegated::LEEWAY` before it expires, and masks has no way to tell it sooner.
 - **The stand-in MCP server forgets its clients when it restarts.** `./dev delegation` registers

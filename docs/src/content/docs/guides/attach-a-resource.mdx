@@ -155,6 +155,24 @@ Choose **Put away** from the **⋯** menu on the resource's card. The resource s
 a place for uploads. What it cataloged stays searchable. To bring it back, choose **Put away** at the
 top of the page to show put-away resources, then **Put back** on its card.
 
+## Delete it
+
+A resource can be deleted once it is put away.
+
+1. Choose **Put away** at the top of the page to show put-away resources.
+2. Choose **Delete** on the resource's card.
+3. Read what it removes, then choose **Delete it**.
+
+xixo stops pointing at everything the resource cataloged and frees its key, so a resource can be
+attached again under the same key. An item found nowhere else is forgotten, unless it has a note, a
+lifetime, or a tag or connection someone made. The files in the source stay where they are. A
+personal resource can be deleted only by the person who attached it. A transport is refused while
+another resource is reached through it.
+
+:::caution
+A `database` resource keeps its files in xixo, so deleting it deletes them.
+:::
+
 ## Over GraphQL
 
 `resourceTypes` lists every type that can be attached and the fields each one takes.
@@ -183,8 +201,8 @@ mutation {
 
 A field the type does not declare is dropped, and a missing required field is refused. For a type
 connected through masks, `connectUrl` is where to send the browser. `checkResource`,
-`setDefaultStorage`, `setDefaultInference`, `setSyncInterval`, `updateResource`, and
-`archiveResource` do what the buttons do. See the [GraphQL reference](/reference/graphql/).
+`setDefaultStorage`, `setDefaultInference`, `setSyncInterval`, `updateResource`, `archiveResource`,
+and `deleteResource` do what the buttons do. See the [GraphQL reference](/reference/graphql/).
 
 Over MCP, the `resource` tool lists and checks resources, but attaching one is a browser flow. See
 the [MCP reference](/reference/mcp/#resource).

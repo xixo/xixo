@@ -175,7 +175,7 @@ loop, or that is more than four hops from a resource that answers. The foreign k
 tenant's resource even if the application does not. A transport cannot be archived while an active
 resource uses it.
 
-## Health, internal stores, and archiving
+## Health, internal stores, archiving, and deleting
 
 A check calls the type's `check!` and records `checked_at` and `check_error`. A resource is healthy
 when it has been checked and the last check raised no error. An `openai-compatible` resource with an
@@ -196,3 +196,21 @@ synced, scheduled, or made a default, because xixo writes into them regardless o
 
 Archiving sets `archived_at` and deletes nothing. An archived resource is left out of capability
 queries, placement, the defaults, and the sync schedule. Restoring it clears the timestamp.
+
+Only an archived resource can be deleted, so deleting always takes two steps. `deleteResource`
+refuses a resource that is still in use, one with a sync or another run open, an internal store, and
+a transport that another resource is still reached through, archived or not. A personal resource
+can be deleted only by its owner, because `Resource.reachable_by` hides it from everyone else.
+
+Deleting removes the resource's references, its runs, and its row, so its key is free to attach
+again. Each feed that pointed into it is then handed to `ForgetPlacelessJob`, which forgets the
+`xixo:file` feeds left with no originals, unless a note, a lifetime, or an edge someone made keeps
+them (see [noticing what is gone](/concepts/references/#noticing-what-is-gone)), and reindexes the
+rest. Forgetting a feed deletes the previews, thumbnails, and extracted children xixo stored for it
+in its internal stores.
+
+Deleting does not reach into the source, so the files in a bucket, a folder, or a mailbox stay
+where they are. A `database` resource is the exception, because its files live in xixo's own
+database, and they are deleted with it. A resource connected through masks keeps its connection in
+masks until it is removed there. The deletion and each feed it forgets are recorded in the audit
+log.

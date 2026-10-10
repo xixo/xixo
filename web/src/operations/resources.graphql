@@ -41,6 +41,13 @@ mutation ArchiveResource($id: ID!, $archived: Boolean!) {
   }
 }
 
+mutation DeleteResource($id: ID!) {
+  deleteResource(input: { id: $id }) {
+    deleted
+    places
+  }
+}
+
 mutation SyncResource($id: ID!) {
   syncResource(input: { id: $id }) {
     run {

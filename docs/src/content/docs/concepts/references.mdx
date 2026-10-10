@@ -129,6 +129,10 @@ Forgetting a feed destroys the row, its references, analyses, schedule, edges, a
 children, and reports how many originals it pointed to. It does not touch the resources those
 originals live in, so the files stay where they are.
 
+Deleting a resource removes every reference into it. A `xixo:file` feed left with no originals is
+then forgotten at once, by the same rules as a feed that is gone, except that an open analysis does
+not keep it. See [archiving and deleting](/concepts/resources/#health-internal-stores-archiving-and-deleting).
+
 The exception is bytes that xixo created. A reference in an internal store, such as a `preview` or
 `thumbnail` render or a child extracted from a message, deletes its blob when it is destroyed,
 because nothing outside xixo created it. A file that was uploaded and never placed is deleted with

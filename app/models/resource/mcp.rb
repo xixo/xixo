@@ -84,6 +84,7 @@ class Resource
     end
 
     before_validation :forget_what_masks_held, if: -> { !delegated? || pointed_elsewhere? }
+    after_destroy_commit { Sessions.forget(id) }
 
     validate :it_names_an_address
     validate :its_key_can_prefix_a_tool

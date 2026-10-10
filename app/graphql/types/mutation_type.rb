@@ -19,6 +19,7 @@ module Types
     field :attach_resource, mutation: Mutations::AttachResource, grants: "xixo:resources:command"
     field :update_resource, mutation: Mutations::UpdateResource, grants: "xixo:resources:command"
     field :archive_resource, mutation: Mutations::ArchiveResource, grants: "xixo:resources:command"
+    field :delete_resource, mutation: Mutations::DeleteResource, grants: "xixo:resources:command"
     field :sync_resource, mutation: Mutations::SyncResource, grants: "xixo:resources:command"
     field :check_resource, mutation: Mutations::CheckResource, grants: "xixo:resources:command"
     field :set_default_storage, mutation: Mutations::SetDefaultStorage, grants: "xixo:resources:command"
