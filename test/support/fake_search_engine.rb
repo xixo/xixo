@@ -94,6 +94,15 @@ class FakeSearchEngine
     end
   end
 
+  def get(index:, id:, **)
+    @monitor.synchronize do
+      name, = resolve!(index)
+      held = @documents[name][id.to_s] || raise(Errors::NotFound, "no document #{id} in #{index}")
+
+      { "_index" => name, "_id" => id.to_s, "_source" => held }
+    end
+  end
+
   def delete(index:, id:, **)
     @monitor.synchronize do
       name, = resolve!(index)

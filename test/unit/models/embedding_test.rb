@@ -42,6 +42,28 @@ class EmbeddingTest < ActiveSupport::TestCase
     end
   end
 
+  test "what changed while an item was being embedded is what reaches the index" do
+    Tenant.switch(@tenant) do
+      item = create_feed(mime: "text/plain", title: "Lease", locator_key: "lease.txt")
+      brain = @brain.reload
+      embed = brain.method(:embed)
+      brain.define_singleton_method(:embed) do |texts|
+        Feed.where(id: item.id).update_all(note: "Arrived while the vector was being made")
+        embed.call(texts)
+      end
+
+      held_by = Embedding.method(:held)
+      Embedding.define_singleton_method(:held) { brain }
+      Embedding.sweep!
+      Embedding.define_singleton_method(:held, held_by)
+      SearchIndex.refresh!
+
+      held = SearchIndex.client.get(index: SearchIndex.alias_for(@tenant), id: item.id)["_source"]
+
+      assert_equal "Arrived while the vector was being made", held["note"]
+    end
+  end
+
   test "a stamp cleared over text that did not move is settled without asking the backend" do
     Tenant.switch(@tenant) do
       create_feed(mime: "application/pdf", title: "March invoice")

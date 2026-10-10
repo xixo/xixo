@@ -84,7 +84,7 @@ module Embedding
           )
         end
 
-        SearchIndex.index_all(items)
+        SearchIndex.index_all(Feed.for_indexing.where(id: items.map(&:id)).to_a)
       end
 
       def query_key(resource, text)
