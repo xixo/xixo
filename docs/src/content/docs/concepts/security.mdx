@@ -161,13 +161,18 @@ can do.
 
 - The summary prompt fences the file's text and tells the model it is data. The prompt that answers
   a question fences the question and the evidence the same way.
-- The agent that runs an address or places an upload acts under a grant of its own, with `xixo:catalog:read`,
-  `xixo:catalog:write`, `xixo:web:read`, and `xixo:resources:read`. It cannot sync, export, write
-  into a resource, call an attached MCP server, or change settings.
+- Each agent run acts under a grant of its own. The run that files an upload has no web. The run
+  that looks up a question about the world has no catalog. None of them can sync, export, write into
+  a resource, call an attached MCP server, or change settings.
+- An agent run reads from the catalog or from the web, never both. Once it has read a feed it did
+  not make, searched the catalog, or read a resource's files, xixo refuses every call that reaches
+  the web. Once it has searched the web, fetched a page, or kept one, xixo refuses every call that
+  reads the catalog or a resource's files. Text that tells the agent to send what it read to an
+  address therefore has nothing to send, or nowhere to send it.
 - An agent reaches a person's [personal resources](/concepts/resources/#only-mine-or-everyones) only
   in a run that person started.
-- A question's run is confined. Its writing tools refuse every feed except the ones the run created,
-  so a page that tells the agent to rewrite a note has no effect.
+- Every agent run is confined. Its writing tools refuse every feed except the one it runs for and the
+  ones it created, so a page that tells the agent to rewrite a note has no effect.
 - Every tool call is checked against the tool's schema before it runs. Three failed calls in a row
   end the run.
 - A question about the catalog is answered with no tools at all. Arithmetic over a table runs in

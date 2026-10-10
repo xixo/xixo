@@ -137,10 +137,11 @@ class AnalyzeFeedJob < ApplicationJob
       Current.acting_for = feed.id
       Current.analysis = analysis
       Current.confined_to = Concurrent::Set.new
+      Current.kept_for = Feed::KEPT_FOR
 
       answered = Answering.new(question: asking.question, earlier: asking.earlier, first: asking.first,
                                about: asking.about, leaving_out: [ feed ], analysis: analysis).call
-      answered = looked_up(asking, grant) || answered if answered.reason == :world
+      answered = looked_up(feed, asking) || answered if answered.reason == :world
 
       said = asking.tidied(answered.said)
       noted(answered.with(said: said))
@@ -155,6 +156,7 @@ class AnalyzeFeedJob < ApplicationJob
       Current.acting_for = nil
       Current.analysis = nil
       Current.confined_to = nil
+      Current.kept_for = nil
     end
 
     def concluded(feed, asking, said)
@@ -165,13 +167,18 @@ class AnalyzeFeedJob < ApplicationJob
       analysis.log_skip("conclude", e.message)
     end
 
-    def looked_up(asking, grant)
+    def looked_up(feed, asking)
+      grant = (analysis || feed).grant(scopes: Feed::WORLD_SCOPES)
       reach = Reach.new(grant)
       return nil unless reach.web?
 
+      asked_by = Current.grant
+      Current.grant = grant
       led = Agent.new(grant: grant, analysis: analysis, halted: -> { analysis.halted? }, label: "world")
                  .call(format(WORLD, reach: reach.told, question: asking.question))
       Answering::Answer.new(said: led.said.to_s, reason: led.reason, drew_on: [], unsupported: [])
+    ensure
+      Current.grant = asked_by if asked_by
     end
 
     def drew(feed, held)
@@ -197,7 +204,7 @@ class AnalyzeFeedJob < ApplicationJob
     end
 
     def considered(feed)
-      grant = (analysis || feed).grant
+      grant = (analysis || feed).grant(scopes: feed.address? ? Feed::AGENT_SCOPES : Feed::FILING_SCOPES)
       agent = Agent.new(grant: grant, analysis: analysis, turns: turns_for(feed), routine: true,
                         halted: -> { analysis&.halted? })
 
@@ -206,6 +213,7 @@ class AnalyzeFeedJob < ApplicationJob
       Current.grant = grant
       Current.acting_for = feed.id
       Current.analysis = analysis
+      Current.confined_to = Concurrent::Set.new([ feed.id ])
       answered = agent.call(asked(feed))
       analysis&.log_info("agent", answered.reason.to_s, answered.said)
       noted(answered)
@@ -215,6 +223,7 @@ class AnalyzeFeedJob < ApplicationJob
       Current.grant = nil
       Current.acting_for = nil
       Current.analysis = nil
+      Current.confined_to = nil
     end
 
     def noted(answered)

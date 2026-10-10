@@ -239,6 +239,14 @@ class Feed < ApplicationRecord
     xixo:catalog:read xixo:catalog:write xixo:web:read xixo:resources:read
   ].freeze
 
+  FILING_SCOPES = %w[
+    xixo:catalog:read xixo:catalog:write xixo:resources:read
+  ].freeze
+
+  WORLD_SCOPES = %w[
+    xixo:web:read xixo:web:keep xixo:resources:read
+  ].freeze
+
   ASKING_SCOPES = %w[
     xixo:catalog:read xixo:catalog:write xixo:web:read xixo:web:keep xixo:resources:read
   ].freeze

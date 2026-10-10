@@ -74,15 +74,38 @@ is analyzed, the agent is asked to file it: it connects the feed to tags and rel
 chooses a resource for it. A file synced from a resource is filed without the agent. See [analysis](/concepts/analysis/).
 
 This agent does not act for a person, so it does not use a person's token. `Feed#grant` gives it a
-grant of its own, with the subject `feed:` followed by the feed's key and the scopes in
-`Feed::AGENT_SCOPES`:
+grant of its own, with the subject `feed:` followed by the feed's key. An address runs with the
+scopes in `Feed::AGENT_SCOPES`:
 
 ```
 xixo:catalog:read  xixo:catalog:write  xixo:web:read  xixo:resources:read
 ```
 
+Filing an upload runs with `Feed::FILING_SCOPES`, which leave out `xixo:web:read`.
+
 The agent can search, read, file, and place feeds, and send read-only commands to resources. It
 cannot sync, export, write into a resource, call an attached MCP server, or change settings.
+
+### Catalog or web
+
+An agent's run reads from the catalog or from the web, and never from both. `Grant#reaches!`
+records which side a run has read from, and refuses the other side for the rest of the run.
+
+| Side | Calls |
+| --- | --- |
+| Catalog | `search`; `feed` on any feed except the ones the run created; `connect` with an end that is not a tag, the run's own feed, or a feed it created; `resource` with `get`, `list`, `search`, `keep`, or `runs` on a resource that does not reach the web |
+| Web | `resource` with `search`, `get`, `forecast`, `find`, `reverse`, or `nearby` on a resource that serves it, and `snapshot` |
+
+A file or a page can hold text that tells the agent to read something private and send it to an
+address in a query string. A run that has read the catalog can no longer reach that address, and a
+run that has fetched the page can no longer read the catalog. An address whose prompt watches the
+web keeps notes and connects them to itself and to tags, which reads nothing it did not make. The
+`/feedback` review reads the notes connected to it and never touches the web. A person's token is
+not limited this way.
+
+Every run is confined: `Current.confined_to` starts with the feed the run is for, and the `feed`
+tool's writing verbs refuse any feed outside it and the feeds the run creates. The run can create
+only notes, never a scheduled feed.
 
 ### Whose resources a run reaches
 
@@ -151,8 +174,9 @@ When no resource serves the `agent` role, the `fast` or `smart` model titles the
 
 When the evidence does not answer a question about the world as it is now, such as the weather or a
 price, the model says so, and xixo hands the question to the agent with the tenant's web resources:
-search, fetch, weather, and places. Without any of them, the question is answered from the catalog
-alone.
+search, fetch, weather, and places. That agent runs under `Feed::WORLD_SCOPES`, which are
+`xixo:web:read`, `xixo:web:keep`, and `xixo:resources:read`, so it has no `search` or `feed` tool.
+Without any web resource, the question is answered from the catalog alone.
 
 Everything runs under the question's own grant, with the scopes in `Feed::ASKING_SCOPES`:
 
@@ -173,8 +197,8 @@ from all of it. Search then finds the note by the whole conversation.
 Each answer records the feeds it cited in a `drew_on` step, or the first feed it read when it cites
 none, and the note's page lists them under that answer. The note is also connected to all of them.
 
-The agent's run is confined. `Current.confined_to` holds the feeds the run created, and the `feed`
-tool's writing verbs refuse any other feed. A page that tells the agent to rewrite a note or rename
+A question's run is confined more narrowly. `Current.confined_to` starts empty, so the `feed` tool's
+writing verbs refuse every feed but the ones the run created, the question included. A page that tells the agent to rewrite a note or rename
 a file therefore has no effect. The run can create only notes, never a scheduled feed. `connect`
 needs one end to be the question or a feed the run created. Snapshots are not confined, because the
 page decides what a snapshot contains.

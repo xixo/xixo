@@ -4,9 +4,14 @@ module Tool
     scope "xixo:resources:read"
 
     READ = %w[list types describe runs get parameters search forecast find reverse nearby ask discover].freeze
-    PLACES = %w[find reverse nearby].freeze
     WRITE = %w[attach change default check sync keep export cancel put snapshot watch unwatch].freeze
     RUNS = %w[sync export].freeze
+
+    OUTWARD = {
+      "search" => :search, "get" => :fetch, "forecast" => :weather,
+      "find" => :places, "reverse" => :places, "nearby" => :places
+    }.freeze
+    INWARD = %w[get list search keep runs].freeze
 
     KEEPING = %w[snapshot].freeze
 
@@ -109,10 +114,7 @@ module Tool
       resource = ::Resource.visible_to(Current.grant).find_by(key: key) ||
                  raise(ArgumentError, "no resource called #{key}")
 
-      Current.grant.permit!(WEB) if verb == "search" && resource.capabilities.include?(:search)
-      Current.grant.permit!(WEB) if verb == "get" && resource.capabilities.include?(:fetch)
-      Current.grant.permit!(WEB) if verb == "forecast" && resource.capabilities.include?(:weather)
-      Current.grant.permit!(WEB) if PLACES.include?(verb) && resource.capabilities.include?(:places)
+      reach!(verb, resource)
       kept!(resource) if KEEPING.include?(verb)
       within_budget! if RUNS.include?(verb)
 
@@ -127,6 +129,17 @@ module Tool
       when "export" then exported(resource, given)
       when "keep", "snapshot", "watch", "unwatch" then kept(resource, verb, given)
       else resource.command(verb, given)
+      end
+    end
+
+    def self.reach!(verb, resource)
+      if resource.capabilities.include?(OUTWARD[verb])
+        Current.grant.permit!(WEB)
+        Current.grant.reaches!(:web)
+      elsif KEEPING.include?(verb)
+        Current.grant.reaches!(:web)
+      elsif INWARD.include?(verb)
+        Current.grant.reaches!(:catalog)
       end
     end
 

@@ -98,8 +98,7 @@ module Tool
       end
 
       def lasting(feed, lasts)
-        default = Current.confined_to ? Feed::KEPT_FOR : nil
-        feed.lasts!(lasts, default: default)
+        feed.lasts!(lasts, default: Current.kept_for)
       end
 
       def made!(feed)
@@ -113,6 +112,22 @@ module Tool
         return if feeds.any? { |feed| held.include?(feed.id) || feed.id == also }
 
         raise ArgumentError, "this run can only change what it made itself, and #{feeds.map(&:id).join(' and ')} it did not make"
+      end
+
+      def read!(feed)
+        return if made_here?(feed)
+
+        Current.grant.reaches!(:catalog)
+      end
+
+      def touched!(feed)
+        return if feed.tag? || feed.id == Current.acting_for
+
+        read!(feed)
+      end
+
+      def made_here?(feed)
+        feed.id != Current.acting_for && Current.confined_to&.include?(feed.id)
       end
 
       def feed!(id)

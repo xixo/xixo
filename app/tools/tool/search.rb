@@ -49,6 +49,7 @@ module Tool
 
     def self.call(server_context:, query: nil, type: nil, limit: 50)
       respond(server_context, { query: query, type: type, limit: limit }) do
+        Current.grant.reaches!(:catalog)
         wanted = limit.to_i.clamp(1, 200)
         page = searched(query, type, wanted)
         widened = page.nodes.empty? && type.present? && query.present?

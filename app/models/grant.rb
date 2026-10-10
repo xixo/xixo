@@ -26,6 +26,12 @@ class Grant
 
   SIGN_IN = (SCOPES - ADMINISTRATIVE).freeze
 
+  CROSSING = {
+    catalog: "this run has read the web, so it can no longer read the catalog or a place's files. " \
+             "Answer from what you have already read",
+    web: "this run has read the catalog, so it can no longer reach the web. Answer from what you have already read"
+  }.freeze
+
   attr_reader :tenant, :claims
 
   def initialize(tenant:, claims:, agent: false, speaking_for: nil)
@@ -64,6 +70,16 @@ class Grant
   def permit!(scope)
     raise Denied, "this token does not carry #{scope}" unless permits?(scope)
 
+    true
+  end
+
+  def reaches!(side)
+    return true unless agent?
+
+    @reached ||= Set.new
+    raise Denied, CROSSING.fetch(side) if (@reached - [ side ]).any?
+
+    @reached << side
     true
   end
 

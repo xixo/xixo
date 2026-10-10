@@ -108,6 +108,7 @@ class FeedLifetimeTest < ActiveSupport::TestCase
     def answering!
       Current.grant = grant
       Current.confined_to = Concurrent::Set.new
+      Current.kept_for = Feed::KEPT_FOR
     end
 
     def kept(key, lasts: nil)

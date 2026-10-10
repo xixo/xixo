@@ -112,6 +112,7 @@ module Tool
       return made(type: type, key: key, title: title, prompt: prompt, lasts: lasts) if verb == "create"
 
       feed = found(id, key)
+      read!(feed)
       confined!(feed) if WRITE.include?(verb)
 
       case verb
