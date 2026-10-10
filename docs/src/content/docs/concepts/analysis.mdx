@@ -75,7 +75,8 @@ writes the file's path and size to the sync run's log instead.
 
 The analyzers have limits of their own, and each one is recorded the same way. Text past 200,000
 characters is cut, and **Left out** says how much of it was read. OCR reads the first 30 pages of a
-PDF with no text layer, a vCard file is read to its first 500 contacts, and the summary is written
+PDF with no text layer, a calendar is read to its first 200 events and a vCard file to its first 500
+contacts, and the summary is written
 from the first 10,000 characters. A step that cuts something keeps the note with its result, so an
 analysis that reuses the step still shows it.
 
@@ -110,6 +111,11 @@ takes its text from the PDF.
 
 HTML in an email, an RSS or Atom entry, or a file read as text keeps its structure the same way. Each
 `h1` to `h6` becomes a markdown heading, and each paragraph, list item, and table row starts a line.
+
+`Calendar` writes one line for each event, with its title, its date the way a person reads it, its
+place, and its description, and `Contact` writes one line for each contact. Each line is a section of
+the outline, named by the event's title and date or the contact's name, so a passage holds one event
+or one contact and an answer reads the ones the question is about.
 
 `Xlsx` writes every sheet into the text, each under its name, and records under `outline` where
 each sheet starts. `Xlsx`, and `Data` for a CSV or TSV file, also keep each sheet's rows under the

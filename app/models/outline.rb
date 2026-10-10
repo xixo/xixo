@@ -12,6 +12,16 @@ module Outline
       headings(body).presence || pages(body).presence || minutes(body)
     end
 
+    def units(names, lines)
+      from = 0
+
+      names.zip(lines).first(MOST).map do |name, line|
+        part = { "name" => name.to_s.squish.truncate(80), "from" => from }
+        from += line.length + 1
+        part
+      end
+    end
+
     def at(outline, offset)
       outline.select { |part| part["from"].to_i <= offset }.max_by { |part| part["from"].to_i }&.dig("name")
     end

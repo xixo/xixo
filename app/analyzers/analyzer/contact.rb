@@ -1,6 +1,7 @@
 module Analyzer
   class Contact < Base
     MAX_CONTACTS = 500
+    UNITS = "an outline section for each contact".freeze
     CELL_LIMIT = 1000
 
     SINGLE = %w[fn title org note bday nickname role].freeze
@@ -15,7 +16,10 @@ module Analyzer
 
       contacts = step(:contacts, digest: DECODED) { parse(body) }
 
-      step(:text, digest: DECODED) { capped(flatten(contacts)) }
+      lines = contacts.map { |contact| line(contact) }
+
+      step(:outline, digest: "#{UNITS}, #{DECODED}") { Outline.units(contacts.map { |contact| named(contact) }, lines) }
+      step(:text, digest: DECODED) { capped(lines.join("\n")) }
     end
 
     private
@@ -82,15 +86,17 @@ module Analyzer
              .join(" ").truncate(CELL_LIMIT)
       end
 
-      def flatten(contacts)
-        contacts.map do |contact|
-          [
-            contact["fn"] || contact["name"],
-            contact["org"], contact["title"],
-            Array(contact["email"]).join(" "), Array(contact["tel"]).join(" "),
-            Array(contact["adr"]).join(" "), contact["note"]
-          ].compact_blank.join(" · ")
-        end.join("\n")
+      def line(contact)
+        [
+          contact["fn"] || contact["name"],
+          contact["org"], contact["title"],
+          Array(contact["email"]).join(" "), Array(contact["tel"]).join(" "),
+          Array(contact["adr"]).join(" "), contact["note"]
+        ].compact_blank.join(" · ")
+      end
+
+      def named(contact)
+        contact["fn"].presence || contact["name"].presence || Array(contact["email"]).first.presence || "Contact"
       end
   end
 end

@@ -2,6 +2,7 @@ module Analyzer
   class Calendar < Base
     MAX_EVENTS = 200
     WRITTEN_AS = "dates as they are read".freeze
+    UNITS = "an outline section for each event".freeze
     STAMP = /\A(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})\d{2}(Z)?)?\z/
 
     def self.handles?(feed)
@@ -13,7 +14,10 @@ module Analyzer
 
       events = step(:events, digest: DECODED) { parse(body) }
 
-      step(:text, digest: "#{WRITTEN_AS}, #{DECODED}") { capped(flatten(events)) }
+      lines = events.map { |event| line(event) }
+
+      step(:outline, digest: "#{UNITS}, #{WRITTEN_AS}, #{DECODED}") { Outline.units(events.map { |event| named(event) }, lines) }
+      step(:text, digest: "#{WRITTEN_AS}, #{DECODED}") { capped(lines.join("\n")) }
     end
 
     SUMMARY_EVENTS = 20
@@ -76,7 +80,10 @@ module Analyzer
           when "END:VEVENT"
             events << current if current
             current = nil
-            break if events.size >= MAX_EVENTS
+            if events.size >= MAX_EVENTS
+              left_out("events", "only the first #{MAX_EVENTS} events were read")
+              break
+            end
           else
             assign(current, line) if current
           end
@@ -97,11 +104,12 @@ module Analyzer
 
       CELL_LIMIT = 1000
 
-      def flatten(events)
-        events.map do |event|
-          [ event["summary"], self.class.read_as(event["dtstart"]), event["location"], event["description"] ]
-            .compact.join(" · ")
-        end.join("\n")
+      def line(event)
+        [ event["summary"], self.class.read_as(event["dtstart"]), event["location"], event["description"] ].compact.join(" · ")
+      end
+
+      def named(event)
+        [ event["summary"].presence || "Event", self.class.read_as(event["dtstart"]) ].compact_blank.join(", ")
       end
   end
 end
