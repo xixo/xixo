@@ -224,7 +224,9 @@ the call, such as "filed invoice.pdf under receipts", and the feed it was about.
 sentence when the call is made, so it still reads correctly after the feed is forgotten. xixo summarizes
 the arguments and does not store them in full. It truncates strings to 200 characters, counts
 arrays, and keeps one level of nesting. It replaces the value of any key that names a secret,
-password, token, credential, authorization, or access key with `[redacted]`. Refused
+password, token, credential, authorization, or access key with `[redacted]`, and takes credentials
+out of any address in the arguments, the sentence, or the detail, as described in
+[errors](/concepts/security/#errors). Refused
 authorizations, rate-limited calls, and some GraphQL mutations are recorded the same way.
 
 The `auditEvents` query returns events to a token with `xixo:catalog:read`. A daily job deletes

@@ -48,7 +48,7 @@ class Run < ApplicationRecord
 
     update_columns(
       status: error ? "failed" : "done",
-      error: error&.truncate(500),
+      error: Redaction.scrub(error)&.truncate(500),
       finished_at: Time.current
     )
 
@@ -100,7 +100,7 @@ class Run < ApplicationRecord
   # Appends in SQL rather than read-modify-write so the returned index is the
   # authoritative position of this line, and a second writer cannot lose one.
   def line(*parts)
-    text = parts.compact.map { |part| part.to_s.tr("\n", " ") }.join(" : ").truncate(LINE_LIMIT)
+    text = Redaction.scrub(parts.compact.map { |part| part.to_s.tr("\n", " ") }.join(" : ")).truncate(LINE_LIMIT)
 
     emit(text)
   end

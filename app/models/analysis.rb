@@ -92,7 +92,7 @@ class Analysis < ApplicationRecord
 
     update_columns(
       status: error ? "failed" : "done",
-      error: error&.truncate(500),
+      error: Redaction.scrub(error)&.truncate(500),
       finished_at: Time.current
     )
 
@@ -216,7 +216,7 @@ class Analysis < ApplicationRecord
     }
 
     entry["content"] = content.to_s.truncate(MAX_RESPONSE) if content.present?
-    entry["error"] = error if error.present?
+    entry["error"] = Redaction.scrub(error) if error.present?
     entry["ms"] = ((Time.current - started_at) * 1000).round if started_at
 
     append_column!(:turns, [ self.class.storable(entry) ])
@@ -229,7 +229,7 @@ class Analysis < ApplicationRecord
   def log_fail(*parts) = line("[x]", *parts)
 
   def line(*parts)
-    text = parts.compact.map { |part| part.to_s.tr("\n", " ") }.join(" : ").truncate(LINE_LIMIT)
+    text = Redaction.scrub(parts.compact.map { |part| part.to_s.tr("\n", " ") }.join(" : ")).truncate(LINE_LIMIT)
 
     emit(text)
   end

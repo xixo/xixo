@@ -94,7 +94,7 @@ module Tool
       end
 
       def text(body, error: false)
-        MCP::Tool::Response.new([ { type: "text", text: body } ], error: error)
+        MCP::Tool::Response.new([ { type: "text", text: error ? Redaction.scrub(body.to_s) : body } ], error: error)
       end
 
       def lasting(feed, lasts)

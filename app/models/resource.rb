@@ -1,5 +1,8 @@
 class Resource < ApplicationRecord
-  class Failed < StandardError; end
+  class Failed < StandardError
+    prepend Redaction::Message
+  end
+
   class Unusable < Failed; end
   class Refused < ArgumentError; end
 
@@ -650,7 +653,7 @@ class Resource < ApplicationRecord
     end
 
     def record_check(error)
-      update_columns(checked_at: Time.current, check_error: error, probing_since: nil,
+      update_columns(checked_at: Time.current, check_error: Redaction.scrub(error), probing_since: nil,
                      **(error.nil? ? { needs_connect_at: nil } : {}))
     end
 

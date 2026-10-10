@@ -3,7 +3,10 @@ require "base64"
 require "timeout"
 
 class Snapshot
-  class Failed < StandardError; end
+  class Failed < StandardError
+    prepend Redaction::Message
+  end
+
   class Blocked < Failed; end
   class Unavailable < Failed; end
 

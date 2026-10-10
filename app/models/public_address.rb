@@ -3,8 +3,13 @@ require "resolv"
 require "ipaddr"
 
 module PublicAddress
-  class Blocked < StandardError; end
-  class Unresolvable < StandardError; end
+  class Blocked < StandardError
+    prepend Redaction::Message
+  end
+
+  class Unresolvable < StandardError
+    prepend Redaction::Message
+  end
 
   SCHEMES = %w[http https].freeze
 

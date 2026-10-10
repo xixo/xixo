@@ -23,7 +23,7 @@ module Mutations
       end
 
       def refused(message)
-        raise GraphQL::ExecutionError, message
+        raise GraphQL::ExecutionError, Redaction.scrub(message.to_s)
       end
   end
 end

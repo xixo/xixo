@@ -278,7 +278,7 @@ module Analyzer
         write_step!(name, {
           "started_at" => started_at.iso8601(3),
           "finished_at" => Time.current.iso8601(3),
-          "error" => { "class" => e.class.name, "message" => e.message.truncate(500) }
+          "error" => { "class" => e.class.name, "message" => Redaction.scrub(e.message).truncate(500) }
         }.merge(about))
         analysis&.log_fail(log_context, name, e.class.name, e.message)
         raise

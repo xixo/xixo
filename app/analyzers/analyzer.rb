@@ -1,5 +1,7 @@
 module Analyzer
-  class Failed < StandardError; end
+  class Failed < StandardError
+    prepend Redaction::Message
+  end
 
   PROMPTS_CHANGED_AT = Time.utc(2026, 9, 7).freeze
 

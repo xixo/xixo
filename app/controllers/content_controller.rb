@@ -24,7 +24,7 @@ class ContentController < ApplicationController
 
     stream(reference.download)
   rescue Resource::Failed => e
-    render plain: e.message, status: :bad_gateway
+    render plain: Redaction.scrub(e.message), status: :bad_gateway
   end
 
   private

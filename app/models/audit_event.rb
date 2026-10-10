@@ -25,11 +25,11 @@ class AuditEvent < ApplicationRecord
         **actor(grant),
         analysis: Current.analysis,
         feed: feed,
-        told: told&.to_s&.squish&.truncate(DETAIL_LIMIT),
+        told: Redaction.scrub(told&.to_s&.squish)&.truncate(DETAIL_LIMIT),
         remote_ip: context[:remote_ip],
         request_id: context[:request_id],
         arguments: summarize(attributes[:arguments]),
-        detail: attributes[:detail]&.to_s&.truncate(DETAIL_LIMIT),
+        detail: Redaction.scrub(attributes[:detail]&.to_s)&.truncate(DETAIL_LIMIT),
         **attributes.except(:arguments, :detail)
       )
     end
@@ -64,9 +64,9 @@ class AuditEvent < ApplicationRecord
         case value
         when Hash then depth.zero? ? summarize(value, depth: 1) : "{#{value.size} keys}"
         when Array then "[#{value.size} items]"
-        when String then value.truncate(VALUE_LIMIT)
+        when String then Redaction.scrub(value).truncate(VALUE_LIMIT)
         when Numeric, TrueClass, FalseClass, NilClass then value
-        else value.to_s.truncate(VALUE_LIMIT)
+        else Redaction.scrub(value.to_s).truncate(VALUE_LIMIT)
         end
       end
   end

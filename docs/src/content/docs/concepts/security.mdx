@@ -195,3 +195,19 @@ summarized, and the value of any key that names a secret, password, token, or cr
 with `[redacted]`. Events are kept for `XIXO_AUDIT_RETENTION_DAYS`, 90 by default.
 
 See [audit](/concepts/agents/#audit).
+
+## Errors
+
+An error often names the address it failed on, and an address can hold a credential. `Redaction`
+removes the name and password from every address in an error, and replaces the value of every query
+parameter whose name contains `token`, `key`, `sig`, `secret`, `passw`, `pwd`, `credential`, `auth`,
+`session`, or `code` with `[redacted]`.
+
+Every error xixo raises for a resource, a download, an address check, a snapshot, or an analyzer is
+scrubbed when it is made. What xixo keeps or sends is scrubbed again, so an error from a library is
+covered too:
+
+- a resource's check error
+- a run's or an analysis's error and log lines, a step's error, and a model turn's error
+- an audit event's summary, detail, and arguments
+- an MCP tool error, a GraphQL error from a mutation, and a failed file download

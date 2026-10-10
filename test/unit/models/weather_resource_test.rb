@@ -73,7 +73,7 @@ class WeatherResourceTest < ActiveSupport::TestCase
 
     assert_requested :get, /customer-geocoding-api.*apikey=sekrit-key-123/
     assert_no_match(/sekrit-key-123/, error.message)
-    assert_match(/\[api key\]/, error.message)
+    assert_match(/apikey=\[redacted\]/, error.message)
   end
 
   test "a place nobody knows, a forecast of nowhere, and an unknown provider are refused" do

@@ -55,4 +55,3 @@ and keeping apart. This file lists what is still open.
   again on every run.
 - **An export into a resource ignores its prefix.** `upload` writes at the original's own path, so a
   sync of the destination never takes the copy for an original.
-- **Errors carry the address they failed on**, userinfo included for the types that do not refuse it.

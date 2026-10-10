@@ -2,7 +2,10 @@ require "net/http"
 require "uri"
 
 class Download
-  class Failed < StandardError; end
+  class Failed < StandardError
+    prepend Redaction::Message
+  end
+
   class Blocked < Failed; end
   class TooBig < Failed; end
 

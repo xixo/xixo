@@ -85,7 +85,7 @@ class ResourceConnectionsController < ApplicationController
 
     def landed(resource, refusal)
       path = resource ? "/settings/resources/#{resource.id}" : "/settings/resources"
-      query = refusal ? "?#{URI.encode_www_form(connect_error: refusal.to_s.truncate(300))}" : ""
+      query = refusal ? "?#{URI.encode_www_form(connect_error: Redaction.scrub(refusal.to_s).truncate(300))}" : ""
 
       redirect_to "#{path}#{query}", allow_other_host: false
     end
