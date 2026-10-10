@@ -78,4 +78,4 @@ Nothing in this repository names a host, a domain, or a secret. xixo reads all o
 environment. [ENV vars](https://docs.xixo.network/reference/environment/) lists every variable, and
 `.env.example` gives development values.
 
-`PLAN.md` lists open work. Prose follows [docs/STYLE.md](docs/STYLE.md).
+Prose follows [docs/STYLE.md](docs/STYLE.md).
