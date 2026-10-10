@@ -14,10 +14,10 @@ module Embedding
       Resource.for_declared_role(ROLE, fall_back: false)
     end
 
-    def gist(feed)
+    def gist(feed, tags: feed.family_tags)
       [
         feed.title,
-        feed.family_tags.join(", ").presence,
+        tags.join(", ").presence,
         feed.summaries.join("\n").presence,
         feed.note,
         feed.readable_text&.truncate(BODY_TEXT)
@@ -52,7 +52,8 @@ module Embedding
       items.each { |item| Passage.cut!(item) }
 
       signature = resource.embedding_signature
-      wanted = items.to_h { |item| [ item.id, gist(item) ] }
+      tags = Feed.family_tags_for(items)
+      wanted = items.to_h { |item| [ item.id, gist(item, tags: tags[item.id]) ] }
       digests = wanted.transform_values { |text| digest_of(text, signature) }
       moved, settled = items.partition { |item| item.embedded_digest != digests.fetch(item.id) }
 

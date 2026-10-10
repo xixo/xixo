@@ -166,6 +166,21 @@ class Feed < ApplicationRecord
     includes(:references, :analyses, children: :analyses)
   end
 
+  def self.family_tags_for(feeds)
+    owners = Hash.new { |held, id| held[id] = [] }
+    feeds.each { |feed| feed.family.each { |member| owners[member.id] << feed.id } }
+
+    found = Hash.new { |held, id| held[id] = [] }
+    return found if owners.empty?
+
+    pairs = Edge.where(a_id: owners.keys, b_id: tags.select(:id)).pluck(:a_id, :b_id) +
+            Edge.where(b_id: owners.keys, a_id: tags.select(:id)).pluck(:b_id, :a_id)
+    keys = where(id: pairs.map(&:last)).pluck(:id, :key).to_h
+
+    pairs.each { |member, tag| owners[member].each { |feed| found[feed] << keys.fetch(tag) } }
+    found.transform_values! { |keys| keys.uniq.sort }
+  end
+
   def self.referencing(resource_id)
     where(id: Reference.where(resource_id: resource_id).select(:feed_id))
   end
@@ -481,7 +496,7 @@ class Feed < ApplicationRecord
   end
 
   def family_tags
-    Feed.connected_to(family).tags.distinct.order(:key).pluck(:key)
+    Feed.family_tags_for([ self ])[id]
   end
 
   def depth

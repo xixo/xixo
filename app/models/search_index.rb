@@ -165,8 +165,8 @@ module SearchIndex
       items = items.to_a
       return 0 if items.empty?
 
-      body = items.flat_map do |item|
-        [ { index: { _index: into, _id: item.id } }, document(item) ]
+      body = items.zip(documents(items)).flat_map do |item, document|
+        [ { index: { _index: into, _id: item.id } }, document ]
       end
 
       response = client.bulk(body: body)
@@ -186,12 +186,18 @@ module SearchIndex
       nil
     end
 
-    def document(feed)
+    def documents(feeds)
+      tags = Feed.family_tags_for(feeds)
+
+      feeds.map { |feed| document(feed, tags: tags[feed.id]) }
+    end
+
+    def document(feed, tags: feed.family_tags)
       {
         tenant_id: feed.tenant_id,
         type: feed.type,
         mime: feed.mime,
-        tags: feed.family_tags,
+        tags: tags,
         key: feed.key,
         title: feed.title,
         note: feed.note,
