@@ -447,10 +447,12 @@ module Analyzer
       end
 
       def run_command(*args)
-        stdout, stderr, status = Open3.capture3(*args)
+        stdout, stderr, status = Command.capture(*args)
         raise Analyzer::Failed, "#{args.first} failed: #{stderr.truncate(200)}" unless status.success?
 
         stdout
+      rescue Command::Stopped => e
+        raise Analyzer::Failed, e.message
       end
   end
 end

@@ -66,18 +66,9 @@ class Metadata
   end
 
   def self.exiftool(*args)
-    Open3.popen3("exiftool", *args) do |stdin, stdout, stderr, waiter|
-      stdin.close
-      said = Thread.new { stdout.read }
-      complained = Thread.new { stderr.read }
-
-      unless waiter.join(SECONDS)
-        Process.kill("KILL", waiter.pid)
-        raise Unreadable, "exiftool took longer than #{SECONDS} seconds"
-      end
-
-      [ said.value, complained.value, waiter.value ]
-    end
+    Command.capture("exiftool", *args, seconds: SECONDS)
+  rescue Command::Stopped
+    raise Unreadable, "exiftool took longer than #{SECONDS} seconds"
   end
 
   def self.tidy(said)

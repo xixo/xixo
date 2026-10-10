@@ -190,6 +190,12 @@ See [the agent](/concepts/agents/#the-agent) and [asking](/concepts/agents/#aski
 | `XIXO_RUN_BUDGET` | Subject, per clock hour, for analyses, syncs, and exports | 20 |
 | `XIXO_RUN_DEADLINE_HOURS` | A queued analysis, before it is cancelled | 6 |
 
+Every program xixo runs on a file, such as `soffice`, `ffmpeg`, `tesseract`, `pdftoppm`, `exiftool`,
+and `git`, runs through `Command` in a process group of its own, with at most 4 GiB of data memory.
+A program that runs past its time is killed with everything it started: 10 minutes by default, 5 for
+`git`, and 30 seconds for `exiftool`. A file built to hang or exhaust a decoder fails its analysis
+step and leaves the worker free.
+
 A gate stops a kind of job for a tenant or a single record, and `XIXO_ITERATORS_DISABLED` stops
 every iterating job at once. See [budgets and gates](/concepts/agents/#budgets-and-gates).
 

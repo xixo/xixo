@@ -184,16 +184,16 @@ class Thumbnail
     end
 
     def run(*args)
-      _out, err, status = Open3.capture3(*args)
-      raise Unavailable, "#{args.first}: #{err.truncate(200)}" unless status.success?
-
+      capture(*args)
       true
     end
 
     def capture(*args)
-      out, err, status = Open3.capture3(*args)
+      out, err, status = Command.capture(*args)
       raise Unavailable, "#{args.first}: #{err.truncate(200)}" unless status.success?
 
       out
+    rescue Command::Stopped => e
+      raise Unavailable, e.message
     end
 end

@@ -310,26 +310,9 @@ class Resource
       end
 
       def capture(env, command, binary)
-        Open3.popen3(env, *command, pgroup: true) do |stdin, stdout, stderr, waiter|
-          stdin.close
-          stdout.binmode if binary
-          out = Thread.new { stdout.read }
-          err = Thread.new { stderr.read }
-
-          unless waiter.join(TIMEOUT)
-            stop(waiter.pid)
-            [ out, err ].each(&:kill)
-            raise Resource::Failed, "#{key}: git #{command[-2]} ran past #{TIMEOUT}s and was stopped"
-          end
-
-          [ out.value, err.value, waiter.value ]
-        end
-      end
-
-      def stop(pid)
-        Process.kill("KILL", -pid)
-      rescue Errno::ESRCH
-        nil
+        Command.capture(*command, env: env, seconds: TIMEOUT, binary: binary)
+      rescue Command::Stopped
+        raise Resource::Failed, "#{key}: git #{command[-2]} ran past #{TIMEOUT}s and was stopped"
       end
 
       def scrubbed(said)

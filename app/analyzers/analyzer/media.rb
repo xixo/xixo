@@ -148,8 +148,12 @@ module Analyzer
             "ametadata=mode=print:file=#{spectral}"
           ].join(",")
 
-          _out, err, status = Open3.capture3("ffmpeg", "-hide_banner", "-nostats", "-i", path, "-vn",
-                                             "-t", self.class.span.to_s, "-af", graph, "-f", "null", "-")
+          _out, err, status = begin
+            Command.capture("ffmpeg", "-hide_banner", "-nostats", "-i", path, "-vn",
+                            "-t", self.class.span.to_s, "-af", graph, "-f", "null", "-")
+          rescue Command::Stopped => e
+            raise Analyzer::Failed, e.message
+          end
           raise Analyzer::Failed, "ffmpeg could not measure #{reference.filename}" unless status.success?
 
           measured(err, File.exist?(spectral) ? File.foreach(spectral).to_a : [])

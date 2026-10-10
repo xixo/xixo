@@ -39,15 +39,17 @@ class Raw
   end
 
   def self.wide_enough?(made)
-    stdout, _stderr, status = Open3.capture3("vipsheader", "-f", "width", made)
+    stdout, _stderr, status = Command.capture("vipsheader", "-f", "width", made)
 
     status.success? && stdout.strip.to_i >= MINIMUM
   end
 
   def self.run(flag, path)
-    _stdout, stderr, status = Open3.capture3("simple_dcraw", flag, path)
+    _stdout, stderr, status = Command.capture("simple_dcraw", flag, path)
 
     raise Unreadable, "simple_dcraw #{flag}: #{stderr.truncate(200)}" unless status.success?
+  rescue Command::Stopped => e
+    raise Unreadable, e.message
   end
 
   private_class_method :viewable, :embedded, :developed, :wide_enough?, :run
