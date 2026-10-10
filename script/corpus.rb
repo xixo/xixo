@@ -8,6 +8,7 @@ MODELS_FROM = ENV["CORPUS_MODELS_FROM"].presence || "xixo"
 GROUP = ENV["CORPUS_GROUP"].to_s.strip
 INDEX_WAIT = (ENV["CORPUS_TIMEOUT"].presence || "1800").to_i
 ASK_WAIT = (ENV["CORPUS_ASK_TIMEOUT"].presence || "900").to_i
+RETRIEVAL_ONLY = ENV["CORPUS_RETRIEVAL_ONLY"].present?
 NEAR = 60
 
 def regex(text)
@@ -40,6 +41,25 @@ def settle(seconds)
 
     sleep 2
   end
+end
+
+def sourced?(feed, sources)
+  root = feed.parent || feed
+  keys = root.references.pluck(:locator_key) + [ root.key.to_s ]
+
+  sources.any? { |source| keys.any? { |key| key.end_with?(source) } }
+end
+
+def retrieved(question, sources)
+  evidence = Evidence.new(question)
+  read = evidence.pieces.map(&:feed).uniq
+  glimpsed = evidence.glimpses.map(&:feed)
+  rank = read.index { |feed| sourced?(feed, sources) }
+
+  return [ "read", rank + 1 ] if rank
+  return [ "glimpsed", read.size + glimpsed.index { |feed| sourced?(feed, sources) } + 1 ] if glimpsed.any? { |feed| sourced?(feed, sources) }
+
+  [ "missed", nil ]
 end
 
 def calls_in(analyses)
@@ -141,6 +161,20 @@ puts "\nstill analyzing when the timeout ran out: #{pending.join(', ')}" if pend
 puts "\n#{files.size - pending.size}/#{keys.size} analyzed in #{indexing}s, #{indexing_calls} call(s) to a model"
 puts "slowest: #{files.max_by(5) { |file| file['seconds'] }.map { |file| "#{file['key']} #{file['seconds']}s" }.join(', ')}"
 
+sourced = cases.select { |held| held["source"].present? }
+puts "\nretrieving for #{sourced.size} case(s)\n\n" if sourced.any?
+
+retrieval = sourced.map do |held|
+  question = held["turns"].first["ask"]
+  outcome, rank = Tenant.switch(tenant) { retrieved(question, Array(held["source"])) }
+
+  puts "#{outcome.upcase.ljust(8)} #{held['id']}#{" at #{rank}" if rank}: #{question}"
+
+  { "id" => held["id"], "ask" => question, "outcome" => outcome, "rank" => rank }
+end
+
+cases = [] if RETRIEVAL_ONLY
+
 puts "\nasking #{cases.size} case(s)\n\n" if cases.any?
 
 results = cases.map do |held|
@@ -191,6 +225,7 @@ run = {
   "at" => Time.current.iso8601, "commit" => `git rev-parse --short HEAD 2>/dev/null`.strip.presence,
   "models" => details["models"], "group" => GROUP.presence, "reused" => reuse,
   "indexing" => { "seconds" => indexing, "calls" => indexing_calls, "files" => files },
+  "retrieval" => retrieval,
   "asking" => { "passed" => passed, "asked" => asked.size, "seconds" => asking, "calls" => asking_calls,
                 "cases" => results }
 }
@@ -205,6 +240,11 @@ if asked.any?
   puts "asking:   #{passed}/#{asked.size} right, #{asking}s, #{asking_calls} model calls, " \
        "#{(asking.to_f / asked.size).round}s an answer"
 end
+if retrieval.any?
+  counted = retrieval.map { |held| held["outcome"] }.tally
+  puts "retrieval: #{counted['read'].to_i}/#{retrieval.size} read in full, #{counted['glimpsed'].to_i} glimpsed, " \
+       "#{counted['missed'].to_i} missed"
+end
 puts "written to #{path.relative_path_from(Rails.root)}"
 
 against = ENV["CORPUS_AGAINST"].presence
@@ -217,6 +257,12 @@ if against
     next if was[key].nil? || was[key] == passing
 
     puts "#{passing ? 'fixed' : 'broke'}  #{key.join(': ')}"
+  end
+
+  then_retrieved = before["retrieval"].to_a.to_h { |held| [ held["id"], held["outcome"] ] }
+  retrieval.each do |held|
+    was_outcome = then_retrieved[held["id"]]
+    puts "retrieval #{was_outcome} -> #{held['outcome']}  #{held['id']}" if was_outcome && was_outcome != held["outcome"]
   end
 
   then_asked = before["asking"].to_h

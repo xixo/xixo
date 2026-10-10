@@ -1,4 +1,5 @@
 - id: jars-per-size
+  source: ["elm-street-pantry-plan.xlsx"]
   turns:
     - ask: how many jars do I need to buy for the pantry, per size?
       expect:
@@ -17,12 +18,14 @@
         - /753\.69/
 
 - id: jars-total
+  source: ["elm-street-pantry-plan.xlsx"]
   turns:
     - ask: how many containers is the whole pantry order?
       expect:
         - /\b61\b/
 
 - id: spaghetti-container
+  source: ["elm-street-pantry-plan.xlsx"]
   turns:
     - ask: what am I storing the spaghetti in?
       expect:
@@ -37,24 +40,28 @@
         - /you(?:'ll| will)? need \d+ korken/i
 
 - id: grocery-august
+  source: ["chequing-q3-2026.csv"]
   turns:
     - ask: how much did I spend at Fernwood Grocers in August?
       expect:
         - /158\.01/
 
 - id: transactions-over-100
+  source: ["chequing-q3-2026.csv"]
   turns:
     - ask: how many transactions over $100 were there in the chequing account last quarter?
       expect:
         - /\b30\b/
 
 - id: brightline-paid
+  source: ["chequing-q3-2026.csv"]
   turns:
     - ask: what have I paid Brightline Roofing so far?
       expect:
         - /3,?250/
 
 - id: roof-decision
+  source: ["roof-meeting-notes.md"]
   turns:
     - ask: which roofer did we pick?
       expect:
@@ -64,6 +71,7 @@
         - /14,?800/
 
 - id: lease-notice
+  source: ["lease-218-elm-street.md"]
   turns:
     - ask: how much notice do I have to give to move out?
       expect:
@@ -73,18 +81,21 @@
         - /\$?350\b/
 
 - id: lease-late-fee
+  source: ["lease-218-elm-street.md"]
   turns:
     - ask: what happens if my rent is late?
       expect:
         - /\$?45\b/
 
 - id: flight-code
+  source: ["flight-lisbon.eml"]
   turns:
     - ask: what's my booking reference for Lisbon?
       expect:
         - QX7RTM
 
 - id: flight-departure
+  source: ["flight-lisbon.eml"]
   turns:
     - ask: when does my flight to Lisbon leave?
       expect:
@@ -92,12 +103,14 @@
         - /nov(ember)?\.?\s*14|14\s*nov|2026-11-14/i
 
 - id: focaccia
+  source: ["focaccia.txt"]
   turns:
     - ask: how long do I bake the focaccia?
       expect:
         - /\b22\b/
 
 - id: dentist
+  source: ["dentist.ics"]
   turns:
     - ask: when is my dentist appointment?
       expect:
@@ -105,42 +118,49 @@
         - /2:15|14:15/
 
 - id: marguerite-phone
+  source: ["asks/contacts.vcf"]
   turns:
     - ask: what's Marguerite's number?
       expect:
         - /555[\s.-]?0143/
 
 - id: bellwether-invoice
+  source: ["pdf/invoice.pdf"]
   turns:
     - ask: how much is the Bellwether Surveying invoice for?
       expect:
         - /\b880\b/
 
 - id: condition-report-drainage
+  source: ["pdf/report.pdf", "doc/report.docx", "doc/report.odt"]
   turns:
     - ask: what did the condition report say about the drainage?
       expect:
         - /gully|leaf litter|soakaway/i
 
 - id: felt-comes-off
+  source: ["email/plain.eml", "email/nested-message.eml"]
   turns:
     - ask: when does the felt come off the roof at Bellwether Lane?
       expect:
         - /\b22(nd)?\b/
 
 - id: surveyor-second-visit
+  source: ["calendar/meeting.ics"]
   turns:
     - ask: when is the surveyor's second visit?
       expect:
         - /aug(ust)?\.?\s*30|30(th)?\s*(of\s*)?aug|2026-08-30/i
 
 - id: receipt-total
+  source: ["image/ocr-receipt.png"]
   turns:
     - ask: what was the total on the Bellwether Hardware receipt?
       expect:
         - /50\.14/
 
 - id: plumber-memo
+  source: ["voice-memo-plumber.m4a"]
   turns:
     - ask: when is the plumber coming?
       expect:
@@ -151,18 +171,21 @@
         - /555.?0177/
 
 - id: garage-tour-said
+  source: ["garage-tour.mp4"]
   turns:
     - ask: what does the garage tour video say the bike needs?
       expect:
         - /brake pads/i
 
 - id: garage-tour-seen
+  source: ["garage-tour.mp4"]
   turns:
     - ask: in the garage tour video, what colour is the door next to the bike?
       expect:
         - /blue/i
 
 - id: porch-door
+  source: ["front-porch.jpg"]
   turns:
     - ask: what colour is the front door in my porch photo?
       expect:
@@ -172,6 +195,7 @@
         - /\b218\b/
 
 - id: shed-key-gif
+  source: ["shed-key-note.gif"]
   turns:
     - ask: where is the shed key?
       expect:
