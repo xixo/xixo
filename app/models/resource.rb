@@ -19,6 +19,7 @@ class Resource < ApplicationRecord
   MINIMUM_SYNC_INTERVAL = 1.minute
   SYNC_ABANDONED_AFTER = 6.hours
   CHECKED_EVERY = 6.hours
+  FAILING_CHECKED_EVERY = 10.minutes
   PROBE_ABANDONED_AFTER = 15.minutes
   MAX_HOPS = 4
   MAX_TEXT = 100_000
@@ -64,9 +65,9 @@ class Resource < ApplicationRecord
   scope :probing, -> { where(probing_since: PROBE_ABANDONED_AFTER.ago..) }
   scope :due_for_sync, -> { scheduled.not_syncing.where(next_sync_at: ..Time.current) }
   scope :due_for_check, -> {
-    attended.active.not_syncing.where(checked_at: nil).or(
-      attended.active.not_syncing.where(checked_at: ...CHECKED_EVERY.ago)
-    )
+    attended.active.not_syncing.where(checked_at: nil)
+      .or(attended.active.not_syncing.where(checked_at: ...CHECKED_EVERY.ago))
+      .or(attended.active.not_syncing.where.not(check_error: nil).where(checked_at: ...FAILING_CHECKED_EVERY.ago))
   }
 
   class << self
@@ -277,14 +278,16 @@ class Resource < ApplicationRecord
       best_inference { |resource| resource.serves_role?(role) }
     end
 
-    def for_declared_role(role)
-      best_inference { |resource| resource.declares_role?(role) }
+    def for_declared_role(role, fall_back: true)
+      best_inference(fall_back:) { |resource| resource.declares_role?(role) }
     end
 
-    def best_inference
-      candidates = capable_of(:inference).shared.select { |resource| yield(resource) }
+    def best_inference(fall_back: true)
+      candidates = capable_of(:inference).shared.order(:id).select { |resource| yield(resource) }
+      chosen = candidates.find(&:default_inference?) || candidates.first
+      return chosen unless fall_back && chosen&.down?
 
-      candidates.find(&:default_inference?) || candidates.first
+      candidates.find { |resource| !resource.down? } || chosen
     end
   end
 
@@ -433,6 +436,10 @@ class Resource < ApplicationRecord
 
   def healthy?
     checked_at.present? && check_error.nil?
+  end
+
+  def down?
+    needs_connect? || (checked_at.present? && check_error.present?)
   end
 
   def command(name, arguments = {})

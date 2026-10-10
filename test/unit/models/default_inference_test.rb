@@ -90,6 +90,45 @@ class DefaultInferenceTest < ActiveSupport::TestCase
     end
   end
 
+  test "a default whose last check failed gives way to one that answers" do
+    Tenant.switch(@tenant) do
+      @studio.make_default_inference!
+      @studio.update_columns(checked_at: Time.current, check_error: "Resource::Failed: asleep")
+
+      assert_equal @ollama, Resource.for_role(:smart)
+    end
+  end
+
+  test "a default whose last check failed is still chosen when nothing else answers" do
+    Tenant.switch(@tenant) do
+      @studio.make_default_inference!
+      [ @studio, @ollama ].each { |resource| resource.update_columns(checked_at: Time.current, check_error: "Resource::Failed: off") }
+
+      assert_equal @studio, Resource.for_role(:smart)
+    end
+  end
+
+  test "a default never checked keeps the role" do
+    Tenant.switch(@tenant) do
+      @studio.make_default_inference!
+      @ollama.update_columns(checked_at: Time.current, check_error: nil)
+
+      assert_equal @studio, Resource.for_role(:smart)
+    end
+  end
+
+  test "the embedding model stays put when it fails, since another would forget every vector" do
+    Tenant.switch(@tenant) do
+      @ollama.update!(details: @ollama.details.merge("models" => MODELS.merge("embedding" => "nomic-embed-text")))
+      @studio.update!(details: @studio.details.merge("models" => { "smart" => "gpt-oss-20b", "embedding" => "bge-m3" }))
+      @ollama.make_default_inference!
+      @ollama.update_columns(checked_at: Time.current, check_error: "Resource::Failed: asleep")
+
+      assert_equal @ollama, Embedding.held
+      assert_equal @studio, Resource.for_declared_role(:embedding)
+    end
+  end
+
   test "a role nothing declares resolves to nothing" do
     Tenant.switch(@tenant) do
       @ollama.make_default_inference!

@@ -28,6 +28,15 @@ class ScheduleChecksJobTest < ActiveSupport::TestCase
     assert_no_enqueued_jobs(only: CheckResourceJob) { ScheduleChecksJob.perform_now }
   end
 
+  test "a resource whose last check failed is checked again within minutes" do
+    Tenant.switch(@tenant) do
+      @curl.update_columns(checked_at: (Resource::FAILING_CHECKED_EVERY + 1.minute).ago, check_error: "Resource::Failed: off")
+    end
+    Tenant.switch(@other) { @theirs.update_columns(checked_at: 1.minute.ago, check_error: "Resource::Failed: off") }
+
+    assert_enqueued_jobs(1, only: CheckResourceJob) { ScheduleChecksJob.perform_now }
+  end
+
   test "what a check finds wrong is written down, so a failing resource shows before a sync meets it" do
     Tenant.switch(@tenant) do
       @broken = Resource::Rss.create!(key: "feed", name: "Feed", details: { "url" => "http://169.254.169.254/feed" })

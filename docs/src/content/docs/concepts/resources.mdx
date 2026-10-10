@@ -32,7 +32,10 @@ A tenant has at most one default storage and one default inference resource, and
 that serves the matching capability can hold either one. Making a resource the default clears the
 flag on the previous one. Snapshots go to the default storage unless the `web` resource names
 another, an upload that nothing placed goes there, and inference uses the default when more than one
-resource serves a role.
+resource serves a role. When the default's last check failed or it needs connecting again,
+inference uses the first other resource serving the role that is not down, and returns to the
+default once a check passes. Embeddings never move this way, because a different embedding model
+forgets every vector.
 
 ## Where they come from
 
@@ -174,9 +177,9 @@ agent, embedding, or transcription model first asks only whether the server list
 does, the check sets `probing_since` and hands the rest to a `CheckResourceJob`, which tries tool
 calls, the context window, embeddings, and transcription. The resource reads as checking until that
 job records its result, and keeps its last `checked_at` and `check_error` meanwhile. A probe that has
-not finished in fifteen minutes stops reading as checking. `ScheduleChecksJob` runs every hour. It
-finds resources that were never checked or not checked in six hours, and checks each one in its own
-job, so a resource that stopped answering shows it before a sync or a tool call reaches it. It skips
+not finished in fifteen minutes stops reading as checking. `ScheduleChecksJob` runs every ten minutes. It
+finds resources that were never checked, not checked in six hours, or failed a check more than ten
+minutes ago, and checks each one in its own job, so a resource that stopped answering shows it before a sync or a tool call reaches it. It skips
 a resource that is syncing, since the sync tests it better. Checking an MCP server asks it again for
 its tools, so tools it adds or removes reach the proxy within six hours.
 

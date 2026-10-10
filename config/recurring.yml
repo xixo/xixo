@@ -7,7 +7,7 @@ shared: &shared
   schedule_checks:
     class: ScheduleChecksJob
     queue: sync
-    schedule: every hour at minute 7
+    schedule: every 10 minutes
 
   schedule_feeds:
     class: ScheduleFeedsJob

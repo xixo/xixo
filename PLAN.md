@@ -6,9 +6,6 @@ and keeping apart. This file lists what is still open.
 
 ## Next
 
-- **Inference falls back on health.** `Resource.best_inference` takes the default inference
-  resource, or else the first, without asking whether it answers. A model server on a machine that
-  sleeps stops analysis until it wakes. Prefer a healthy resource.
 - **A resource behind a transport that comes and goes.** A peer that is off fails each check with a
   connection error. Read the peer's state from tailscaled, report the resource as offline for that
   reason, and resume its syncs when the peer returns.

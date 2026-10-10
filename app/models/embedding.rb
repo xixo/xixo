@@ -11,7 +11,7 @@ module Embedding
     end
 
     def held
-      Resource.for_declared_role(ROLE)
+      Resource.for_declared_role(ROLE, fall_back: false)
     end
 
     def gist(feed)
