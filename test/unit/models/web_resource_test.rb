@@ -195,7 +195,228 @@ class WebResourceTest < ActiveSupport::TestCase
     end
   end
 
+  test "a watchlist makes it syncable, and lets it keep a schedule" do
+    Tenant.switch(@tenant) do
+      @resource.update!(details: { "watchlist" => [ @url ] })
+
+      assert @resource.syncable?
+
+      @resource.update!(sync_interval: 300)
+
+      assert_equal 300, @resource.reload.sync_interval
+    end
+  end
+
+  test "an empty watchlist is no watchlist" do
+    Tenant.switch(@tenant) do
+      @resource.update!(details: { "watchlist" => [ " ", "" ] })
+
+      refute @resource.syncable?
+      refute @resource.details.key?("watchlist")
+    end
+  end
+
+  test "the watchlist is set one address per line, and kept canonical and once each" do
+    details, = Resource::Settings.for(Resource::Web, { "watchlist" => "#{@url}\n\n  #{@url}#top\nhttps://example.com" })
+
+    Tenant.switch(@tenant) do
+      @resource.update!(details: details)
+
+      assert_equal [ @url, "https://example.com/" ], @resource.details["watchlist"]
+    end
+  end
+
+  test "a watched address is an http address on a public host" do
+    ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
+
+    Tenant.switch(@tenant) do
+      {
+        "ftp://example.com/" => /not an http or https address/,
+        "file:///etc/passwd" => /not an http or https address/,
+        "https://ada:secret@example.com/" => /username or password/,
+        "http://127.0.0.1/admin" => /not a public address/,
+        "http://[::1]/" => /not a public address/,
+        "http://169.254.169.254/latest/meta-data" => /not a public address/,
+        "https://example.com/#{'a' * Resource::Web::LONGEST}" => /longer than/
+      }.each do |url, refusal|
+        @resource.details = { "watchlist" => [ url ] }
+
+        refute @resource.valid?, "#{url} should be refused"
+        assert_match refusal, @resource.errors.full_messages.to_sentence
+      end
+    end
+  end
+
+  test "a watchlist holds a bounded number of addresses" do
+    Tenant.switch(@tenant) do
+      @resource.details = { "watchlist" => (0..Resource::Web::WATCHING).map { |n| "https://example.com/#{n}" } }
+
+      refute @resource.valid?
+      assert_match(/at most #{Resource::Web::WATCHING}/, @resource.errors.full_messages.to_sentence)
+    end
+  end
+
+  test "each page is one watched address, and a sync resumes after the last one taken" do
+    Tenant.switch(@tenant) do
+      @resource.update!(details: { "watchlist" => %w[https://example.com/a https://example.com/b https://example.com/c] })
+
+      pages = []
+      @resource.each_page { |page, cursor| pages << [ page, cursor ] }
+
+      assert_equal [ [ [ "https://example.com/a" ], "https://example.com/a" ],
+                     [ [ "https://example.com/b" ], "https://example.com/b" ],
+                     [ [ "https://example.com/c" ], "https://example.com/c" ] ], pages
+
+      resumed = []
+      @resource.each_page(cursor: "https://example.com/a") { |page, _| resumed.concat(page) }
+
+      assert_equal %w[https://example.com/b https://example.com/c], resumed
+
+      restarted = []
+      @resource.each_page(cursor: "https://example.com/gone") { |page, _| restarted.concat(page) }
+
+      assert_equal 3, restarted.size
+    end
+  end
+
+  test "a sync snapshots every watched address and notices a change" do
+    rendering do
+      other = @server.serve_body("/other.html", CHANGED, content_type: "text/html")
+      Tenant.switch(@tenant) { @resource.update!(details: { "watchlist" => [ @url, other ] }) }
+
+      sync
+
+      was = Tenant.switch(@tenant) do
+        assert_equal [ @url, other ].sort, Reference.where(resource_id: @resource.id).pluck(:locator_key).sort
+        assert Reference.where(resource_id: @resource.id).all?(&:seen_at)
+
+        Reference.find_by!(locator_key: @url).version
+      end
+      @server.serve_body("/page.html", CHANGED, content_type: "text/html")
+
+      sync
+
+      Tenant.switch(@tenant) do
+        assert_equal 2, Feed.files.count
+        refute_equal was, Reference.find_by!(locator_key: @url).version
+      end
+    end
+  end
+
+  test "an address taken off the watchlist is gone after the next sync" do
+    rendering do
+      other = @server.serve_body("/other.html", CHANGED, content_type: "text/html")
+      Tenant.switch(@tenant) { @resource.update!(details: { "watchlist" => [ @url, other ] }) }
+
+      sync
+
+      Tenant.switch(@tenant) { @resource.command("unwatch", { "url" => other }) }
+
+      sync
+
+      Tenant.switch(@tenant) do
+        assert_nil Reference.find_by!(locator_key: @url).gone_at
+        assert Reference.find_by!(locator_key: other).gone_at.present?
+      end
+    end
+  end
+
+  test "an address that fails is skipped, logged, and not taken for gone" do
+    rendering do
+      broken = @server.serve_body("/broken.html", CHANGED, content_type: "text/html")
+      Tenant.switch(@tenant) { @resource.update!(details: { "watchlist" => [ broken, @url ] }) }
+
+      sync
+      again = Time.current
+      failing(broken) { sync(logged: true) }
+
+      Tenant.switch(@tenant) do
+        assert_nil Reference.find_by!(locator_key: broken).gone_at
+        assert_operator Reference.find_by!(locator_key: broken).seen_at, :>=, again
+        assert_operator Reference.find_by!(locator_key: @url).seen_at, :>=, again
+
+        run = Run.where(resource: @resource).order(:id).last
+        assert_equal "done", run.status
+        assert_match(/broken\.html.*would not render/, run.logs)
+      end
+    end
+  end
+
+  test "a sync with no browser stops, since no address could be taken" do
+    Tenant.switch(@tenant) { @resource.update!(details: { "watchlist" => [ @url ] }) }
+
+    error = assert_raises(Resource::Unusable) do
+      unavailable { Tenant.switch(@tenant) { @resource.keep!(@url) } }
+    end
+
+    assert_match(/no browser/, error.message)
+  end
+
+  test "watch puts an address on the watchlist, and unwatch takes it off along with the schedule" do
+    Tenant.switch(@tenant) do
+      answer = @resource.command("watch", { "url" => "#{@url}#here" })
+
+      assert_equal [ @url ], answer["watching"]
+      assert @resource.reload.syncable?
+
+      @resource.update!(sync_interval: 300)
+      @resource.command("unwatch", { "url" => @url })
+
+      refute @resource.reload.syncable?
+      assert_nil @resource.sync_interval
+      assert_raises(Resource::Web::Gone) { @resource.command("unwatch", { "url" => @url }) }
+    end
+  end
+
+  test "watch refuses an address it would never take" do
+    Tenant.switch(@tenant) do
+      error = assert_raises(Resource::Refused) { @resource.command("watch", { "url" => "file:///etc/passwd" }) }
+
+      assert_match(/not an http or https address/, error.message)
+      refute @resource.reload.syncable?
+    end
+  end
+
+  test "list says what is being watched" do
+    Tenant.switch(@tenant) do
+      @resource.command("watch", { "url" => @url })
+
+      assert_equal [ @url ], @resource.command("list", {})["watching"]
+    end
+  end
+
   private
+
+    def sync(logged: false)
+      run = logged ? Tenant.switch(@tenant) { Run.start!(kind: "sync", resource: @resource) } : nil
+
+      Tenant.switch(@tenant) do
+        Resource.find(@resource.id).claim_sync!
+        SyncResourceJob.perform_now(@tenant.id, @resource.id, run&.id)
+      end
+    end
+
+    def failing(url)
+      Snapshot.singleton_class.alias_method(:unfailing_of, :of)
+      Snapshot.define_singleton_method(:of) do |wanted, **options|
+        raise Snapshot::Failed, "#{wanted} would not render" if wanted == url
+
+        unfailing_of(wanted, **options)
+      end
+
+      yield
+    ensure
+      Snapshot.singleton_class.alias_method(:of, :unfailing_of)
+    end
+
+    def unavailable
+      Snapshot.singleton_class.alias_method(:available_of, :of)
+      Snapshot.define_singleton_method(:of) { |*, **| raise Snapshot::Unavailable, "no browser to render with" }
+
+      yield
+    ensure
+      Snapshot.singleton_class.alias_method(:of, :available_of)
+    end
 
     def rendering
       skip "no browser to render with" unless Snapshot.available?

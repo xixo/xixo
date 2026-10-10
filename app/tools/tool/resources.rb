@@ -5,7 +5,7 @@ module Tool
 
     READ = %w[list types describe runs get parameters search forecast find reverse nearby ask].freeze
     PLACES = %w[find reverse nearby].freeze
-    WRITE = %w[attach change default check sync keep export cancel put snapshot].freeze
+    WRITE = %w[attach change default check sync keep export cancel put snapshot watch unwatch].freeze
     RUNS = %w[sync export].freeze
 
     KEEPING = %w[snapshot].freeze
@@ -22,7 +22,9 @@ module Tool
       with do=get and input {"url": "https://..."}, and one that serves weather takes
       do=forecast with input {"place": "Toronto"}, and one that knows places takes do=find with input
       {"query": "..."}, do=reverse with a latitude and longitude, or do=nearby with a kind such as
-      cafe and a place. One that takes feedback takes do=ask with input {"question": "...", "context":
+      cafe and a place. One that keeps pages from the web takes do=snapshot with input {"url": "https://..."}
+      to keep a page now, and do=watch with the same input to put it on the watchlist that each sync takes
+      again; do=unwatch takes it off. One that takes feedback takes do=ask with input {"question": "...", "context":
       "...", "wanted": "..."}: use it for anything no tool here could answer or do, say what would have
       helped, and carry on; it always answers that it cannot. do=types lists what can be attached and the settings each type takes, and
       do=attach with a new key and input {"type": "...", "settings": {...}, "via": "..."} attaches
@@ -80,7 +82,8 @@ module Tool
     SAID = {
       "list" => "listed the places", "types" => "listed the types of place", "attach" => "attached", "change" => "changed", "describe" => "looked at", "runs" => "looked at the runs of",
       "check" => "checked", "sync" => "synced", "cancel" => "cancelled a run on", "export" => "exported to",
-      "keep" => "kept a page through", "snapshot" => "snapshotted a page through", "put" => "stored a file in",
+      "keep" => "kept a page through", "snapshot" => "snapshotted a page through",
+      "watch" => "watched a page through", "unwatch" => "stopped watching a page through", "put" => "stored a file in",
       "parameters" => "read the parameters of"
     }.freeze
 
@@ -95,7 +98,7 @@ module Tool
       when "default" then "made #{place} the default#{" for #{given['for']}" if given['for'].present?}"
       when "search" then "searched the web for #{given['query']} through #{place}"
       when "get" then given["url"].present? ? "read #{given['url']} through #{place}" : "asked #{place} for something"
-      when "keep", "snapshot" then "#{SAID[verb].delete_suffix(' through')} #{given['url']} through #{place}".squish
+      when "keep", "snapshot", "watch", "unwatch" then "#{SAID[verb].delete_suffix(' through')} #{given['url']} through #{place}".squish
       else "#{SAID.fetch(verb, "asked #{verb} of")} #{place}"
       end
     end
@@ -120,7 +123,7 @@ module Tool
       when "runs" then { runs: ::Run.where(resource: resource).newest_first.limit(20).map { |run| run_told(run) } }
       when "cancel" then cancelled(given)
       when "export" then exported(resource, given)
-      when "keep", "snapshot" then kept(resource, verb, given)
+      when "keep", "snapshot", "watch", "unwatch" then kept(resource, verb, given)
       else resource.command(verb, given)
       end
     end

@@ -78,7 +78,10 @@ class Resource
       end
 
       def blank?(value)
-        value.nil? || (value.respond_to?(:strip) && value.strip.empty?)
+        return true if value.nil?
+        return value.strip.empty? if value.respond_to?(:strip)
+
+        value.respond_to?(:empty?) && value.empty?
       end
 
       def place(held, name, value)
@@ -88,10 +91,17 @@ class Resource
         steps.reduce(held) { |nest, step| nest[step] ||= {} }[leaf] = value
       end
 
+      def listed(raw)
+        entries = raw.is_a?(Array) ? raw : raw.to_s.split(/\s+/)
+
+        entries.map { |entry| entry.to_s.strip }.reject(&:empty?).uniq
+      end
+
       def cast(raw, kind)
         case kind
         when "integer" then raw.to_s.strip.to_i
         when "boolean" then ActiveModel::Type::Boolean.new.cast(raw)
+        when "list" then listed(raw)
         else raw.to_s.strip
         end
       end

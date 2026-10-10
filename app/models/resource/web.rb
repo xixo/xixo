@@ -7,18 +7,26 @@ class Resource
     PREFIX = "snapshots"
     MAX_TEXT = 100_000
     LIST = 200
+    WATCHING = 100
+    LONGEST = 2_048
 
     serves :browser
+
+    before_validation :settle_watchlist
+    validate :every_watched_address_is_one
 
     def self.attaching
       {
         label: "The web",
         blurb: "What renders an address into a page you keep. One is enough for a tenant — " \
-               "snapshots go to your default storage.",
+               "snapshots go to your default storage. Pages on its watchlist are taken again each sync.",
         names: "A name for it",
         fields: [
           field("width", "Render width", kind: "integer", value: "1280",
-                help: "How wide the window is when the page is taken.")
+                help: "How wide the window is when the page is taken."),
+          field("watchlist", "Watchlist", kind: "list", placeholder: "https://example.com/changelog",
+                help: "Addresses to take again on every sync, one per line. A page that changes " \
+                      "becomes a new version of its item. Left empty, it only snapshots on request.")
         ]
       }
     end
@@ -27,8 +35,36 @@ class Resource
       {
         snapshot: { url: "string", width: "integer?", full_page: "boolean?" },
         list: { limit: "integer?" },
-        get: { url: "string" }
+        get: { url: "string" },
+        watch: { url: "string" },
+        unwatch: { url: "string" }
       }
+    end
+
+    def watchlist
+      Array(details.to_h["watchlist"]).map { |url| url.to_s.strip }.compact_blank.map { |url| canonical(url) }.uniq
+    end
+
+    def syncable?
+      watchlist.any?
+    end
+
+    def each_page(cursor: nil, prefix: nil, walk: nil)
+      pending = watchlist
+      pending = pending.drop(pending.index(cursor) + 1) if cursor.present? && pending.include?(cursor)
+
+      pending.each { |url| yield [ url ], url }
+    end
+
+    def keep!(url, cause: "sync")
+      reference = snapshot!(url)
+      reference.update_columns(seen_at: Time.current, gone_at: nil) if cause == "sync"
+      reference
+    rescue Snapshot::Unavailable => e
+      raise Resource::Unusable, "#{key}: #{e.message}"
+    rescue Snapshot::Failed, PublicAddress::Blocked, PublicAddress::Unresolvable => e
+      references.find_by(locator_key: canonical(url))&.update_columns(seen_at: Time.current) if cause == "sync"
+      raise Resource::Skipped, "#{url}: #{e.message}"
     end
 
     def check!
@@ -102,9 +138,29 @@ class Resource
       count = (limit || 50).to_i.clamp(1, LIST)
 
       {
+        "watching" => watchlist,
         "snapshots" => references.order(created_at: :desc).limit(count)
                                  .map { |reference| summary(reference.locator) }
       }
+    end
+
+    def command_watch(url:)
+      watching = canonical(url.to_s.strip)
+      self.details = details.to_h.merge("watchlist" => (watchlist + [ watching ]).uniq)
+      raise Resource::Refused, errors.full_messages.to_sentence unless save
+
+      { "watching" => watchlist }
+    end
+
+    def command_unwatch(url:)
+      dropped = canonical(url.to_s.strip)
+      raise Gone, "#{key}: #{url} is not on the watchlist" unless watchlist.include?(dropped)
+
+      self.details = details.to_h.merge("watchlist" => watchlist - [ dropped ])
+      self.sync_interval = nil if watchlist.empty?
+      raise Resource::Refused, errors.full_messages.to_sentence unless save
+
+      { "watching" => watchlist }
     end
 
     def command_get(url:)
@@ -118,6 +174,43 @@ class Resource
 
       def references
         Reference.where(resource_id: id)
+      end
+
+      def settle_watchlist
+        return unless details.to_h.key?("watchlist")
+
+        settled = watchlist
+        self.details = settled.empty? ? details.to_h.except("watchlist") : details.to_h.merge("watchlist" => settled)
+      end
+
+      def every_watched_address_is_one
+        if watchlist.size > WATCHING
+          errors.add(:base, "a watchlist holds at most #{WATCHING} addresses")
+        end
+
+        watchlist.each do |url|
+          refusal = refusal_for(url)
+          errors.add(:base, "#{url.truncate(200)} #{refusal}") if refusal
+        end
+      end
+
+      def refusal_for(url)
+        return "is longer than #{LONGEST} characters" if url.length > LONGEST
+
+        uri = URI.parse(url)
+        return "is not an http or https address" unless uri.is_a?(URI::HTTP) && uri.hostname.present?
+        return "carries a username or password" if uri.userinfo.present?
+
+        literal = literal_address(uri.hostname)
+        "is not a public address" if literal && !PublicAddress.allowed? && PublicAddress.reserved?(literal)
+      rescue URI::InvalidURIError
+        "is not an address"
+      end
+
+      def literal_address(host)
+        IPAddr.new(host)
+      rescue IPAddr::Error
+        nil
       end
 
       def record!(capture)

@@ -119,8 +119,8 @@ in a run its owner started. See [whose resources a run reaches](/concepts/agents
 
 ## Syncing
 
-A type that implements `each_page` can sync. A type that does not, such as `web`, can neither sync
-nor have a schedule. `sync_interval` is at least one minute, and `ScheduleSyncsJob` checks every
+A type that implements `each_page` can sync. A type that does not can neither sync nor have a
+schedule. A `web` resource syncs only while its watchlist holds an address. `sync_interval` is at least one minute, and `ScheduleSyncsJob` checks every
 minute for resources that are due.
 
 Starting a sync claims the resource with a single conditional update, so two workers cannot both

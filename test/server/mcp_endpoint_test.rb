@@ -146,6 +146,25 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     assert bare.dig("result", "isError")
   end
 
+  test "a web resource's watchlist is changed with the command scope, and keeping pages alone cannot" do
+    Tenant.switch(@tenant) { Resource::Web.create!(key: "watcher", name: "Watcher") }
+
+    assert_not_includes tool_schema(%w[xixo:resources:read xixo:web:keep], "resource").dig("properties", "do", "enum"), "watch"
+
+    refused = call(@tenant, %w[xixo:resources:read xixo:web:keep], "tools/call",
+                   name: "resource", arguments: { key: "watcher", do: "watch", input: { url: "https://example.com/news" } })
+    assert refused.dig("result", "isError")
+
+    watched = tool(@tenant, ALL, "resource", key: "watcher", do: "watch", input: { url: "https://example.com/news" })
+
+    assert_equal [ "https://example.com/news" ], watched["watching"]
+    Tenant.switch(@tenant) { assert Resource.find_by!(key: "watcher").syncable? }
+
+    unwatched = tool(@tenant, ALL, "resource", key: "watcher", do: "unwatch", input: { url: "https://example.com/news" })
+
+    assert_empty unwatched["watching"]
+  end
+
   test "search returns this tenant's feeds and never another's" do
     result = tool(@tenant, ALL, "search", query: "invoice")
 

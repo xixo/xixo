@@ -106,6 +106,14 @@ cut off at 20,000 pixels high. The PNG must be under 25 MB, and the whole render
 would render a different page. The reference is keyed by the URL without its fragment, and the feed
 takes the page's title.
 
+A `web` resource can also keep a watchlist of addresses in `details["watchlist"]`. Each sync
+snapshots every address on it, one page per address, so a sync resumes after the last address it
+took. Each snapshot's version is a digest of its PNG, so a page that renders differently becomes a
+new version of the same reference and is analyzed again. An address that fails to render raises
+`Resource::Skipped`. The sync logs it, keeps its reference from being marked gone, and moves on. A
+missing browser stops the sync with `Resource::Unusable`. See
+[watch pages on the web](/guides/attach-a-resource/#watch-pages-on-the-web).
+
 ## Sync
 
 `Resource#sync!` claims the resource, so only one sync runs for it at a time, and starts a `sync`

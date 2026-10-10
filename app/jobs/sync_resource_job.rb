@@ -64,12 +64,18 @@ class SyncResourceJob < ApplicationJob
   def each_iteration(object, tenant_id, resource_id, _run_id = nil)
     return track_iteration if dry_run?
 
-    resource_for(resource_id).keep!(object)
+    kept(resource_for(resource_id), object)
 
     track_iteration
   end
 
   private
+
+    def kept(resource, object)
+      resource.keep!(object)
+    rescue Resource::Skipped => e
+      run&.log_skip("sync", e.message)
+    end
 
     def release_sync
       return abandon_sync if stopped?

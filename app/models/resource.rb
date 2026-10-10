@@ -4,6 +4,7 @@ class Resource < ApplicationRecord
   end
 
   class Unusable < Failed; end
+  class Skipped < Failed; end
   class Refused < ArgumentError; end
 
   include TenantScoped

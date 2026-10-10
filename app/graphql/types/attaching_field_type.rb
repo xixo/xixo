@@ -6,7 +6,7 @@ module Types
 
     field :name, String, null: false
     field :label, String, null: false
-    field :kind, String, null: false, description: "string, integer, boolean or choice."
+    field :kind, String, null: false, description: "string, integer, boolean, choice, or list. A list is set as one entry per line and read back as an array."
     field :required, Boolean, null: false
     field :secret, Boolean, null: false, description: "Masked here, encrypted there, never read back."
     field :value, String, description: "What it holds until something is typed."

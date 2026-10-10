@@ -19,7 +19,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | [`carddav`](#carddav) | — | yes |
 | [`imap`](#imap) | — | yes |
 | [`rss`](#rss) | — | yes |
-| [`web`](#web) | `browser` |  |
+| [`web`](#web) | `browser` | yes |
 | [`openai-compatible`](#openai-compatible) | `inference` |  |
 | [`oauth-google`](#oauth-google) | `integration` |  |
 | [`database`](#database) | `storage` | yes |
@@ -256,14 +256,14 @@ A feed. An RSS or Atom feed. Each entry becomes an item.
 
 ## web
 
-The web. What renders an address into a page you keep. One is enough for a tenant — snapshots go to your default storage.
+The web. What renders an address into a page you keep. One is enough for a tenant — snapshots go to your default storage. Pages on its watchlist are taken again each sync.
 
 |  |  |
 | --- | --- |
 | Serves | `browser` |
 | Accepts | — |
 | Up to | — |
-| Syncs | no |
+| Syncs | yes |
 | Connected through masks | no |
 | Reached through a transport | no |
 | Attached from the app | yes |
@@ -273,6 +273,7 @@ The web. What renders an address into a page you keep. One is enough for a tenan
 | Field | Label | Kind | Required | Held | Asked when | Help |
 | --- | --- | --- | --- | --- | --- | --- |
 | `width` | Render width | integer |  |  |  | How wide the window is when the page is taken. |
+| `watchlist` | Watchlist | list |  |  |  | Addresses to take again on every sync, one per line. A page that changes becomes a new version of its item. Left empty, it only snapshots on request. |
 
 ### Commands
 
@@ -281,6 +282,8 @@ The web. What renders an address into a page you keep. One is enough for a tenan
 | `snapshot` | `url: string` `width: integer?` `full_page: boolean?` |
 | `list` | `limit: integer?` |
 | `get` | `url: string` |
+| `watch` | `url: string` |
+| `unwatch` | `url: string` |
 
 ## openai-compatible
 

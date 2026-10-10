@@ -38,7 +38,7 @@ The fields for every type, with their help text, are listed in the
 | **WebDAV** | `webdav` | **Collection URL**, and a username and password if the server wants them |
 | **Web search** | `search` | **Provider** (`exa`, `brave`, or `tavily`) and **API key** |
 | **Fetch a page** | `curl` | Nothing |
-| **The web** | `web` | Optionally **Render width** |
+| **The web** | `web` | Optionally **Render width** and a **Watchlist** |
 | **A feed** | `rss` | **Feed URL** |
 | **Weather** | `weather` | **Provider** and **Units**, and an **API key** for Open-Meteo's paid service |
 | **Places** | `places` | Nothing, or your own **Search server** and **Nearby server** |
@@ -122,6 +122,26 @@ sync button to start one now. See [syncing](/concepts/resources/#syncing).
 3. Choose **Save it**.
 
 The type and the name cannot be changed. The resource is checked again after saving.
+
+## Watch pages on the web
+
+A `web` resource with a **Watchlist** takes each address on it again every time it syncs. A page
+that changed becomes a new version of its item.
+
+1. Choose **Change** from the **⋯** menu on the **The web** card.
+2. Enter addresses under **Watchlist**, one per line.
+3. Choose **Save it**.
+
+The card then shows a schedule and a sync button. Each address must be `http` or `https`, carry no
+username or password, and name a host. A host written as a private or reserved IP address is
+refused unless `XIXO_ALLOW_PRIVATE_FETCH` is set, and every host is checked again on each request
+the page makes. A watchlist holds up to 100 addresses.
+
+An address taken off the watchlist is marked gone after the next sync. An address that fails to
+render is skipped and logged in the run, and the sync carries on with the rest. Emptying the
+watchlist of a resource that has a schedule is refused until the schedule is cleared. An agent
+adds an address with the `resource` tool's `watch` command and takes one off with `unwatch`.
+Taking the last address off with `unwatch` also clears the schedule.
 
 ## A personal resource
 

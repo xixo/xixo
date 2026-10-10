@@ -9,6 +9,7 @@ import {
   Select,
   Stack,
   Text,
+  Textarea,
   TextInput,
 } from '@mantine/core'
 import {
@@ -174,6 +175,7 @@ function seeded(type: Attaching, editing?: Editing): Typed {
       const held = editing?.settings[field.name]
 
       if (editing?.heldCredentials.includes(field.name)) return [field.name, '']
+      if (Array.isArray(held)) return [field.name, held.join('\n')]
       if (held !== undefined && held !== null)
         return [field.name, typeof held === 'boolean' ? held : `${held}`]
 
@@ -596,6 +598,25 @@ function Asked({
           value: option.value,
           label: option.label,
         }))}
+      />
+    )
+  }
+
+  if (field.kind === 'list') {
+    return (
+      <Textarea
+        size="md"
+        label={field.label}
+        description={field.help}
+        placeholder={field.placeholder ?? undefined}
+        withAsterisk={field.required}
+        autosize
+        minRows={3}
+        maxRows={12}
+        spellCheck={false}
+        autoComplete="off"
+        value={typeof value === 'string' ? value : ''}
+        onChange={(event) => onChange(event.currentTarget.value)}
       />
     )
   }
