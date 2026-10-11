@@ -43,10 +43,13 @@ xixo stores where each file lives and what its analysis found. The bytes stay in
 ```yaml
 x-xixo: &xixo
   image: ghcr.io/xixo/xixo:latest
+  restart: unless-stopped
   environment:
     POSTGRES_HOST: postgres
     XIXO_DATABASE_PASSWORD: ...
     OPENSEARCH_URL: http://opensearch:9200
+    OPENSEARCH_USERNAME: admin
+    OPENSEARCH_PASSWORD: ...
     SECRET_KEY_BASE: ...
     ENCRYPTION_PRIMARY_KEY: ...
     ENCRYPTION_DETERMINISTIC_KEY: ...
@@ -63,35 +66,80 @@ x-xixo: &xixo
 services:
   xixo:
     <<: *xixo
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 180s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
     depends_on:
-      - postgres
-      - opensearch
+      postgres:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
 
   worker:
     <<: *xixo
     command: ["./bin/jobs"]
+    healthcheck:
+      test: ["CMD", "bin/jobs-healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          memory: 6g
     depends_on:
-      - xixo
+      xixo:
+        condition: service_healthy
 
   postgres:
     image: postgres:17-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: ...
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 1g
     volumes:
       - postgres:/var/lib/postgresql/data
       - ./initdb:/docker-entrypoint-initdb.d:ro
 
   opensearch:
-    image: opensearchproject/opensearch:2.11.0
+    image: opensearchproject/opensearch:2.19.1
+    restart: unless-stopped
     environment:
       discovery.type: single-node
-      plugins.security.disabled: "true"
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ...
+      plugins.security.ssl.http.enabled: "false"
       OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -u \"admin:$${OPENSEARCH_INITIAL_ADMIN_PASSWORD}\" http://localhost:9200/_cluster/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    deploy:
+      resources:
+        limits:
+          memory: 1536m
     volumes:
       - opensearch:/usr/share/opensearch/data
 
   caddy:
     image: caddy:2-alpine
+    restart: unless-stopped
     ports:
       - "443:443"
       - "80:80"
@@ -122,9 +170,21 @@ CREATE ROLE xixo WITH LOGIN PASSWORD '...' CREATEDB;
 }
 ```
 
-Keep Postgres and OpenSearch on a network that only xixo and the proxy can reach. The OpenSearch
-security plugin is off in this file, so anything that can reach port 9200 can read every tenant's
-index.
+What the file does:
+
+- **OpenSearch asks for a password.** `OPENSEARCH_INITIAL_ADMIN_PASSWORD` sets the `admin` password
+  when the volume is first created, and it must be strong or OpenSearch refuses to start. xixo signs
+  in with `OPENSEARCH_USERNAME` and `OPENSEARCH_PASSWORD`. Traffic between the containers stays plain
+  HTTP, so keep Postgres and OpenSearch on a network that only xixo can reach, and publish no port
+  for either.
+- **The worker starts after the web container is healthy.** The web container migrates the
+  databases before it answers `/up`, so the worker never runs against a schema it does not know.
+- **Every service restarts** unless it was stopped by hand.
+- **Memory is capped.** OpenSearch gets three times its heap. The worker gets 6 GB, because each
+  program it runs on a file may hold up to 4 GB. Raise both for a large catalog.
+- **Chromium keeps its sandbox.** The image runs as an unprivileged user, and Docker's default seccomp
+  profile gives Chromium the namespaces its sandbox needs. Leave `XIXO_CHROME_NO_SANDBOX` unset, and
+  never run the worker privileged.
 
 ## The database role
 
