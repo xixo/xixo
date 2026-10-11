@@ -36,6 +36,7 @@ import { FeedHead } from './FeedHead'
 import { Lost } from './Lost'
 import { type Row, Rows, type View } from './Rows'
 import { useAloud, useSay } from './Say'
+import { Setup } from './Setup'
 import { useUploads } from './Uploads'
 
 const PAGE = 40
@@ -208,6 +209,8 @@ function Listing({
 
   return (
     <Stack gap="var(--s5)">
+      {!searching && !feed && !type && <Setup />}
+
       {searching && !feed && (
         <div className="panel">
           <AskAbout term={term} />

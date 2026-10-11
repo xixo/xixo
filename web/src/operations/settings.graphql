@@ -19,3 +19,11 @@ mutation SetSetting($key: String!, $value: String!) {
     }
   }
 }
+
+query Setup {
+  setup {
+    storage
+    inference
+    client
+  }
+}

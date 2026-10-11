@@ -24,6 +24,16 @@ class Setting < ApplicationRecord
       unit: nil
     ),
     Definition.new(
+      key: "setup_checklist",
+      level: :personal,
+      default: "shown",
+      allowed: %w[shown hidden],
+      label: "Setup checklist",
+      note: "The catalog lists what a new install still needs until storage, a model server, and an MCP " \
+            "client are all in place.",
+      unit: nil
+    ),
+    Definition.new(
       key: "thumbnail_size",
       level: :shared,
       default: "320",

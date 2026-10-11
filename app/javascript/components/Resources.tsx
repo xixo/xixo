@@ -34,7 +34,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import {
   ArchiveResourceDocument,
   CheckResourceDocument,
@@ -199,7 +199,8 @@ export function Resources() {
     })
     refetch()
   }
-  const [attaching, setAttaching] = useState(false)
+  const [params] = useSearchParams()
+  const [attaching, setAttaching] = useState(params.has('attach'))
   const [editing, setEditing] = useState<Editing | null>(null)
   const [history, setHistory] = useState<Resource | null>(null)
   const arrived = useRef<HTMLElement | null>(null)

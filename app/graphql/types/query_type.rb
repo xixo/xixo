@@ -16,6 +16,13 @@ module Types
       context[:grant].administers?
     end
 
+    field :setup, Types::SetupType, null: false, grants: "xixo:resources:read",
+          description: "What a new install still needs: storage, a model server, and an MCP client."
+
+    def setup
+      {}
+    end
+
     field :settings, [ Types::SettingType ], null: false, grants: "xixo:settings:read"
 
     def settings
