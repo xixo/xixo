@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.1](https://github.com/xixo/xixo/compare/client-v0.5.0...client-v0.5.1) (2026-10-11)
+
+
+### Fixes
+
+* **client:** a failed query, mutation, or subscription says what went wrong without urql's [Network] or [GraphQL] prefix ([b0d69b2](https://github.com/xixo/xixo/commit/b0d69b2734a28f6dd1b53e01194f1378e7861a21))
+
+
+### Refactoring
+
+* run history subscribes only while a run is running and an open log follows its own run, the checklist reads Catalog's settings and is not asked for once hidden, health checks live in one model with one worker threshold, and the offline worker caches only its page ([0de2b68](https://github.com/xixo/xixo/commit/0de2b68fd0e2a0410190030667e680e748c9e638))
+
 ## [0.5.0](https://github.com/xixo/xixo/compare/client-v0.4.1...client-v0.5.0) (2026-10-11)
 
 
