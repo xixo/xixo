@@ -77,7 +77,10 @@ SUITES = %w[unit server corpus].freeze
 UNPINNED = [ "-e", "XIXO_TENANT=", "-e", "XIXO_TENANTS=" ].freeze
 
 def suite(name, multi)
-  return run(*compose("exec", "-T", "xixo", "npm", "test", multi: multi)) if name == "client"
+  if name == "client"
+    built = "bin/rails graphql:dump_schema && npm run codegen && npm run build:sdk && npm test"
+    return run(*compose("exec", "-T", "xixo", "sh", "-c", built, multi: multi))
+  end
 
   run(*compose("exec", "-T", *UNPINNED, "xixo", "bin/rails", "test", "test/#{name}", multi: multi))
 end
