@@ -3,6 +3,7 @@ require "mail"
 module Analyzer
   class Email < Base
     HEADERS = %w[from to cc subject date message_id].freeze
+    EARLIER = "Earlier in the thread".freeze
 
     def self.handles?(feed)
       feed.mime == "message/rfc822"
@@ -34,11 +35,16 @@ module Analyzer
       message = parse
 
       headers = step(:headers) { headers_of(message) }
+      step(:thread) { thread_of(message) }
       step(:attachments) { attachments_of(message) }
-      step(:text, digest: "#{WRITTEN_AS}, #{Markup::READ_AS}") { capped([ headed(headers), body_of(message) ].compact_blank.join("\n\n")) }
+
+      written = nil
+      writing = -> { written ||= written_out(headers, message) }
+      step(:outline, digest: WRITTEN_AS) { writing.call.last }
+      step(:text, digest: "#{WRITTEN_AS}, #{Markup::READ_AS}") { capped(writing.call.first) }
     end
 
-    WRITTEN_AS = "headers, then the body".freeze
+    WRITTEN_AS = "headers, then the new text, then what it quotes under #{EARLIER}".freeze
     SHOWN = %w[from to cc date subject].freeze
 
     def headed(headers)
@@ -49,6 +55,8 @@ module Analyzer
       headers = step_result(:headers) || {}
       body = step_result(:text).to_s
       return super if body.blank? && headers.blank?
+
+      body = body.split("\n## #{EARLIER}\n").first.to_s
 
       attached = children_summaries
 
@@ -80,6 +88,23 @@ module Analyzer
         Mail.read_from_string(reference.download.read.force_encoding("UTF-8").scrub)
       rescue StandardError => e
         raise Analyzer::Failed, "unreadable message: #{e.message.truncate(200)}"
+      end
+
+      def written_out(headers, message)
+        said = Quoted.split(body_of(message))
+        head = [ headed(headers), said.fresh ].compact_blank.join("\n\n")
+        outline = [ { "name" => "Message from #{headers['from'] || 'its sender'}", "from" => 0 } ]
+        return [ head, outline ] if said.earlier.nil?
+
+        outline << { "name" => EARLIER, "from" => head.length + 2 }
+        [ "#{head}\n\n## #{EARLIER}\n\n#{said.earlier}", outline ]
+      end
+
+      def thread_of(message)
+        ids = [ message.message_id, *Array(message.in_reply_to), *Array(message.references) ]
+        { "ids" => ids.compact.map { |id| id.to_s.delete("<>").strip }.compact_blank.uniq }
+      rescue StandardError
+        { "ids" => [] }
       end
 
       def headers_of(message)

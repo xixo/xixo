@@ -31,6 +31,11 @@ module Types
 
     field :connected_count, Integer, null: false
     field :connected, [ Types::FeedType ], null: false
+    field :thread, [ Types::FeedType ], null: false,
+          description: "The messages of an email's thread that this token can read, oldest first, this one " \
+                       "included. Empty for anything that is not an email with others in its thread."
+    field :sent_at, GraphQL::Types::ISO8601DateTime,
+          description: "When an email says it was sent."
     field :tags, [ Types::FeedType ], null: false,
           description: "The tags it is filed under: those a person or agent chose, and those its analysis found in it. " \
                        "The tags most items share come first."
@@ -83,6 +88,10 @@ module Types
 
     def children
       object.children.readable_by(context[:grant]).limit(CONNECTED)
+    end
+
+    def thread
+      object.in_thread(context[:grant])
     end
 
     def connected

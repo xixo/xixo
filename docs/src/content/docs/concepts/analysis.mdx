@@ -112,6 +112,14 @@ takes its text from the PDF.
 HTML in an email, an RSS or Atom entry, or a file read as text keeps its structure the same way. Each
 `h1` to `h6` becomes a markdown heading, and each paragraph, list item, and table row starts a line.
 
+`Email` writes the sender, recipients, date, and subject, then the message's own text. A reply's
+quoted history, found by an `On … wrote:` line, a `-----Original Message-----` line, an Outlook
+header block, or `>` lines that run to the end, goes under a section named **Earlier in the thread**,
+so a passage holds either what this message says or what it quotes, and the summary is written from
+the message's own text. The `thread` step keeps the message's Message-ID, In-Reply-To, and References.
+Every message that shares one of them is in the same thread, and the `thread` field on a feed and the
+`feed` tool list the thread's messages the reader can read, oldest first, each with its sender.
+
 `Calendar` writes one line for each event, with its title, its date the way a person reads it, its
 place, and its description, and `Contact` writes one line for each contact. Each line is a section of
 the outline, named by the event's title and date or the contact's name, so a passage holds one event

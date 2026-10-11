@@ -164,6 +164,12 @@ module Tool
       told(made!(feed))
     end
 
+    def self.threaded(message)
+      headers = message.analysis&.step_result("headers").to_h
+
+      { id: message.id.to_s, from: headers["from"], date: headers["date"], subject: headers["subject"] }.compact
+    end
+
     def self.staged(feed)
       held = feed.staged
       return nil if held.nil?
@@ -187,6 +193,7 @@ module Tool
           tags: feed.tags.map(&:key),
           mimes: feed.mimes.map(&:key),
           staged: staged(feed),
+          thread: feed.in_thread(Current.grant).map { |message| threaded(message) }.presence,
           connected: feed.connected.readable_by(Current.grant).limit(50).map { |held| { id: held.id.to_s, key: held.key } },
           steps: steps.except(*SHOWN_ELSEWHERE).transform_values { |step|
             step.key?("error") ? { "error" => step["error"]["message"] } : gist(step["result"])

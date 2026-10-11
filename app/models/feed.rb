@@ -314,6 +314,27 @@ class Feed < ApplicationRecord
     Feed.connected_to(self)
   end
 
+  def thread
+    ids = analysis&.step_result("thread").to_h["ids"]
+    return Feed.none if ids.blank?
+
+    sharing = Analysis.settled.where("jsonb_exists_any(steps -> 'thread' -> 'result' -> 'ids', ARRAY[?]::text[])", ids)
+    Feed.where(id: sharing.select(:feed_id))
+  end
+
+  def sent_at
+    Time.zone.parse(analysis&.step_result("headers").to_h["date"].to_s)
+  rescue ArgumentError
+    nil
+  end
+
+  def in_thread(grant)
+    held = thread.readable_by(grant).includes(:analyses).to_a
+    return [] if held.size < 2
+
+    held.sort_by { |message| [ message.sent_at || message.created_at, message.id ] }
+  end
+
   def tags
     connected.tags
   end

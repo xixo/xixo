@@ -383,9 +383,11 @@ Resolves only for a token carrying `xixo:catalog:read`.
 | `parent` | [`Feed`](#feed) | The file it was extracted from, when it was. |
 | `references` | [`[Reference!]!`](#reference) |  |
 | `schedule` | [`Schedule`](#schedule) |  |
+| `sentAt` | `ISO8601DateTime` | When an email says it was sent. |
 | `staged` | `Boolean!` | Uploaded, and still waiting for the pass to decide where it is stored. |
 | `summary` | `String` | What a model made of it, or until one has, the start of the text read out of it. |
 | `tags` | [`[Feed!]!`](#feed) | The tags it is filed under: those a person or agent chose, and those its analysis found in it. The tags most items share come first. |
+| `thread` | [`[Feed!]!`](#feed) | The messages of an email's thread that this token can read, oldest first, this one included. Empty for anything that is not an email with others in its thread. |
 | `thumbnailUrl` | `String` |  |
 | `timeAllowed` | `Int!` | Seconds an analysis of it may run before it is cut off, unless the agent asks for more, and never more than a day. |
 | `timeout` | `Int` | Seconds an analysis of it may run, when someone set it. Null gets the default. |
