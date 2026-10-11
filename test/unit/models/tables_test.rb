@@ -75,6 +75,24 @@ class TablesTest < ActiveSupport::TestCase
     assert_equal 2, Tables.compute([ ledger ], { op: "count", where: [ [ "Amount", "<", "-35" ] ] })["value"]
   end
 
+  test "a negative bound on a column that only goes out means more spent than it, as the signs say" do
+    ledger = Tables.framed("ledger.csv", LEDGER)
+
+    over = Tables.compute([ ledger ], { op: "sum", column: "Amount", where: [ [ "Amount", "<", "-35" ] ] })["value"]
+    under = Tables.compute([ ledger ], { op: "sum", column: "Amount", where: [ [ "Amount", ">=", "-35" ] ] })["value"]
+
+    assert_in_delta(-1100.35, over)
+    assert_in_delta(-13.5, under)
+  end
+
+  test "a date is compared as a date, so a quarter narrows a ledger" do
+    ledger = Tables.framed("ledger.csv", LEDGER)
+
+    august = Tables.compute([ ledger ], { op: "count", where: [ [ "Date", ">=", "2026-08-01" ], [ "Date", "<", "2026-09-01" ] ] })
+
+    assert_equal 3, august["value"]
+  end
+
   test "a table's shape is its columns, two rows, and what its columns hold, never every row" do
     shape = Tables.shape(Tables.framed("ledger.csv", LEDGER))
 

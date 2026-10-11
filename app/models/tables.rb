@@ -3,6 +3,8 @@ module Tables
   HEADER_WITHIN = 10
   TOTALLED = /\A\s*(sub)?totals?\b/i
   OPS = %w[sum count average min max].freeze
+  DAY = /\A\d{4}-\d{2}-\d{2}/
+  FLIPPED = { "<" => ">", ">" => "<", "<=" => ">=", ">=" => "<=" }.freeze
   TESTS = %w[contains equals starts > < >= <=].freeze
   SHOWN = 2
   SPREAD = 4
@@ -105,9 +107,30 @@ module Tables
         else
           held = number(cell)
           bound = number(wanted)
-          held, bound = held&.abs, bound&.abs if sized
-          !held.nil? && !bound.nil? && held.public_send(how, bound)
+          return dated?(cell, how, wanted) if held.nil? || bound.nil?
+
+          if sized
+            how = FLIPPED.fetch(how, how) if bound.negative?
+            held, bound = held.abs, bound.abs
+          end
+
+          held.public_send(how, bound)
         end
+      end
+
+      def dated?(cell, how, wanted)
+        held = day(cell)
+        bound = day(wanted)
+        !held.nil? && !bound.nil? && held.public_send(how, bound)
+      end
+
+      def day(value)
+        text = value.to_s.strip
+        return nil unless text.match?(DAY)
+
+        Date.iso8601(text[DAY])
+      rescue Date::Error
+        nil
       end
 
       def column(table, name)

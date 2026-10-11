@@ -165,7 +165,9 @@ When no resource serves the `agent` role, the `fast` or `smart` model titles the
    arithmetic itself. Each table is listed with its columns and two example rows. `Tables` works it
    out over the rows the analyzer kept, leaving out a row that is already a total. A column whose
    numbers are all zero or less, as a ledger writes money spent, is compared by size, so more than
-   100 means more than 100 either way. The result goes back to the model with how many rows matched,
+   100 means more than 100 either way, and a negative bound keeps its sign's meaning, so less than
+-100 also means more than 100 spent. A value written as a date, such as `2026-07-01`, is compared as
+a date, so a test can narrow a ledger to a month or a quarter. The result goes back to the model with how many rows matched,
    the values they hold most often, and each number column's range, over the whole table when
    nothing matched. The model may ask once more with better tests before it answers.
 4. **Check.** An answer that leaves out the figure a computation gave it is sent back once with the

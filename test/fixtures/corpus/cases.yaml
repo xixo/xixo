@@ -51,7 +51,7 @@
   turns:
     - ask: how many transactions over $100 were there in the chequing account last quarter?
       expect:
-        - /\b30\b/
+        - /\b30 (transactions|of them)|\bwere 30\b|\b30\.$|^30\b/i
 
 - id: brightline-paid
   source: ["chequing-q3-2026.csv"]
