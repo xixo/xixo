@@ -23,8 +23,17 @@ const image = { id: '19', key: 'image.png', title: null }
 
 describe('sorted', () => {
   test('folds one analysis into one run, oldest step first', () => {
-    const connect = event({ analysis: run('7'), workingOn: image, told: 'filed image.png under image' })
-    const read = event({ analysis: run('7'), workingOn: image, action: 'feed', told: 'read image.png' })
+    const connect = event({
+      analysis: run('7'),
+      workingOn: image,
+      told: 'filed image.png under image',
+    })
+    const read = event({
+      analysis: run('7'),
+      workingOn: image,
+      action: 'feed',
+      told: 'read image.png',
+    })
 
     const [entry, ...rest] = sorted([connect, read])
 
@@ -58,7 +67,12 @@ describe('sorted', () => {
       detail: 'invalid_token',
       remoteIp: '10.0.0.1',
     }
-    const entries = sorted([event(refused), event(refused), event(refused), event({ actor: 'person', actorName: 'Jon' })])
+    const entries = sorted([
+      event(refused),
+      event(refused),
+      event(refused),
+      event({ actor: 'person', actorName: 'Jon' }),
+    ])
 
     expect(entries).toHaveLength(2)
     expect(entries[0].kind === 'one' && entries[0].line.times).toBe(3)
@@ -71,7 +85,10 @@ describe('sorted', () => {
     const entries = sorted([...first, ...second])
 
     expect(entries).toHaveLength(1)
-    expect(entries[0].kind === 'run' && entries[0].lines.map((line) => line.event.told)).toEqual(['earlier', 'later'])
+    expect(
+      entries[0].kind === 'run' &&
+        entries[0].lines.map((line) => line.event.told),
+    ).toEqual(['earlier', 'later'])
   })
 })
 

@@ -1,7 +1,7 @@
-import type { RowFragment } from 'xixo'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, test } from 'vitest'
+import type { RowFragment } from 'xixo'
 import { AnswerText } from '../../app/javascript/components/Answer'
 
 const invoice = {
@@ -43,7 +43,9 @@ describe('AnswerText', () => {
   })
 
   test('a link to anything but the web or mail is dropped', () => {
-    const html = render('[click](javascript:alert(1)) and [site](https://example.com)')
+    const html = render(
+      '[click](javascript:alert(1)) and [site](https://example.com)',
+    )
 
     expect(html).not.toContain('javascript:')
     expect(html).toContain('href="https://example.com"')

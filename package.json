@@ -19,13 +19,13 @@
     "@masks/client": "^2.2.0",
     "@rails/actioncable": "^8.1.400",
     "@tabler/icons-react": "^3.48.0",
-    "xixo": "file:./web",
     "@urql/core": "^6.0.3",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.4",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "xixo": "file:./web"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
@@ -33,6 +33,9 @@
     "@graphql-codegen/typed-document-node": "^7.1.1",
     "@graphql-codegen/typescript": "^6.1.0",
     "@graphql-codegen/typescript-operations": "^6.1.9",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@types/node": "^26.6.4",
     "@types/rails__actioncable": "^8.0.3",
     "@types/react": "^19.3.0",
@@ -40,6 +43,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "chokidar-cli": "^3.0.0",
     "graphql": "^17.0.2",
+    "happy-dom": "^20.14.6",
     "playwright": "1.63.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.2",

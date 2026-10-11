@@ -9,6 +9,7 @@
     "includes": [
       "app/javascript/**/*",
       "web/src/**/*",
+      "test/client/**/*",
       "*.ts",
       "*.js",
       "*.json",
