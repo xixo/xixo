@@ -1,0 +1,25 @@
+{
+  "mime": "image/gif",
+  "analyzer": "Analyzer::Image",
+  "error": null,
+  "steps": {
+    "ocr": {
+      "result": ""
+    },
+    "frames": {
+      "result": 3
+    },
+    "location": {
+      "digest": "exiftool"
+    },
+    "deviation": {
+      "result": 27.79696
+    },
+    "dimensions": {
+      "result": {
+        "width": 300,
+        "height": 200
+      }
+    }
+  }
+}

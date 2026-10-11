@@ -1,0 +1,22 @@
+{
+  "mime": "image/heic",
+  "analyzer": "Analyzer::Image",
+  "error": null,
+  "steps": {
+    "ocr": {
+      "result": ""
+    },
+    "location": {
+      "digest": "exiftool"
+    },
+    "deviation": {
+      "result": 18945.702826
+    },
+    "dimensions": {
+      "result": {
+        "width": 1200,
+        "height": 800
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "analyzer": "Analyzer::Doc",
+  "error": null,
+  "steps": {
+    "info": {
+      "result": {
+        "pages": "1",
+        "title": "Condition report",
+        "author": "Bea Okonkwo",
+        "page_size": "595.304 x 841.89 pts (A4)",
+        "creationdate": "Sun Oct 11 21:33:19 2026 UTC"
+      }
+    },
+    "text": {
+      "result": "Condition report\n\nNeedle: DOCX-CONDITION-2841\n\n1. Roof\n\nThe felt at the north corner has lifted. Tacks have pulled clean through the substrate and the overlap is no longer weathertight.\n\n2. Walls\n\nThe east wall shows hairline cracking above both window heads, consistent with historic settlement rather than active movement.\n\n3. Drainage\n\nThe rear gully is blocked with leaf litter. The soakaway could not be located and may have been built over.\n\nPrepared by Bea Okonkwo, 2026-03-14.",
+      "digest": "headings and tables from the document itself, else the pdf's text"
+    }
+  }
+}

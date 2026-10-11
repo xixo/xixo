@@ -1,0 +1,13 @@
+{
+  "mime": "application/pdf",
+  "analyzer": "Analyzer::Pdf",
+  "error": "Analyzer::Failed: pdfinfo failed: Syntax Error: Couldn't find trailer dictionary\nSyntax Error: Couldn't find trailer dictionary\nSyntax Error: Couldn't read xref table\n",
+  "steps": {
+    "info": {
+      "error": {
+        "class": "Analyzer::Failed",
+        "message": "pdfinfo failed: Syntax Error: Couldn't find trailer dictionary\nSyntax Error: Couldn't find trailer dictionary\nSyntax Error: Couldn't read xref table\n"
+      }
+    }
+  }
+}

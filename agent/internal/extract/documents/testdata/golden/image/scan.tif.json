@@ -1,0 +1,22 @@
+{
+  "mime": "image/tiff",
+  "analyzer": "Analyzer::Image",
+  "error": null,
+  "steps": {
+    "ocr": {
+      "result": "RECEIPT\n\nBellwether Hardware Ltd\n14 Bellwether Lane, London\n\nRoofing felt, green mineral 24.99\n\nClout nails, 500g 6.40\nBitumen primer, 2.5L 18.75\nTotal 50.14\n\nOCRRECEIPT-9042\nThank you for your custom"
+    },
+    "location": {
+      "digest": "exiftool"
+    },
+    "deviation": {
+      "result": 38.489178
+    },
+    "dimensions": {
+      "result": {
+        "width": 1000,
+        "height": 700
+      }
+    }
+  }
+}

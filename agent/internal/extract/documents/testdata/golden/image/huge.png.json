@@ -1,0 +1,22 @@
+{
+  "mime": "image/png",
+  "analyzer": "Analyzer::Image",
+  "error": null,
+  "steps": {
+    "ocr": {
+      "result": "PHOTO-BELLWETHER-8123"
+    },
+    "location": {
+      "digest": "exiftool"
+    },
+    "deviation": {
+      "result": 18942.888738
+    },
+    "dimensions": {
+      "result": {
+        "width": 6000,
+        "height": 4000
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "mime": "application/pdf",
+  "analyzer": "Analyzer::Pdf",
+  "error": null,
+  "steps": {
+    "info": {
+      "result": {
+        "pages": "1",
+        "title": "scanned",
+        "author": "https://imagemagick.org",
+        "page_size": "1000 x 700 pts",
+        "creationdate": "Sat Sep  5 14:59:33 2026 UTC"
+      }
+    },
+    "text": {
+      "result": "RECEIPT\n\nBellwether Hardware Ltd\n\n14 Bellwether Lane, London\n\nRoofing felt, green mineral 24.99\n\nClout nails, 500g 6.40\nBitumen primer, 2.5L 18.75\nTotal 50.14\n\nOCRRECEIPT-9042\n\nThank you for your custom",
+      "digest": "text layer, then ocr past 40 characters a page"
+    }
+  }
+}

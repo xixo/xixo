@@ -1,0 +1,20 @@
+{
+  "mime": "application/pdf",
+  "analyzer": "Analyzer::Pdf",
+  "error": null,
+  "steps": {
+    "info": {
+      "result": {
+        "pages": "1",
+        "title": "Invoice 2026-114",
+        "author": "Bellwether Surveying",
+        "page_size": "595 x 842 pts (A4)",
+        "creationdate": "Sat Mar 14 09:30:00 2026 UTC"
+      }
+    },
+    "text": {
+      "result": "Bellwether Surveying\n14 Bellwether Lane, London EC1A 1BB\nInvoice 2026-114\nBilled to: Ash Pemberton, 7 Marchmont Row, Edinburgh\nStructural survey, first visit\n480.00\nRoof inspection, second visit\n260.00\nReport and photographs\n140.00\n--------Total\n880.00\nPayable within 30 days.\nNeedle: PDFINVOICE-4820",
+      "digest": "text layer, then ocr past 40 characters a page"
+    }
+  }
+}

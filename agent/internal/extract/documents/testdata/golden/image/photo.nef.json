@@ -1,0 +1,22 @@
+{
+  "mime": "image/x-dcraw",
+  "analyzer": "Analyzer::Image",
+  "error": null,
+  "steps": {
+    "ocr": {
+      "result": ""
+    },
+    "location": {
+      "digest": "exiftool"
+    },
+    "deviation": {
+      "result": 70.412436
+    },
+    "dimensions": {
+      "result": {
+        "width": 6016,
+        "height": 4016
+      }
+    }
+  }
+}

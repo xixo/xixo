@@ -1,0 +1,22 @@
+{
+  "mime": "image/bmp",
+  "analyzer": "Analyzer::Image",
+  "error": null,
+  "steps": {
+    "ocr": {
+      "result": ""
+    },
+    "location": {
+      "digest": "exiftool"
+    },
+    "deviation": {
+      "result": 73.317537
+    },
+    "dimensions": {
+      "result": {
+        "width": 240,
+        "height": 160
+      }
+    }
+  }
+}

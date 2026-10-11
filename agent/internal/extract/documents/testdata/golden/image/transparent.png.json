@@ -1,0 +1,22 @@
+{
+  "mime": "image/png",
+  "analyzer": "Analyzer::Image",
+  "error": null,
+  "steps": {
+    "ocr": {
+      "result": "elrwetner Lane\n\nPHOTO-BELLWETHER-8123"
+    },
+    "location": {
+      "digest": "exiftool"
+    },
+    "deviation": {
+      "result": 10095.274052
+    },
+    "dimensions": {
+      "result": {
+        "width": 1200,
+        "height": 800
+      }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "mime": "image/webp",
+  "analyzer": "Analyzer::Image",
+  "error": "Analyzer::Failed: vipsheader failed: vips_image_get: field \"n-pages\" not found\n",
+  "steps": {
+    "frames": {
+      "error": {
+        "class": "Analyzer::Failed",
+        "message": "vipsheader failed: vips_image_get: field \"n-pages\" not found\n"
+      }
+    },
+    "deviation": {
+      "result": 41.4924
+    },
+    "dimensions": {
+      "result": {
+        "width": 400,
+        "height": 267
+      }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "mime": "image/vnd.microsoft.icon",
+  "analyzer": "Analyzer::Image",
+  "error": null,
+  "steps": {
+    "ocr": {
+      "result": ""
+    },
+    "location": {
+      "digest": "exiftool"
+    },
+    "deviation": {
+      "result": 82.841245
+    },
+    "dimensions": {
+      "result": {
+        "width": 64,
+        "height": 64
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "mime": "application/pdf",
+  "analyzer": "Analyzer::Pdf",
+  "error": null,
+  "steps": {
+    "info": {
+      "result": {
+        "pages": "5",
+        "title": "Condition report",
+        "author": "Bea Okonkwo",
+        "page_size": "595 x 842 pts (A4)",
+        "creationdate": "Sat Mar 14 09:30:00 2026 UTC"
+      }
+    },
+    "text": {
+      "result": "Condition report\nNeedle: PDFREPORT-7715\nPrepared for Ash Pemberton\n14 Bellwether Lane, Flat 3\n\n\f1. Roof\nThe felt at the north corner has lifted. Tacks have pulled clean\nthrough the substrate and the overlap is no longer weathertight.\nRecommend stripping the north third and relaying on a fresh deck.\n\n\f2. Walls\nThe east wall shows hairline cracking above both window heads,\nconsistent with historic settlement rather than active movement.\nMonitor for twelve months.\n\n\f3. Drainage\nThe rear gully is blocked with leaf litter. The soakaway could\nnot be located and may have been built over.\n\n\f4. Summary\nNo urgent structural concern. Roof covering is the priority item.\nPAGEFIVE-3307",
+      "digest": "text layer, then ocr past 40 characters a page"
+    }
+  }
+}

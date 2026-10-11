@@ -1,0 +1,19 @@
+{
+  "mime": "application/pdf",
+  "analyzer": "Analyzer::Pdf",
+  "error": null,
+  "steps": {
+    "info": {
+      "result": {
+        "pages": "1",
+        "title": "Blank",
+        "page_size": "595 x 842 pts (A4)",
+        "creationdate": "Sat Mar 14 09:30:00 2026 UTC"
+      }
+    },
+    "text": {
+      "result": "",
+      "digest": "text layer, then ocr past 40 characters a page"
+    }
+  }
+}
