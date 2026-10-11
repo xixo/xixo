@@ -54,10 +54,10 @@ class Resource
       write("mode" => FULL, "reached" => nil)
     end
 
-    def reached(checkpoint, first: false)
+    def reached(checkpoint = nil, first: false)
       return if first && state["reached"].present?
 
-      write("reached" => checkpoint)
+      write("reached" => checkpoint || yield)
     end
 
     def partial!

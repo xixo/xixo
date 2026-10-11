@@ -21,7 +21,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | [`rss`](#rss) | — | yes |
 | [`web`](#web) | `browser` | yes |
 | [`openai-compatible`](#openai-compatible) | `inference` |  |
-| [`oauth-google`](#oauth-google) | `integration` |  |
+| [`oauth-google`](#oauth-google) | `integration` | yes |
 | [`database`](#database) | `storage` | yes |
 | [`search`](#search) | `search` |  |
 | [`curl`](#curl) | `fetch` |  |
@@ -326,14 +326,14 @@ A model backend. Anything speaking the OpenAI chat API — ollama, LM Studio, ll
 
 ## oauth-google
 
-Google Drive. Connected through masks with your Google account. masks keeps the tokens and hands xixo a fresh one when it needs it, so no secret is ever typed into xixo.
+Google Drive. Connected through masks with your Google account. masks keeps the tokens and hands xixo a fresh one when it needs it, so no secret is ever typed into xixo. A sync catalogues your files, with Docs, Sheets, Slides, and drawings read as Word, Excel, PDF, and PNG files.
 
 |  |  |
 | --- | --- |
 | Serves | `integration` |
 | Accepts | — |
 | Up to | — |
-| Syncs | no |
+| Syncs | yes |
 | Connected through masks | yes |
 | Reached through a transport | no |
 | Attached from the app | yes |
