@@ -56,9 +56,10 @@ class Passage < ApplicationRecord
     end
 
     def sweep!(limit: CUTS)
-      Feed.where(passages_digest: nil).includes(:analyses, children: :analyses).limit(limit).each { |feed| cut!(feed) }
+      cutting = Feed.where(passages_digest: nil).includes(:analyses, children: :analyses).limit(limit).to_a
+      cutting.each { |feed| cut!(feed) }
 
-      embed!
+      cutting.size + embed!
     end
 
     def embed!(limit: BATCH)

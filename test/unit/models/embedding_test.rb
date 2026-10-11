@@ -64,6 +64,26 @@ class EmbeddingTest < ActiveSupport::TestCase
     end
   end
 
+  test "the sweep keeps going while there is a backlog, past one batch, within its time" do
+    Tenant.switch(@tenant) do
+      (Embedding::BATCH * 2 + 3).times { |index| create_feed(mime: "text/plain", title: "Note #{index}", locator_key: "notes/#{index}.txt") }
+    end
+
+    EmbedItemsJob.perform_now(budget: 1.minute)
+
+    Tenant.switch(@tenant) { assert_empty Feed.unembedded }
+  end
+
+  test "the sweep stops at its time even with a backlog left" do
+    Tenant.switch(@tenant) do
+      (Embedding::BATCH + 3).times { |index| create_feed(mime: "text/plain", title: "Note #{index}", locator_key: "notes/#{index}.txt") }
+    end
+
+    EmbedItemsJob.perform_now(budget: 0.seconds)
+
+    Tenant.switch(@tenant) { assert_equal Embedding::BATCH + 3, Feed.unembedded.count }
+  end
+
   test "a stamp cleared over text that did not move is settled without asking the backend" do
     Tenant.switch(@tenant) do
       create_feed(mime: "application/pdf", title: "March invoice")

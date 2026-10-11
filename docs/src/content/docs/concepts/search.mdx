@@ -112,8 +112,10 @@ When a feed is selected in the catalog, the catalog uses `connectedTo` to list t
 
 ## Embeddings
 
-`EmbedItemsJob` runs every minute in every tenant and embeds up to fifty feeds that have no
-`embedded_at`. The text it embeds is the feed's title, tags, summaries, note, and the first 2,000
+`EmbedItemsJob` runs every minute. It takes the tenants in turn, and in each one embeds a batch of
+up to fifty feeds that have no `embedded_at`, cuts up to fifty feeds into passages, and embeds up to
+64 passages. It goes round again while any tenant has work left, for up to 50 seconds, and only one
+run goes at a time, so a large first sync drains as fast as the model embeds. The text it embeds is the feed's title, tags, summaries, note, and the first 2,000
 characters of its body, up to 8,000 characters in total. xixo stores a digest of that text and the
 model name next to the vector. If the digest has not changed, xixo sets `embedded_at` without
 embedding the feed again. Changing a title or a note, finishing an analysis, or saving a reference
@@ -143,8 +145,7 @@ whole in one of them. A passage that ends at a section starts the next one there
 vector. A digest of the text in `feeds.passages_digest` means a feed is cut again only when its
 text changes.
 
-The same job cuts feeds that have no passages digest, up to fifty a minute, and embeds up to 64
-passages a minute, each with its feed's title and the name of its section before it, such as
+The same job cuts feeds that have no passages digest and embeds their passages, each with its feed's title and the name of its section before it, such as
 `elm-street-pantry-plan.xlsx › Buy List`. The vectors are indexed in their own
 index, `_passages` after the feeds' index name, and every query on it filters by `tenant_id`.
 
