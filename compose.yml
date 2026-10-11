@@ -150,6 +150,12 @@ services:
     command: ["./bin/jobs"]
     restart: unless-stopped
     environment: *env
+    healthcheck:
+      test: ["CMD", "bin/jobs-healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
     depends_on:
       xixo:
         condition: service_healthy

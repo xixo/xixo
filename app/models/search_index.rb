@@ -6,6 +6,7 @@ module SearchIndex
   CANDIDATES = 200
   FUSION_RANK = 60
   LOOSE_MATCH = "60%".freeze
+  HEALTH_WITHIN = "2s".freeze
   LOOSE_AFTER_WORDS = 3
   SEMANTIC_MARGIN = 0.12
   SEMANTIC_FLOOR = ENV.fetch("XIXO_SEMANTIC_FLOOR", "0.55").to_f
@@ -69,7 +70,18 @@ module SearchIndex
 
   class << self
     def client
-      @client ||= OpenSearch::Client.new(url: ENV.fetch("OPENSEARCH_URL", "http://127.0.0.1:9201"))
+      @client ||= OpenSearch::Client.new(url: url, user: ENV["OPENSEARCH_USERNAME"].presence,
+                                         password: ENV["OPENSEARCH_PASSWORD"].presence)
+    end
+
+    def healthy?
+      client.cluster.health(timeout: HEALTH_WITHIN)["status"] != "red"
+    rescue StandardError
+      false
+    end
+
+    def url
+      ENV.fetch("OPENSEARCH_URL", "http://127.0.0.1:9201")
     end
 
     def alias_name

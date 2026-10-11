@@ -356,12 +356,31 @@ inference resource points, outside these containers.
 
 ## Health check
 
-`GET /up` answers `200` when the application has booted. It is served outside any tenant, is
-exempt from the host check, and is not logged.
+`GET /up` checks the database, the search index, the queue, and the workers. It is served outside
+any tenant, is exempt from the host check, and is not logged.
 
 ```sh
 docker compose exec -T xixo curl -fsS http://localhost/up
 ```
+
+```json
+{"status":"ok","checks":{"database":"ok","search":"ok","queue":"ok","worker":"ok"}}
+```
+
+| Check | Fails when |
+| --- | --- |
+| `database` | The primary database does not answer. |
+| `search` | OpenSearch does not answer within two seconds, or its cluster is red. |
+| `queue` | A job has waited more than ten minutes for a worker. |
+| `worker` | No worker has sent a heartbeat in the last three minutes. It always passes with `SOLID_QUEUE_IN_PUMA` set. |
+
+`/up` answers `503` when `database` or `search` fails, and `200` otherwise. A late queue or a quiet
+worker is listed in the body without failing the check, so a restart of the web container does
+not follow from a slow worker.
+
+The worker has a check of its own. `bin/jobs-healthy` exits `0` when a worker on the same host sent
+a heartbeat in the last three minutes, and `1` with the reason when none did. It reads the queue
+database directly and does not boot Rails.
 
 ## Upgrade
 

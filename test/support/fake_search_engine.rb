@@ -46,7 +46,22 @@ class FakeSearchEngine
     end
   end
 
+  Cluster = Struct.new(:engine) do
+    def health(**)
+      raise Errno::ECONNREFUSED, "search" if engine.status.nil?
+
+      { "status" => engine.status }
+    end
+  end
+
+  attr_accessor :status
+
+  def cluster
+    @cluster ||= Cluster.new(self)
+  end
+
   def initialize
+    @status = "yellow"
     @indices = {}
     @documents = {}
     @mappings = {}

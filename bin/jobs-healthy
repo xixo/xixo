@@ -1,0 +1,30 @@
+#!/usr/bin/env ruby
+require "bundler/setup"
+require "erb"
+require "pg"
+require "socket"
+require "yaml"
+
+QUIET = 180
+
+environment = ENV.fetch("RAILS_ENV", "development")
+config = YAML.safe_load(ERB.new(File.read(File.expand_path("../config/database.yml", __dir__))).result, aliases: true)
+queue = config.fetch(environment).fetch("queue")
+
+connection = PG.connect(
+  host: queue["host"], port: queue["port"], dbname: queue["database"],
+  user: queue["username"], password: queue["password"], connect_timeout: 3
+)
+quiet = connection.exec_params(<<~SQL, [ Socket.gethostname ]).getvalue(0, 0)
+  SELECT EXTRACT(EPOCH FROM now() - max(last_heartbeat_at))
+  FROM solid_queue_processes
+  WHERE kind = 'Worker' AND hostname = $1
+SQL
+
+if quiet.nil?
+  warn "no worker on #{Socket.gethostname} has sent a heartbeat"
+  exit 1
+elsif quiet.to_f > QUIET
+  warn "the workers on #{Socket.gethostname} last sent a heartbeat #{quiet.to_f.round}s ago"
+  exit 1
+end

@@ -84,6 +84,8 @@ connects as such a role.
 | Variable | Default | |
 | --- | --- | --- |
 | `OPENSEARCH_URL` | `http://127.0.0.1:9201` | The OpenSearch server that holds the search index. The index's alias is `xixo_` followed by the Rails environment, and each tenant searches through an alias of its own. See [search](/concepts/search/). |
+| `OPENSEARCH_USERNAME` | none | The user xixo signs in to OpenSearch as, when its security plugin is on. |
+| `OPENSEARCH_PASSWORD` | none | The password for `OPENSEARCH_USERNAME`. |
 | `XIXO_EMBEDDING_DIMENSIONS` | `768` | The length of the vectors the index holds. The embedding model a tenant declares must return vectors of this length, and checking an inference resource fails when it does not. Changing it changes the index's mapping, so `RebuildSearchIndexJob` builds a new index at 3 a.m. See [rebuilding](/concepts/search/#rebuilding). |
 | `XIXO_SEMANTIC_FLOOR` | `0.55` | The lowest cosine similarity a semantic match may have. A match must also score within `0.12` of the best match. Raising it returns fewer, closer matches. See [semantic search](/concepts/search/#semantic-search). |
 
