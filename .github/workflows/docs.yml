@@ -37,7 +37,21 @@ jobs:
           cache: npm
           cache-dependency-path: docs/package-lock.json
 
+      - name: Check that this run can deploy
+        id: deployable
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "### Docs built, not deployed" >> "$GITHUB_STEP_SUMMARY"
+            echo "This run has no Cloudflare token, as on a Dependabot or fork pull request." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Create the Pages project the first time
+        if: steps.deployable.outputs.ok == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -54,6 +68,7 @@ jobs:
 
       - name: Find the pages.dev address Cloudflare gave the project
         id: pages
+        if: steps.deployable.outputs.ok == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -77,7 +92,7 @@ jobs:
             | sed -e 's/[^a-z0-9]/-/g' -e 's/^-*//' -e 's/-*$//' \
             | cut -c1-28 | sed -e 's/-*$//')
           echo "branch=$slug" >> "$GITHUB_OUTPUT"
-          if [ "${{ github.ref_name }}" = "main" ] && [ "${{ github.event_name }}" != "pull_request" ]; then
+          if [ -z "${{ steps.pages.outputs.subdomain }}" ] || { [ "${{ github.ref_name }}" = "main" ] && [ "${{ github.event_name }}" != "pull_request" ]; }; then
             echo "site=https://$DOCS_DOMAIN" >> "$GITHUB_OUTPUT"
           else
             echo "site=https://$slug.${{ steps.pages.outputs.subdomain }}" >> "$GITHUB_OUTPUT"
@@ -95,6 +110,7 @@ jobs:
 
       - name: Deploy
         id: deploy
+        if: steps.deployable.outputs.ok == 'true'
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -107,6 +123,7 @@ jobs:
             --commit-dirty=true
 
       - name: Report where it landed
+        if: steps.deployable.outputs.ok == 'true'
         run: |
           {
             echo "### Docs deployed"
