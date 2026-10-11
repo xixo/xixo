@@ -18,6 +18,34 @@ type Input struct {
 	Skip map[string]bool `json:"-"`
 	Work string          `json:"-"`
 	Run  Runner          `json:"-"`
+	Set  Settings        `json:"settings"`
+}
+
+type Settings struct {
+	Thumbnail  int `json:"thumbnail,omitempty"`
+	Preview    int `json:"preview,omitempty"`
+	Frames     int `json:"frames,omitempty"`
+	Transcribe int `json:"transcribe,omitempty"`
+}
+
+func (s Settings) Settled() Settings {
+	if s.Thumbnail <= 0 {
+		s.Thumbnail = 320
+	}
+
+	if s.Preview <= 0 {
+		s.Preview = 1500
+	}
+
+	if s.Frames <= 0 {
+		s.Frames = 4
+	}
+
+	if s.Transcribe <= 0 {
+		s.Transcribe = 3600
+	}
+
+	return s
 }
 
 type Step struct {
