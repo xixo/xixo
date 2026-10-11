@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.0](https://github.com/xixo/xixo/compare/client-v0.4.1...client-v0.5.0) (2026-10-11)
+
+
+### Features
+
+* **server:** a put-away resource is deleted, with every reference into it, and its key is free again ([ca3bad9](https://github.com/xixo/xixo/commit/ca3bad9b745bd885694eae8fa55f2be6a1337c52))
+* **server:** a resource on a tailnet machine that is off reads offline, and its syncs wait for the machine ([602ca19](https://github.com/xixo/xixo/commit/602ca19a4f2032de0610dfb34fe2033624290949))
+* **server:** a transport offers the machines it reaches as resources to attach ([602ca19](https://github.com/xixo/xixo/commit/602ca19a4f2032de0610dfb34fe2033624290949))
+* **server:** how many frames of an animation the vision model reads is two settings, a share of its frames and a most ([ab9f5d7](https://github.com/xixo/xixo/commit/ab9f5d790952ad9b237e2eec5b03e62f1e19f02c))
+* **server:** only an administrator attaches, changes, or removes a resource everyone shares, or chooses the defaults, and Sign in as an administrator asks masks for that privilege ([2409992](https://github.com/xixo/xixo/commit/24099927953ef8cadd8fc1609ca85e8815c9c4ba))
+* **web:** an email's page lists the rest of its thread, oldest first ([b67bb4e](https://github.com/xixo/xixo/commit/b67bb4e578c983640c9e0ccde7cf1993c0e66f3b))
+
+
+### Fixes
+
+* a model server's card reads checking while its models are tried, and updates when they are ([819372a](https://github.com/xixo/xixo/commit/819372abcdae54e49830bed7f09a33c64338b3aa))
+* **web:** a GIF plays on its item page, and opens as itself rather than as the still preview made from its first frame ([8e9d96c](https://github.com/xixo/xixo/commit/8e9d96ce68f14a41e02550b6c564cfce2f340e7f))
+
 ## [0.4.1](https://github.com/xixo/xixo/compare/client-v0.4.0...client-v0.4.1) (2026-10-04)
 
 

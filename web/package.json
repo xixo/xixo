@@ -1,6 +1,6 @@
 {
   "name": "xixo",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "A GraphQL and Action Cable client for xixo.",
   "keywords": [
     "xixo",
