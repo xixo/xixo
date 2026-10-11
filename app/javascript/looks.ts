@@ -31,6 +31,7 @@ export const TYPE = {
 export type Short = keyof typeof TYPE
 
 export const KEPT: string[] = [TYPE.file, TYPE.note]
+export const LINKED: string[] = [TYPE.file, TYPE.note, TYPE.address]
 
 const PLURAL: Record<Short, string> = {
   file: 'files',

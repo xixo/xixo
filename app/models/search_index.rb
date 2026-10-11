@@ -70,7 +70,8 @@ module SearchIndex
 
   class << self
     def client
-      @client ||= OpenSearch::Client.new(url: url, user: ENV["OPENSEARCH_USERNAME"].presence,
+      @client ||= OpenSearch::Client.new(url: ENV.fetch("OPENSEARCH_URL", "http://127.0.0.1:9201"),
+                                         user: ENV["OPENSEARCH_USERNAME"].presence,
                                          password: ENV["OPENSEARCH_PASSWORD"].presence)
     end
 
@@ -78,10 +79,6 @@ module SearchIndex
       client.cluster.health(timeout: HEALTH_WITHIN)["status"] != "red"
     rescue StandardError
       false
-    end
-
-    def url
-      ENV.fetch("OPENSEARCH_URL", "http://127.0.0.1:9201")
     end
 
     def alias_name

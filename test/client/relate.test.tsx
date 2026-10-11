@@ -2,7 +2,7 @@ import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test } from 'vitest'
 import { Relate } from '../../app/javascript/components/Relate'
-import { fakeClient, show } from './support/screen'
+import { fakeClient, page, show } from './support/screen'
 
 const lease = {
   id: '2',
@@ -20,22 +20,20 @@ const deposit = {
   mime: 'application/pdf',
   summary: null,
 }
-const page = (nodes: unknown[]) => ({
-  nodes,
-  hasMore: false,
-  nextCursor: null,
-  total: nodes.length,
-})
 
 describe('Relate', () => {
   test('lists what is related now, and a search relates another item', async () => {
     let changed = 0
+    const related = [deposit]
     const { client, asked } = fakeClient({
-      Catalog: () => ({ feeds: page([deposit]) }),
+      Catalog: () => ({ feeds: page(related) }),
       Search: () => ({ search: page([{ ...lease, id: '1' }, lease, deposit]) }),
-      ConnectFeeds: (variables) => ({
-        connectFeeds: { feed: { id: variables.id, connectedCount: 2 } },
-      }),
+      ConnectFeeds: (variables) => {
+        related.push(lease)
+        return {
+          connectFeeds: { feed: { id: variables.id, connectedCount: 2 } },
+        }
+      },
     })
 
     show(
@@ -69,6 +67,9 @@ describe('Relate', () => {
     expect(asked.find((ask) => ask.name === 'ConnectFeeds')?.variables).toEqual(
       { id: '1', otherId: '2', connected: true },
     )
+    expect(changed).toBe(0)
+
+    await userEvent.keyboard('{Escape}')
     expect(changed).toBe(1)
   })
 })

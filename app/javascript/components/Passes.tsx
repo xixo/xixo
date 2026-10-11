@@ -181,6 +181,10 @@ function Log({ id, live }: { id: string; live: string | null }) {
   if (loading && !data) return <Loader size="xs" color="var(--accent)" />
   if (lines.length === 0) return null
 
+  return <LogLines lines={lines} />
+}
+
+export function LogLines({ lines }: { lines: string[] }) {
   return (
     <div className="run-log">
       {lines.map((line, index) => (

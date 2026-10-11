@@ -37,7 +37,7 @@ import { FeedHead } from './FeedHead'
 import { Lost } from './Lost'
 import { type Row, Rows, type View } from './Rows'
 import { useAloud, useSay } from './Say'
-import { Setup } from './Setup'
+import { SETUP_SETTING, Setup } from './Setup'
 import { useUploads } from './Uploads'
 
 const PAGE = 40
@@ -81,9 +81,10 @@ export function Catalog() {
   const save = useAloud(SetSettingDocument, 'That view could not be kept.')
   const [picked, setPicked] = useState<View | null>(null)
 
-  const stored = settings.data?.settings.find(
-    (setting) => setting.key === VIEW_SETTING,
-  )?.value
+  const held = (key: string) =>
+    settings.data?.settings.find((setting) => setting.key === key)?.value
+  const stored = held(VIEW_SETTING)
+  const setup = !!settings.data && held(SETUP_SETTING) !== 'hidden'
   const view = asView(picked ?? stored)
 
   const pick = (next: View) => {
@@ -109,6 +110,8 @@ export function Catalog() {
       view={view}
       onPick={pick}
       onChanged={feeds.refetch}
+      setup={setup}
+      onSetupHidden={settings.refetch}
     />
   )
 }
@@ -125,6 +128,8 @@ function Listing({
   view,
   onPick,
   onChanged,
+  setup,
+  onSetupHidden,
 }: {
   type: string | null
   term: string
@@ -133,6 +138,8 @@ function Listing({
   view: View
   onPick: (next: View) => void
   onChanged: () => void
+  setup: boolean
+  onSetupHidden: () => void
 }) {
   const searching = term.length > 0
 
@@ -210,7 +217,9 @@ function Listing({
 
   return (
     <Stack gap="var(--s5)">
-      {!searching && !feed && !type && <Setup />}
+      {!searching && !feed && !type && setup && (
+        <Setup onHidden={onSetupHidden} />
+      )}
 
       {searching && !feed && (
         <div className="panel">

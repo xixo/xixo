@@ -3061,11 +3061,6 @@ a.tag:hover {
 .setup-command code {
   overflow-x: auto;
   max-width: 100%;
-  padding: var(--s1) var(--s2);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--lifted);
-  font-size: var(--t-small);
   white-space: nowrap;
 }
 

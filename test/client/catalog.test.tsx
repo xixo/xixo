@@ -1,35 +1,35 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import { describe, expect, test } from 'vitest'
 import { AddProvider } from '../../app/javascript/components/Add'
 import { Catalog } from '../../app/javascript/components/Catalog'
 import { UploadsProvider } from '../../app/javascript/components/Uploads'
-import { fakeClient, show } from './support/screen'
+import { fakeClient, page, show } from './support/screen'
 
-const empty = { nodes: [], hasMore: false, nextCursor: null, total: 0 }
-
-function catalog(rows: unknown[]) {
-  return fakeClient({
+function showCatalog(rows: unknown[], checklist = 'shown') {
+  const fake = fakeClient({
     Settings: () => ({
-      settings: [{ key: 'setup_checklist', level: 'personal', value: 'shown' }],
+      settings: [
+        { key: 'setup_checklist', level: 'personal', value: checklist },
+      ],
     }),
     Setup: () => ({
       setup: { storage: false, inference: false, client: false },
     }),
-    Feeds: () => ({ feeds: empty }),
-    Catalog: () => ({ feeds: { ...empty, nodes: rows } }),
+    Feeds: () => ({ feeds: page([]) }),
+    Catalog: () => ({ feeds: page(rows) }),
     Types: () => ({ types: [] }),
   })
-}
 
-function showCatalog(rows: unknown[]) {
-  return show(
+  show(
     <UploadsProvider>
       <AddProvider>
         <Catalog />
       </AddProvider>
     </UploadsProvider>,
-    catalog(rows).client,
+    fake.client,
   )
+
+  return fake
 }
 
 describe('Catalog', () => {
@@ -60,5 +60,16 @@ describe('Catalog', () => {
 
     expect(await screen.findByText('lease.pdf')).toBeTruthy()
     expect(screen.queryByText('Nothing kept yet')).toBeNull()
+  })
+
+  test('a hidden checklist is never asked for', async () => {
+    const { asked } = showCatalog([], 'hidden')
+
+    expect(await screen.findByText('Nothing kept yet')).toBeTruthy()
+    await waitFor(() =>
+      expect(asked.map((ask) => ask.name)).toContain('Settings'),
+    )
+    expect(asked.map((ask) => ask.name)).not.toContain('Setup')
+    expect(screen.queryByText('Getting set up')).toBeNull()
   })
 })

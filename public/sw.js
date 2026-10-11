@@ -1,4 +1,4 @@
-const CACHE = "xixo-shell-1"
+const CACHE = "xixo-shell-2"
 const OFFLINE = "/offline.html"
 const KEPT = [OFFLINE, "/icon.svg"]
 
@@ -17,29 +17,8 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const { request } = event
-  if (request.method !== "GET") return
+  if (request.method !== "GET" || request.mode !== "navigate") return
+  if (new URL(request.url).origin !== self.location.origin) return
 
-  const url = new URL(request.url)
-  if (url.origin !== self.location.origin) return
-
-  if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(() => caches.match(OFFLINE)))
-    return
-  }
-
-  if (url.pathname.startsWith("/vite/assets/")) {
-    event.respondWith(
-      caches.match(request).then(
-        (held) =>
-          held ||
-          fetch(request).then((response) => {
-            if (response.ok) {
-              const copy = response.clone()
-              caches.open(CACHE).then((cache) => cache.put(request, copy))
-            }
-            return response
-          }),
-      ),
-    )
-  }
+  event.respondWith(fetch(request).catch(() => caches.match(OFFLINE)))
 })

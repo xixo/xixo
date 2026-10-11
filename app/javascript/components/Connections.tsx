@@ -3,12 +3,11 @@ import { useState } from 'react'
 import { CatalogDocument } from 'xixo'
 import { useQuery } from 'xixo/react'
 import { usePages } from '../hooks/usePages'
-import { TYPE } from '../looks'
+import { LINKED } from '../looks'
 import { Failed } from './Failed'
 import { type Row, Rows } from './Rows'
 
 const PAGE = 40
-const LINKED: string[] = [TYPE.file, TYPE.note, TYPE.address]
 
 export function Connections({
   id,

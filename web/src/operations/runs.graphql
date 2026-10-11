@@ -35,10 +35,18 @@ subscription RunProgressed {
       id
       status
       processed
-      lines
-      logs
+      error
       startedAt
       finishedAt
+    }
+  }
+}
+
+subscription RunLogged($id: ID!) {
+  runProgressed(id: $id) {
+    run {
+      id
+      logs
     }
   }
 }

@@ -168,6 +168,7 @@ the `sync`, `export`, and `default` queues with 5 threads per process. The secon
 | `ANALYSIS_THREADS` | `4` | Threads per `analysis` process. |
 | `ANALYSIS_PER_TENANT` | `2` | Analyses one tenant may run at the same time, across every process, so one tenant cannot fill the pool. |
 | `SOLID_QUEUE_IN_PUMA` | `false` | Runs the job supervisor inside the web server, for a small host with no worker container. |
+| `XIXO_WORKER_QUIET_SECONDS` | `300` | How long the workers can go without a heartbeat before `/up` reports `worker` failing and `bin/jobs-healthy` fails. |
 | `XIXO_ITERATORS_DISABLED` | `false` | Closes every gate in every tenant, which stops every sync, analysis, export, and reindex, including ones in progress. See [budgets and gates](/concepts/agents/#budgets-and-gates). |
 
 ### Web server

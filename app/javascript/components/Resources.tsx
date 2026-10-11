@@ -200,7 +200,7 @@ export function Resources() {
     })
     refetch()
   }
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const [attaching, setAttaching] = useState(params.has('attach'))
   const [editing, setEditing] = useState<Editing | null>(null)
   const [history, setHistory] = useState<Resource | null>(null)
@@ -394,7 +394,14 @@ export function Resources() {
           opened
           administrator={administrator}
           transports={transports}
-          onClose={() => setAttaching(false)}
+          onClose={() => {
+            setAttaching(false)
+            if (!params.has('attach')) return
+
+            const rest = new URLSearchParams(params)
+            rest.delete('attach')
+            setParams(rest, { replace: true })
+          }}
           onAttached={refetch}
         />
       )}

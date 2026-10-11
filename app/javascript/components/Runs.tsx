@@ -3,6 +3,7 @@ import { useState } from 'react'
 import {
   CancelRunDocument,
   RunLogDocument,
+  RunLoggedDocument,
   RunProgressedDocument,
   RunsDocument,
   type RunsQuery,
@@ -10,20 +11,15 @@ import {
 import { useQuery, useSubscription } from 'xixo/react'
 import { usePages } from '../hooks/usePages'
 import { toned } from '../looks'
-import { RUN_OPEN, RUN_TONES, TONE_FOR_LINE } from '../runs'
+import { RUN_OPEN, RUN_TONES } from '../runs'
 import { ago } from '../when'
 import { Failed } from './Failed'
+import { LogLines } from './Passes'
 import { useAloud, useSay } from './Say'
 
 const PAGE = 20
 
 type Run = RunsQuery['runs']['nodes'][number]
-
-const KINDS: Record<string, string> = {
-  sync: 'Sync',
-  export: 'Export',
-  reindex: 'Reindex',
-}
 
 function lasted(run: Run) {
   if (!run.startedAt) return null
@@ -60,7 +56,7 @@ export function RunsDialog({
   )
 }
 
-export function Runs({ resourceId }: { resourceId: string }) {
+function Runs({ resourceId }: { resourceId: string }) {
   const say = useSay()
   const [cursor, setCursor] = useState<string | null>(null)
   const [open, setOpen] = useState<string | null>(null)
@@ -69,10 +65,14 @@ export function Runs({ resourceId }: { resourceId: string }) {
     after: cursor,
     limit: PAGE,
   })
-  const { data: progressed } = useSubscription(RunProgressedDocument, {})
   const cancel = useAloud(CancelRunDocument, 'That run could not be cancelled.')
   const page = data?.runs
   const [runs] = usePages<Run>(page, cursor)
+  const { data: progressed } = useSubscription(
+    RunProgressedDocument,
+    {},
+    { skip: !runs.some((run) => RUN_OPEN.has(run.status)) },
+  )
   const streamed = progressed?.runProgressed.run
   const next = page?.hasMore ? (page.nextCursor ?? null) : null
 
@@ -95,6 +95,7 @@ export function Runs({ resourceId }: { resourceId: string }) {
         const run = streamed?.id === held.id ? { ...held, ...streamed } : held
         const shown = open === run.id
         const running = RUN_OPEN.has(run.status)
+        const took = lasted(run)
 
         return (
           <div key={run.id} className="pass" data-open={shown}>
@@ -110,12 +111,14 @@ export function Runs({ resourceId }: { resourceId: string }) {
               >
                 {run.status}
               </span>
-              <span className="pass-cause">{KINDS[run.kind] ?? run.kind}</span>
+              <span className="pass-cause">
+                {run.kind.charAt(0).toUpperCase() + run.kind.slice(1)}
+              </span>
               <span className="pass-when">{ago(run.createdAt)}</span>
               <span className="pass-steps figure">
                 {run.processed.toLocaleString()}{' '}
                 {run.processed === 1 ? 'item' : 'items'}
-                {lasted(run) ? ` · ${lasted(run)}` : ''}
+                {took && ` · ${took}`}
               </span>
             </button>
 
@@ -142,12 +145,7 @@ export function Runs({ resourceId }: { resourceId: string }) {
                     </Button>
                   </Group>
                 )}
-                <Log
-                  id={run.id}
-                  live={
-                    streamed?.id === run.id ? (streamed.logs ?? null) : null
-                  }
-                />
+                <Log id={run.id} running={running} />
               </div>
             )}
           </div>
@@ -170,9 +168,15 @@ export function Runs({ resourceId }: { resourceId: string }) {
   )
 }
 
-function Log({ id, live }: { id: string; live: string | null }) {
+function Log({ id, running }: { id: string; running: boolean }) {
   const { data, loading } = useQuery(RunLogDocument, { id })
-  const lines = (live ?? data?.run?.logs ?? '').split('\n').filter(Boolean)
+  const { data: logged } = useSubscription(
+    RunLoggedDocument,
+    { id },
+    { skip: !running },
+  )
+  const logs = logged?.runProgressed.run.logs ?? data?.run?.logs ?? ''
+  const lines = logs.split('\n').filter(Boolean)
 
   if (loading && !data) return <Loader size="xs" color="var(--accent)" />
   if (lines.length === 0) {
@@ -183,17 +187,5 @@ function Log({ id, live }: { id: string; live: string | null }) {
     )
   }
 
-  return (
-    <div className="run-log">
-      {lines.map((line, index) => (
-        <div
-          // biome-ignore lint/suspicious/noArrayIndexKey: position is the identity
-          key={index}
-          style={{ color: TONE_FOR_LINE[line.slice(0, 3)] ?? 'var(--soft)' }}
-        >
-          {line}
-        </div>
-      ))}
-    </div>
-  )
+  return <LogLines lines={lines} />
 }

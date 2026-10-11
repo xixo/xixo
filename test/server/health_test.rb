@@ -1,15 +1,8 @@
 require "test_helper"
 
 class HealthTest < ActionDispatch::IntegrationTest
-  setup do
-    SolidQueue::Process.delete_all
-    SolidQueue::Job.delete_all
-  end
-
-  teardown do
-    SolidQueue::Process.delete_all
-    SolidQueue::Job.delete_all
-  end
+  setup { clear }
+  teardown { clear }
 
   test "up is ok when the database and search answer, the queue is moving, and a worker is beating" do
     beating
@@ -50,6 +43,11 @@ class HealthTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+    def clear
+      SolidQueue::Process.delete_all
+      SolidQueue::Job.delete_all
+    end
 
     def beating
       SolidQueue::Process.create!(kind: "Worker", name: "worker-beating", pid: 1, hostname: "here", last_heartbeat_at: Time.current)

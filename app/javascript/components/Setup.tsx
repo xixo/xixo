@@ -1,35 +1,31 @@
-import { Button, CopyButton, Group, Text } from '@mantine/core'
+import { Button, Code, CopyButton, Group, Text } from '@mantine/core'
 import { IconCheck, IconCircleDashed } from '@tabler/icons-react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { SetSettingDocument, SettingsDocument, SetupDocument } from 'xixo'
+import { SetSettingDocument, SetupDocument } from 'xixo'
 import { useQuery } from 'xixo/react'
 import { useAloud, useSay } from './Say'
 
-const SETTING = 'setup_checklist'
+export const SETUP_SETTING = 'setup_checklist'
 const GUIDE = 'https://docs.xixo.network/guides/connect-an-agent/'
 
-export function Setup() {
+export function Setup({ onHidden }: { onHidden: () => void }) {
   const say = useSay()
   const { data } = useQuery(SetupDocument)
-  const settings = useQuery(SettingsDocument)
   const hide = useAloud(
     SetSettingDocument,
     'The checklist could not be hidden.',
   )
 
   const setup = data?.setup
-  const hidden =
-    settings.data?.settings.find((setting) => setting.key === SETTING)
-      ?.value === 'hidden'
+  if (!setup) return null
 
-  if (!setup || !settings.data || hidden) return null
-  if (setup.storage && setup.inference && setup.client) return null
-
-  const command = `claude mcp add --transport http xixo ${window.location.origin}/mcp`
   const left = [setup.storage, setup.inference, setup.client].filter(
     (done) => !done,
   ).length
+  if (left === 0) return null
+
+  const command = `claude mcp add --transport http xixo ${window.location.origin}/mcp`
 
   return (
     <section className="panel setup" aria-labelledby="setup-heading">
@@ -50,13 +46,13 @@ export function Setup() {
           loading={hide.loading}
           onClick={async () => {
             const answered = await hide.execute({
-              key: SETTING,
+              key: SETUP_SETTING,
               value: 'hidden',
             })
 
             if (!answered) return
 
-            settings.refetch()
+            onHidden()
             say({ text: 'The checklist is hidden. Settings brings it back.' })
           }}
         >
@@ -70,15 +66,7 @@ export function Setup() {
           title="Somewhere to keep what you drop"
           detail="Attach a folder, an S3 bucket, or a WebDAV share, and make it the default place files land."
         >
-          <Button
-            component={Link}
-            to="/settings/resources?attach=1"
-            size="compact-sm"
-            radius="xl"
-            variant="default"
-          >
-            Attach storage
-          </Button>
+          <Attach>Attach storage</Attach>
         </Step>
 
         <Step
@@ -86,15 +74,7 @@ export function Setup() {
           title="A model server that answers"
           detail="Attach Ollama, LM Studio, or another OpenAI-compatible server so xixo can describe what it keeps and answer questions."
         >
-          <Button
-            component={Link}
-            to="/settings/resources?attach=1"
-            size="compact-sm"
-            radius="xl"
-            variant="default"
-          >
-            Attach a model server
-          </Button>
+          <Attach>Attach a model server</Attach>
         </Step>
 
         <Step
@@ -103,7 +83,7 @@ export function Setup() {
           detail="Add xixo to Claude Code or another MCP client, then sign in when it asks."
         >
           <div className="setup-command">
-            <code>{command}</code>
+            <Code>{command}</Code>
             <CopyButton value={command}>
               {({ copied, copy }) => (
                 <Button
@@ -158,5 +138,19 @@ function Step({
         )}
       </div>
     </li>
+  )
+}
+
+function Attach({ children }: { children: ReactNode }) {
+  return (
+    <Button
+      component={Link}
+      to="/settings/resources?attach=1"
+      size="compact-sm"
+      radius="xl"
+      variant="default"
+    >
+      {children}
+    </Button>
   )
 }

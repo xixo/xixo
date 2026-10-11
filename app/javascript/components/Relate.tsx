@@ -1,13 +1,12 @@
 import { Button, Loader, Modal, Stack, Text, TextInput } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { CatalogDocument, ConnectFeedsDocument, SearchDocument } from 'xixo'
 import { useQuery } from 'xixo/react'
-import { TYPE } from '../looks'
+import { LINKED } from '../looks'
 import { useAloud, useSay } from './Say'
 import { TypeBadge } from './TypeBadge'
 
-const LINKED: string[] = [TYPE.file, TYPE.note, TYPE.address]
 const SHOWN = 12
 
 export function Relate({
@@ -22,7 +21,7 @@ export function Relate({
   const say = useSay()
   const [term, setTerm] = useState('')
   const [query] = useDebouncedValue(term.trim(), 250)
-  const [flipped, setFlipped] = useState<Record<string, boolean>>({})
+  const changed = useRef(false)
   const [busy, setBusy] = useState<string | null>(null)
   const connect = useAloud(
     ConnectFeedsDocument,
@@ -45,7 +44,7 @@ export function Relate({
   const connected = new Set(
     (held.data?.feeds.nodes ?? []).map((node) => node.id),
   )
-  const related = (id: string) => flipped[id] ?? connected.has(id)
+  const related = (id: string) => connected.has(id)
   const rows = query
     ? (found.data?.search.nodes ?? [])
         .filter((node) => node.id !== item.id)
@@ -67,19 +66,24 @@ export function Relate({
 
     if (!answered?.connectFeeds) return
 
-    setFlipped((was) => ({ ...was, [other.id]: next }))
+    changed.current = true
+    held.refetch()
     say({
       text: next
         ? `${label} is related to ${item.name}.`
         : `${label} is no longer related to ${item.name}.`,
     })
-    onChanged()
+  }
+
+  const close = () => {
+    if (changed.current) onChanged()
+    onClose()
   }
 
   return (
     <Modal
       opened
-      onClose={onClose}
+      onClose={close}
       title={`Relate ${item.name} to another item`}
       size="lg"
       radius="md"

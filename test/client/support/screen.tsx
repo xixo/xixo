@@ -1,5 +1,6 @@
 import { MantineProvider } from '@mantine/core'
 import { render } from '@testing-library/react'
+import { CombinedError } from '@urql/core'
 import { getOperationAST } from 'graphql'
 import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
@@ -11,12 +12,16 @@ import { theme } from '../../../app/javascript/theme'
 type Variables = Record<string, unknown>
 type Answer = (variables: Variables) => unknown
 
-export interface Asked {
+interface Asked {
   name: string
   variables: Variables
 }
 
-export function fakeClient(answers: Record<string, Answer | Error>) {
+export function page(nodes: unknown[]) {
+  return { nodes, hasMore: false, nextCursor: null, total: nodes.length }
+}
+
+export function fakeClient(answers: Record<string, Answer>) {
   const asked: Asked[] = []
 
   const answer = (
@@ -28,23 +33,24 @@ export function fakeClient(answers: Record<string, Answer | Error>) {
 
     asked.push({ name, variables })
 
-    if (given instanceof Error) return { data: undefined, error: given }
     if (!given) throw new Error(`nothing answers ${name}`)
 
     try {
       return { data: given(variables), error: undefined }
     } catch (error) {
-      return { data: undefined, error }
+      return {
+        data: undefined,
+        error: new CombinedError({ networkError: error as Error }),
+      }
     }
   }
 
+  const ask = (document: never, variables: Variables) => ({
+    toPromise: async () => answer(document, variables),
+  })
   const client = {
-    query: (document: never, variables: Variables) => ({
-      toPromise: async () => answer(document, variables),
-    }),
-    mutation: (document: never, variables: Variables) => ({
-      toPromise: async () => answer(document, variables),
-    }),
+    query: ask,
+    mutation: ask,
     subscription: () => ({ subscribe: () => ({ unsubscribe() {} }) }),
   } as unknown as XixoClient
 

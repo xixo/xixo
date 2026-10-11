@@ -1,8 +1,8 @@
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test } from 'vitest'
-import { Runs } from '../../app/javascript/components/Runs'
-import { fakeClient, show } from './support/screen'
+import { RunsDialog } from '../../app/javascript/components/Runs'
+import { fakeClient, page, show } from './support/screen'
 
 const run = {
   id: '7',
@@ -20,12 +20,18 @@ describe('a list that fails to load', () => {
     let failing = true
     const { client } = fakeClient({
       Runs: () => {
-        if (failing) throw new Error('[Network] Failed to fetch')
-        return { runs: { nodes: [run], hasMore: false, nextCursor: null } }
+        if (failing) throw new Error('Failed to fetch')
+        return { runs: page([run]) }
       },
     })
 
-    show(<Runs resourceId="3" />, client)
+    show(
+      <RunsDialog
+        resource={{ id: '3', key: 'household' }}
+        onClose={() => {}}
+      />,
+      client,
+    )
 
     expect(await screen.findByText('This could not be loaded')).toBeTruthy()
     expect(screen.getByText('Failed to fetch')).toBeTruthy()

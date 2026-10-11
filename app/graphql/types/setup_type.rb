@@ -16,7 +16,7 @@ module Types
     end
 
     def client
-      AuditEvent.where(channel: "mcp").where.not(actor: "agent").exists?
+      AuditEvent.where(channel: "mcp", actor: %w[person client]).exists?
     end
   end
 end

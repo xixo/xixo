@@ -1,8 +1,9 @@
 import { Alert, Button } from '@mantine/core'
 import { IconRefresh } from '@tabler/icons-react'
+import { useConnection } from '../connection'
 
 export function Failed({ error, retry }: { error: Error; retry: () => void }) {
-  const offline = typeof navigator !== 'undefined' && !navigator.onLine
+  const offline = useConnection() === 'offline'
 
   return (
     <Alert
@@ -12,9 +13,7 @@ export function Failed({ error, retry }: { error: Error; retry: () => void }) {
     >
       <div className="failed">
         <span>
-          {offline
-            ? 'Try again once it is back online.'
-            : error.message.replace(/^\[\w+\]\s*/, '')}
+          {offline ? 'Try again once it is back online.' : error.message}
         </span>
         <Button
           size="compact-sm"
