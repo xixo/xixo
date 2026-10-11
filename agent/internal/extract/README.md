@@ -16,15 +16,15 @@ xixo asks with the `extract` verb.
   "filename": "dentist.ics",
   "size": 1234,
   "skip": ["metadata"],
-  "settings": {"thumbnail": 320, "preview": 1500, "frames": 4, "transcribe": 3600}
+  "settings": {"thumbnail": 320, "preview": 1500, "frames": 4, "share": 100, "transcribe": 3600}
 }}
 ```
 
 `source` is either `{"folder", "path"}`, a file one of the agent's folders
 shares, or `{"upload": id}`, bytes xixo sent first with `put` requests under
 that id. `skip` names steps xixo already holds. `settings` carries the
-server's thumbnail width, preview width, animation frames, and the seconds of
-audio to transcribe; a missing value takes the server's default.
+server's thumbnail width, preview width, the most frames and the percentage of
+frames read from an animation, and the seconds of audio to transcribe; a missing value takes the server's default.
 
 xixo asks for thumbnails alone with the `derive` verb, which takes the same
 args and answers with only the `derived` step and its files. A page capture

@@ -17,7 +17,6 @@ import (
 const (
 	LocatedBy    = "exiftool"
 	FrameWidth   = 768
-	FrameShare   = 100
 	RawMinimum   = 1024
 	RawImageMIME = "image/x-dcraw"
 )
@@ -203,8 +202,8 @@ func Picked(frames, most, share int) []int {
 }
 
 func (s *session) sampleFrames(path string, frames int) {
-	most := s.in.Set.Settled().Frames
-	share := FrameShare
+	set := s.in.Set.Settled()
+	most, share := set.Frames, set.Share
 	dir := filepath.Join(s.in.Work, "frames")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return

@@ -25,6 +25,7 @@ type Settings struct {
 	Thumbnail  int `json:"thumbnail,omitempty"`
 	Preview    int `json:"preview,omitempty"`
 	Frames     int `json:"frames,omitempty"`
+	Share      int `json:"share,omitempty"`
 	Transcribe int `json:"transcribe,omitempty"`
 }
 
@@ -39,6 +40,10 @@ func (s Settings) Settled() Settings {
 
 	if s.Frames <= 0 {
 		s.Frames = 4
+	}
+
+	if s.Share <= 0 || s.Share > 100 {
+		s.Share = 100
 	}
 
 	if s.Transcribe <= 0 {
