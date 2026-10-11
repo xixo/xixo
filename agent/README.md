@@ -88,15 +88,18 @@ The agent speaks the Action Cable protocol and subscribes to
 
 | Action | Fields | When |
 | --- | --- | --- |
-| `hello` | `version`, `os`, `arch`, `hostname`, `folders`, `services` | Once the subscription is confirmed. |
+| `hello` | `version`, `os`, `arch`, `hostname`, `folders`, `services`, `extractors` | Once the subscription is confirmed. |
 | `health` | `uptime`, `load`, `memory`, `disks` | After `hello`, and every minute. |
 | `reply` | `request`, `ok`, `result` or `error` | When a request is answered. |
-| `chunk` | `request`, `seq`, `data` | For each part of a file being read. |
+| `chunk` | `request`, `of`, `seq`, `data` | For each part of a file being read or made. |
 
 `services` lists the model servers listening on the machine's loopback
 address: `{"kind":"ollama","port":11434,"address":"100.64.0.7"}`, and
 `lmstudio` on port 1234. `address` is the machine's tailnet IPv4 address when
 `tailscale ip -4` answers, and empty otherwise.
+
+`extractors` names the extractors whose programs are on the machine, so xixo
+sends each file to an agent that can read it.
 
 `health` holds `uptime` in seconds, `load` as the 1, 5, and 15 minute
 averages, `memory` as `{"total","available"}` in bytes, and `disks` as
@@ -113,6 +116,9 @@ xixo sends a request as the `message` of a broadcast on the subscription:
 | `health` | none | The fields of a `health` message. |
 | `list` | `folder`, `cursor`, `prefix`, `limit`, `skip` | `{"entries":[{"path","size","modified_at"}],"cursor"}` |
 | `read` | `folder`, `path` | `chunk` messages, then `{"size"}` |
+| `put` | `seq` and `data`, or `done` and `size` | Nothing until the closing put, then `{"size"}` |
+| `extract` | `source`, `mime`, `filename`, `skip`, `settings` | each made file's `chunk` messages, then the steps and the list of files |
+| `derive` | as `extract` | the thumbnail and preview alone |
 
 `list` walks the folder depth first in name order and returns at most `limit`
 regular files, 500 at most. Paths are relative to the folder and
@@ -123,6 +129,21 @@ that are always skipped.
 
 `read` sends the file as `chunk` messages of at most 256 KiB, base64 encoded,
 numbered from 0, followed by a reply holding the number of bytes sent.
+
+`put` sends bytes to the agent ahead of an `extract`. Each piece is at most
+256 KiB of base64 data numbered from 0, and the closing put names the total
+size, which must match what arrived. The agent keeps an upload in a private
+temporary file of at most 4 GiB, holds at most eight at once, uses each one for
+one extraction, and deletes it afterwards or after 15 minutes unused. `put`
+requests are handled in the order they arrive, apart from the four that run at
+once.
+
+`extract` reads an upload (`{"upload": id}`) or a shared file
+(`{"folder", "path"}`) and answers with its steps. Each file it makes, such as a
+thumbnail, is sent first as `chunk` messages under a new id, with `of` naming
+the `extract` request, and the reply lists the files with their role, name,
+type, size, and that id. [internal/extract/README.md](internal/extract/README.md)
+describes every step.
 
 A refused request is answered with `"ok": false` and an `error`. The agent
 refuses a folder its configuration does not name, a path that is absolute,

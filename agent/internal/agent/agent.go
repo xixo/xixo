@@ -10,11 +10,13 @@ import (
 	"io/fs"
 	"log/slog"
 	"math/rand/v2"
+	"os"
 	"sync"
 	"time"
 
 	masks "github.com/masksrb/masks/go"
 	"github.com/xixo/xixo/agent/internal/cable"
+	"github.com/xixo/xixo/agent/internal/extract"
 	"github.com/xixo/xixo/agent/internal/folders"
 	"github.com/xixo/xixo/agent/internal/machine"
 )
@@ -37,6 +39,9 @@ type Agent struct {
 	Drain    time.Duration
 	Parallel int
 	Chunk    int
+	Work     string
+	Runner   extract.Runner
+	Extract  func(context.Context, extract.Input) (*extract.Output, error)
 }
 
 type Request struct {
@@ -54,6 +59,7 @@ type Reply struct {
 
 type Chunk struct {
 	Request string `json:"request"`
+	Of      string `json:"of,omitempty"`
 	Seq     int    `json:"seq"`
 	Data    string `json:"data"`
 }
@@ -94,6 +100,18 @@ func (a *Agent) settle() {
 
 	if a.Machine == nil {
 		a.Machine = machine.New()
+	}
+
+	if a.Work == "" {
+		a.Work = os.TempDir()
+	}
+
+	if a.Runner == nil {
+		a.Runner = extract.Limited{}
+	}
+
+	if a.Extract == nil {
+		a.Extract = extract.Run
 	}
 }
 
@@ -136,6 +154,7 @@ func (a *Agent) Run(ctx context.Context) error {
 type session struct {
 	*Agent
 	conn     *cable.Conn
+	uploads  *uploads
 	working  sync.WaitGroup
 	slots    chan struct{}
 	draining bool
@@ -161,7 +180,8 @@ func (a *Agent) Session(ctx context.Context) error {
 
 	a.Log.Info("connected to xixo", "xixo", a.Xixo)
 
-	held := &session{Agent: a, conn: conn, slots: make(chan struct{}, a.Parallel)}
+	held := &session{Agent: a, conn: conn, uploads: newUploads(a.Work), slots: make(chan struct{}, a.Parallel)}
+	defer held.uploads.close()
 
 	return held.serve(ctx, token)
 }
@@ -170,7 +190,10 @@ func (s *session) serve(ctx context.Context, token *masks.Token) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	if err := s.conn.Perform(ctx, "hello", s.Machine.Hello(ctx, s.Version, s.Folders.Names())); err != nil {
+	hello := s.Machine.Hello(ctx, s.Version, s.Folders.Names())
+	hello.Extractors = extract.Available()
+
+	if err := s.conn.Perform(ctx, "hello", hello); err != nil {
 		return err
 	}
 
@@ -246,6 +269,12 @@ func (s *session) serve(ctx context.Context, token *masks.Token) error {
 				continue
 			}
 
+			if asked.Verb == verbPut {
+				s.put(ctx, asked)
+
+				continue
+			}
+
 			s.take(ctx, asked)
 		}
 	}
@@ -317,6 +346,10 @@ func (s *session) answer(ctx context.Context, asked *Request) {
 		}
 
 		s.read(ctx, asked.Request, wanted)
+	case verbExtract:
+		s.extraction(ctx, asked, false)
+	case verbDerive:
+		s.extraction(ctx, asked, true)
 	default:
 		s.refuse(ctx, asked.Request, fmt.Errorf("the agent does not know the verb %q", asked.Verb))
 	}

@@ -13,6 +13,8 @@ import (
 	"syscall"
 
 	"github.com/xixo/xixo/agent/internal/agent"
+	_ "github.com/xixo/xixo/agent/internal/extract/documents"
+	_ "github.com/xixo/xixo/agent/internal/extract/plain"
 	"github.com/xixo/xixo/agent/internal/folders"
 	"github.com/xixo/xixo/agent/internal/machine"
 	"github.com/xixo/xixo/agent/internal/state"
