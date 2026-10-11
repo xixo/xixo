@@ -1,6 +1,8 @@
 class Resource
   class Slack < Api
     API = "https://slack.com/api".freeze
+    SKEW = 5.minutes
+    REPLIES_WITHIN = 7.days
     CHANNELS = 200
     MESSAGES = 200
     REPLIES = 200
@@ -58,11 +60,18 @@ class Resource
       true
     end
 
+    def self.walks_changes?
+      true
+    end
+
     def each_page(cursor: nil, prefix: nil, walk: nil, &block)
+      since = walk&.since.to_h["posted"]&.then { |stamp| Time.zone.parse(stamp) }
+      walk&.reached({ "posted" => SKEW.ago.utc.iso8601 }, first: true)
+      oldest = since && (since - REPLIES_WITHIN).to_f.to_s
       channel, held = resume(cursor)
       wanted = channel ? channels.drop_while { |found| found["id"] != channel } : channels
 
-      wanted.each_with_index { |found, index| walk(found, index.zero? ? held : nil, &block) }
+      wanted.each_with_index { |found, index| walk(found, index.zero? ? held : nil, oldest: oldest, &block) }
     end
 
     def object_for(named)
@@ -203,12 +212,12 @@ class Resource
         held
       end
 
-      def walk(channel, cursor)
+      def walk(channel, cursor, oldest: nil)
         held = cursor
 
         loop do
           found = called("/conversations.history", channel: channel["id"], limit: MESSAGES,
-                                                   cursor: held)
+                                                   cursor: held, oldest: oldest)
           held = found.dig("response_metadata", "next_cursor").presence
           batch = roots(Array(found["messages"]), channel)
 

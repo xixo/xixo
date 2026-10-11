@@ -153,7 +153,7 @@ abandoned, and another sync can start.
 A run can be cancelled, and it stops when it passes its deadline.
 
 `Resource::Walk` decides which kind of walk a sync does. A type that can ask its source for only
-what changed, such as git, IMAP, GitHub, or OneDrive, keeps a checkpoint in `sync_state`. The
+what changed, such as git, IMAP, GitHub, OneDrive, Notion, or Slack, keeps a checkpoint in `sync_state`. The
 checkpoint is the commit it reached, the last message it saw together with the mailbox's
 `UIDVALIDITY`, the time the last walk began minus five minutes, or the delta link Microsoft Graph
 handed back. The next sync walks only what changed since the checkpoint, as long as a full walk
@@ -163,6 +163,12 @@ or Microsoft Graph expired the delta link. A walk saves its new checkpoint only 
 or dry-run sync leaves the previous checkpoint in place, and a walk resumed after a deploy keeps the
 checkpoint it started with. `walked_at` records when a full walk last finished without missing
 anything.
+
+Notion's walk of what changed asks for pages newest edit first and stops at the first one edited
+before its checkpoint. Slack's asks for threads begun up to seven days before its checkpoint, so a
+reply to a recent thread is read at the next sync and a reply to an older one at the next full walk.
+A directory, a bucket, and a WebDAV share list everything on every sync, and an object whose version
+has not changed costs one update.
 
 ## Reaching through another resource
 

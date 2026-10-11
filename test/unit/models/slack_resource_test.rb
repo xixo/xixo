@@ -125,6 +125,20 @@ class SlackResourceTest < ActiveSupport::TestCase
                          query: hash_including({ "channel" => "C1", "cursor" => "" })
   end
 
+  test "a changes walk asks only for threads begun within a week of its checkpoint" do
+    stub_channels([ channel("C1", "general") ])
+    stub_history("C1", [ posted("1791600000.0", "New") ])
+    checkpoint = Time.utc(2026, 10, 9, 12)
+
+    Tenant.switch(@tenant) do
+      @resource.update_columns(sync_state: { "checkpoint" => { "posted" => checkpoint.iso8601 } }, walked_at: 1.hour.ago)
+      @resource.each_page(walk: Resource::Walk.begin!(@resource)) { |_, _| nil }
+    end
+
+    assert_requested :get, "#{API}/conversations.history",
+                     query: hash_including({ "channel" => "C1", "oldest" => (checkpoint - 7.days).to_f.to_s })
+  end
+
   test "one thread looked up by its key is the thread a sync would have made" do
     stub_channels([ channel("C1", "general") ])
     stub_history("C1", [ posted("1.0", "Widget jams", replies: 2, latest: "3.0") ])

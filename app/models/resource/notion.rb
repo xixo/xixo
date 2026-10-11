@@ -3,6 +3,7 @@ class Resource
     API = "https://api.notion.com/v1".freeze
     VERSION = "2022-06-28".freeze
     DEPTH = 3
+    SKEW = 5.minutes
     BLOCKS = 100
     MAX_BLOCKS = 2_000
     UNTITLED = "Untitled".freeze
@@ -53,16 +54,24 @@ class Resource
       true
     end
 
+    def self.walks_changes?
+      true
+    end
+
     def each_page(cursor: nil, prefix: nil, walk: nil)
+      since = walk&.since.to_h["edited"]&.then { |stamp| Time.zone.parse(stamp) }
+      walk&.reached({ "edited" => SKEW.ago.utc.iso8601 }, first: true)
       held = cursor.presence
 
       loop do
         found = search(held)
         pages = Array(found["results"]).select { |result| result["object"] == "page" }
+        fresh = since ? pages.select { |page| edited_since?(page, since) } : pages
         held = found["next_cursor"]
 
-        yield pages, held if pages.any?
+        yield fresh, held if fresh.any?
 
+        break if fresh.size < pages.size
         break unless found["has_more"] && held.present?
       end
     end
@@ -144,10 +153,16 @@ class Resource
         super.merge("Notion-Version" => VERSION)
       end
 
+      def edited_since?(page, since)
+        edited = Time.zone.parse(page["last_edited_time"].to_s)
+        edited.nil? || edited >= since
+      end
+
       def search(cursor, query: nil, page_size: BLOCKS)
         body = {
           page_size: page_size,
-          filter: { value: "page", property: "object" }
+          filter: { value: "page", property: "object" },
+          sort: { direction: "descending", timestamp: "last_edited_time" }
         }
 
         wanted = query.presence || details["query"].presence

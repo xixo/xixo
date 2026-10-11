@@ -63,6 +63,27 @@ class NotionResourceTest < ActiveSupport::TestCase
                  "a database is not a page, and must not become an item"
   end
 
+  test "a changes walk reads newest first and stops at the first page edited before its checkpoint" do
+    fresh = page("a").merge(last_edited_time: "2026-10-10T12:00:00.000Z")
+    stale = page("b").merge(last_edited_time: "2026-10-01T12:00:00.000Z")
+    stub_request(:post, "#{API}/search")
+      .with(body: hash_including("sort" => { "direction" => "descending", "timestamp" => "last_edited_time" }))
+      .to_return(json_response(results: [ fresh, stale ], has_more: true, next_cursor: "c1"))
+
+    seen = []
+
+    Tenant.switch(@tenant) do
+      @resource.update_columns(sync_state: { "checkpoint" => { "edited" => "2026-10-05T00:00:00Z" } }, walked_at: 1.hour.ago)
+      walk = Resource::Walk.begin!(@resource)
+      @resource.each_page(walk: walk) { |batch, _| seen.concat(batch.map { |held| held[:id] || held["id"] }) }
+
+      assert_equal Resource::Walk::CHANGES, walk.mode
+    end
+
+    assert_equal [ "a" ], seen
+    assert_not_requested :post, "#{API}/search", body: hash_including("start_cursor" => "c1")
+  end
+
   test "a page lands keyed on its id, titled from its title property" do
     stub_request(:post, "#{API}/search")
       .to_return(json_response(results: [ page(PAGE_ID, title: "Q3 plan") ], has_more: false))
