@@ -1,0 +1,38 @@
+[Unit]
+Description=xixo agent
+Documentation=https://github.com/xixo/xixo/tree/main/agent
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+ExecStart=/usr/local/bin/xixo-agent run --config /etc/xixo-agent/config.json --state /var/lib/xixo-agent
+Restart=always
+RestartSec=5
+StateDirectory=xixo-agent
+StateDirectoryMode=0700
+ConfigurationDirectory=xixo-agent
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
