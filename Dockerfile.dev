@@ -3,8 +3,22 @@
 
 ARG RUBY_VERSION=3.4.7
 ARG NODE_VERSION=26.0.0
+ARG GO_VERSION=1.26
 
 FROM docker.io/library/node:$NODE_VERSION-slim AS node
+
+FROM docker.io/library/golang:$GO_VERSION AS agent
+WORKDIR /agent
+COPY agent/go.mod agent/go.sum ./
+RUN go mod download
+COPY agent/ ./
+COPY .release-please-manifest.json /agent/
+RUN version=$(sed -n 's/.*"\.": *"\([^"]*\)".*/\1/p' .release-please-manifest.json) && \
+    for arch in amd64 arm64; do \
+      CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath \
+        -ldflags "-s -w -X main.version=${version:-dev}" -o /opt/xixo-agent/xixo-agent-linux-$arch . ; \
+    done && \
+    cp xixo-agent.service /opt/xixo-agent/
 
 FROM scratch AS masks-client
 COPY vendor/.keep /
@@ -48,6 +62,7 @@ COPY web/package.json ./web/package.json
 RUN npm ci && cp package-lock.json node_modules/.lock-stamp
 
 COPY . .
+COPY --from=agent /opt/xixo-agent /opt/xixo-agent
 
 ENTRYPOINT ["/rails/bin/docker-entrypoint-dev"]
 

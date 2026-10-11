@@ -13,12 +13,13 @@ class FakeIssuer
     end
   end
 
-  attr_reader :port
+  attr_reader :port, :enrollments
 
   def initialize
     @keys = {}
     @codes = {}
     @approvals = {}
+    @enrollments = []
     @lock = Mutex.new
     @server = TCPServer.new("127.0.0.1", 0)
     @port = @server.addr[1]
@@ -94,16 +95,22 @@ class FakeIssuer
       line = socket.gets.to_s
       length = 0
       bearer = nil
+      basic = nil
 
       while (header = socket.gets) && header.strip != ""
         length = header.split(":", 2).last.to_i if header =~ /\AContent-Length:/i
         bearer = header.split(" ").last.strip if header =~ /\AAuthorization:\s*Bearer /i
+        basic = header.split(" ").last.strip if header =~ /\AAuthorization:\s*Basic /i
       end
 
       method, path = line.split(" ")
       payload = length.positive? ? socket.read(length).to_s : ""
 
-      found = method == "POST" ? post_for(path.to_s, payload, bearer) : body_for(path.to_s)
+      found = if method == "POST" && path.to_s =~ %r{\A/([^/]+)/enrollments\z}
+        enrolled($1, payload, basic)
+      else
+        method == "POST" ? post_for(path.to_s, payload, bearer) : body_for(path.to_s)
+      end
       body = JSON.generate(found || { "error" => "not_found" })
 
       status = if found.nil?
@@ -188,6 +195,16 @@ class FakeIssuer
         "registration_access_token" => SecureRandom.urlsafe_base64(24),
         "registration_client_uri" => "#{url_for(subdomain)}/register/#{client_id}"
       )
+    end
+
+    def enrolled(subdomain, payload, basic)
+      client_id, secret = Base64.decode64(basic.to_s).split(":", 2).map { |part| URI.decode_www_form_component(part) }
+      return { "error" => "invalid_client" } if client_id.blank? || secret.blank?
+
+      form = URI.decode_www_form(payload).to_h
+      @lock.synchronize { @enrollments << form.merge("subdomain" => subdomain, "client_id" => client_id) }
+
+      { "initial_access_token" => "enroll-#{SecureRandom.hex(8)}", "expires_in" => form["expires_in"].to_i, "scope" => form["scope"] }
     end
 
     def discovery(subdomain)

@@ -1,6 +1,7 @@
 class GraphqlChannel < ApplicationCable::Channel
   def subscribed
     @subscription_ids = []
+    reject if grant.nil?
   end
 
   def execute(data)

@@ -33,6 +33,14 @@ query Resources($archived: Boolean) {
     connectUrl
     via
     routable
+    machine {
+      hostname
+      version
+      connected
+      seenAt
+      uptime
+      folders
+    }
   }
 }
 

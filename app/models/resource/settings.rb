@@ -97,11 +97,19 @@ class Resource
         entries.map { |entry| entry.to_s.strip }.reject(&:empty?).uniq
       end
 
+      def lined(raw)
+        entries = raw.is_a?(Array) ? raw : raw.to_s.split(/\r?\n/)
+
+        entries.map { |entry| entry.to_s.strip }.reject(&:empty?).uniq
+      end
+
       def cast(raw, kind)
         case kind
         when "integer" then raw.to_s.strip.to_i
         when "boolean" then ActiveModel::Type::Boolean.new.cast(raw)
         when "list" then listed(raw)
+        when "lines" then lined(raw)
+        when "text" then raw.to_s.gsub("\r\n", "\n").strip
         else raw.to_s.strip
         end
       end

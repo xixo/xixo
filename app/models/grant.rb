@@ -16,6 +16,8 @@ class Grant
 
   NAMESPACE = "xixo:".freeze
 
+  MACHINE = "xixo:agent".freeze
+
   SCOPES = DESCRIBED.keys.freeze
 
   ADMINISTRATIVE = %w[xixo:settings:admin].freeze

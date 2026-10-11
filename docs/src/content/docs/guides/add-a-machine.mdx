@@ -1,0 +1,71 @@
+---
+title: Add a machine
+description: Install the xixo agent on a Linux machine over SSH, and attach the folders it shares.
+---
+
+This guide installs the xixo agent on a Linux machine, such as a home server, and attaches the
+folders it shares. xixo connects to the machine once over SSH, installs the agent, and enrolls it
+with masks. After that, the agent dials xixo, reports the machine's health, and lists and reads
+files in its folders when xixo asks. The machine opens no port. See
+[machines and their agent](/concepts/resources/#machines-and-their-agent) for how it works.
+
+You need:
+
+- An administrator's sign-in. Only an administrator attaches a machine.
+- A Linux machine on x86_64 or aarch64 with systemd.
+- An account on it with an SSH key and `sudo` without a password. The agent runs as this account
+  and reads only what it can read.
+- A route from xixo to the machine's SSH port. Through a tailnet, follow
+  [reach a tailnet](/guides/tailnet/) first. Directly, the machine needs a public address.
+- `XIXO_PUBLIC_ORIGIN` set on the server, since the agent is told where xixo is from it.
+
+## Attach the machine
+
+1. On **Resources**, choose **Attach** and pick **A machine with the xixo agent**.
+2. Under **Reached through**, pick the tailnet, and under **On tailnet**, pick the machine. This
+   fills in **Address**.
+3. Fill in **SSH user** and paste the account's private key into **SSH private key**.
+4. Under **Folders it shares**, list the folders the agent may read, one absolute path per line,
+   such as `/srv/media`.
+5. Optionally, fill in **Host key** with the fingerprint `ssh-keygen -lf
+   /etc/ssh/ssh_host_ed25519_key.pub` prints on the machine. Left empty, the key the machine
+   offers on the first install is kept.
+6. Choose **Attach it**.
+
+Attaching starts an install run. **What it has done** in the machine's menu shows it, with a line
+for each step. The run:
+
+1. Checks the machine's host key against the one kept.
+2. Refuses anything other than Linux on x86_64 or aarch64, and an account without `sudo -n`.
+3. Places the agent at `/usr/local/bin/xixo-agent` and checks its SHA-256 on the machine.
+4. Writes `/etc/xixo-agent/config.json` with xixo's address, masks' address, and the folders.
+5. Asks masks for an enrollment token and runs `xixo-agent enroll`, which makes the agent's keys on
+   the machine and registers it with masks as a client of its own.
+6. Installs and starts the `xixo-agent` systemd service as the account.
+
+xixo drops the private key when the run ends, whether it worked or not. Within a minute the agent
+connects, and the machine's card shows its hostname, the agent's version, its uptime, and how many
+folders it shares.
+
+## Attach a folder
+
+1. On **Resources**, choose **Attach** and pick **A folder on a machine**.
+2. Under **Reached through**, pick the machine, then pick one of its folders in the list below it.
+3. Choose **Attach it**, then sync it like any other resource.
+
+A folder the agent does not share is refused. Syncing a folder whose machine is not connected
+leaves it **offline** until the agent is back.
+
+## Change the folders
+
+The folders live in the machine's own configuration, so xixo cannot widen them. Either change
+**Folders it shares**, paste the private key again, and save, which runs the install again with
+the new list, or edit `/etc/xixo-agent/config.json` on the machine and run
+`sudo systemctl restart xixo-agent`.
+
+## Remove a machine
+
+Archive and delete the folders attached through it, then the machine. The agent's connection
+closes within fifteen seconds of the machine being archived. On the machine,
+`sudo systemctl disable --now xixo-agent` stops the agent, and the client masks registered for it
+stays listed in masks until it is archived there.

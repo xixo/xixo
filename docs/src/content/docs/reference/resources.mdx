@@ -35,6 +35,8 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | [`places`](#places) | `places` |  |
 | [`tailnet`](#tailnet) | `transport` |  |
 | [`feedback`](#feedback) | `feedback` |  |
+| [`xixo-agent`](#xixo-agent) | `transport` |  |
+| [`agent-folder`](#agent-folder) | — | yes |
 
 ## s3
 
@@ -701,3 +703,65 @@ None.
 | Command | Arguments |
 | --- | --- |
 | `ask` | `question: string` `context: string?` `wanted: string?` |
+
+## xixo-agent
+
+A machine with the xixo agent. A Linux machine xixo connects to once over SSH, installs the agent on, and enrolls with masks. From then on the agent dials xixo, reports the machine's health, and shares the folders listed here. The SSH key is used for that one install and then dropped.
+
+|  |  |
+| --- | --- |
+| Serves | `transport` |
+| Accepts | — |
+| Up to | — |
+| Syncs | no |
+| Connected through masks | no |
+| Reached through a transport | yes |
+| Attached from the app | yes |
+
+### Fields
+
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `host` | Address | string | yes |  |  | Where xixo reaches its SSH server. Through a tailnet, its address on the tailnet. |
+| `port` | SSH port | integer |  |  |  |  |
+| `user` | SSH user | string | yes |  |  | The agent runs as this user and reads only what it can read. The user needs sudo without a password to install it. |
+| `private_key` | SSH private key | text |  | encrypted |  | Used once to install the agent and then dropped, whether the install worked or not. Paste it again to install again. |
+| `host_key` | Host key | string |  |  |  | The SHA256 fingerprint of the machine's SSH host key. Left empty, the key seen on the first install is kept, and every later install must meet the same one. |
+| `folders` | Folders it shares | lines |  |  |  | Absolute paths, one per line. The agent reads nothing outside them, and only an install or the machine's own config changes them. |
+
+### Commands
+
+| Command | Arguments |
+| --- | --- |
+| `health` | — |
+| `discover` | — |
+
+## agent-folder
+
+A folder on a machine. A folder the xixo agent on a machine shares. xixo asks the agent for what is in it, and the agent reads nothing outside the folders its own config lists.
+
+|  |  |
+| --- | --- |
+| Serves | — |
+| Accepts | — |
+| Up to | — |
+| Syncs | yes |
+| Connected through masks | no |
+| Reached through a transport | yes |
+| Attached from the app | yes |
+
+### Fields
+
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `folder` | Folder | string | yes |  |  | One of the folders the machine's agent shares. |
+| `prefix` | Prefix | string |  |  |  | Left off, the whole folder is walked. |
+| `skip` | Also skip | list |  |  |  | A name or a pattern such as build or *.tmp on each line. Folders and files with a matching name are never walked. |
+
+### Commands
+
+| Command | Arguments |
+| --- | --- |
+| `list` | `prefix: string?` `limit: integer?` |
+| `get` | `key: string` |
+| `keep` | `key: string` |

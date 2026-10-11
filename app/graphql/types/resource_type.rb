@@ -55,6 +55,9 @@ module Types
           description: "The key of the transport it is reached through. Empty for a resource reached directly."
     field :routable, Boolean, null: false,
           description: "Whether it can be reached through a transport, such as a tailnet."
+    field :machine, Types::MachineType,
+          description: "What the agent on the machine last said, for a machine with the xixo agent. Empty for " \
+                       "every other type."
     field :held_credentials, [ String ], null: false,
           description: "The names of the encrypted fields that hold something, so a form can say " \
                        "one is set without saying what it is."
@@ -75,6 +78,10 @@ module Types
       declared(:details).to_h do |field|
         [ field[:name], field[:name].split(".").reduce(object.details.to_h) { |held, step| held.is_a?(Hash) ? held[step] : nil } ]
       end.compact
+    end
+
+    def machine
+      object if object.is_a?(Resource::XixoAgent)
     end
 
     def manageable

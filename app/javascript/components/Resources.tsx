@@ -88,6 +88,14 @@ interface Resource {
   connectedBy?: string | null
   connectUrl?: string | null
   via?: string | null
+  machine?: {
+    hostname?: string | null
+    version?: string | null
+    connected: boolean
+    seenAt?: string | null
+    uptime?: number | null
+    folders: string[]
+  } | null
 }
 
 const CHECKING_POLL = 2000
@@ -127,6 +135,24 @@ function told(resource: Resource) {
   return resource.checkedAt
     ? `checked ${ago(resource.checkedAt)}`
     : 'not checked yet'
+}
+
+function machined(machine: NonNullable<Resource['machine']>) {
+  const shares = `shares ${machine.folders.length} ${machine.folders.length === 1 ? 'folder' : 'folders'}`
+
+  if (!machine.connected)
+    return machine.seenAt
+      ? `agent last heard ${ago(machine.seenAt)}`
+      : 'agent not connected yet'
+
+  return [
+    machine.hostname,
+    machine.version && `agent ${machine.version}`,
+    machine.uptime != null && `up ${Math.floor(machine.uptime / 86400)}d`,
+    shares,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 }
 
 export function Resources() {
@@ -587,6 +613,7 @@ function ResourceCard({
             <>{resource.name} · </>
           )}
           <span className="mono">{resource.type}</span>
+          {resource.machine && <> · {machined(resource.machine)}</>}
           {resource.via && (
             <>
               {' '}

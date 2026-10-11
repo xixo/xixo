@@ -11,6 +11,7 @@
 # and NODE_VERSION the one in .node-version.
 ARG RUBY_VERSION=3.4.7
 ARG NODE_VERSION=26.0.0
+ARG GO_VERSION=1.26
 FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 
 # Rails app lives here
@@ -38,6 +39,19 @@ ENV RAILS_ENV="production" \
 
 # Node, for the Vite build.
 FROM docker.io/library/node:$NODE_VERSION-slim AS node
+
+FROM docker.io/library/golang:$GO_VERSION AS agent
+WORKDIR /agent
+COPY agent/go.mod agent/go.sum ./
+RUN go mod download
+COPY agent/ ./
+COPY .release-please-manifest.json /agent/
+RUN version=$(sed -n 's/.*"\.": *"\([^"]*\)".*/\1/p' .release-please-manifest.json) && \
+    for arch in amd64 arm64; do \
+      CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath \
+        -ldflags "-s -w -X main.version=${version:-dev}" -o /opt/xixo-agent/xixo-agent-linux-$arch . ; \
+    done && \
+    cp xixo-agent.service /opt/xixo-agent/
 
 FROM scratch AS masks-client
 COPY vendor/.keep /
@@ -114,6 +128,7 @@ USER 1000:1000
 COPY --chown=rails:rails --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"
 COPY --chown=rails:rails --from=build /masks /masks
 COPY --chown=rails:rails --from=build /rails /rails
+COPY --from=agent /opt/xixo-agent /opt/xixo-agent
 
 # Entrypoint prepares the database.
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]

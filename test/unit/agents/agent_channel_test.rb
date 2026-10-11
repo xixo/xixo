@@ -1,0 +1,255 @@
+require "test_helper"
+require_relative "../../support/machines"
+
+class AgentChannelTest < ActionCable::Channel::TestCase
+  include Machines
+
+  tests AgentChannel
+
+  HELLO = {
+    "version" => "0.2.0", "os" => "linux", "arch" => "arm64", "hostname" => "box",
+    "folders" => [ "/srv/media", "/srv/photos" ],
+    "services" => [ { "kind" => "ollama", "port" => 11_434, "address" => "100.64.0.9" } ]
+  }.freeze
+
+  HEALTH = {
+    "uptime" => 3600.5, "load" => [ 0.1, 0.2, 0.3 ], "memory" => { "total" => 8_000_000_000, "available" => 4_000_000_000 },
+    "disks" => [ { "path" => "/srv/media", "total" => 1_000_000, "free" => 500_000 } ]
+  }.freeze
+
+  setup do
+    @tenant = Tenant.create!(subdomain: "agents-#{SecureRandom.hex(4)}", name: "Agents")
+    @agent = agent_on(@tenant, connected: false)
+  end
+
+  test "only a machine subscribes, and it hears its own stream" do
+    stub_connection(tenant: @tenant, grant: nil, machine: nil)
+    subscribe
+    assert subscription.rejected?
+
+    connected
+    assert subscription.confirmed?
+    assert_has_stream_for @agent
+  end
+
+  test "a person's socket cannot join the GraphQL channel as a machine, nor a machine's the GraphQL one" do
+    stub_connection(tenant: @tenant, grant: nil, machine: @agent)
+    subscription = GraphqlChannel.new(connection, "{}", { "channel" => "GraphqlChannel" })
+    subscription.subscribe_to_channel
+
+    assert subscription.send(:subscription_rejected?)
+  end
+
+  test "hello records the machine and brings it online, and health is kept beside it" do
+    Tenant.switch(@tenant) { @agent.update_columns(offline_host: "box", offline_last_seen_at: 1.day.ago) }
+    connected
+
+    perform :hello, HELLO.merge("hostname" => "box\u0007", "folders" => [ "/srv/media", "relative", "/srv/../etc", 5 ],
+                                "services" => HELLO["services"] + [ { "kind" => "sshd", "port" => 22 } ])
+    perform :health, HEALTH.merge("load" => [ 0.1, "high", -1 ])
+
+    held = fresh
+    assert held.connected?
+    assert_not held.offline?
+    assert_equal "box", held.machine["hostname"]
+    assert_equal [ "/srv/media" ], held.offered_folders
+    assert_equal [ "ollama" ], held.machine["services"].map { |service| service["kind"] }
+    assert_equal [ 0.1, nil, nil ], held.machine.dig("health", "load")
+    assert_equal 8_000_000_000, held.machine.dig("health", "memory", "total")
+  end
+
+  test "leaving takes the machine offline, unless a newer connection took its place" do
+    connected
+    perform :hello, HELLO
+    newer = AgentChannel.new(connection, "{}", { "channel" => "AgentChannel" })
+    newer.subscribe_to_channel
+    newer.perform_action("action" => "hello", **HELLO)
+
+    unsubscribe
+    assert fresh.connected?
+
+    newer.unsubscribe_from_channel
+    held = fresh
+    assert_not held.connected?
+    assert held.offline?
+    assert_equal "box", held.offline_host
+  end
+
+  test "a question goes out on the machine's stream and its reply comes back" do
+    connected
+    perform :hello, HELLO
+
+    answered = asking(fresh) do |asked|
+      assert_equal "list", asked["verb"]
+      assert_equal({ "folder" => "/srv/media" }, asked["args"])
+      perform :reply, "request" => asked["request"], "ok" => true, "result" => { "entries" => [] }
+    end
+    answered = Tenant.switch(@tenant) { answered.ask("list", { "folder" => "/srv/media" }) }
+
+    assert_equal({ "entries" => [] }, answered)
+    assert_equal 0, Tenant.switch(@tenant) { AgentExchange.count }
+  end
+
+  test "a refusal comes back as a failure" do
+    connected
+    perform :hello, HELLO
+
+    agent = asking(fresh) { |asked| perform :reply, "request" => asked["request"], "ok" => false, "error" => "no such file" }
+
+    error = assert_raises(Resource::Failed) { Tenant.switch(@tenant) { agent.ask("read", {}) } }
+    assert_match(/no such file/, error.message)
+  end
+
+  test "a question nobody answers fails at its deadline" do
+    connected
+    perform :hello, HELLO
+
+    error = assert_raises(Resource::Failed) { Tenant.switch(@tenant) { fresh.ask("health", {}, within: 0.2.seconds) } }
+    assert_match(/did not answer health/, error.message)
+  end
+
+  test "a machine that is not connected is not asked" do
+    assert_raises(Resource::Offline) { Tenant.switch(@tenant) { fresh.ask("health") } }
+  end
+
+  test "a reply to another machine's question is ignored" do
+    other = agent_on(@tenant, key: "other", connected: true)
+    connected
+    perform :hello, HELLO
+
+    exchange = Tenant.switch(@tenant) { AgentExchange.create!(resource: other, request: SecureRandom.uuid, verb: "health") }
+    perform :reply, "request" => exchange.request, "ok" => true, "result" => { "stolen" => true }
+
+    assert_equal "asked", Tenant.switch(@tenant) { exchange.reload.status }
+  end
+
+  test "a read gathers chunks in order however they arrive" do
+    connected
+    perform :hello, HELLO
+    body = SecureRandom.random_bytes(700)
+    parts = [ body[0, 300], body[300, 300], body[600, 100] ]
+
+    agent = asking(fresh) do |asked|
+      perform :reply, "request" => asked["request"], "ok" => true, "result" => { "size" => body.bytesize }
+      [ 2, 0, 1 ].each do |seq|
+        perform :chunk, "request" => asked["request"], "seq" => seq, "data" => Base64.strict_encode64(parts[seq])
+      end
+    end
+
+    file = Tenant.switch(@tenant) { agent.read("/srv/media", "a/b.bin") }
+    assert_equal body, file.read
+    assert_equal 0, Tenant.switch(@tenant) { AgentChunk.count }
+  ensure
+    file&.close!
+  end
+
+  test "a chunk that is not base64 or is too large refuses the read" do
+    connected
+    perform :hello, HELLO
+
+    agent = asking(fresh) do |asked|
+      perform :reply, "request" => asked["request"], "ok" => true, "result" => { "size" => 10 }
+      perform :chunk, "request" => asked["request"], "seq" => 0, "data" => "not base64!"
+      perform :chunk, "request" => asked["request"], "seq" => 1,
+                      "data" => Base64.strict_encode64("x" * (Resource::XixoAgent::MOST_CHUNKED + 1))
+    end
+
+    assert_raises(Resource::Failed) { Tenant.switch(@tenant) { agent.read("/srv/media", "big.bin") } }
+  end
+
+  test "an upload streams its bytes as puts in order and ends when the agent says it kept them all" do
+    connected
+    perform :hello, HELLO
+    body = SecureRandom.random_bytes(Resource::XixoAgent::MOST_CHUNKED + 10)
+    stream = AgentChannel.broadcasting_for(@agent)
+
+    agent = asking(fresh) do |asked|
+      assert_equal({ "done" => true, "size" => body.bytesize }, asked["args"])
+      perform :reply, "request" => asked["request"], "ok" => true, "result" => { "size" => body.bytesize }
+    end
+
+    id = Tenant.switch(@tenant) { agent.upload(StringIO.new(body)) }
+
+    puts = ActionCable.server.pubsub.broadcasts(stream).map { |held| JSON.parse(held) }
+    assert_equal [ id ], puts.map { |held| held["request"] }.uniq
+    assert_equal %w[put], puts.map { |held| held["verb"] }.uniq
+    assert_equal [ 0, 1, nil ], puts.map { |held| held.dig("args", "seq") }
+    assert_equal body, puts.first(2).map { |held| Base64.strict_decode64(held.dig("args", "data")) }.join
+    assert_equal 0, Tenant.switch(@tenant) { AgentExchange.count }
+  end
+
+  test "an upload the agent kept short of fails" do
+    connected
+    perform :hello, HELLO
+
+    agent = asking(fresh) { |asked| perform :reply, "request" => asked["request"], "ok" => true, "result" => { "size" => 1 } }
+
+    assert_raises(Resource::Failed) { Tenant.switch(@tenant) { agent.upload(StringIO.new("twelve bytes")) } }
+  end
+
+  test "an answer names files the agent streamed back under their own ids" do
+    connected
+    perform :hello, HELLO
+    thumbnail = SecureRandom.random_bytes(400)
+    file_id = SecureRandom.uuid
+
+    agent = asking(fresh) do |asked|
+      perform :chunk, "request" => file_id, "of" => asked["request"], "seq" => 1, "data" => Base64.strict_encode64(thumbnail[300..])
+      perform :chunk, "request" => file_id, "of" => asked["request"], "seq" => 0, "data" => Base64.strict_encode64(thumbnail[0, 300])
+      perform :reply, "request" => asked["request"], "ok" => true, "result" => {
+        "steps" => { "text" => { "result" => "hello" } },
+        "files" => [ { "role" => "thumbnail", "name" => "t.webp", "size" => 400, "request_file" => file_id },
+                     { "role" => "preview", "name" => "empty", "size" => 0, "request_file" => SecureRandom.uuid } ]
+      }
+    end
+
+    kept = Tenant.switch(@tenant) do
+      agent.exchanged("extract", { "source" => { "upload" => SecureRandom.uuid } }) do |answer|
+        assert_equal "hello", answer.result.dig("steps", "text", "result")
+        answer.files.map { |entry| answer.file(entry).then { |file| file.read.tap { file.close! } } }
+      end
+    end
+
+    assert_equal [ thumbnail, "" ], kept
+    assert_equal 0, Tenant.switch(@tenant) { AgentExchange.count + AgentChunk.count }
+  end
+
+  test "a file chunk needs an open question of this machine as its parent" do
+    other = agent_on(@tenant, key: "other", connected: true)
+    connected
+    perform :hello, HELLO
+    theirs = Tenant.switch(@tenant) { AgentExchange.create!(resource: other, request: SecureRandom.uuid, verb: "extract") }
+
+    perform :chunk, "request" => SecureRandom.uuid, "seq" => 0, "data" => Base64.strict_encode64("x")
+    perform :chunk, "request" => SecureRandom.uuid, "of" => SecureRandom.uuid, "seq" => 0, "data" => Base64.strict_encode64("x")
+    perform :chunk, "request" => SecureRandom.uuid, "of" => theirs.request, "seq" => 0, "data" => Base64.strict_encode64("x")
+
+    assert_equal 1, Tenant.switch(@tenant) { AgentExchange.count }
+    assert_equal 0, Tenant.switch(@tenant) { AgentChunk.count }
+  end
+
+  private
+
+    def connected
+      stub_connection(tenant: @tenant, grant: nil, machine: @agent)
+      subscribe
+    end
+
+    def fresh
+      Tenant.switch(@tenant) { Resource::XixoAgent.find(@agent.id) }
+    end
+
+    def asking(agent)
+      stream = AgentChannel.broadcasting_for(agent)
+      answered = false
+
+      agent.define_singleton_method(:waiting) do
+        next if answered
+
+        answered = true
+        yield JSON.parse(ActionCable.server.pubsub.broadcasts(stream).last)
+      end
+
+      agent
+    end
+end

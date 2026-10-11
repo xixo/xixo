@@ -683,14 +683,24 @@ function Asked({
     )
   }
 
-  if (field.kind === 'list') {
+  if (
+    field.kind === 'list' ||
+    field.kind === 'lines' ||
+    field.kind === 'text'
+  ) {
     return (
       <Textarea
         size="md"
         label={field.label}
-        description={field.help}
-        placeholder={field.placeholder ?? undefined}
-        withAsterisk={field.required}
+        description={
+          kept
+            ? [field.help, 'Something is held. Left empty, it stays as it is.']
+                .filter(Boolean)
+                .join(' ')
+            : field.help
+        }
+        placeholder={kept ? '••••••••' : (field.placeholder ?? undefined)}
+        withAsterisk={field.required && !kept}
         autosize
         minRows={3}
         maxRows={12}

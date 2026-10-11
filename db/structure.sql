@@ -123,6 +123,83 @@ ALTER SEQUENCE public.active_storage_variant_records_id_seq OWNED BY public.acti
 
 
 --
+-- Name: agent_chunks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.agent_chunks (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    agent_exchange_id bigint NOT NULL,
+    seq integer NOT NULL,
+    bytes bytea NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL
+);
+
+ALTER TABLE ONLY public.agent_chunks FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: agent_chunks_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.agent_chunks_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: agent_chunks_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.agent_chunks_id_seq OWNED BY public.agent_chunks.id;
+
+
+--
+-- Name: agent_exchanges; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.agent_exchanges (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    resource_id bigint NOT NULL,
+    parent_id bigint,
+    request uuid NOT NULL,
+    verb character varying NOT NULL,
+    status character varying DEFAULT 'asked'::character varying NOT NULL,
+    result jsonb,
+    error character varying,
+    received bigint DEFAULT 0 NOT NULL,
+    answered_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+ALTER TABLE ONLY public.agent_exchanges FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: agent_exchanges_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.agent_exchanges_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: agent_exchanges_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.agent_exchanges_id_seq OWNED BY public.agent_exchanges.id;
+
+
+--
 -- Name: analyses; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -721,6 +798,20 @@ ALTER TABLE ONLY public.active_storage_variant_records ALTER COLUMN id SET DEFAU
 
 
 --
+-- Name: agent_chunks id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_chunks ALTER COLUMN id SET DEFAULT nextval('public.agent_chunks_id_seq'::regclass);
+
+
+--
+-- Name: agent_exchanges id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_exchanges ALTER COLUMN id SET DEFAULT nextval('public.agent_exchanges_id_seq'::regclass);
+
+
+--
 -- Name: analyses id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -833,6 +924,22 @@ ALTER TABLE ONLY public.active_storage_blobs
 
 ALTER TABLE ONLY public.active_storage_variant_records
     ADD CONSTRAINT active_storage_variant_records_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: agent_chunks agent_chunks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_chunks
+    ADD CONSTRAINT agent_chunks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: agent_exchanges agent_exchanges_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_exchanges
+    ADD CONSTRAINT agent_exchanges_pkey PRIMARY KEY (id);
 
 
 --
@@ -1009,6 +1116,55 @@ CREATE INDEX index_active_storage_variant_records_on_tenant_id ON public.active_
 --
 
 CREATE UNIQUE INDEX index_active_storage_variant_records_uniqueness ON public.active_storage_variant_records USING btree (blob_id, variation_digest);
+
+
+--
+-- Name: index_agent_chunks_on_agent_exchange_id_and_seq; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_agent_chunks_on_agent_exchange_id_and_seq ON public.agent_chunks USING btree (agent_exchange_id, seq);
+
+
+--
+-- Name: index_agent_chunks_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_agent_chunks_on_tenant_id ON public.agent_chunks USING btree (tenant_id);
+
+
+--
+-- Name: index_agent_exchanges_on_parent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_agent_exchanges_on_parent_id ON public.agent_exchanges USING btree (parent_id);
+
+
+--
+-- Name: index_agent_exchanges_on_request; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_agent_exchanges_on_request ON public.agent_exchanges USING btree (request);
+
+
+--
+-- Name: index_agent_exchanges_on_resource_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_agent_exchanges_on_resource_id ON public.agent_exchanges USING btree (resource_id);
+
+
+--
+-- Name: index_agent_exchanges_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_agent_exchanges_on_tenant_id ON public.agent_exchanges USING btree (tenant_id);
+
+
+--
+-- Name: index_agent_exchanges_on_tenant_id_and_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_agent_exchanges_on_tenant_id_and_created_at ON public.agent_exchanges USING btree (tenant_id, created_at);
 
 
 --
@@ -1529,6 +1685,22 @@ ALTER TABLE ONLY public.feed_references
 
 
 --
+-- Name: agent_chunks fk_rails_30685304ff; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_chunks
+    ADD CONSTRAINT fk_rails_30685304ff FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: agent_exchanges fk_rails_36680d725f; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_exchanges
+    ADD CONSTRAINT fk_rails_36680d725f FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: audit_events fk_rails_36cb9d4698; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1566,6 +1738,14 @@ ALTER TABLE ONLY public.active_storage_variant_records
 
 ALTER TABLE ONLY public.audit_events
     ADD CONSTRAINT fk_rails_543bbbff97 FOREIGN KEY (analysis_id) REFERENCES public.analyses(id) ON DELETE SET NULL;
+
+
+--
+-- Name: agent_chunks fk_rails_5c2a9dea2f; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_chunks
+    ADD CONSTRAINT fk_rails_5c2a9dea2f FOREIGN KEY (agent_exchange_id) REFERENCES public.agent_exchanges(id) ON DELETE CASCADE;
 
 
 --
@@ -1638,6 +1818,14 @@ ALTER TABLE ONLY public.passages
 
 ALTER TABLE ONLY public.feed_edges
     ADD CONSTRAINT fk_rails_a9d258f3a7 FOREIGN KEY (a_id) REFERENCES public.feeds(id);
+
+
+--
+-- Name: agent_exchanges fk_rails_ad6467947f; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_exchanges
+    ADD CONSTRAINT fk_rails_ad6467947f FOREIGN KEY (resource_id) REFERENCES public.resources(id) ON DELETE CASCADE;
 
 
 --
@@ -1721,6 +1909,14 @@ ALTER TABLE ONLY public.feeds
 
 
 --
+-- Name: agent_exchanges fk_rails_eaef297d35; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_exchanges
+    ADD CONSTRAINT fk_rails_eaef297d35 FOREIGN KEY (parent_id) REFERENCES public.agent_exchanges(id) ON DELETE CASCADE;
+
+
+--
 -- Name: audit_events fk_rails_fcd253d0d8; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1753,6 +1949,18 @@ ALTER TABLE public.active_storage_blobs ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.active_storage_variant_records ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: agent_chunks; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.agent_chunks ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: agent_exchanges; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.agent_exchanges ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: analyses; Type: ROW SECURITY; Schema: public; Owner: -
@@ -1848,6 +2056,20 @@ CREATE POLICY tenant_isolation ON public.active_storage_variant_records USING ((
 
 
 --
+-- Name: agent_chunks tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.agent_chunks USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
+
+
+--
+-- Name: agent_exchanges tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.agent_exchanges USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
+
+
+--
 -- Name: analyses tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -1938,6 +2160,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261011200000'),
 ('20261010230000'),
 ('20261010200000'),
 ('20261010160000'),

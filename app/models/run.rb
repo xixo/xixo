@@ -1,7 +1,7 @@
 class Run < ApplicationRecord
   include TenantScoped
 
-  KINDS = %w[sync export reindex snapshot fetch].freeze
+  KINDS = %w[sync export reindex snapshot fetch install].freeze
   STATUSES = %w[queued running done failed cancelled gated].freeze
   OPEN = %w[queued running].freeze
 

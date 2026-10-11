@@ -36,7 +36,7 @@ class Resource < ApplicationRecord
 
   TYPES = %w[
     s3 filesystem webdav caldav carddav imap rss web openai-compatible oauth-google database
-    search curl mcp github notion slack microsoft-graph git weather places tailnet feedback
+    search curl mcp github notion slack microsoft-graph git weather places tailnet feedback xixo-agent agent-folder
   ].freeze
 
   validates :key, presence: true,
@@ -50,6 +50,7 @@ class Resource < ApplicationRecord
   validate :a_default_is_a_resource_that_can_be_one
   validate :via_is_a_transport
   validate :via_is_honored
+  validate :via_carries_it
   validate :via_is_this_tenants
   validate :via_leads_somewhere
   validate :a_transport_in_use_is_not_archived
@@ -364,6 +365,10 @@ class Resource < ApplicationRecord
 
   def declares_role?(_role)
     false
+  end
+
+  def carries?(_resource)
+    true
   end
 
   def reach!(_target)
@@ -847,6 +852,12 @@ class Resource < ApplicationRecord
       return if via_id.nil? || self.class.routable?
 
       errors.add(:via, "cannot be set on #{self.class.sti_name}, which dials its own way")
+    end
+
+    def via_carries_it
+      return if via.nil? || !via.transport? || via.carries?(self)
+
+      errors.add(:via, "#{via.key} reaches nothing of this kind")
     end
 
     def through!

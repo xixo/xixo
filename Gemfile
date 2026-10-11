@@ -24,6 +24,9 @@ gem "vite_rails"
 gem "opensearch-ruby"
 
 gem "aws-sdk-s3", require: false
+gem "net-ssh", require: false
+gem "ed25519", require: false
+gem "bcrypt_pbkdf", require: false
 gem "net-imap", require: false
 gem "nokogiri"
 
