@@ -231,6 +231,8 @@ class Reference < ApplicationRecord
     end
 
     def reindex_feed
+      return unless destroyed? || previously_new_record? || saved_changes.any?
+
       left = feed_id_previously_was if feed_id_previously_changed?
       Feed.find_by(id: left)&.settle_readers! if left
 
