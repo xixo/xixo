@@ -52,7 +52,9 @@ class CorpusSummaryTest < ActiveSupport::TestCase
       Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, id) }
 
       needle = needle_in(source)
-      assert_includes @server.prompts.last, needle if needle
+      tables = Tenant.switch(@tenant) { Tables.of(Feed.find(id)) }
+      tables.each { |table| assert_includes @server.prompts.last, Tables.described(table) }
+      assert_includes tables.any? ? tables.to_json : @server.prompts.last, needle if needle
 
       SearchIndex.refresh!
 
