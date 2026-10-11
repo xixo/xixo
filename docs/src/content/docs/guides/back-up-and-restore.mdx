@@ -1,0 +1,112 @@
+---
+title: Back up and restore
+description: Back up the one database that matters, restore it, and let the search index rebuild itself.
+---
+
+At the end of this guide, a xixo deployment has a backup that has been restored at least once. The
+commands assume the [example compose file](/guides/self-hosting/#example-composeyml), with the web
+service named `xixo`, the worker `worker`, and Postgres `postgres`.
+
+## What to back up
+
+| What | Back it up | Why |
+| --- | --- | --- |
+| `xixo_production` | Yes | The catalog: every item, reference, note, tag, and connection, each analysis, every resource's settings and encrypted credentials, the bytes held by a database resource, and the vectors of every item and passage. |
+| The encryption keys and `SECRET_KEY_BASE` | Yes, apart from the dump | `ENCRYPTION_PRIMARY_KEY`, `ENCRYPTION_DETERMINISTIC_KEY`, and `ENCRYPTION_KEY_DERIVATION_SALT` decrypt the credentials in the dump. A restore without them keeps the catalog and loses every stored credential. |
+| The `storage` volume | Yes | Files that were uploaded or shared and are still staged, waiting for a place. |
+| `xixo_production_queue` | No | Jobs that have not run yet. The recurring schedule comes from `config/recurring.yml`, and each resource syncs again at its next interval. |
+| `xixo_production_cache`, `xixo_production_cable` | No | Rebuilt as xixo runs. |
+| OpenSearch | No | Rebuilt from the catalog. See [the search index](#the-search-index). |
+| Your files | Your own way | The bytes stay in the resources they came from. Back up a folder, a bucket, or a mail server with whatever already backs it up. |
+
+The masks deployment that signs people in keeps its own database. Back it up with masks.
+
+## Back up
+
+1. Dump the catalog in Postgres's custom format, which `pg_restore` reads and compresses as it
+   writes:
+
+   ```sh
+   docker compose exec -T postgres pg_dump -U postgres -Fc xixo_production > xixo-$(date +%F).dump
+   ```
+
+2. Copy the staged files out of the `storage` volume:
+
+   ```sh
+   docker compose exec -T xixo tar -czf - -C /rails storage > storage-$(date +%F).tar.gz
+   ```
+
+3. Keep both files somewhere the host does not hold, such as another machine or a bucket. Keep the
+   encryption keys in a password manager or a vault, never beside the dump.
+
+The dump is consistent on its own: `pg_dump` reads one snapshot, so xixo keeps running while it
+works.
+
+## Restore
+
+1. Stop xixo and the worker, so nothing writes while the catalog is replaced:
+
+   ```sh
+   docker compose stop xixo worker
+   ```
+
+2. Replace the database. The new database must belong to the `xixo` role, because every table does
+   and row-level security is forced on its owner:
+
+   ```sh
+   docker compose exec -T postgres dropdb -U postgres xixo_production
+   docker compose exec -T postgres createdb -U postgres -O xixo xixo_production
+   docker compose exec -T postgres pg_restore -U postgres --exit-on-error -d xixo_production < xixo-2026-10-11.dump
+   ```
+
+3. Put the staged files back:
+
+   ```sh
+   docker compose run --rm --no-deps -T --entrypoint "" xixo tar -xzf - -C /rails < storage-2026-10-11.tar.gz
+   ```
+
+4. Start xixo with the same encryption keys and `SECRET_KEY_BASE` the backup was made with:
+
+   ```sh
+   docker compose up -d
+   ```
+
+   The web container runs `db:prepare` on start, so a dump from an older release is migrated
+   forward.
+
+5. Check `/up`, then open the catalog. See [health check](/guides/self-hosting/#health-check).
+
+## The search index
+
+OpenSearch holds nothing that the catalog does not. Every ten minutes the recurring
+`rebuild_search_index` job checks the index, and when the index is missing or was built from an
+older mapping, it builds a new one from the catalog and fills the passage index from the vectors
+stored with each passage. No model is asked to embed anything again.
+
+To rebuild at once instead of waiting:
+
+```sh
+docker compose exec -T worker bin/rails runner RebuildSearchIndexJob.perform_now
+```
+
+Search answers from the old index, or answers nothing, until the new one is promoted.
+
+## Check a backup
+
+A backup that has never been restored is a guess. Restore one into a scratch database next to the
+real one, count what came back, and drop it:
+
+```sh
+docker compose exec -T postgres createdb -U postgres -O xixo xixo_restore_check
+docker compose exec -T postgres pg_restore -U postgres --exit-on-error -d xixo_restore_check < xixo-2026-10-11.dump
+docker compose exec -T postgres psql -U postgres -d xixo_restore_check -c "SELECT count(*) FROM feeds"
+docker compose exec -T postgres psql -U postgres -d xixo_production -c "SELECT count(*) FROM feeds"
+docker compose exec -T postgres dropdb -U postgres xixo_restore_check
+```
+
+The two counts match when the backup is whole, apart from what was added since it was made.
+
+xixo's own restore drill does the same against a development catalog of 425 items in two tenants.
+The restored copy has the same items, references, connections, and resources in each tenant, its
+stored credentials decrypt with the original keys, and a search index rebuilt from it holds all 425
+items and 317 passages in three seconds and answers a search the same way the original does.
