@@ -1,4 +1,5 @@
 import type { TypedDocumentNode } from '@graphql-typed-document-node/core'
+import type { CombinedError } from '@urql/core'
 import {
   createContext,
   type ReactNode,
@@ -10,6 +11,13 @@ import {
   useState,
 } from 'react'
 import type { XixoClient } from '../client.js'
+
+function said(error: CombinedError) {
+  return new Error(
+    error.networkError?.message ??
+      error.graphQLErrors.map((refusal) => refusal.message).join('\n'),
+  )
+}
 
 const XixoContext = createContext<XixoClient | null>(null)
 
@@ -65,7 +73,7 @@ export function useQuery<TData, TVariables extends Record<string, unknown>>(
         .then((result) => {
           if (asked !== latest.current) return
           if (result.error) {
-            setError(new Error(result.error.message))
+            setError(said(result.error))
           } else {
             setError(null)
             setData(result.data ?? null)
@@ -114,7 +122,7 @@ export function useSubscription<
       .subscription(subscription, stableVariables)
       .subscribe((result) => {
         if (result.error) {
-          setError(new Error(result.error.message))
+          setError(said(result.error))
         } else if (result.data) {
           setData(result.data)
         }
@@ -142,7 +150,7 @@ export function useMutation<TData, TVariables extends Record<string, unknown>>(
       try {
         const result = await client.mutation(mutation, variables).toPromise()
         if (result.error) {
-          const refused = new Error(result.error.message)
+          const refused = said(result.error)
           setError(refused)
           return { data: null, error: refused }
         }
