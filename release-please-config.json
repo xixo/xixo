@@ -10,9 +10,7 @@
       "initial-version": "0.1.0",
       "bump-minor-pre-major": true,
       "changelog-path": "CHANGELOG.md",
-      "exclude-paths": [
-        "web"
-      ],
+      "exclude-paths": ["web"],
       "changelog-sections": [
         {
           "type": "feat",
