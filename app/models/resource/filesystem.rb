@@ -5,6 +5,10 @@ class Resource
     class Escaped < Resource::Failed; end
 
     PAGE = 500
+    SKIPPED = %w[
+      .git .hg .svn node_modules __pycache__ .venv .tox .Trash .Trashes .Spotlight-V100 .fseventsd
+      .DS_Store ._* Thumbs.db desktop.ini
+    ].freeze
 
     serves :storage
     accepts "*/*"
@@ -19,7 +23,10 @@ class Resource
         names: "A name for it",
         fields: [
           field("root", "Directory", required: true, placeholder: "photos"),
-          field("prefix", "Prefix", help: "Left off, the whole directory is walked.")
+          field("prefix", "Prefix", help: "Left off, the whole directory is walked."),
+          field("skip", "Also skip", kind: "list", placeholder: "*.tmp",
+                help: "A name or a pattern such as build or *.tmp on each line. Folders and files with a " \
+                      "matching name are never walked. #{SKIPPED.join(', ')} are always skipped.")
         ]
       }
     end
@@ -72,8 +79,7 @@ class Resource
       permitted_root!
       @walk = walk
 
-      walk(prefix).drop_while { |path| cursor.present? && !after?(path, cursor) }
-                  .each_slice(PAGE) do |batch|
+      walk(prefix, after: cursor.presence).each_slice(PAGE) do |batch|
         yield batch.map { |path| entry(path) }, batch.last
       end
     end
@@ -237,29 +243,48 @@ class Resource
       end
 
 
-      def walk(prefix = nil)
+      def walk(prefix = nil, after: nil)
         wanted = within_prefix(prefix)
 
         Enumerator.new do |yielder|
-          descend(root, "", yielder)
-        end.lazy.select { |path| wanted.nil? || path.start_with?(wanted) }
+          descend(root, "", yielder, wanted: wanted, after: after)
+        end.lazy
       end
 
-      def descend(directory, prefix, yielder)
+      def descend(directory, prefix, yielder, wanted:, after:)
         directory.children.sort_by(&:basename).each do |child|
-          next if child.symlink?
+          next if child.symlink? || skipped?(child.basename.to_s)
 
           name = prefix.empty? ? child.basename.to_s : File.join(prefix, child.basename.to_s)
 
           if child.directory?
-            descend(child, name, yielder)
+            next unless toward?(name, wanted) && !before?(name, after)
+
+            descend(child, name, yielder, wanted: wanted, after: after)
           elsif child.file?
-            yielder.yield(name)
+            yielder.yield(name) if (wanted.nil? || name.start_with?(wanted)) && (after.nil? || after?(name, after))
           end
         end
       rescue SystemCallError
         @walk&.partial!
         nil
+      end
+
+      def skipped?(basename)
+        (SKIPPED + Array(details.to_h["skip"])).any? do |pattern|
+          File.fnmatch(pattern.to_s.strip, basename, File::FNM_DOTMATCH) if pattern.present?
+        end
+      end
+
+      def toward?(directory, wanted)
+        wanted.nil? || wanted.start_with?(directory) || directory.start_with?(wanted)
+      end
+
+      def before?(directory, cursor)
+        return false if cursor.nil?
+
+        parts = directory.split("/")
+        (parts <=> cursor.split("/").first(parts.size)).to_i.negative?
       end
   end
 end

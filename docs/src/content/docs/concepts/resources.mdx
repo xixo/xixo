@@ -71,6 +71,11 @@ tenant's directory under the first root. The shipped `files` resource, with root
 xixo checks the real path of a root, so it refuses a symlink that leads out of the tenant's
 directory, and a write never follows a symlink.
 
+A walk never enters version control folders such as `.git`, dependency folders such as
+`node_modules`, or the folders and files an operating system leaves behind, such as `.DS_Store`.
+**Also skip** adds names or patterns of its own. A prefix walks only the folders that can hold it, and
+a sync resumed from its cursor passes over the folders it already walked without opening them.
+
 ## Resources connected through masks
 
 Google Drive, OneDrive, and an MCP server whose authentication is `masks` use a person's own

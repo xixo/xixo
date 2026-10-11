@@ -57,6 +57,50 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { assert_equal 3, Feed.files.count }
   end
 
+  test "version control, dependencies, and system clutter are never walked, nor what the resource says to skip" do
+    write ".git/objects/ab/cdef", "blob"
+    write "app/node_modules/left-pad/index.js", "module.exports = 1"
+    write ".DS_Store", "finder"
+    write "photos/._beach.jpg", "apple double"
+    write "build/out.o", "object"
+    write "scratch.tmp", "temporary"
+    Tenant.switch(@tenant) { @resource.update!(details: @resource.details.merge("skip" => %w[build *.tmp])) }
+
+    walked = []
+    @resource.each_page { |page, _| walked.concat(page.map(&:path)) }
+
+    assert_equal %w[invoices/march.pdf notes.txt photos/beach.jpg], walked
+  end
+
+  test "a prefix walks only the folder it names" do
+    Tenant.switch(@tenant) { @resource.update!(details: @resource.details.merge("prefix" => "photos")) }
+    entered = []
+    @resource.define_singleton_method(:descend) do |directory, prefix, yielder, **held|
+      entered << prefix
+      super(directory, prefix, yielder, **held)
+    end
+
+    walked = []
+    @resource.each_page { |page, _| walked.concat(page.map(&:path)) }
+
+    assert_equal %w[photos/beach.jpg], walked
+    assert_not_includes entered, "invoices"
+  end
+
+  test "resuming skips the folders it already walked without opening them" do
+    entered = []
+    @resource.define_singleton_method(:descend) do |directory, prefix, yielder, **held|
+      entered << prefix
+      super(directory, prefix, yielder, **held)
+    end
+
+    resumed = []
+    @resource.each_page(cursor: "notes.txt") { |page, _| resumed.concat(page.map(&:path)) }
+
+    assert_equal %w[photos/beach.jpg], resumed
+    assert_not_includes entered, "invoices"
+  end
+
   test "the walk is deterministic, so a cursor resumes where it stopped" do
     seen = []
     @resource.each_page(cursor: "invoices/march.pdf") { |page, _| seen.concat(page.map(&:path)) }

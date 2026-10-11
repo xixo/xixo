@@ -90,6 +90,7 @@ A directory. A directory on the machine running xixo, inside this tenant's own d
 | --- | --- | --- | --- | --- | --- | --- |
 | `root` | Directory | string | yes |  |  |  |
 | `prefix` | Prefix | string |  |  |  | Left off, the whole directory is walked. |
+| `skip` | Also skip | list |  |  |  | A name or a pattern such as build or *.tmp on each line. Folders and files with a matching name are never walked. .git, .hg, .svn, node_modules, __pycache__, .venv, .tox, .Trash, .Trashes, .Spotlight-V100, .fseventsd, .DS_Store, ._*, Thumbs.db, desktop.ini are always skipped. |
 
 ### Commands
 
