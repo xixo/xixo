@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.5.0](https://github.com/xixo/xixo/compare/client-v0.4.1...client-v0.5.0) (2026-10-11)
+
+
+### Features
+
+* **client:** the Action Cable exchange tells an onConnection callback when live updates drop and come back ([bf5940d](https://github.com/xixo/xixo/commit/bf5940db795e76ba43b8727656482273c135988d))
+* **server:** a put-away resource is deleted, with every reference into it, and its key is free again ([ca3bad9](https://github.com/xixo/xixo/commit/ca3bad9b745bd885694eae8fa55f2be6a1337c52))
+* **server:** a resource on a tailnet machine that is off reads offline, and its syncs wait for the machine ([602ca19](https://github.com/xixo/xixo/commit/602ca19a4f2032de0610dfb34fe2033624290949))
+* **server:** a transport offers the machines it reaches as resources to attach ([602ca19](https://github.com/xixo/xixo/commit/602ca19a4f2032de0610dfb34fe2033624290949))
+* **server:** how many frames of an animation the vision model reads is two settings, a share of its frames and a most ([ab9f5d7](https://github.com/xixo/xixo/commit/ab9f5d790952ad9b237e2eec5b03e62f1e19f02c))
+* **server:** only an administrator attaches, changes, or removes a resource everyone shares, or chooses the defaults, and Sign in as an administrator asks masks for that privilege ([2409992](https://github.com/xixo/xixo/commit/24099927953ef8cadd8fc1609ca85e8815c9c4ba))
+* **web:** a new install's catalog lists what it still needs, storage, a model server that answers, and an MCP client, until each is in place or the checklist is hidden ([725f8cf](https://github.com/xixo/xixo/commit/725f8cf02e1e9e77aa6333eb2ff10b3c46c731e0))
+* **web:** a resource's menu shows what it has done, its past syncs, exports, and reindexes with their logs, and cancels one still running ([f7bd5a8](https://github.com/xixo/xixo/commit/f7bd5a82a9aaad0f6d0f3a6dcb3f1c6e81b62bb0))
+* **web:** an email's page lists the rest of its thread, oldest first ([b67bb4e](https://github.com/xixo/xixo/commit/b67bb4e578c983640c9e0ccde7cf1993c0e66f3b))
+* **web:** an item relates to another from its page, by searching for it, and a related one is unrelated the same way ([bed2b56](https://github.com/xixo/xixo/commit/bed2b56bb2886a8bbb18979933f7785460f46a2f))
+
+
+### Fixes
+
+* a model server's card reads checking while its models are tried, and updates when they are ([819372a](https://github.com/xixo/xixo/commit/819372abcdae54e49830bed7f09a33c64338b3aa))
+* **web:** a GIF plays on its item page, and opens as itself rather than as the still preview made from its first frame ([8e9d96c](https://github.com/xixo/xixo/commit/8e9d96ce68f14a41e02550b6c564cfce2f340e7f))
+
 ## [0.4.1](https://github.com/xixo/xixo/compare/client-v0.4.0...client-v0.4.1) (2026-10-04)
 
 
