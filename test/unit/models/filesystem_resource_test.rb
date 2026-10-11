@@ -101,6 +101,27 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     assert_not_includes entered, "invoices"
   end
 
+  test "a file that has not changed since it was analyzed is only marked seen, and a changed one is read again" do
+    sync
+    Tenant.switch(@tenant) { Reference.update_all(analyzed_at: Time.current, seen_at: 1.day.ago) }
+    notes = Tenant.switch(@tenant) { feed_at("notes.txt") }
+    indexed = 0
+    counting = Module.new { define_method(:index) { |*held, **kept| indexed += 1; super(*held, **kept) } }
+    SearchIndex.singleton_class.prepend(counting)
+
+    write "notes.txt", "remember the milk and the eggs"
+    File.utime(Time.now + 60, Time.now + 60, (@root + "notes.txt").to_s)
+    sync
+
+    Tenant.switch(@tenant) do
+      assert(Reference.where.not(locator_key: "notes.txt").all? { |reference| reference.seen_at > 1.minute.ago })
+      assert_nil notes.references.first.reload.analyzed_at
+    end
+    assert_operator indexed, :<=, 2
+  ensure
+    counting&.send(:remove_method, :index)
+  end
+
   test "the walk is deterministic, so a cursor resumes where it stopped" do
     seen = []
     @resource.each_page(cursor: "invoices/march.pdf") { |page, _| seen.concat(page.map(&:path)) }

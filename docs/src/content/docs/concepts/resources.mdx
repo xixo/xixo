@@ -140,7 +140,10 @@ minute for resources that are due.
 Starting a sync claims the resource with a single conditional update, so two workers cannot both
 start one, and opens a run of kind `sync`. The job walks the resource page by page with
 job-iteration. It records a [reference](/concepts/references/) for each object, analyzes any
-[feed](/concepts/feeds/) that needs it, and resumes at its cursor after a deploy. A
+[feed](/concepts/feeds/) that needs it, and resumes at its cursor after a deploy. An object whose
+version matches the one recorded, and which has been analyzed since, is only marked seen, with one
+update and no write to the search index, so a sync of a large resource that barely changed costs
+little more than its listing. A
 `Resource::Failed` error gets five attempts before the run fails. When the sync finishes, xixo
 clears the claim and schedules the next sync on the original interval, skipping any times that were
 missed. A failed sync also clears the claim, but does not record the resource as synced. If the

@@ -554,6 +554,9 @@ class Resource < ApplicationRecord
   end
 
   def keep!(object, cause: "sync")
+    held = unchanged(object) if cause == "sync"
+    return held if held
+
     reference = Reference.discover!(
       resource: self,
       locator: locator_for(object),
@@ -572,6 +575,17 @@ class Resource < ApplicationRecord
     end
 
     reference
+  end
+
+  def unchanged(object)
+    version = version_for(locator_for(object))
+    return nil if version.blank?
+
+    held = Reference.originals.find_by(resource_id: id, locator_key: locator_key_for(object), version: version, gone_at: nil)
+    return nil if held.nil? || held.analyzed_at.nil?
+
+    held.update_columns(seen_at: Time.current)
+    held
   end
 
   def dropped
