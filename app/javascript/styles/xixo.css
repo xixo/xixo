@@ -3068,3 +3068,30 @@ a.tag:hover {
   font-size: var(--t-small);
   white-space: nowrap;
 }
+
+.relate-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.relate-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) var(--s3);
+  border-bottom: 1px solid var(--line);
+}
+
+.relate-row:last-child {
+  border-bottom: 0;
+}
+
+.relate-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

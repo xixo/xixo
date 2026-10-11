@@ -159,3 +159,12 @@ query Tags {
     }
   }
 }
+
+mutation ConnectFeeds($id: ID!, $otherId: ID!, $connected: Boolean) {
+  connectFeeds(input: { id: $id, otherId: $otherId, connected: $connected }) {
+    feed {
+      id
+      connectedCount
+    }
+  }
+}

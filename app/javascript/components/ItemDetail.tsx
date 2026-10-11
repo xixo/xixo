@@ -16,6 +16,7 @@ import {
   IconCut,
   IconDots,
   IconEraser,
+  IconLink,
   IconNote,
   IconPencil,
   IconRefresh,
@@ -52,6 +53,7 @@ import { Conversation } from './Conversation'
 import { OneLine } from './OneLine'
 import { Passes, placementOf, why } from './Passes'
 import { Readout } from './Readout'
+import { Relate } from './Relate'
 import { Rows } from './Rows'
 import { useAloud, useSay } from './Say'
 import { Sure } from './Sure'
@@ -99,6 +101,7 @@ export function ItemDetail() {
   const [asking, setAsking] = useState(false)
   const [notingOpen, setNotingOpen] = useState(false)
   const [taggerOpen, setTaggerOpen] = useState(false)
+  const [relating, setRelating] = useState(false)
   const [zoomed, setZoomed] = useState<{ url: string; alt: string } | null>(
     null,
   )
@@ -297,6 +300,12 @@ export function ItemDetail() {
                   Tag
                 </Menu.Item>
                 <Menu.Item
+                  leftSection={<IconLink size={15} stroke={1.6} />}
+                  onClick={() => setRelating(true)}
+                >
+                  Relate to another item
+                </Menu.Item>
+                <Menu.Item
                   leftSection={<IconRefresh size={15} stroke={1.6} />}
                   disabled={analyze.loading}
                   onClick={async () => {
@@ -478,6 +487,14 @@ export function ItemDetail() {
             rows={item.thread.filter((message) => message.id !== item.id)}
           />
         </Stack>
+      )}
+
+      {relating && (
+        <Relate
+          item={{ id: item.id, name }}
+          onClose={() => setRelating(false)}
+          onChanged={settled}
+        />
       )}
 
       <Connections

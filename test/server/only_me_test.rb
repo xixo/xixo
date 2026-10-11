@@ -49,6 +49,19 @@ class OnlyMeTest < ActionDispatch::IntegrationTest
     assert_match(/no feed with id/, refused.dig("errors", 0, "message"))
   end
 
+  test "relating a personal file to a shared one shows the edge to its owner alone" do
+    connect = ->(subject, id, other) { graphql(subject, %(mutation { connectFeeds(input: { id: "#{id}", otherId: "#{other}" }) { feed { id } } })) }
+    connected = ->(subject) { graphql(subject, %({ feed(id: "#{@lease.id}") { connectedCount } feeds(connectedTo: "#{@lease.id}", topLevel: false) { nodes { id } } })) }
+
+    assert_match(/no feed with id/, connect.("bob", @lease.id, @diary.id).dig("errors", 0, "message"))
+    assert_nil connect.("ada", @diary.id, @lease.id)["errors"]
+
+    assert_equal 1, connected.("ada").dig("data", "feed", "connectedCount")
+    assert_equal [ @diary.id.to_s ], ids(connected.("ada"), "feeds")
+    assert_equal 0, connected.("bob").dig("data", "feed", "connectedCount")
+    assert_empty ids(connected.("bob"), "feeds")
+  end
+
   test "the tools refuse what is only someone else's" do
     as("bob") do
       found = JSON.parse(Tool::Search.call(server_context: {}, query: "safe").content.first[:text])
