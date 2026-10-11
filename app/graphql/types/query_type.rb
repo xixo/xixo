@@ -8,6 +8,14 @@ module Types
       context[:tenant]
     end
 
+    field :administrator, Boolean, null: false, grants: "xixo:resources:read",
+          description: "Whether this token carries xixo:settings:admin, so it attaches, changes, and " \
+                       "removes the resources everyone shares and chooses the defaults."
+
+    def administrator
+      context[:grant].administers?
+    end
+
     field :settings, [ Types::SettingType ], null: false, grants: "xixo:settings:read"
 
     def settings

@@ -32,8 +32,9 @@ module Tool
       again; do=unwatch takes it off. One that takes feedback takes do=ask with input {"question": "...", "context":
       "...", "wanted": "..."}: use it for anything no tool here could answer or do, say what would have
       helped, and carry on; it always answers that it cannot. do=types lists what can be attached and the settings each type takes, and
-      do=attach with a new key and input {"type": "...", "settings": {...}, "via": "..."} attaches
-      one, reached through the transport named in via if there is one. do=discover on a transport, such as a
+      do=attach with a new key and input {"type": "...", "settings": {...}, "via": "...", "personal": true} attaches
+      one, reached through the transport named in via if there is one, and personal true makes it yours
+      alone; one everyone shares needs xixo:settings:admin. do=discover on a transport, such as a
       tailnet, lists the machines it reaches, whether each is online, and the well-known services that
       answered on them, each with the type and address to attach it with. do=change with input {"name":
       "...", "settings": {...}, "via": "..."} changes one, keeping every setting it is not given, and
@@ -116,6 +117,7 @@ module Tool
 
       reach!(verb, resource)
       kept!(resource) if KEEPING.include?(verb)
+      resource.managed_by!(Current.grant) if %w[watch unwatch].include?(verb)
       within_budget! if RUNS.include?(verb)
 
       case verb
@@ -242,6 +244,8 @@ module Tool
     end
 
     def self.defaulted(resource, given)
+      Current.grant.administer!("chooses what everyone uses by default")
+
       { key: resource.key, default_for: resource.make_default!(given["for"]) }
     end
 

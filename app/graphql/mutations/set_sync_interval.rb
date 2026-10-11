@@ -10,6 +10,7 @@ module Mutations
 
     def resolve(id:, seconds: nil)
       resource = resource!(id)
+      managed!(resource)
       resource.sync_interval = seconds
 
       refused(resource.errors.full_messages.to_sentence) unless resource.save

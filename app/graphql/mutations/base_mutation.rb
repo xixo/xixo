@@ -13,6 +13,18 @@ module Mutations
         Feed.readable_by(context[:grant]).find_by(id: id) || raise(GraphQL::ExecutionError, "no feed with id #{id}")
       end
 
+      def managed!(resource)
+        resource.managed_by!(context[:grant])
+      rescue Resource::Refused => e
+        refused(e.message)
+      end
+
+      def administers!
+        context[:grant].administer!("chooses what everyone uses by default")
+      rescue Grant::Denied => e
+        refused(e.message)
+      end
+
       def resource!(id)
         Resource.visible_to(context[:grant]).find_by(id: id) ||
           raise(GraphQL::ExecutionError, "no resource with id #{id}")

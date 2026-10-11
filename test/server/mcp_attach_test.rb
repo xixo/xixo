@@ -4,6 +4,7 @@ class McpAttachTest < ActionDispatch::IntegrationTest
   include McpClient
 
   COMMAND = %w[xixo:resources:read xixo:resources:command].freeze
+  ADMIN = (COMMAND + %w[xixo:settings:admin]).freeze
 
   setup do
     ENV["XIXO_ALLOW_PRIVATE_FETCH"] = "1"
@@ -32,7 +33,7 @@ class McpAttachTest < ActionDispatch::IntegrationTest
   end
 
   test "a type with no credential is attached through a transport, and checked" do
-    attached = tool(@tenant, COMMAND, "resource", do: "attach", key: "ollama-mac", input: {
+    attached = tool(@tenant, ADMIN, "resource", do: "attach", key: "ollama-mac", input: {
       type: "openai-compatible", via: "tailnet",
       settings: { base_url: "http://100.64.0.1:11434/v1", "models.fast": "gemma3:4b" }
     })
@@ -51,7 +52,7 @@ class McpAttachTest < ActionDispatch::IntegrationTest
   end
 
   test "a credential handed to attach is refused, and nothing is attached" do
-    reply = call(@tenant, COMMAND, "tools/call", name: "resource", arguments: {
+    reply = call(@tenant, ADMIN, "tools/call", name: "resource", arguments: {
       do: "attach", key: "bucket",
       input: { type: "s3", settings: { endpoint: "https://s3.example.test", access_key_id: "id", secret_access_key: "hunter2" } }
     })
@@ -63,7 +64,7 @@ class McpAttachTest < ActionDispatch::IntegrationTest
   end
 
   test "a type that always needs a credential is sent to the app before anything is tried" do
-    reply = call(@tenant, COMMAND, "tools/call", name: "resource", arguments: {
+    reply = call(@tenant, ADMIN, "tools/call", name: "resource", arguments: {
       do: "attach", key: "bucket", input: { type: "s3", settings: { endpoint: "https://s3.example.test" } }
     })
 
@@ -72,7 +73,7 @@ class McpAttachTest < ActionDispatch::IntegrationTest
   end
 
   test "the credential never reaches the audit trail, even on a refused call" do
-    call(@tenant, COMMAND, "tools/call", name: "resource", arguments: {
+    call(@tenant, ADMIN, "tools/call", name: "resource", arguments: {
       do: "attach", key: "bucket",
       input: { type: "s3", settings: { endpoint: "https://s3.example.test", access_key_id: "id", secret_access_key: "hunter2" } }
     })
@@ -91,8 +92,26 @@ class McpAttachTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) { assert_nil Resource.find_by(key: "ollama-mac") }
   end
 
-  test "a transport that is not here is refused" do
+  test "a place everyone shares is attached only by an administrator" do
     reply = call(@tenant, COMMAND, "tools/call", name: "resource", arguments: {
+      do: "attach", key: "ollama-mac", input: { type: "openai-compatible", settings: { base_url: "http://100.64.0.1:11434/v1" } }
+    })
+
+    assert_match(/only an administrator attaches a place everyone shares/, reply.dig("result", "content", 0, "text"))
+    Tenant.switch(@tenant) { assert_nil Resource.find_by(key: "ollama-mac") }
+  end
+
+  test "anyone with the command scope attaches a place that is only theirs" do
+    attached = tool(@tenant, COMMAND, "resource", do: "attach", key: "ollama-mine", input: {
+      type: "openai-compatible", personal: true, settings: { base_url: "http://100.64.0.1:11434/v1" }
+    })
+
+    assert_equal "ollama-mine", attached["key"]
+    Tenant.switch(@tenant) { assert Resource.find_by!(key: "ollama-mine").personal? }
+  end
+
+  test "a transport that is not here is refused" do
+    reply = call(@tenant, ADMIN, "tools/call", name: "resource", arguments: {
       do: "attach", key: "ollama-mac",
       input: { type: "openai-compatible", via: "elsewhere", settings: { base_url: "http://100.64.0.1:11434/v1" } }
     })

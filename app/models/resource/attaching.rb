@@ -9,9 +9,14 @@ class Resource
     end
 
     def attach!(key:, name: nil, settings: {}, via: nil, personal: false)
+      unless personal || @grant&.administers?
+        raise Refused, "only an administrator attaches a place everyone shares. Attach it as only yours, " \
+                       "or #{Grant::ADMINISTERING.downcase_first}"
+      end
+
       named = key.to_s.strip
       resource = klass.new(key: named, name: name.presence&.strip || named,
-                           owner_subject: personal ? @grant&.subject : nil)
+                           owner_subject: personal ? @grant&.speaks_for : nil)
 
       resource.details, resource.credentials = Settings.for(klass, settings || {})
       resource.via = Resource.transport!(via, @grant) if via.present?

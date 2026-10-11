@@ -38,6 +38,9 @@ module Types
                        "Nothing held encrypted is ever read back."
     field :changeable, Boolean, null: false,
           description: "Whether it has a form to change. A type xixo makes for itself does not."
+    field :manageable, Boolean, null: false,
+          description: "Whether this token changes it, puts it away, or deletes it. A person manages their own " \
+                       "personal resources, and an administrator also manages every shared one."
     field :personal, Boolean, null: false, method: :personal?,
           description: "Whether only the person who attached it can see and use it."
     field :delegated, Boolean, null: false, method: :delegated?,
@@ -72,6 +75,10 @@ module Types
       declared(:details).to_h do |field|
         [ field[:name], field[:name].split(".").reduce(object.details.to_h) { |held, step| held.is_a?(Hash) ? held[step] : nil } ]
       end.compact
+    end
+
+    def manageable
+      object.managed_by?(context[:grant])
     end
 
     def changeable

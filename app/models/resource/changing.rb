@@ -5,7 +5,7 @@ class Resource
     def initialize(resource, grant:)
       raise Refused, "#{resource.key} has nothing that can be changed here" if resource.class.attaching.nil?
 
-      @resource = resource
+      @resource = resource.managed_by!(grant)
       @grant = grant
       @declared = resource.class.attaching[:fields].map { |field| field[:name] }
     end

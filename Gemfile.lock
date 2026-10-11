@@ -191,7 +191,7 @@ GEM
       net-pop
       net-smtp
     marcel (1.2.1)
-    masks (0.9.1)
+    masks (0.10.0)
       jwt (~> 3.1)
     mcp (1.6.1)
       json_schemer (>= 2.4)
@@ -446,7 +446,7 @@ DEPENDENCIES
   json (~> 2.21)
   jwt
   mail
-  masks (~> 0.9)
+  masks (~> 0.10)
   mcp
   mission_control-jobs
   net-imap
@@ -535,7 +535,7 @@ CHECKSUMS
   loofah (2.25.2) sha256=2007f746959ac65552456e04b433e83deb22759ab38c838b4445c70e43425918
   mail (2.9.1) sha256=06574eca475253d6c18145dd70af80d0eb970182d55053497c5f4d797ea160e8
   marcel (1.2.1) sha256=1678e9360e32f9eafa917c80029e2f6d10b2715c66a4b87b6d0da9b9cd1f859f
-  masks (0.9.1) sha256=4b860bc22ef56e41de4edcdddb238ea4510cf44e19f6e96a76198bff32269aad
+  masks (0.10.0) sha256=b62b8f7abb38be89c4a7617647c747cf5de8b364c601e649fe955a96d54852c1
   mcp (1.6.1) sha256=5646140425a85fe39d416c8bd7d612ada8e1e589ff3306d5c010e1ba8656308e
   mini_mime (1.1.5) sha256=8681b7e2e4215f2a159f9400b5816d85e9d8c6c6b491e96a12797e798f8bccef
   minitest (6.0.6) sha256=153ea36d1d987a62942382b61075745042a2b3123b1cd48f4c3675af9cc7d6f1

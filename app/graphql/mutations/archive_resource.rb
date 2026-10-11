@@ -10,6 +10,7 @@ module Mutations
 
     def resolve(id:, archived:)
       resource = Resource.attended.reachable_by(context[:grant]).find_by(id: id) || refused("no resource with id #{id}")
+      managed!(resource)
 
       resource.archived_at = archived ? Time.current : nil
 

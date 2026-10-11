@@ -12,6 +12,7 @@ module Mutations
 
     def resolve(id:)
       resource = Resource.attended.reachable_by(context[:grant]).find_by(id: id) || refused("no resource with id #{id}")
+      managed!(resource)
       key = resource.key
       type = resource.type
 

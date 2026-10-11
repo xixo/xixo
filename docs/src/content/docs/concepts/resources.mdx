@@ -95,8 +95,8 @@ secret for a new one.
 
 xixo enforces these rules:
 
-- `/resources/<id>/connect` needs `xixo:resources:command`, and the caller has to be able to see
-  the resource.
+- `/resources/<id>/connect` needs `xixo:resources:command`, and the caller has to manage the
+  resource: their own personal one, or a shared one with `xixo:settings:admin`.
 - `/connect/callback` refuses a `state` that this browser did not start, a callback that somebody
   else already finished, and a connection that masks made for a different person.
 - Only one worker at a time renews a resource's token, under a row lock, because masks revokes a
@@ -108,7 +108,8 @@ xixo enforces these rules:
 
 ## Only mine, or everyone's
 
-The person who attaches a resource chooses who can use it. **Everyone here** is the default.
+The person who attaches a resource chooses who can use it. **Everyone here** is the default for an
+administrator, and **Only me** for anyone else, who cannot attach a shared one.
 **Only me** records the person's subject as `owner_subject`. From then on the resource is hidden from
 everybody else: from the resources query, from every mutation that names a resource, from the
 `resource` and `feed` tools, from the connect route, and from the MCP tools a personal MCP server
@@ -130,6 +131,21 @@ document, and every query filters by them, so another person's personal file is 
 held in resources its reader can reach, so nobody else reads its path or fetches its bytes with the
 owner's credentials. A personal resource is never the default for uploads or questions. An agent working on a feed reaches it only
 in a run its owner started. See [whose resources a run reaches](/concepts/agents/#whose-resources-a-run-reaches).
+
+## Who changes a resource
+
+A resource everyone shares belongs to the tenant, so only an administrator changes it. A token with
+`xixo:settings:admin` attaches a shared resource, changes it, puts it away, deletes it, connects it
+through masks, sets its schedule, and changes a `web` resource's watchlist. Only an administrator
+chooses the default storage and the default inference. A token with `xixo:resources:command` and no
+admin scope does all of these to its own personal resources, and checks or syncs any resource it can
+see. `Resource#managed_by?` decides, and the `manageable` field on a resource answers it for the
+token asking.
+
+Signing in never asks for `xixo:settings:admin`. **Sign in as an administrator** on the **Resources**
+page signs in again asking for it as well. masks grants it only to a person whose own scopes in masks
+cover it, which the person who connected xixo to masks has from the start, and anyone else signs in
+with the usual scopes. The `administrator` query says whether the current token carries it.
 
 ## Syncing
 

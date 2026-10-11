@@ -78,7 +78,7 @@ module Granted
     def session_authorization
       return nil unless masks_signed_in? || (masks_tokens && masks_refresh!)
 
-      "Bearer #{masks_access_token}"
+      "Bearer #{masked.access_token}"
     end
 
     def presented?

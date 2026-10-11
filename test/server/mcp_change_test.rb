@@ -5,6 +5,7 @@ class McpChangeTest < ActionDispatch::IntegrationTest
   include McpClient
 
   COMMAND = %w[xixo:resources:read xixo:resources:command].freeze
+  ADMIN = (COMMAND + %w[xixo:settings:admin]).freeze
   MODELS = { "fast" => "gemma3:4b", "agent" => "qwen3:8b" }.freeze
 
   setup do
@@ -33,8 +34,22 @@ class McpChangeTest < ActionDispatch::IntegrationTest
     ENV.delete("XIXO_INFERENCE_ORIGINS")
   end
 
+  test "only an administrator changes a place everyone shares or chooses a default" do
+    changed = call(@tenant, COMMAND, "tools/call", name: "resource", arguments: {
+      do: "change", key: "ollama", input: { name: "Renamed" }
+    })
+    defaulted = call(@tenant, COMMAND, "tools/call", name: "resource", arguments: { do: "default", key: "ollama" })
+
+    assert_match(/so you cannot change it/, changed.dig("result", "content", 0, "text"))
+    assert_match(/only an administrator chooses/, defaulted.dig("result", "content", 0, "text"))
+    Tenant.switch(@tenant) do
+      assert_equal "ollama", @ollama.reload.name
+      assert @hosted.reload.default_inference
+    end
+  end
+
   test "a change names one setting and keeps every other, the credential included" do
-    changed = tool(@tenant, COMMAND, "resource", do: "change", key: "ollama", input: {
+    changed = tool(@tenant, ADMIN, "resource", do: "change", key: "ollama", input: {
       name: "ollama on the Mac", settings: { "models.agent": "qwen3:30b-a3b" }
     })
 
@@ -51,7 +66,7 @@ class McpChangeTest < ActionDispatch::IntegrationTest
   end
 
   test "a change to a model the backend does not serve is refused by the check at once" do
-    changed = tool(@tenant, COMMAND, "resource", do: "change", key: "ollama", input: {
+    changed = tool(@tenant, ADMIN, "resource", do: "change", key: "ollama", input: {
       settings: { "models.fast": "gemma3:27b" }
     })
 
@@ -60,7 +75,7 @@ class McpChangeTest < ActionDispatch::IntegrationTest
   end
 
   test "a credential handed to change is refused, and nothing changes" do
-    reply = call(@tenant, COMMAND, "tools/call", name: "resource", arguments: {
+    reply = call(@tenant, ADMIN, "tools/call", name: "resource", arguments: {
       do: "change", key: "ollama", input: { name: "renamed", settings: { api_key: "hunter2" } }
     })
 
@@ -75,7 +90,7 @@ class McpChangeTest < ActionDispatch::IntegrationTest
   end
 
   test "default moves inference to the resource named, and off the one that held it" do
-    defaulted = tool(@tenant, COMMAND, "resource", do: "default", key: "ollama")
+    defaulted = tool(@tenant, ADMIN, "resource", do: "default", key: "ollama")
 
     assert_equal "inference", defaulted["default_for"]
 
@@ -86,8 +101,8 @@ class McpChangeTest < ActionDispatch::IntegrationTest
   end
 
   test "default refuses a resource that serves neither storage nor inference, and a use it does not serve" do
-    neither = call(@tenant, COMMAND, "tools/call", name: "resource", arguments: { do: "default", key: "curl" })
-    storage = call(@tenant, COMMAND, "tools/call", name: "resource", arguments: {
+    neither = call(@tenant, ADMIN, "tools/call", name: "resource", arguments: { do: "default", key: "curl" })
+    storage = call(@tenant, ADMIN, "tools/call", name: "resource", arguments: {
       do: "default", key: "ollama", input: { for: "storage" }
     })
 

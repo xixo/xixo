@@ -6,6 +6,7 @@ import {
   Menu,
   NumberInput,
   Popover,
+  Stack,
   Tooltip,
 } from '@mantine/core'
 import {
@@ -19,6 +20,7 @@ import {
   IconPlugConnected,
   IconPlus,
   IconRefresh,
+  IconShieldLock,
   IconSparkles,
   IconStar,
   IconStarFilled,
@@ -43,6 +45,7 @@ import {
   SyncResourceDocument,
 } from 'xixo'
 import { useQuery } from 'xixo/react'
+import { session } from '../hooks/useSession'
 import { useTitle } from '../hooks/useTitle'
 import { ago, dated } from '../when'
 import { Attach, type Editing, glyphFor } from './Attach'
@@ -75,6 +78,7 @@ interface Resource {
   settings: Record<string, unknown>
   heldCredentials: string[]
   changeable: boolean
+  manageable: boolean
   personal: boolean
   delegated: boolean
   needsConnect: boolean
@@ -214,6 +218,7 @@ export function Resources() {
   if (error) return <Alert color="red">{error.message}</Alert>
 
   const resources = (data?.resources ?? []) as Resource[]
+  const administrator = data?.administrator ?? false
   const transports = resources
     .filter((resource) => resource.capabilities.includes('transport'))
     .map((resource) => resource.key)
@@ -351,9 +356,37 @@ export function Resources() {
         )}
       </Intro>
 
+      {!administrator && !shelved && (
+        <Alert
+          variant="light"
+          color="gray"
+          title="Places everyone shares are changed by an administrator"
+        >
+          <Stack gap="var(--s2)" align="flex-start">
+            <span>
+              You can attach places that are only yours. Attaching, changing, or
+              putting away a place everyone shares, and choosing where drops
+              land or what answers questions, takes an administrator sign-in.
+              masks gives it to the people allowed to administer xixo.
+            </span>
+            <Button
+              component="a"
+              href={administratorSignIn()}
+              size="compact-sm"
+              radius="xl"
+              variant="default"
+              leftSection={<IconShieldLock size={14} />}
+            >
+              Sign in as an administrator
+            </Button>
+          </Stack>
+        </Alert>
+      )}
+
       {attaching && (
         <Attach
           opened
+          administrator={administrator}
           transports={transports}
           onClose={() => setAttaching(false)}
           onAttached={refetch}
@@ -385,6 +418,7 @@ export function Resources() {
                 landed={resource.id === landed}
                 landedRef={resource.id === landed ? arrived : undefined}
                 putting={putting === resource.id}
+                administrator={administrator}
                 acts={acts}
               />
             ))}
@@ -423,6 +457,16 @@ export function Resources() {
       )}
     </div>
   )
+}
+
+function administratorSignIn() {
+  const url = new URL(
+    session.loginUrl({ returnTo: window.location.pathname }),
+    window.location.origin,
+  )
+  url.searchParams.set('privilege', 'admin')
+
+  return `${url.pathname}${url.search}`
 }
 
 interface Acts {
@@ -478,12 +522,14 @@ function ResourceCard({
   landed,
   landedRef,
   putting,
+  administrator,
   acts,
 }: {
   resource: Resource
   landed: boolean
   landedRef?: RefObject<HTMLElement | null>
   putting: boolean
+  administrator: boolean
   acts: Acts
 }) {
   const Glyph = glyphFor(resource.type)
@@ -575,7 +621,7 @@ function ResourceCard({
             <span className="rcard-when">
               put away {dated(resource.archivedAt)}
             </span>
-            <div className="rcard-actions">
+            <div className="rcard-actions" hidden={!resource.manageable}>
               <Button
                 size="compact-sm"
                 radius="xl"
@@ -602,7 +648,10 @@ function ResourceCard({
         ) : (
           <>
             {resource.syncable ? (
-              <Every resource={resource} onKeep={acts.schedule} />
+              <Every
+                resource={resource}
+                onKeep={resource.manageable ? acts.schedule : undefined}
+              />
             ) : (
               <span className="rcard-when">
                 {resource.capabilities.join(' · ')}
@@ -610,23 +659,25 @@ function ResourceCard({
             )}
 
             <div className="rcard-actions">
-              {resource.delegated && resource.connectUrl && (
-                <Button
-                  component="a"
-                  href={resource.connectUrl}
-                  size="compact-sm"
-                  radius="xl"
-                  color={resource.needsConnect ? 'brand' : 'gray'}
-                  variant={resource.needsConnect ? 'filled' : 'subtle'}
-                  leftSection={<IconPlugConnected size={14} />}
-                >
-                  {resource.needsConnect
-                    ? resource.connectedBy
-                      ? 'Reconnect'
-                      : 'Connect'
-                    : 'Connect again'}
-                </Button>
-              )}
+              {resource.manageable &&
+                resource.delegated &&
+                resource.connectUrl && (
+                  <Button
+                    component="a"
+                    href={resource.connectUrl}
+                    size="compact-sm"
+                    radius="xl"
+                    color={resource.needsConnect ? 'brand' : 'gray'}
+                    variant={resource.needsConnect ? 'filled' : 'subtle'}
+                    leftSection={<IconPlugConnected size={14} />}
+                  >
+                    {resource.needsConnect
+                      ? resource.connectedBy
+                        ? 'Reconnect'
+                        : 'Connect'
+                      : 'Connect again'}
+                  </Button>
+                )}
 
               {resource.syncable && (
                 <Tooltip label="Sync now">
@@ -662,40 +713,46 @@ function ResourceCard({
                   >
                     Check
                   </Menu.Item>
-                  {resource.capabilities.includes('storage') && (
-                    <Menu.Item
-                      disabled={resource.defaultStorage}
-                      leftSection={<IconStar size={15} />}
-                      onClick={() => acts.takeDrops(resource)}
-                    >
-                      Take drops
-                    </Menu.Item>
+                  {resource.manageable && (
+                    <>
+                      {administrator &&
+                        resource.capabilities.includes('storage') && (
+                          <Menu.Item
+                            disabled={resource.defaultStorage}
+                            leftSection={<IconStar size={15} />}
+                            onClick={() => acts.takeDrops(resource)}
+                          >
+                            Take drops
+                          </Menu.Item>
+                        )}
+                      {administrator &&
+                        resource.capabilities.includes('inference') && (
+                          <Menu.Item
+                            disabled={resource.defaultInference}
+                            leftSection={<IconSparkles size={15} />}
+                            onClick={() => acts.takeQuestions(resource)}
+                          >
+                            Take questions
+                          </Menu.Item>
+                        )}
+                      {resource.changeable && (
+                        <Menu.Item
+                          leftSection={<IconPencil size={15} />}
+                          onClick={() => acts.change(resource)}
+                        >
+                          Change
+                        </Menu.Item>
+                      )}
+                      <Menu.Divider />
+                      <Menu.Item
+                        leftSection={<IconArchive size={15} />}
+                        disabled={putting}
+                        onClick={() => acts.putAway(resource, true)}
+                      >
+                        Put away
+                      </Menu.Item>
+                    </>
                   )}
-                  {resource.capabilities.includes('inference') && (
-                    <Menu.Item
-                      disabled={resource.defaultInference}
-                      leftSection={<IconSparkles size={15} />}
-                      onClick={() => acts.takeQuestions(resource)}
-                    >
-                      Take questions
-                    </Menu.Item>
-                  )}
-                  {resource.changeable && (
-                    <Menu.Item
-                      leftSection={<IconPencil size={15} />}
-                      onClick={() => acts.change(resource)}
-                    >
-                      Change
-                    </Menu.Item>
-                  )}
-                  <Menu.Divider />
-                  <Menu.Item
-                    leftSection={<IconArchive size={15} />}
-                    disabled={putting}
-                    onClick={() => acts.putAway(resource, true)}
-                  >
-                    Put away
-                  </Menu.Item>
                 </Menu.Dropdown>
               </Menu>
             </div>
@@ -711,7 +768,7 @@ function Every({
   onKeep,
 }: {
   resource: Resource
-  onKeep: (resource: Resource, seconds: number | null) => Promise<boolean>
+  onKeep?: (resource: Resource, seconds: number | null) => Promise<boolean>
 }) {
   const [open, setOpen] = useState(false)
   const [minutes, setMinutes] = useState<number | string>(
@@ -729,6 +786,15 @@ function Every({
       ]
         .filter(Boolean)
         .join(' · ')
+
+  if (!onKeep) {
+    return (
+      <span className="rcard-when">
+        <IconClock size={13} stroke={1.8} />
+        {said}
+      </span>
+    )
+  }
 
   return (
     <Popover

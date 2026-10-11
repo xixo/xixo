@@ -115,7 +115,9 @@ Disconnecting deletes the registration in masks and clears these columns.
 The masks engine is mounted at `/auth`. `GET /auth/session` returns the signed-in account, or a 401
 whose `error` is `handshake_required` or `login_required`, which tells the browser which button to
 show. Signing in requests `openid profile email offline_access` and every `xixo:` scope except
-`xixo:settings:admin`. See the [scopes reference](/reference/scopes/).
+`xixo:settings:admin`. That scope is the `admin` privilege in `config.privileges`, so
+`/auth?privilege=admin` signs in again asking for it too, and masks grants it only to a person whose
+scopes there cover it. `/auth/session` lists `admin` under `privileges` once the sign-in holds it. See the [scopes reference](/reference/scopes/).
 
 `/graphql`, `/mcp`, and `/uploads` all verify a masks access token. The browser's token comes from
 its session, and other clients send `Authorization: Bearer`. A token is accepted only when:

@@ -63,6 +63,11 @@ class Resource < ApplicationRecord
   scope :external, -> { where.not(type: "database").or(where.not(key: INTERNAL.keys.map(&:to_s))) }
   scope :shared, -> { where(owner_subject: nil) }
   scope :reachable_by, ->(grant) { where(owner_subject: [ nil, grant&.speaks_for ].uniq) }
+  scope :managed_by, ->(grant) {
+    next reachable_by(grant) if grant&.administers?
+
+    grant&.speaks_for.present? ? where(owner_subject: grant.speaks_for) : none
+  }
   scope :visible_to, ->(grant) { attended.active.reachable_by(grant) }
   scope :scheduled, -> { active.where.not(sync_interval: nil) }
   scope :not_syncing, -> {
@@ -620,6 +625,19 @@ class Resource < ApplicationRecord
 
   def personal?
     owner_subject.present?
+  end
+
+  def managed_by?(grant)
+    return grant&.administers? || false if owner_subject.nil?
+
+    grant&.speaks_for.present? && owner_subject == grant.speaks_for
+  end
+
+  def managed_by!(grant)
+    return self if managed_by?(grant)
+
+    raise Refused, "#{key} belongs to everyone here or to someone else, so you cannot change it. " \
+                   "#{Grant::ADMINISTERING}"
   end
 
   def needs_connect?

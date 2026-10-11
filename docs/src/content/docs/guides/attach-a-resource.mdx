@@ -5,6 +5,8 @@ description: Add storage, a model backend, a mailbox, a web source, or another r
 
 At the end of this guide, a new [resource](/concepts/resources/) is attached, checked, and in use.
 You need to be signed in with `xixo:resources:command`, which the browser app asks for at sign-in.
+A resource everyone can use also needs `xixo:settings:admin`. Choose **Sign in as an administrator**
+on the **Resources** page to get it. See [who changes a resource](/concepts/resources/#who-changes-a-resource).
 
 ## Attach it
 
@@ -17,8 +19,8 @@ You need to be signed in with `xixo:resources:command`, which the browser app as
    tools answer under**. The name must be unique among resources of that type, and it cannot be
    changed later.
 5. Optionally fill in **Called**, the name shown in listings.
-6. Under **Who can use it**, leave **Everyone here** selected, or choose **Only me**. See
-   [a personal resource](#a-personal-resource).
+6. Under **Who can use it**, choose **Everyone here** or **Only me**. Without the admin scope only
+   **Only me** can be chosen. See [a personal resource](#a-personal-resource).
 7. Fill in the fields under **Connection**. Required fields are marked with an asterisk. For a
    type that can be reached through a network, such as a tailnet, set **Reached through** first.
    See [a resource on a network](#a-resource-on-a-network).
@@ -199,7 +201,7 @@ A `database` resource keeps its files in xixo, so deleting it deletes them.
 `resourceTypes` lists every type that can be attached and the fields each one takes.
 `attachResource` takes `type`, `key`, an optional `name`, `settings` with one entry per field, and
 `personal`. `resourceTypes` needs `xixo:resources:read`, and `attachResource` needs
-`xixo:resources:command`.
+`xixo:resources:command`, and also `xixo:settings:admin` unless `personal` is true.
 
 ```graphql
 mutation {

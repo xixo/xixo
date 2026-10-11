@@ -11,7 +11,7 @@ class Grant
     "xixo:resources:command" => "Act on your places",
     "xixo:settings:read" => "Read your settings",
     "xixo:settings:write" => "Change your settings",
-    "xixo:settings:admin" => "Change everyone's settings"
+    "xixo:settings:admin" => "Change what everyone shares: settings and places"
   }.freeze
 
   NAMESPACE = "xixo:".freeze
@@ -65,6 +65,18 @@ class Grant
 
   def permits?(scope)
     scopes.include?(scope.to_s)
+  end
+
+  ADMINISTERING = "Sign in as an administrator on the Resources page, then try again".freeze
+
+  def administers?
+    ADMINISTRATIVE.all? { |scope| permits?(scope) }
+  end
+
+  def administer!(what)
+    raise Denied, "only an administrator #{what}. #{ADMINISTERING}" unless administers?
+
+    true
   end
 
   def permit!(scope)

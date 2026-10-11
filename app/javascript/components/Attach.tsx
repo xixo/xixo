@@ -212,12 +212,14 @@ export function Attach({
   onAttached,
   editing,
   transports = [],
+  administrator = false,
 }: {
   opened: boolean
   onClose: () => void
   onAttached: () => void
   editing?: Editing
   transports?: string[]
+  administrator?: boolean
 }) {
   const { data, loading } = useQuery(ResourceTypesDocument, {})
   const attach = useMutation(AttachResourceDocument)
@@ -230,7 +232,7 @@ export function Attach({
   const [seededFor, setSeededFor] = useState<string | null>(null)
   const [refused, setRefused] = useState<string | null>(null)
   const [warned, setWarned] = useState<string | null>(null)
-  const [personal, setPersonal] = useState(false)
+  const [personal, setPersonal] = useState(!administrator)
   const [via, setVia] = useState(editing?.via ?? DIRECT)
 
   const types = data?.resourceTypes ?? []
@@ -531,7 +533,11 @@ export function Attach({
                   value={personal ? 'me' : 'everyone'}
                   onChange={(next) => setPersonal(next === 'me')}
                   data={[
-                    { value: 'everyone', label: 'Everyone here' },
+                    {
+                      value: 'everyone',
+                      label: 'Everyone here',
+                      disabled: !administrator,
+                    },
                     { value: 'me', label: 'Only me' },
                   ]}
                 />
@@ -539,6 +545,8 @@ export function Attach({
                   {personal
                     ? 'Nobody else sees it, or reaches it through a tool, and agents use it only in runs you start. What it syncs is catalogued for you alone, and what those agents write is catalogued for everyone.'
                     : 'Anyone signed in here can use it, and so can the agents working on feeds.'}
+                  {!administrator &&
+                    ' A place everyone shares is attached by an administrator.'}
                 </Text>
               </Stack>
             )}

@@ -8,6 +8,7 @@ module Mutations
 
     def resolve(id:)
       resource = resource!(id)
+      administers!
       refused("#{resource.key} is not storage") unless resource.storage?
 
       { resource: resource.make_default_storage! }

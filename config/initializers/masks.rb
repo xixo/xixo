@@ -10,11 +10,10 @@ Rails.application.config.to_prepare do
     config.resource_scopes = Grant::OFFERED
     config.namespace = Grant::NAMESPACE
     config.scope = Masks::Client::Session::DEFAULT_SCOPE + [ "offline_access" ] + Grant::SIGN_IN
+    config.privileges = { admin: Grant::ADMINISTRATIVE }
     config.after_sign_in = "/"
     config.after_sign_out = "/"
-    config.manages = ->(request, _identity) {
-      Masks::Client::Tokens.from_h(request.session[config.session_key])&.scopes.to_a.intersect?(Grant::ADMINISTRATIVE)
-    }
+    config.manages = :admin
     config.delegates = true
     config.delegation_redirect_uri = ->(request) { "#{Tenant.origin(request)}#{Delegations::CALLBACK_PATH}" }
   end

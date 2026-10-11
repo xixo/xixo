@@ -16,6 +16,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 
 | Field | Type | Needs | Description |
 | --- | --- | --- | --- |
+| `administrator` | `Boolean!` | `xixo:resources:read` | Whether this token carries xixo:settings:admin, so it attaches, changes, and removes the resources everyone shares and chooses the defaults. |
 | `analyses`<br />`feedId: ID`<br />`status: String`<br />`after: ID`<br />`limit: Int` | [`AnalysisPage!`](#analysispage) | `xixo:catalog:read` |  |
 | `analysis`<br />`id: ID!` | [`Analysis`](#analysis) | `xixo:catalog:read` |  |
 | `auditEvents`<br />`status: String`<br />`actor: String`<br />`feed: ID`<br />`after: ID`<br />`limit: Int` | [`AuditEventPage!`](#auditeventpage) | `xixo:catalog:read` |  |
@@ -503,6 +504,7 @@ Resolves only for a token carrying `xixo:resources:read`.
 | `id` | `ID!` |  |
 | `itemsCount` | `Int!` |  |
 | `key` | `String!` |  |
+| `manageable` | `Boolean!` | Whether this token changes it, puts it away, or deletes it. A person manages their own personal resources, and an administrator also manages every shared one. |
 | `name` | `String` |  |
 | `needsConnect` | `Boolean!` | Whether somebody has to connect it through masks, or connect it again, before it answers. |
 | `nextSyncAt` | `ISO8601DateTime` |  |

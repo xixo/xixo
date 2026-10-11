@@ -1,4 +1,5 @@
 query Resources($archived: Boolean) {
+  administrator
   resources(archived: $archived) {
     id
     type
@@ -24,6 +25,7 @@ query Resources($archived: Boolean) {
     settings
     heldCredentials
     changeable
+    manageable
     personal
     delegated
     needsConnect
