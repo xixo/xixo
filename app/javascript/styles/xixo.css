@@ -3095,3 +3095,24 @@ a.tag:hover {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+.connection {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  padding: var(--s2) var(--s4);
+  border-bottom: 1px solid var(--line);
+  background: var(--lifted);
+  color: var(--soft);
+  font-size: var(--t-small);
+  text-align: center;
+}
+
+.failed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+}

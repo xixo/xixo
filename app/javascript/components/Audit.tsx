@@ -1,4 +1,4 @@
-import { Alert, Button, Code, Group, Loader, Stack, Text } from '@mantine/core'
+import { Button, Code, Group, Loader, Stack, Text } from '@mantine/core'
 import { type CSSProperties, type ReactNode, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AuditEventsDocument } from 'xixo'
@@ -14,6 +14,7 @@ import {
 import { usePages } from '../hooks/usePages'
 import { useTitle } from '../hooks/useTitle'
 import { ago } from '../when'
+import { Failed } from './Failed'
 import { Intro } from './Settings'
 
 const PAGE = 50
@@ -152,7 +153,7 @@ function Trail({
     return () => window.clearInterval(timer)
   }, [])
 
-  const { data, loading, error } = useQuery(AuditEventsDocument, {
+  const { data, loading, error, refetch } = useQuery(AuditEventsDocument, {
     status,
     actor,
     feed: null,
@@ -166,7 +167,7 @@ function Trail({
     cursor,
   )
 
-  if (error) return <Alert color="red">{error.message}</Alert>
+  if (error) return <Failed error={error} retry={refetch} />
   if (loading && kept.length === 0)
     return <Loader size="sm" color="var(--accent)" />
 

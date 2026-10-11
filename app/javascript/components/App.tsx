@@ -18,6 +18,7 @@ import { useTitle } from '../hooks/useTitle'
 import { AddProvider, useAdd } from './Add'
 import { Audit } from './Audit'
 import { Catalog } from './Catalog'
+import { Connection } from './Connection'
 import { Cycle } from './Cycle'
 import { Face } from './Face'
 import { Fallen } from './Fallen'
@@ -164,6 +165,7 @@ function Shell({
         </div>
       </header>
 
+      <Connection />
       <Shared />
 
       <main className="shell-main">

@@ -1,4 +1,4 @@
-import { Alert, Button, Group, Loader, Modal, Text } from '@mantine/core'
+import { Button, Group, Loader, Modal, Text } from '@mantine/core'
 import { useState } from 'react'
 import {
   CancelRunDocument,
@@ -12,6 +12,7 @@ import { usePages } from '../hooks/usePages'
 import { toned } from '../looks'
 import { RUN_OPEN, RUN_TONES, TONE_FOR_LINE } from '../runs'
 import { ago } from '../when'
+import { Failed } from './Failed'
 import { useAloud, useSay } from './Say'
 
 const PAGE = 20
@@ -63,7 +64,7 @@ export function Runs({ resourceId }: { resourceId: string }) {
   const say = useSay()
   const [cursor, setCursor] = useState<string | null>(null)
   const [open, setOpen] = useState<string | null>(null)
-  const { data, loading, error } = useQuery(RunsDocument, {
+  const { data, loading, error, refetch } = useQuery(RunsDocument, {
     resourceId,
     after: cursor,
     limit: PAGE,
@@ -75,7 +76,7 @@ export function Runs({ resourceId }: { resourceId: string }) {
   const streamed = progressed?.runProgressed.run
   const next = page?.hasMore ? (page.nextCursor ?? null) : null
 
-  if (error) return <Alert color="red">{error.message}</Alert>
+  if (error) return <Failed error={error} retry={refetch} />
   if (loading && runs.length === 0)
     return <Loader size="sm" color="var(--accent)" />
 

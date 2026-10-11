@@ -12,6 +12,7 @@ import { SetSettingDocument, SettingsDocument } from 'xixo'
 import { useQuery } from 'xixo/react'
 import { useTitle } from '../hooks/useTitle'
 import { Face } from './Face'
+import { Failed } from './Failed'
 import { useAloud } from './Say'
 
 const TABS = [
@@ -183,7 +184,7 @@ function Preferences() {
             it does not carry them. Sign out and back in and they will be there.
           </Alert>
         ) : (
-          <Alert color="red">{error.message}</Alert>
+          <Failed error={error} retry={refetch} />
         ))}
 
       {loading && !data && <Loader size="sm" color="var(--accent)" />}

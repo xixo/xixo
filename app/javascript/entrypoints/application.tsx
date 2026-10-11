@@ -28,3 +28,9 @@ if (root) {
     </StrictMode>,
   )
 }
+
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch((error) => {
+    console.warn('xixo could not install its offline page', error)
+  })
+}

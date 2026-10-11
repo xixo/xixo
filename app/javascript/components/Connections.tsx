@@ -1,9 +1,10 @@
-import { Alert, Button, Group, Loader, Stack, Text } from '@mantine/core'
+import { Button, Group, Loader, Stack, Text } from '@mantine/core'
 import { useState } from 'react'
 import { CatalogDocument } from 'xixo'
 import { useQuery } from 'xixo/react'
 import { usePages } from '../hooks/usePages'
 import { TYPE } from '../looks'
+import { Failed } from './Failed'
 import { type Row, Rows } from './Rows'
 
 const PAGE = 40
@@ -21,7 +22,7 @@ export function Connections({
   about?: string
 }) {
   const [cursor, setCursor] = useState<string | null>(null)
-  const { data, loading, error } = useQuery(CatalogDocument, {
+  const { data, loading, error, refetch } = useQuery(CatalogDocument, {
     types: LINKED,
     connectedTo: id,
     topLevel: false,
@@ -34,7 +35,7 @@ export function Connections({
   const shown = rows.filter((row) => !hidden.has(row.id))
   const next = page?.hasMore ? (page.nextCursor ?? null) : null
 
-  if (error) return <Alert color="red">{error.message}</Alert>
+  if (error) return <Failed error={error} retry={refetch} />
 
   if (shown.length === 0) {
     if (loading) return <Loader size="sm" color="var(--accent)" />

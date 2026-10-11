@@ -1,5 +1,4 @@
 import {
-  Alert,
   Button,
   Group,
   Loader,
@@ -50,6 +49,7 @@ import { useTitle } from '../hooks/useTitle'
 import { hrefFor, lookOf, TYPE, toned } from '../looks'
 import { Connections } from './Connections'
 import { Conversation } from './Conversation'
+import { Failed } from './Failed'
 import { OneLine } from './OneLine'
 import { Passes, placementOf, why } from './Passes'
 import { Readout } from './Readout'
@@ -132,7 +132,7 @@ export function ItemDetail() {
   useTitle(item?.title ?? item?.key ?? 'Item')
 
   if (loading && !data) return <Loader size="sm" color="var(--accent)" />
-  if (error) return <Alert color="red">{error.message}</Alert>
+  if (error) return <Failed error={error} retry={refetch} />
 
   if (!item) return <Text c="dimmed">No such item.</Text>
 

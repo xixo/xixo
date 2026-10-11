@@ -1,4 +1,4 @@
-import { Alert, Button, Group, Loader, Menu, Stack, Text } from '@mantine/core'
+import { Button, Group, Loader, Menu, Stack, Text } from '@mantine/core'
 import {
   IconDots,
   IconFilePlus,
@@ -31,6 +31,7 @@ import { useTitle } from '../hooks/useTitle'
 import { KEPT, lookOf, pluralOf, type Short, TYPE, toned } from '../looks'
 import { useAdd } from './Add'
 import { Export } from './Export'
+import { Failed } from './Failed'
 import { FeedForm } from './FeedForm'
 import { FeedHead } from './FeedHead'
 import { Lost } from './Lost'
@@ -263,7 +264,12 @@ function Listing({
         />
       )}
 
-      {error && <Alert color="red">{error.message}</Alert>}
+      {error && (
+        <Failed
+          error={error}
+          retry={searching ? found.refetch : catalog.refetch}
+        />
+      )}
 
       <Rows rows={rows} view={view} />
 

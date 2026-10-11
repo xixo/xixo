@@ -50,6 +50,7 @@ import { session } from '../hooks/useSession'
 import { useTitle } from '../hooks/useTitle'
 import { ago, dated } from '../when'
 import { Attach, type Editing, glyphFor } from './Attach'
+import { Failed } from './Failed'
 import { RunsDialog } from './Runs'
 import { useAloud, useSay } from './Say'
 import { Intro } from './Settings'
@@ -219,7 +220,7 @@ export function Resources() {
   }, [checking, refetch])
 
   if (loading && !data) return <Loader size="sm" color="var(--accent)" />
-  if (error) return <Alert color="red">{error.message}</Alert>
+  if (error) return <Failed error={error} retry={refetch} />
 
   const resources = (data?.resources ?? []) as Resource[]
   const administrator = data?.administrator ?? false
