@@ -1,6 +1,6 @@
 import { Button, Loader, Modal, Stack, Text, TextInput } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CatalogDocument, ConnectFeedsDocument, SearchDocument } from 'xixo'
 import { useQuery } from 'xixo/react'
 import { LINKED } from '../looks'
@@ -22,6 +22,15 @@ export function Relate({
   const [term, setTerm] = useState('')
   const [query] = useDebouncedValue(term.trim(), 250)
   const changed = useRef(false)
+  const told = useRef(onChanged)
+  told.current = onChanged
+
+  useEffect(
+    () => () => {
+      if (changed.current) told.current()
+    },
+    [],
+  )
   const [busy, setBusy] = useState<string | null>(null)
   const connect = useAloud(
     ConnectFeedsDocument,
@@ -75,15 +84,10 @@ export function Relate({
     })
   }
 
-  const close = () => {
-    if (changed.current) onChanged()
-    onClose()
-  }
-
   return (
     <Modal
       opened
-      onClose={close}
+      onClose={onClose}
       title={`Relate ${item.name} to another item`}
       size="lg"
       radius="md"
@@ -132,7 +136,9 @@ export function Relate({
                     radius="xl"
                     variant={on ? 'default' : 'light'}
                     loading={busy === row.id}
-                    disabled={busy !== null && busy !== row.id}
+                    disabled={
+                      held.loading || (busy !== null && busy !== row.id)
+                    }
                     onClick={() => toggle(row)}
                   >
                     {on ? 'Unrelate' : 'Relate'}

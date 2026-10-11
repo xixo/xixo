@@ -1,5 +1,6 @@
 module Health
   LATE_QUEUE = 10.minutes
+  QUIET_WORKER = "300"
 
   class << self
     def checks
@@ -7,7 +8,7 @@ module Health
     end
 
     def quiet_worker
-      Integer(ENV.fetch("XIXO_WORKER_QUIET_SECONDS", SolidQueue.process_alive_threshold.to_i)).seconds
+      Integer(ENV.fetch("XIXO_WORKER_QUIET_SECONDS", QUIET_WORKER), 10).seconds
     end
 
     private
@@ -18,7 +19,7 @@ module Health
 
       def queue?
         safely do
-          oldest = SolidQueue::ReadyExecution.order(:job_id).pick(:created_at)
+          oldest = SolidQueue::ReadyExecution.minimum(:created_at)
           oldest.nil? || oldest > LATE_QUEUE.ago
         end
       end

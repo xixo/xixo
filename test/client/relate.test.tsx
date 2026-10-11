@@ -36,7 +36,7 @@ describe('Relate', () => {
       },
     })
 
-    show(
+    const view = show(
       <Relate
         item={{ id: '1', name: 'invoice.pdf' }}
         onClose={() => {}}
@@ -69,7 +69,7 @@ describe('Relate', () => {
     )
     expect(changed).toBe(0)
 
-    await userEvent.keyboard('{Escape}')
+    view.unmount()
     expect(changed).toBe(1)
   })
 })

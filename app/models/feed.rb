@@ -193,13 +193,17 @@ class Feed < ApplicationRecord
   def self.found(query, type: nil, mime: nil, tag: nil, limit: 50, from: 0)
     held = SearchIndex.page(query, type: type, mime: mime, tag: tag, limit: limit, from: from)
     ids = held[:ids]
-    nodes = ids.empty? ? [] : readable_by(Current.grant).where(id: ids).in_order_of(:id, ids).to_a
+    nodes = ids.empty? ? [] : readable_by(Current.grant).for_rows.where(id: ids).in_order_of(:id, ids).to_a
 
     Page.at(nodes, from: from, total: held[:total])
   end
 
   def self.for_indexing
     includes(:references, :analyses, children: :analyses)
+  end
+
+  def self.for_rows
+    includes(:references, :analyses, :parent, upload_attachment: :blob)
   end
 
   def self.family_tags_for(feeds)
@@ -329,7 +333,7 @@ class Feed < ApplicationRecord
   end
 
   def in_thread(grant)
-    held = thread.readable_by(grant).includes(:analyses).to_a
+    held = thread.readable_by(grant).for_rows.to_a
     return [] if held.size < 2
 
     held.sort_by { |message| [ message.sent_at || message.created_at, message.id ] }
@@ -480,7 +484,7 @@ class Feed < ApplicationRecord
   end
 
   def analyzed_at
-    references.maximum(:analyzed_at) || staged&.analyzed_at || (analysis&.finished_at unless file?)
+    references.filter_map(&:analyzed_at).max || staged&.analyzed_at || (analysis&.finished_at unless file?)
   end
 
   Turn = Data.define(:analysis, :question, :said)

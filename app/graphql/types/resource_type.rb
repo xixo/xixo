@@ -90,7 +90,7 @@ module Types
     end
 
     def items_count
-      Reference.where(resource_id: object.id).distinct.count(:feed_id)
+      dataloader.with(Sources::ItemsCount).load(object.id)
     end
 
     private

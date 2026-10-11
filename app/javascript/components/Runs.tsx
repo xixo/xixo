@@ -1,10 +1,11 @@
 import { Button, Group, Loader, Modal, Text } from '@mantine/core'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   CancelRunDocument,
   RunLogDocument,
   RunLoggedDocument,
   RunProgressedDocument,
+  type RunProgressedSubscription,
   RunsDocument,
   type RunsQuery,
 } from 'xixo'
@@ -20,6 +21,7 @@ import { useAloud, useSay } from './Say'
 const PAGE = 20
 
 type Run = RunsQuery['runs']['nodes'][number]
+type Streamed = RunProgressedSubscription['runProgressed']['run']
 
 function lasted(run: Run) {
   if (!run.startedAt) return null
@@ -67,13 +69,19 @@ function Runs({ resourceId }: { resourceId: string }) {
   })
   const cancel = useAloud(CancelRunDocument, 'That run could not be cancelled.')
   const page = data?.runs
-  const [runs] = usePages<Run>(page, cursor)
+  const [held] = usePages<Run>(page, cursor)
+  const [live, setLive] = useState<Record<string, Streamed>>({})
+  const runs = held.map((run) => ({ ...run, ...live[run.id] }))
   const { data: progressed } = useSubscription(
     RunProgressedDocument,
     {},
     { skip: !runs.some((run) => RUN_OPEN.has(run.status)) },
   )
   const streamed = progressed?.runProgressed.run
+
+  useEffect(() => {
+    if (streamed) setLive((was) => ({ ...was, [streamed.id]: streamed }))
+  }, [streamed])
   const next = page?.hasMore ? (page.nextCursor ?? null) : null
 
   if (error) return <Failed error={error} retry={refetch} />
@@ -91,8 +99,7 @@ function Runs({ resourceId }: { resourceId: string }) {
 
   return (
     <div className="panel passes">
-      {runs.map((held) => {
-        const run = streamed?.id === held.id ? { ...held, ...streamed } : held
+      {runs.map((run) => {
         const shown = open === run.id
         const running = RUN_OPEN.has(run.status)
         const took = lasted(run)
@@ -145,7 +152,7 @@ function Runs({ resourceId }: { resourceId: string }) {
                     </Button>
                   </Group>
                 )}
-                <Log id={run.id} running={running} />
+                <Log id={run.id} />
               </div>
             )}
           </div>
@@ -168,13 +175,9 @@ function Runs({ resourceId }: { resourceId: string }) {
   )
 }
 
-function Log({ id, running }: { id: string; running: boolean }) {
+function Log({ id }: { id: string }) {
   const { data, loading } = useQuery(RunLogDocument, { id })
-  const { data: logged } = useSubscription(
-    RunLoggedDocument,
-    { id },
-    { skip: !running },
-  )
+  const { data: logged } = useSubscription(RunLoggedDocument, { id })
   const logs = logged?.runProgressed.run.logs ?? data?.run?.logs ?? ''
   const lines = logs.split('\n').filter(Boolean)
 

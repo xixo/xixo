@@ -87,7 +87,7 @@ module Types
     def asked = object.asked?
 
     def children
-      object.children.readable_by(context[:grant]).limit(CONNECTED)
+      object.children.readable_by(context[:grant]).for_rows.limit(CONNECTED)
     end
 
     def thread
@@ -95,15 +95,15 @@ module Types
     end
 
     def connected
-      object.connected.readable_by(context[:grant]).order(created_at: :desc).limit(CONNECTED)
+      object.connected.readable_by(context[:grant]).for_rows.order(created_at: :desc).limit(CONNECTED)
     end
 
     def tags
-      object.tags.by_use
+      object.tags.by_use.for_rows
     end
 
     def mimes
-      object.mimes.order(:key)
+      object.mimes.order(:key).for_rows
     end
 
     def analyses

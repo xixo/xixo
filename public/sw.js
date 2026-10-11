@@ -17,8 +17,12 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const { request } = event
-  if (request.method !== "GET" || request.mode !== "navigate") return
-  if (new URL(request.url).origin !== self.location.origin) return
+  const url = new URL(request.url)
+  if (request.method !== "GET" || url.origin !== self.location.origin) return
 
-  event.respondWith(fetch(request).catch(() => caches.match(OFFLINE)))
+  if (request.mode === "navigate") {
+    event.respondWith(fetch(request).catch(() => caches.match(OFFLINE)))
+  } else if (KEPT.includes(url.pathname)) {
+    event.respondWith(fetch(request).catch(() => caches.match(url.pathname)))
+  }
 })

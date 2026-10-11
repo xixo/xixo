@@ -29,10 +29,13 @@ module Types
       grant = context[:grant]
       subject = grant.subject
 
+      stored = Setting.where(subject: [ nil, subject ]).to_h { |held| [ [ held.key, held.subject ], held.value ] }
+
       Setting::LEVELS.flat_map { |level| Setting.at(level) }
                      .select { |definition| grant.permits?(definition.reads) }
                      .map do |definition|
-        definition.to_h.merge(value: Setting.read(definition.key, subject: subject))
+        owner = definition.personal? ? subject : nil
+        definition.to_h.merge(value: stored.fetch([ definition.key, owner ], definition.default))
       end
     end
 
@@ -42,9 +45,9 @@ module Types
     end
 
     def feed(id: nil, key: nil)
-      return readable.find_by(id: id) if id.present?
+      return readable.for_rows.find_by(id: id) if id.present?
 
-      readable.address(key) if key.present?
+      readable.for_rows.address(key) if key.present?
     end
 
     field :feeds, Types::FeedPageType, null: false, grants: "xixo:catalog:read" do
@@ -68,7 +71,7 @@ module Types
       scope = scope.where(parent_id: nil) if top_level
       scope = scope.where(id: Feed.connected_to(readable.find(connected_to)).select(:id)) if connected_to.present?
 
-      Page.of(scope, after: after, limit: limit)
+      Page.of(scope.for_rows, after: after, limit: limit)
     end
 
     field :search, Types::FeedPageType, null: false, grants: "xixo:catalog:read" do
