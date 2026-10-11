@@ -15,6 +15,7 @@ import {
   IconCheck,
   IconClock,
   IconDots,
+  IconHistory,
   IconLock,
   IconPencil,
   IconPlugConnected,
@@ -49,6 +50,7 @@ import { session } from '../hooks/useSession'
 import { useTitle } from '../hooks/useTitle'
 import { ago, dated } from '../when'
 import { Attach, type Editing, glyphFor } from './Attach'
+import { RunsDialog } from './Runs'
 import { useAloud, useSay } from './Say'
 import { Intro } from './Settings'
 import { Sure } from './Sure'
@@ -199,6 +201,7 @@ export function Resources() {
   }
   const [attaching, setAttaching] = useState(false)
   const [editing, setEditing] = useState<Editing | null>(null)
+  const [history, setHistory] = useState<Resource | null>(null)
   const arrived = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
@@ -297,6 +300,7 @@ export function Resources() {
       return true
     },
     change: (resource) => setEditing(resource),
+    history: (resource) => setHistory(resource),
     putAway,
     remove: (resource) => setDeleting(resource),
   }
@@ -426,6 +430,10 @@ export function Resources() {
         </section>
       ))}
 
+      {history && (
+        <RunsDialog resource={history} onClose={() => setHistory(null)} />
+      )}
+
       {deleting && (
         <Sure
           opened
@@ -476,6 +484,7 @@ interface Acts {
   takeQuestions: (resource: Resource) => void
   schedule: (resource: Resource, seconds: number | null) => Promise<boolean>
   change: (resource: Resource) => void
+  history: (resource: Resource) => void
   putAway: (resource: Resource, archived: boolean) => void
   remove: (resource: Resource) => void
 }
@@ -712,6 +721,12 @@ function ResourceCard({
                     onClick={() => acts.check(resource)}
                   >
                     Check
+                  </Menu.Item>
+                  <Menu.Item
+                    leftSection={<IconHistory size={15} />}
+                    onClick={() => acts.history(resource)}
+                  >
+                    What it has done
                   </Menu.Item>
                   {resource.manageable && (
                     <>

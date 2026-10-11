@@ -136,14 +136,16 @@ module Types
 
     field :runs, Types::RunPageType, null: false, grants: "xixo:catalog:read" do
       argument :kind, String, required: false
+      argument :resource_id, ID, required: false, description: "Only the runs of this resource."
       argument :status, String, required: false
       argument :after, ID, required: false
       argument :limit, Integer, required: false
     end
 
-    def runs(kind: nil, status: nil, after: nil, limit: nil)
+    def runs(kind: nil, status: nil, resource_id: nil, after: nil, limit: nil)
       scope = Run.visible_to(context[:grant])
       scope = scope.where(kind: kind) if kind.present?
+      scope = scope.where(resource_id: resource_id) if resource_id.present?
       scope = scope.where(status: status) if status.present?
 
       Page.of(scope, after: after, limit: limit)

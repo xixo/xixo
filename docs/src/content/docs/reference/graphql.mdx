@@ -26,7 +26,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | `resourceTypes` | [`[Attaching!]!`](#attaching) | `xixo:resources:read` | Every type that can be attached, and what each of them needs. |
 | `resources`<br />`archived: Boolean` | [`[Resource!]!`](#resource) | `xixo:resources:read` |  |
 | `run`<br />`id: ID!` | [`Run`](#run) | `xixo:catalog:read` |  |
-| `runs`<br />`kind: String`<br />`status: String`<br />`after: ID`<br />`limit: Int` | [`RunPage!`](#runpage) | `xixo:catalog:read` |  |
+| `runs`<br />`kind: String`<br />`resourceId: ID`<br />`status: String`<br />`after: ID`<br />`limit: Int` | [`RunPage!`](#runpage) | `xixo:catalog:read` |  |
 | `search`<br />`query: String`<br />`type: String`<br />`types: [String!]`<br />`after: ID`<br />`limit: Int` | [`FeedPage!`](#feedpage) | `xixo:catalog:read` |  |
 | `settings` | [`[Setting!]!`](#setting) | `xixo:settings:read` |  |
 | `tenant` | [`Tenant`](#tenant) | `xixo:catalog:read` |  |

@@ -1,5 +1,5 @@
-query Runs($status: String, $after: ID, $limit: Int) {
-  runs(status: $status, after: $after, limit: $limit) {
+query Runs($status: String, $resourceId: ID, $after: ID, $limit: Int) {
+  runs(status: $status, resourceId: $resourceId, after: $after, limit: $limit) {
     hasMore
     nextCursor
     nodes {

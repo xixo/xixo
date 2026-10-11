@@ -237,6 +237,16 @@ class PersonalResourcesTest < ActionDispatch::IntegrationTest
     assert Tenant.switch(@tenant) { run.reload.open? }
   end
 
+  test "runs narrow to one resource" do
+    news, notion = Tenant.switch(@tenant) { [ Run.start!(kind: "sync", resource: @shared), Run.start!(kind: "sync", resource: @ada) ] }
+
+    query = ->(resource) { graphql("ada", %({ runs(resourceId: "#{resource.id}") { nodes { id } } })).dig("data", "runs", "nodes").pluck("id") }
+
+    assert_equal [ news.id.to_s ], query.(@shared)
+    assert_equal [ notion.id.to_s ], query.(@ada)
+    assert_empty graphql("bob", %({ runs(resourceId: "#{@ada.id}") { nodes { id } } })).dig("data", "runs", "nodes")
+  end
+
   test "a feed shows only the places its reader can reach, and serves bytes from those alone" do
     feed, theirs = Tenant.switch(@tenant) do
       feed = Feed.create!(type: Feed::FILE, key: "plan.txt", title: "plan.txt")
