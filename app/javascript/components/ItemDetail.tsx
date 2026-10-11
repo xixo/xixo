@@ -471,6 +471,15 @@ export function ItemDetail() {
         </Stack>
       )}
 
+      {item.thread.length > 1 && (
+        <Stack gap="var(--s3)">
+          <div className="label">The rest of the thread, oldest first</div>
+          <Rows
+            rows={item.thread.filter((message) => message.id !== item.id)}
+          />
+        </Stack>
+      )}
+
       <Connections
         key={`${item.id}-${item.connectedCount}`}
         id={item.id}

@@ -102,6 +102,9 @@ query FeedDetail($id: ID!) {
     children {
       ...Row
     }
+    thread {
+      ...Row
+    }
     tags {
       ...Row
     }
