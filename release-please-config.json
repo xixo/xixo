@@ -2,7 +2,40 @@
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "separate-pull-requests": true,
   "include-component-in-tag": true,
+  "bootstrap-sha": "f7cac895485bb0acaef5dc018addea00c0a92ad7",
   "packages": {
+    ".": {
+      "release-type": "simple",
+      "component": "server",
+      "initial-version": "0.1.0",
+      "bump-minor-pre-major": true,
+      "changelog-path": "CHANGELOG.md",
+      "exclude-paths": [
+        "web"
+      ],
+      "changelog-sections": [
+        {
+          "type": "feat",
+          "section": "Features"
+        },
+        {
+          "type": "fix",
+          "section": "Fixes"
+        },
+        {
+          "type": "perf",
+          "section": "Performance"
+        },
+        {
+          "type": "docs",
+          "section": "Documentation"
+        },
+        {
+          "type": "refactor",
+          "section": "Refactoring"
+        }
+      ]
+    },
     "web": {
       "release-type": "node",
       "component": "client",

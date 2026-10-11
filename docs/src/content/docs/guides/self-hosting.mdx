@@ -32,11 +32,15 @@ xixo stores where each file lives and what its analysis found. The bytes stay in
 
 | Tag | Pushed on | Platforms |
 | --- | --- | --- |
+| `:<version>`, such as `:0.2.0` | each server release | amd64 |
+| `:<major>.<minor>`, such as `:0.2` | each server release, moved to the newest patch | amd64 |
 | `:main` | every push to main | amd64 |
 | `:sha-<full commit sha>` | every push to main | amd64 |
 | `:latest` | every push to main | amd64 |
 
-`:latest` follows main. Pin a `sha-` tag or a digest in production, and move it on purpose.
+A server release is cut from main when a release pull request merges, with the version and its
+changes in `CHANGELOG.md` and a `server-v<version>` tag. Pin a version in production and read the
+changelog before you move it. `:latest` follows main.
 
 ## Example `compose.yml`
 
@@ -444,17 +448,27 @@ database directly and does not boot Rails.
 
 ## Upgrade
 
-1. Choose the build: a `sha-<full commit sha>` tag or its digest, or `latest` for the newest build
-   of main.
-2. Pull the image and recreate the containers:
+1. Read `CHANGELOG.md` for every release between the one you run and the one you move to.
+2. Back up the catalog. A migration cannot be undone by starting the old image again, and the
+   backup is how you go back. See [back up](/guides/back-up-and-restore/#back-up).
+
+   ```sh
+   docker compose exec -T postgres pg_dump -U postgres -Fc xixo_production > xixo-before-upgrade.dump
+   ```
+
+3. Change the image to the new version, then pull it and recreate the containers:
 
    ```sh
    docker compose pull
    docker compose up -d
    ```
 
-3. The web container runs `db:prepare` on start, which applies new migrations to all four
-   databases, then `xixo:tenants` and `xixo:resources`.
+4. The web container runs `db:prepare` on start, which applies new migrations to all four
+   databases, then `xixo:tenants` and `xixo:resources`. In the example file, the worker waits for
+   the web container to report healthy, so it starts only after the migrations ran.
+
+To go back, restore the backup and start the old version. See
+[restore](/guides/back-up-and-restore/#restore).
 
 To add a tenant, add it to `XIXO_TENANTS` and recreate the web container. It is created on boot with
 the `files` resource, and needs **Connect a sign-in server** once.
