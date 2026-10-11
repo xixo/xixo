@@ -9,13 +9,21 @@ interface SubscriptionPayload {
 export interface ActionCableOptions {
   channel?: string
   url?: string
+  onConnection?: (open: boolean) => void
 }
 
 export function actionCableExchange(
   options: ActionCableOptions = {},
 ): Exchange {
-  const { channel = 'GraphqlChannel', url } = options
+  const { channel = 'GraphqlChannel', url, onConnection } = options
   const cable = url ? createConsumer(url) : createConsumer()
+  let open: boolean | null = null
+  const told = (now: boolean) => {
+    if (now === open) return
+
+    open = now
+    onConnection?.(now)
+  }
 
   return subscriptionExchange({
     forwardSubscription(request) {
@@ -25,11 +33,15 @@ export function actionCableExchange(
             { channel },
             {
               connected() {
+                told(true)
                 subscription.perform('execute', {
                   query: request.query,
                   variables: request.variables,
                   operationName: request.operationName,
                 })
+              },
+              disconnected() {
+                told(false)
               },
               received(payload: SubscriptionPayload) {
                 if (payload.result) {
