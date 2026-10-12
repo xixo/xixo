@@ -20,6 +20,7 @@ import (
 	"github.com/xixo/xixo/link/internal/extract"
 	"github.com/xixo/xixo/link/internal/folders"
 	"github.com/xixo/xixo/link/internal/machine"
+	"github.com/xixo/xixo/link/internal/watch"
 )
 
 const (
@@ -59,13 +60,15 @@ type Link struct {
 	Notices           []string
 	Tools             []string
 	ModelPorts        map[string]int
+	Unwatched         bool
 
-	once    sync.Once
-	wire    wire
-	recent  recent
-	work    sync.WaitGroup
-	slots   chan struct{}
-	pending chan struct{}
+	once     sync.Once
+	watching *watch.Watcher
+	wire     wire
+	recent   recent
+	work     sync.WaitGroup
+	slots    chan struct{}
+	pending  chan struct{}
 }
 
 type Request struct {
@@ -159,6 +162,13 @@ func (a *Link) settle() {
 func (a *Link) Run(ctx context.Context) error {
 	a.settle()
 	defer a.work.Wait()
+
+	if !a.Unwatched {
+		watching, unwatch := context.WithCancel(ctx)
+		defer unwatch()
+
+		a.watch(watching)
+	}
 
 	var held *session
 

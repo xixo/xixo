@@ -165,6 +165,19 @@ func (f *Folders) root(folder string) (*os.Root, error) {
 	return os.OpenRoot(real)
 }
 
+func (f *Folders) Real(folder string) (string, error) {
+	configured, ok := f.held[filepath.Clean(folder)]
+	if !ok || folder == "" {
+		return "", ErrUnshared
+	}
+
+	return f.resolve(configured)
+}
+
+func Skips(name string) bool {
+	return skipped(name, Skipped) || !utf8.ValidString(name)
+}
+
 func (f *Folders) Pin() {
 	for _, folder := range f.name {
 		_, _ = f.resolve(folder)

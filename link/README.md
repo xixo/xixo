@@ -180,6 +180,7 @@ xixo link speaks the Action Cable protocol and subscribes to
 | `health` | `uptime`, `load`, `memory`, `disks`, `warnings` | After `hello`, and every minute. |
 | `reply` | `request`, `ok`, `result` or `error` | When a request is answered. |
 | `chunk` | `request`, `of`, `seq`, `data` | For each part of a file being read or made. |
+| `changed` | `folder`, `paths`, `overflow` | When files in a shared folder change, two seconds after the last change and at most ten seconds after the first. |
 
 `services` lists the model servers listening on the machine's loopback
 address: `{"kind":"ollama","port":11434,"address":"100.64.0.7"}`, and
@@ -201,6 +202,25 @@ protection keeps from xixo link reads "macOS has not let xixo-link read
 /Users/you/Documents; allow it in System Settings → Privacy & Security → Full
 Disk Access, then restart xixo link". A missing `sandbox-exec` adds a sentence
 too.
+
+`changed` names the paths in one shared folder that were written, created,
+moved, or removed, relative to the folder, so xixo looks at those paths again
+at once instead of waiting for its next walk; the walk still runs and catches
+anything missed. A new or removed directory is named itself, and xixo looks
+at everything under it. One message holds at most 256 paths; more than that,
+or changes the system dropped, come as `overflow: true` with no paths, and
+xixo walks the whole folder. Names that are never shared are never told.
+
+On Linux xixo link watches every directory under a shared folder with
+inotify, up to 16,384 directories and the system's own
+`fs.inotify.max_user_watches`. On macOS it watches each directory with kqueue,
+which needs an open file for each one, so it stops at 4,096; kqueue tells it
+when a directory's entries change, and it compares the directory with what it
+saw before to name the files. A file rewritten in place on macOS, without a
+new name or a rename, is not seen until the next walk. A folder with more
+directories than that is watched only in part, and a warning says so; raise
+the Linux limit with `sysctl fs.inotify.max_user_watches`. Watching needs no
+dependency beyond `golang.org/x/sys`, which xixo link already uses.
 
 `health` holds `uptime` in seconds, `load` as the 1, 5, and 15 minute
 averages, `memory` as `{"total","available"}` in bytes, and `disks` as
