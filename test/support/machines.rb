@@ -25,12 +25,13 @@ module Machines
     )
   end
 
-  def machine_on(tenant, key: "box", client_id: "link-#{SecureRandom.hex(4)}", folders: [ "/srv/media" ], connected: true)
+  def machine_on(tenant, key: "box", client_id: "link-#{SecureRandom.hex(4)}", folders: [ "/srv/media" ], connected: true,
+                 operators: [ "alice" ])
     Tenant.switch(tenant) do
       Resource::Machine.create!(
         key: key, name: key,
         details: {
-          "host" => "100.64.0.9", "user" => "jon", "folders" => folders, "client_id" => client_id,
+          "host" => "100.64.0.9", "user" => "jon", "folders" => folders, "client_id" => client_id, "operators" => operators,
           "machine" => {
             "hostname" => key, "folders" => folders, "connected" => connected,
             "session" => "s", "seen_at" => Time.current.utc.iso8601

@@ -18,6 +18,7 @@ module Mutations
     def resolve(key: nil, name: nil, id: nil)
       context[:grant].administer!("links a machine")
       machine = id.present? ? existing(id) : created(key, name)
+      machine.operated_by!(context[:grant])
       code = Resource::Machine::Linking.start!(machine)
 
       noted(machine, fresh: id.present?)

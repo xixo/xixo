@@ -13,6 +13,7 @@ module Tool
       "find" => :places, "reverse" => :places, "nearby" => :places
     }.freeze
     INWARD = %w[get list search keep runs browse read extract].freeze
+    SENT_TO_MACHINE = %w[write chat].freeze
 
     KEEPING = %w[snapshot].freeze
 
@@ -151,7 +152,7 @@ module Tool
       if resource.capabilities.include?(OUTWARD[verb])
         Current.grant.permit!(WEB)
         Current.grant.reaches!(:web)
-      elsif KEEPING.include?(verb)
+      elsif KEEPING.include?(verb) || (resource.is_a?(::Resource::Machine) && SENT_TO_MACHINE.include?(verb))
         Current.grant.reaches!(:web)
       elsif INWARD.include?(verb)
         Current.grant.reaches!(:catalog)

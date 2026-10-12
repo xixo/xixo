@@ -87,7 +87,7 @@ class MachineToolsTest < ActiveSupport::TestCase
   test "a machine offers write only with a writable folder, and chat only with a model server" do
     offering(ALL)
 
-    Tenant.switch(@tenant) do
+    as_member do
       assert_equal %w[health discover browse search read extract], @machine.reload.commands.keys.map(&:to_s)
 
       offering(ALL, writable: [ "/srv/notes" ], services: [ { "kind" => "ollama", "port" => 11_434 } ])
@@ -149,6 +149,7 @@ class MachineToolsTest < ActiveSupport::TestCase
     end
 
     Tenant.switch(@tenant) do
+      @machine.update!(details: @machine.details.merge("operators" => %w[alice bob]))
       Current.grant = Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new("sub" => "bob", "scope" => Grant::SIGN_IN.join(" ")))
       assert_not called(key: "box", do: "browse", input: { folder: "/srv/notes" }).error?
     end
@@ -292,6 +293,79 @@ class MachineToolsTest < ActiveSupport::TestCase
     end
   end
 
+  test "someone the machine does not list among its operators reaches only what xixo drew out" do
+    offering(ALL, writable: [ "/srv/notes" ], services: [ { "kind" => "ollama", "port" => 11_434 } ], lend: true)
+    @answers["find"] = { "matches" => [ { "folder" => "/srv/media", "path" => "plans.mp4" } ], "complete" => true }
+
+    as_member(subject: "carol") do
+      assert_equal %w[health discover search read], @machine.reload.commands.keys.map(&:to_s)
+
+      { "browse" => {}, "extract" => { folder: "/srv/media", path: "a.pdf" },
+        "write" => { folder: "/srv/notes", path: "x.md", text: "hi" }, "chat" => { prompt: "hi" } }.each do |verb, input|
+        reply = called(key: "box", do: verb, input: input)
+
+        assert reply.error?, verb
+        assert_match(/box lets only its operators/, text(reply))
+      end
+
+      read = JSON.parse(text(called(key: "box", do: "read", input: { folder: "/srv/notes", path: "plans.md" })))
+      assert_nil read["text"]
+      assert_match(/does not list among its operators/, read["note"])
+
+      searched = JSON.parse(text(called(key: "box", do: "search", input: { query: "plans" })))
+      assert_empty searched["named"]
+      assert_match(/does not list among its operators/, searched["note"])
+      assert_empty @asked
+    end
+
+    as_member(Grant::SCOPES, subject: "carol") do
+      @answers["browse"] = { "entries" => [] }
+      assert_not called(key: "box", do: "browse", input: { folder: "/srv/media" }).error?
+    end
+  end
+
+  test "an administrator who attaches a machine operates it, and anyone else does not" do
+    Tenant.switch(@tenant) do
+      Current.grant = Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new("sub" => "dana", "scope" => Grant::SCOPES.join(" ")))
+      attached = Resource::Machine.create!(key: "studio", details: { "folders" => [] })
+      assert_equal [ "dana" ], attached.operators
+
+      Current.grant = Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new("sub" => "erin", "scope" => Grant::SIGN_IN.join(" ")))
+      assert_empty Resource::Machine.create!(key: "other", details: { "folders" => [] }).operators
+    end
+  end
+
+  test "the server's own machine is operated by the first administrator xixo sees after it appears" do
+    Tenant.switch(@tenant) do
+      local = Resource::Machine.local!
+      assert_empty local.operators
+
+      Resource::Machine.adopted_by!(Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new("sub" => "erin", "scope" => Grant::SIGN_IN.join(" "))))
+      Resource::Machine.adopted_by!(Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new("sub" => "dana", "scope" => Grant::SCOPES.join(" "))))
+      Resource::Machine.adopted_by!(Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new("sub" => "fay", "scope" => Grant::SCOPES.join(" "))))
+
+      assert_equal [ "dana" ], local.reload.operators
+    end
+  end
+
+  test "one long call waits on a machine at a time, for each person and for each machine" do
+    offering(%w[extract models], services: [ { "kind" => "ollama", "port" => 11_434 } ])
+    nested = nil
+    @answers["model"] = { "model" => "m", "text" => "ok" }
+    @answers["examine"] = lambda do |_args|
+      nested = called(key: "box", do: "chat", input: { prompt: "hi" })
+      { "extractor" => "pdf", "steps" => {} }
+    end
+
+    as_member do
+      assert_not called(key: "box", do: "extract", input: { folder: "/srv/media", path: "a.pdf" }).error?
+      assert nested.error?
+      assert_match(/busy with another long call|already waiting on an answer for you/, text(nested))
+
+      assert_not called(key: "box", do: "chat", input: { prompt: "hi" }).error?
+    end
+  end
+
   private
 
     def offering(tools, writable: [], services: [], lend: false)
@@ -302,9 +376,9 @@ class MachineToolsTest < ActiveSupport::TestCase
       end
     end
 
-    def as_member(scopes = Grant::SIGN_IN)
+    def as_member(scopes = Grant::SIGN_IN, subject: "alice")
       Tenant.switch(@tenant) do
-        Current.grant = Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new("sub" => "alice", "scope" => scopes.join(" ")))
+        Current.grant = Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new("sub" => subject, "scope" => scopes.join(" ")))
         yield
       end
     end

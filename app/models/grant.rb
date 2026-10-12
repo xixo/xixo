@@ -31,7 +31,8 @@ class Grant
   CROSSING = {
     catalog: "this run has read the web, so it can no longer read the catalog or a place's files. " \
              "Answer from what you have already read",
-    web: "this run has read the catalog, so it can no longer reach the web. Answer from what you have already read"
+    web: "this run has read the catalog, so it can no longer reach the web or send anything to a machine. " \
+         "Answer from what you have already read"
   }.freeze
 
   attr_reader :tenant, :claims

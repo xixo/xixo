@@ -26,6 +26,8 @@ class Resource
 
     serves :transport
 
+    before_validation(on: :create) { operated_by!(Current.grant) }
+
     validate :shared_by_everyone
     validate :host_key_is_a_fingerprint
     validate :host_key_given, if: -> { credentials.to_h["private_key"].present? }
@@ -66,7 +68,12 @@ class Resource
                         "only plain text, data, calendars, contacts, email, books, and spreadsheets."),
             field("lend", "Send files this machine can't read to the server", kind: "boolean", value: "false",
                   help: "A file this machine has no program for goes to xixo link beside the server. Left off, " \
-                        "such a file is not read, and nothing on this machine leaves it but text.")
+                        "such a file is not read, and nothing on this machine leaves it but text."),
+            field("operators", "Who operates it", kind: "lines",
+                  help: "The masks subjects, one per line, whose clients may browse its folders, read its files' " \
+                        "bytes, write into them, run its extractors, and ask its model server. The administrator " \
+                        "who attaches or links the machine is listed on their own. Anyone else reaches only what " \
+                        "xixo drew out of its files.")
           ]
         }
       end
@@ -102,6 +109,14 @@ class Resource
 
       def local!
         find_by(key: LOCAL) || create!(key: LOCAL, name: "This server", details: { "local" => true })
+      end
+
+      def adopted_by!(grant)
+        return unless grant&.administers? && grant.speaks_for.present?
+
+        where(key: LOCAL).where("NOT (resources.details ? 'operators')").update_all(
+          [ "details = details || jsonb_build_object('operators', jsonb_build_array(?::text))", grant.speaks_for ]
+        )
       end
 
       def binaries

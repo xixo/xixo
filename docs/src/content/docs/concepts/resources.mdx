@@ -396,8 +396,21 @@ OpenAI-compatible chat completion. It takes no address, follows no redirect, and
 64 KiB, the answer at 64 KiB, and the time at 90 seconds.
 
 Every command needs `xixo:resources:read`, and `write` also needs `xixo:resources:command`.
+`browse`, `write`, `extract`, `chat`, the walk in `search`, and the bytes `read` sends answer only a
+token for one of the machine's operators, or an administrator's. The operators are masks subjects
+the machine lists under **Who operates it**. The administrator who links or attaches a machine is
+its first operator, and the first administrator xixo sees after **This server** appears operates it.
+Anyone else's token gets `search` over xixo's index and `read` of what analysis drew out, and the
+other commands are neither listed nor accepted.
+
+A `write`, an `extract`, a `chat`, and the walk in `search` each wait on the machine for an answer.
+One such call waits on a machine at a time, and one for each person across every machine; another
+is told the machine is busy and to try again once the first answers. `extract` waits at most two
+minutes and `chat` 90 seconds.
+
 `browse`, `search`, `read`, and `extract` count as reading the catalog, so an agent run that has read
-the web cannot use them. A folder attached as one person's `filesystem` resource, and a folder that
+the web cannot use them, and `write` and `chat` count as reaching outward, so an agent run that has
+read the catalog cannot use them. A folder attached as one person's `filesystem` resource, and a folder that
 holds a file kept to one person, such as storage that holds someone's private upload, are out of
 reach of every other person's token. xixo records each call as an audit event on
 the `mcp` channel, with its arguments. The tools stop short of running anything on the machine: no
@@ -410,8 +423,9 @@ it reads every file no machine reads where it lies. It has no database and no ke
 only its own state and the folders mounted into it. It enrolls itself through a directory
 it shares with the worker, named by `XIXO_LOCAL_LINK`: it leaves a `wanted` file, `EnrollLocalLinkJob`
 leaves it a single-use enrollment token readable by its user alone, and it writes back the client it
-enrolled as, which the job binds to the `local` machine, **This server**. It binds a client only
-within twelve minutes of handing out a token, once for each token, and never one another machine is
+enrolled as, which the job binds to the `local` machine, **This server**. A connection from that
+client before the job has bound it is turned away to try again, and starts the job at once. It
+binds a client only within twelve minutes of handing out a token, once for each token, and never one another machine is
 enrolled as. A client named any other way is refused, and the reason shows on the machine's card.
 Deleting xixo link's state volume enrolls it again. The job reads nothing behind a link. See [extraction](/concepts/analysis/#extraction) for what it is asked.
 

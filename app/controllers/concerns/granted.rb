@@ -19,7 +19,10 @@ module Granted
 
     def grant
       @grant ||= Grant.new(tenant: current_tenant, claims: masks_claims_from(credentials)).tap do |held|
-        current_tenant.administered! if held.administers?
+        if held.administers?
+          current_tenant.administered!
+          Resource::Machine.adopted_by!(held)
+        end
         Current.grant = held
         Current.audit = audit_context
         Current.origin = Tenant.origin(request)

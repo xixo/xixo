@@ -23,23 +23,32 @@ class Resource
         discover: "Lists the folders the machine shares, each with the type and address to attach it as a folder.",
         browse: "Lists the files in a folder the machine shares, depth first in name order, at most 200 at a time. " \
                 "Left without a folder, it lists the shared folders. A cursor in the answer is passed back to " \
-                "read on. Needs the machine to offer browse.",
+                "read on. Needs the machine to offer browse, and a token for one of its operators.",
         search: "Finds files on the machine for a query, at most 100 of each kind. It searches xixo's index of " \
                 "the machine's folders, which matches titles, paths, and text drawn out by analysis, and walks " \
                 "the folders on the machine for paths that hold the query, ignoring case, stopping after 20,000 " \
-                "files or ten seconds. Needs the machine to offer search.",
+                "files or ten seconds. Only a token for one of its operators walks the folders. Needs the machine to " \
+                "offer search.",
         read: "Reads up to 256 KiB of a shared file as text. When the machine does not lend its files' bytes, or " \
-              "is offline, it answers with what xixo drew out of the file instead, and says so. Needs the machine " \
-              "to offer read.",
+              "is offline, or the token is not one of its operators', it answers with what xixo drew out of the " \
+              "file instead, and says so. Needs the machine to offer read.",
         write: "Writes a file of at most 1 MiB, given as text or base64, into a folder the machine marks writable. " \
-               "Without replace true it refuses to overwrite a file. Needs xixo:resources:command and the machine " \
-               "to offer write.",
+               "Without replace true it refuses to overwrite a file. Needs xixo:resources:command, a token for one " \
+               "of its operators, and the machine to offer write.",
         extract: "Runs the machine's own extractors on a shared file and answers with the text and metadata they " \
-                 "draw out, without keeping anything. Needs the machine to offer extract.",
+                 "draw out, without keeping anything. Needs the machine to offer extract, and a token for one of " \
+                 "its operators.",
         chat: "Asks a model server running on the machine, such as Ollama or LM Studio, one question and answers " \
               "with its reply, at most 64 KiB. kind picks the server when the machine runs more than one, and " \
-              "model picks the model, the server's first when left off. Needs the machine to offer models."
+              "model picks the model, the server's first when left off. Needs the machine to offer models, and a " \
+              "token for one of its operators."
       }.freeze
+
+      HELD_BACK = {
+        browse: "browse its folders", write: "write into its folders", extract: "run its extractors",
+        chat: "ask the model server on it"
+      }.freeze
+      OPERATED = HELD_BACK.keys.freeze
 
       MOST_READ = 256.kilobytes
       MOST_WRITTEN = 1.megabyte
@@ -50,10 +59,12 @@ class Resource
       MOST_TOKENS = 4096
       INDEXED_FIRST = 200
       FOUND_WITHIN = 20.seconds
-      EXTRACTED_WITHIN = 150.seconds
-      ANSWERED_WITHIN_MODEL = 100.seconds
+      EXTRACTED_WITHIN = 120.seconds
+      ANSWERED_WITHIN_MODEL = 90.seconds
       WRITTEN_WITHIN = 60.seconds
       STAYS = "the machine does not lend its files' bytes, so they stay on it; this is what xixo drew out of the file".freeze
+      UNLISTED = "this token speaks for someone the machine does not list among its operators, so its files' bytes " \
+                 "stay on it; this is what xixo drew out of the file".freeze
       AWAY = "the machine is not connected, so this is what xixo drew out of the file".freeze
 
       class_methods do
@@ -82,8 +93,29 @@ class Resource
         self.class.command_schema.select { |name, _| offered_command?(name) }
       end
 
+      def operators
+        Array(details.to_h["operators"]).grep(String).compact_blank
+      end
+
+      def operated_by?(grant)
+        return false if grant.nil?
+
+        grant.administers? || (grant.speaks_for.present? && operators.include?(grant.speaks_for))
+      end
+
+      def operated_by!(grant)
+        return if grant.nil? || !grant.administers? || grant.speaks_for.blank? || operators.include?(grant.speaks_for)
+
+        self.details = details.to_h.merge("operators" => operators + [ grant.speaks_for ])
+      end
+
       def command(name, arguments = {})
         tool = OFFERED_AS[name.to_s.to_sym]
+
+        if OPERATED.include?(name.to_s.to_sym) && !operated_by?(Current.grant)
+          raise Resource::Refused, "#{key} lets only its operators #{HELD_BACK.fetch(name.to_s.to_sym)}. An " \
+                                   "administrator lists who operates it on the Resources page"
+        end
 
         if tool && !offered_command?(name.to_s.to_sym)
           raise ArgumentError, "#{key} does not offer #{name}: #{unoffered(tool)}"
@@ -122,6 +154,7 @@ class Resource
 
         return drawn_out(root, relative, AWAY) unless connected?
         return drawn_out(root, relative, STAYS) unless lends_bytes?
+        return drawn_out(root, relative, UNLISTED) unless operated_by?(Current.grant)
 
         held = ask("peek", { "folder" => root, "path" => relative, "limit" => MOST_READ }).to_h
         bytes = Base64.strict_decode64(held["data"].to_s)
@@ -142,8 +175,9 @@ class Resource
         staged = upload(StringIO.new(body))
 
         begin
-          written = ask("place", staged.merge("folder" => root, "path" => relative, "replace" => replace == true),
-                        within: WRITTEN_WITHIN)
+          written = long(WRITTEN_WITHIN) do
+            ask("place", staged.merge("folder" => root, "path" => relative, "replace" => replace == true), within: WRITTEN_WITHIN)
+          end
         ensure
           forget(staged["upload"])
         end
@@ -155,9 +189,9 @@ class Resource
         root = reachable_folder!(folder)
         relative = relative!(path)
 
-        held = ask("examine", { "source" => { "folder" => root, "path" => relative }, "filename" => File.basename(relative),
-                                "mime" => MimeType.for_filename(relative).to_s },
-                   within: EXTRACTED_WITHIN).to_h
+        asked = { "source" => { "folder" => root, "path" => relative }, "filename" => File.basename(relative),
+                  "mime" => MimeType.for_filename(relative).to_s }
+        held = long(EXTRACTED_WITHIN) { ask("examine", asked, within: EXTRACTED_WITHIN) }.to_h
 
         { "folder" => root, "path" => relative, "extractor" => held["extractor"].to_s.first(40).presence,
           "size" => held["size"], "sha256" => held["sha256"], "steps" => steps_told(held["steps"]),
@@ -172,9 +206,9 @@ class Resource
 
         server = model_server!(kind)
         messages = [ ({ "role" => "system", "content" => told } if told.present?), { "role" => "user", "content" => asked } ].compact
-        held = ask("model", { "kind" => server, "model" => text!(model, "model").first(200).presence, "messages" => messages,
-                              "max_tokens" => (count!(max_tokens, MOST_TOKENS) unless max_tokens.nil?) }.compact,
-                   within: ANSWERED_WITHIN_MODEL).to_h
+        wanted = { "kind" => server, "model" => text!(model, "model").first(200).presence, "messages" => messages,
+                   "max_tokens" => (count!(max_tokens, MOST_TOKENS) unless max_tokens.nil?) }.compact
+        held = long(ANSWERED_WITHIN_MODEL) { ask("model", wanted, within: ANSWERED_WITHIN_MODEL) }.to_h
 
         { "kind" => server, "model" => held["model"].to_s.first(200), "text" => held["text"].to_s.scrub.first(MOST_PROMPT),
           "truncated" => (true if held["truncated"] == true), "finish_reason" => held["finish_reason"].presence }.compact
@@ -182,9 +216,14 @@ class Resource
 
       private
 
+        def long(within, &)
+          Busy.hold(self, Current.grant, within: within, &)
+        end
+
         def offered_command?(name)
           tool = OFFERED_AS[name.to_sym]
           return true if tool.nil?
+          return false if OPERATED.include?(name.to_sym) && !operated_by?(Current.grant)
           return false unless offers?(tool)
           return writable_folders.any? if name.to_sym == :write
           return model_kinds.any? if name.to_sym == :chat
@@ -290,8 +329,9 @@ class Resource
         def walked(query, folder, most, roots)
           return [ [], "the machine does not offer search to walk its folders' names, so only xixo's index was searched" ] unless offers?("search")
           return [ [], "the machine is not connected, so only xixo's index was searched" ] unless connected?
+          return [ [], "this token speaks for someone the machine does not list among its operators, so only xixo's index was searched" ] unless operated_by?(Current.grant)
 
-          held = ask("find", { "query" => query, "folder" => folder, "limit" => most }.compact, within: FOUND_WITHIN).to_h
+          held = long(FOUND_WITHIN) { ask("find", { "query" => query, "folder" => folder, "limit" => most }.compact, within: FOUND_WITHIN) }.to_h
           found = Array(held["matches"]).filter_map do |match|
             next unless match.is_a?(Hash) && roots.include?(match["folder"])
 
