@@ -74,6 +74,13 @@ class Resource
         active.find_by("resources.details ->> 'client_id' = ?", client_id.to_s)
       end
 
+      def carried_for!(resource, grant)
+        return if grant&.administers? || !resource.via.is_a?(XixoAgent)
+
+        raise Resource::Refused, "only an administrator reaches a folder through a machine with the xixo agent. " \
+                                 "#{Grant::ADMINISTERING}"
+      end
+
       def local
         active.find_by("resources.details ->> 'local' = 'true'")
       end

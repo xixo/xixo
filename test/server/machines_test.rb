@@ -112,6 +112,24 @@ class MachinesTest < ActionDispatch::IntegrationTest
     assert_equal({ "key" => "media", "via" => "box" }, attached.dig("data", "attachResource", "resource"))
   end
 
+  test "only an administrator reaches a folder through a machine, even as only theirs" do
+    agent_on(@tenant, folders: [ "/srv/media", "/home/jon" ])
+    attach = <<~GQL
+      mutation($settings: JSON) {
+        attachResource(input: { type: "filesystem", key: "mine", settings: $settings, via: "box", personal: true }) {
+          resource { key via }
+        }
+      }
+    GQL
+
+    refused = graphql(Grant::SIGN_IN, attach, settings: { "folder" => "/home/jon" })
+    assert_match(/only an administrator reaches a folder through a machine/, refused.dig("errors", 0, "message"))
+    Tenant.switch(@tenant) { assert_not Resource::Filesystem.exists? }
+
+    attached = graphql(Grant::SCOPES, attach, settings: { "folder" => "/home/jon" })
+    assert_equal({ "key" => "mine", "via" => "box" }, attached.dig("data", "attachResource", "resource"))
+  end
+
   ARCHIVE = <<~GQL.freeze
     mutation($id: ID!) { archiveResource(input: { id: $id, archived: true }) { resource { key archivedAt } } }
   GQL

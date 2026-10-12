@@ -12,6 +12,7 @@ class Resource
 
     validate :reached_through_an_agent
     validate :folder_is_shared, if: -> { new_record? || will_save_change_to_details? || will_save_change_to_via_id? }
+    validate :folder_is_not_anothers, if: -> { new_record? || will_save_change_to_details? || will_save_change_to_via_id? || will_save_change_to_owner_subject? }
 
     class << self
       def attaching
@@ -243,6 +244,25 @@ class Resource
         return if via.is_a?(XixoAgent)
 
         errors.add(:via, "must be a machine with the xixo agent, which is the only way to reach its folders")
+      end
+
+      def folder_is_not_anothers
+        return unless via.is_a?(XixoAgent) && folder.start_with?("/")
+
+        held = Filesystem.where(via_id: via_id).where.not(id: id).find do |other|
+          other.owner_subject != owner_subject && nested?(other.folder, folder)
+        end
+        return if held.nil?
+
+        errors.add(:folder, "#{folder} overlaps #{held.folder}, which another folder on #{via.key} holds for " \
+                            "#{held.personal? ? 'one person' : 'everyone'}. Each folder on a machine is held for " \
+                            "one owner")
+      end
+
+      def nested?(one, other)
+        a, b = [ one, other ].map { |path| path.delete_suffix("/").presence || "/" }
+
+        a == b || [ [ a, b ], [ b, a ] ].any? { |outer, inner| outer == "/" || inner.start_with?("#{outer}/") }
       end
 
       def folder_is_shared

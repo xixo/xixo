@@ -27,6 +27,52 @@ class FilesystemTest < ActiveSupport::TestCase
     end
   end
 
+  test "a folder on a machine is held for one owner, and a folder inside or around it for the same one" do
+    Tenant.switch(@tenant) do
+      @agent.update!(details: @agent.details.merge("machine" => @agent.machine.merge(
+        "folders" => [ "/", "/srv", "/srv/media", "/srv/media/films", "/srv/photos", "/srv/photos/2026" ]
+      )))
+      Resource::Filesystem.create!(key: "shared", details: { "folder" => "/srv/media" }, via: @agent)
+
+      [ "/srv/media", "/srv/media/films", "/srv", "/" ].each do |path|
+        mine = Resource::Filesystem.new(key: "mine", details: { "folder" => path }, via: @agent, owner_subject: "alice")
+        assert_not mine.valid?, path
+        assert_match(/overlaps \/srv\/media, which another folder on box holds for everyone/, mine.errors.full_messages.to_sentence)
+      end
+
+      beside = Resource::Filesystem.new(key: "photos", details: { "folder" => "/srv/photos" }, via: @agent, owner_subject: "alice")
+      assert beside.valid?, beside.errors.full_messages.to_sentence
+      beside.save!
+
+      inside = Resource::Filesystem.new(key: "films", details: { "folder" => "/srv/media/films" }, via: @agent)
+      assert inside.valid?, inside.errors.full_messages.to_sentence
+
+      bobs = Resource::Filesystem.new(key: "bobs", details: { "folder" => "/srv/photos/2026" }, via: @agent, owner_subject: "bob")
+      assert_not bobs.valid?
+      assert_match(/holds for one person/, bobs.errors.full_messages.to_sentence)
+
+      elsewhere = agent_on(@tenant, key: "other", folders: [ "/srv/media" ])
+      apart = Resource::Filesystem.new(key: "apart", details: { "folder" => "/srv/media" }, via: elsewhere, owner_subject: "bob")
+      assert apart.valid?, apart.errors.full_messages.to_sentence
+    end
+  end
+
+  test "a member cannot reach a folder through a machine, by attaching or by changing" do
+    Tenant.switch(@tenant) do
+      member = Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new("sub" => "alice", "scope" => Grant::SIGN_IN.join(" ")))
+
+      refused = assert_raises(Resource::Refused) do
+        Resource::Attaching.new("filesystem", grant: member).attach!(key: "mine", settings: { "folder" => "/srv/photos" },
+                                                                     via: "box", personal: true)
+      end
+      assert_match(/only an administrator reaches a folder through a machine/, refused.message)
+
+      held = Resource::Filesystem.create!(key: "held", details: { "folder" => "/srv/photos" }, via: @agent, owner_subject: "alice")
+      assert_raises(Resource::Refused) { Resource::Changing.new(held, grant: member).change!(settings: { "folder" => "/srv/media" }) }
+      assert_equal "/srv/photos", held.reload.folder
+    end
+  end
+
   test "an agent reaches nothing but its folders" do
     Tenant.switch(@tenant) do
       dav = Resource::Webdav.new(key: "dav", details: { "url" => "http://100.64.0.9/dav/" }, via: @agent)
