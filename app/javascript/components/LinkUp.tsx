@@ -38,6 +38,7 @@ export interface LinkUpInfo {
   xixo: string
   issuer: string
   builds: Build[]
+  macReader?: string | null
 }
 
 export interface Machine {
@@ -359,6 +360,7 @@ function Commands({
     code: code.code,
     name: code.key,
     build,
+    macReader: info.macReader ?? null,
     folders: typed,
     tools,
     extractsForOthers,

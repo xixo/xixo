@@ -9,6 +9,7 @@ query Resources($archived: Boolean) {
       file
       sha256
     }
+    macReader
   }
   resources(archived: $archived) {
     id

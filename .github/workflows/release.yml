@@ -103,12 +103,13 @@ jobs:
         run: |
           make -C link/macos
           lipo -verify_arch arm64 x86_64 link/macos/build/xixo-mac-reader
+          cd link/macos/build && shasum -a 256 xixo-mac-reader > xixo-mac-reader.sha256
 
-      - name: Attach it to the release
+      - name: Attach it and its SHA-256 to the release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.release-please.outputs.server_tag }}
-        run: gh release upload "$TAG" link/macos/build/xixo-mac-reader --clobber
+        run: gh release upload "$TAG" link/macos/build/xixo-mac-reader link/macos/build/xixo-mac-reader.sha256 --clobber
 
   server:
     needs: release-please

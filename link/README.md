@@ -366,7 +366,9 @@ silicon and on Intel Macs.
 
 1. Get `xixo-link-darwin-arm64` for Apple silicon or `xixo-link-darwin-amd64`
    for an Intel Mac, `xixo-link.plist`, and `xixo-mac-reader` from the
-   release. Put the binaries in place, side by side:
+   release, and check `xixo-mac-reader` with the `xixo-mac-reader.sha256`
+   beside it: `shasum -a 256 -c xixo-mac-reader.sha256`. Put the binaries in
+   place, side by side:
 
    ```sh
    mkdir -p ~/Library/Application\ Support/xixo-link/bin

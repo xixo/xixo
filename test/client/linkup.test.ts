@@ -44,7 +44,8 @@ describe('linking up a machine', () => {
     expect(all).toContain(
       `printf %s "$code" | xixo-link enroll --token - --name 'jon'\\''s studio'`,
     )
-    expect(all).not.toContain('curl -fsSL')
+    for (const line of all.split('\n').filter((held) => held.includes('$code')))
+      expect(line).not.toMatch(/ -L|--location/)
   })
 
   test('the download is checked against its digest before it is installed', () => {
@@ -144,5 +145,29 @@ describe('linking up a machine', () => {
     expect(last.command).toContain('"$dir/bin/xixo-link" enroll --token -')
     expect(last.command).toContain('launchctl bootstrap "gui/$(id -u)"')
     expect(last.command).not.toContain('sudo')
+    expect(get.command).not.toContain('xixo-mac-reader')
+  })
+
+  test('a Mac gets the mac reader of the server release, checked against the SHA-256 published with it', () => {
+    const reader =
+      'https://github.com/xixo/xixo/releases/download/server-v0.2.0/xixo-mac-reader'
+    const [get] = steps({
+      ...plan,
+      macReader: reader,
+      build: { ...plan.build, os: 'darwin', file: 'xixo-link-darwin-arm64' },
+    })
+    const lines = get.command.split('\n')
+
+    expect(get.command).toContain(`reader='${reader}'`)
+    expect(get.command).toContain('"$reader.sha256"')
+    expect(get.command).toContain('shasum -a 256 -c xixo-mac-reader.sha256')
+    expect(
+      lines.findIndex((line) => line.includes('shasum -a 256 -c xixo-mac')),
+    ).toBeLessThan(
+      lines.findIndex((line) => line.includes('"$dir/bin/xixo-mac-reader"')),
+    )
+    expect(
+      lines.filter((line) => line.includes('$reader')).join('\n'),
+    ).not.toContain('Authorization')
   })
 })

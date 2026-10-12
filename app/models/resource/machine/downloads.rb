@@ -4,6 +4,10 @@ class Resource
       BUILD = /\Axixo-link-(linux|darwin)-(amd64|arm64)\z/
       UNIT = Installer::UNIT_FILE
       PLIST = "xixo-link.plist".freeze
+      MAC_READER = "xixo-mac-reader".freeze
+      RELEASES = "https://github.com/xixo/xixo/releases/download".freeze
+      MANIFEST = ".release-please-manifest.json".freeze
+      RELEASED = /\A\d+\.\d+\.\d+\z/
 
       Build = Data.define(:os, :arch, :file, :sha256)
 
@@ -35,6 +39,18 @@ class Resource
         path if File.lstat(path).file?
       rescue SystemCallError
         nil
+      end
+
+      def version
+        held = JSON.parse(Rails.root.join(MANIFEST).read)["."].to_s
+        held if held.match?(RELEASED)
+      rescue SystemCallError, JSON::ParserError
+        nil
+      end
+
+      def mac_reader
+        held = version
+        "#{RELEASES}/server-v#{held}/#{MAC_READER}" if held
       end
 
       def digest(path)

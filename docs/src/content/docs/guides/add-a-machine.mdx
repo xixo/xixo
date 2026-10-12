@@ -62,8 +62,12 @@ The steps on Linux:
 The steps on macOS use no `sudo`:
 
 1. **Get xixo link** downloads xixo link from xixo with the code, checks its SHA-256 with
-   `shasum`, and installs it at `~/Library/Application Support/xixo-link/bin/xixo-link`. `curl`
-   sets no quarantine mark, so macOS runs it without a prompt.
+   `shasum`, and installs it at `~/Library/Application Support/xixo-link/bin/xixo-link`. Beside
+   it goes the mac reader, `xixo-mac-reader`, from the GitHub release of the server's version,
+   installed only when it matches the `xixo-mac-reader.sha256` published with that release. The
+   mac reader reads PDFs, images, audio, and video with what macOS ships. A release without it, such
+   as one from before it existed, leaves the Mac reading those with the Homebrew programs it has,
+   and the step says so. `curl` sets no quarantine mark, so macOS runs both without a prompt.
 2. **Say what it shares** writes `~/Library/Application Support/xixo-link/config.json` with mode
    0600, and fetches the launch agent from xixo into
    `~/Library/LaunchAgents/network.xixo.link.plist`.

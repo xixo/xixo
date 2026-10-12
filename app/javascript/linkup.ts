@@ -16,6 +16,7 @@ export interface Plan {
   code: string
   name: string
   build: Build
+  macReader?: string | null
   folders: Shared[]
   tools: string[]
   extractsForOthers: boolean
@@ -161,6 +162,22 @@ function linked(plan: Plan, program: string) {
   ]
 }
 
+function macReader(plan: Plan) {
+  if (!plan.macReader) return []
+
+  return [
+    `reader=${quoted(plan.macReader)}`,
+    'if curl -fsS --location --proto =https -o xixo-mac-reader "$reader" &&',
+    '  curl -fsS --location --proto =https -o xixo-mac-reader.sha256 "$reader.sha256" &&',
+    '  shasum -a 256 -c xixo-mac-reader.sha256; then',
+    '  install -m 0755 xixo-mac-reader "$dir/bin/xixo-mac-reader"',
+    'else',
+    `  echo 'No mac reader came with this release, so this Mac reads files with the Homebrew programs it has.'`,
+    'fi',
+    'rm -f xixo-mac-reader xixo-mac-reader.sha256',
+  ]
+}
+
 function mac(plan: Plan): Step[] {
   const download = `${plan.xixo}/link/download/${plan.build.file}`
   const plist = '"$HOME/Library/LaunchAgents/network.xixo.link.plist"'
@@ -169,7 +186,7 @@ function mac(plan: Plan): Step[] {
     {
       title: 'Get xixo link',
       detail:
-        'Downloads xixo link from this xixo with the code, checks that it arrived whole, and puts it in your Library.',
+        "Downloads xixo link from this xixo with the code, checks that it arrived whole, and puts it in your Library. Beside it goes the mac reader from this version's GitHub release, checked against the SHA-256 published with it, which reads PDFs, images, audio, and video with what macOS ships.",
       command: [
         `code=${quoted(plan.code)}`,
         'dir="$HOME/Library/Application Support/xixo-link"',
@@ -178,6 +195,7 @@ function mac(plan: Plan): Step[] {
         `echo ${quoted(`${plan.build.sha256}  xixo-link`)} | shasum -a 256 -c -`,
         'install -m 0755 xixo-link "$dir/bin/xixo-link"',
         'rm xixo-link',
+        ...macReader(plan),
       ].join('\n'),
     },
     {

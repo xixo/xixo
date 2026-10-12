@@ -202,6 +202,14 @@ class LinkingTest < ActionDispatch::IntegrationTest
     assert_nil graphql(Grant::SIGN_IN, "{ linkUp { xixo } }").dig("data", "linkUp")
   end
 
+  test "a Mac is pointed at the mac reader of the GitHub release of this server's version" do
+    version = JSON.parse(Rails.root.join(".release-please-manifest.json").read)["."]
+
+    held = graphql(Grant::SCOPES, "{ linkUp { macReader } }").dig("data", "linkUp")
+
+    assert_equal "https://github.com/xixo/xixo/releases/download/server-v#{version}/xixo-mac-reader", held["macReader"]
+  end
+
   private
 
     def link(key)
