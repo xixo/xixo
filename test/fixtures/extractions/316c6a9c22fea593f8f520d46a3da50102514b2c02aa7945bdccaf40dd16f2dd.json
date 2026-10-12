@@ -1,0 +1,53 @@
+{
+  "name": "report.pdf",
+  "mime": "application/pdf",
+  "result": {
+    "extractor": "pdf",
+    "files": [
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 4177,
+        "request_file": "316c6a9c22fea593-0"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 34569,
+        "request_file": "316c6a9c22fea593-1"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "info": {
+        "result": {
+          "author": "Bea Okonkwo",
+          "creationdate": "Sat Mar 14 09:30:00 2026 UTC",
+          "page_size": "595 x 842 pts (A4)",
+          "pages": 5,
+          "title": "Condition report"
+        }
+      },
+      "metadata": {
+        "result": {
+          "Author": "Bea Okonkwo",
+          "CreateDate": "2026:03:14 09:30:00Z",
+          "PageCount": 5,
+          "Producer": "things corpus",
+          "Title": "Condition report"
+        }
+      },
+      "text": {
+        "digest": "text layer, then ocr past 40 characters a page",
+        "result": "Condition report\nNeedle: PDFREPORT-7715\nPrepared for Ash Pemberton\n14 Bellwether Lane, Flat 3\n\n\f1. Roof\nThe felt at the north corner has lifted. Tacks have pulled clean\nthrough the substrate and the overlap is no longer weathertight.\nRecommend stripping the north third and relaying on a fresh deck.\n\n\f2. Walls\nThe east wall shows hairline cracking above both window heads,\nconsistent with historic settlement rather than active movement.\nMonitor for twelve months.\n\n\f3. Drainage\nThe rear gully is blocked with leaf litter. The soakaway could\nnot be located and may have been built over.\n\n\f4. Summary\nNo urgent structural concern. Roof covering is the priority item.\nPAGEFIVE-3307"
+      }
+    }
+  }
+}

@@ -62,38 +62,6 @@ class CarddavResourceTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { assert_equal 3, Feed.files.count }
   end
 
-  test "the analyzer reads the card, unfolding and ungrouping as it goes" do
-    sync
-
-    Tenant.switch(@tenant) do
-      item = Feed.first
-      Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, item.id) }
-
-      contact = item.reload.analysis.steps.dig("contacts", "result").first
-
-      assert_equal "Jane Pelican", contact["fn"]
-      assert_equal "Pelican Jane", contact["name"]
-      assert_equal "Estuary Birds Ltd.", contact["org"]
-      assert_equal [ "jane@estuary.example" ], contact["email"]
-      assert_equal [ "+44 7700 900000" ], contact["tel"]
-      assert_equal [ "Pelican House, Unit 3; rear Poole Dorset BH15 England" ], contact["adr"]
-    end
-  end
-
-  test "a folded line survives to the end rather than being cut at the fold" do
-    sync
-
-    Tenant.switch(@tenant) do
-      item = Feed.first
-      Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, item.id) }
-
-      analysis = item.reload.analysis.steps
-
-      assert_includes analysis.dig("contacts", "result").first["note"], "especially in winter."
-      assert_includes analysis.dig("text", "result"), "jane@estuary.example"
-    end
-  end
-
   test "a .vcf arriving from anywhere else is a contact too" do
     assert_equal "text/vcard", MimeType.for_filename("exported/addresses.vcf")
   end

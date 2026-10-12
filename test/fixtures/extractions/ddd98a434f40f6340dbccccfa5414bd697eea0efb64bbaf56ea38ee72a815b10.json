@@ -1,0 +1,60 @@
+{
+  "name": "meeting.ics",
+  "mime": "text/calendar",
+  "result": {
+    "extractor": "calendar",
+    "files": [],
+    "steps": {
+      "events": {
+        "result": [
+          {
+            "description": "Bring the felt samples and the photos from March.\nNeedle: ICSFOLDED-8814 continues on the folded line and must survive unfolding.",
+            "dtend": "20260830T103000",
+            "dtstart": "20260830T090000",
+            "location": "14 Bellwether Lane, Flat 3",
+            "organizer": "mailto:ash@example.invalid",
+            "status": "CONFIRMED",
+            "summary": "Roof inspection with the surveyor, second visit",
+            "uid": "ical-roof-9931@example.invalid"
+          },
+          {
+            "dtend": "20260902",
+            "dtstart": "20260901",
+            "status": "TENTATIVE",
+            "summary": "Skip collected",
+            "uid": "ical-allday-2277@example.invalid"
+          },
+          {
+            "dtend": "20260907T193000",
+            "dtstart": "20260907T183000",
+            "location": "Village hall",
+            "summary": "Allotment committee",
+            "uid": "ical-recurring-5540@example.invalid"
+          }
+        ]
+      },
+      "metadata": {
+        "result": {}
+      },
+      "outline": {
+        "result": [
+          {
+            "from": 0,
+            "name": "Roof inspection with the surveyor, second visit, Sunday, August 30, 2026, 09:00"
+          },
+          {
+            "from": 242,
+            "name": "Skip collected, Tuesday, September 1, 2026"
+          },
+          {
+            "from": 286,
+            "name": "Allotment committee, Monday, September 7, 2026, 18:30"
+          }
+        ]
+      },
+      "text": {
+        "result": "Roof inspection with the surveyor, second visit · Sunday, August 30, 2026, 09:00 · 14 Bellwether Lane, Flat 3 · Bring the felt samples and the photos from March.\nNeedle: ICSFOLDED-8814 continues on the folded line and must survive unfolding.\nSkip collected · Tuesday, September 1, 2026\nAllotment committee · Monday, September 7, 2026, 18:30 · Village hall"
+      }
+    }
+  }
+}

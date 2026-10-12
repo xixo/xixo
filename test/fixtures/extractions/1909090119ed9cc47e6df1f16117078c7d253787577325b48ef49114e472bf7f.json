@@ -1,0 +1,46 @@
+{
+  "name": "invoice.pdf",
+  "mime": "application/pdf",
+  "result": {
+    "extractor": "pdf",
+    "files": [
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 3998,
+        "request_file": "1909090119ed9cc4-0"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 37412,
+        "request_file": "1909090119ed9cc4-1"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "info": {
+        "result": {
+          "page_size": "612 x 792 pts (letter)",
+          "pages": 1
+        }
+      },
+      "metadata": {
+        "result": {
+          "PageCount": 1
+        }
+      },
+      "text": {
+        "digest": "text layer, then ocr past 40 characters a page",
+        "result": "Invoice for March totalling 42 pounds"
+      }
+    }
+  }
+}

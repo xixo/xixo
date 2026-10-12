@@ -1,0 +1,53 @@
+{
+  "name": "avatar.bmp",
+  "mime": "image/bmp",
+  "result": {
+    "extractor": "image",
+    "files": [
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 3405,
+        "request_file": "42f490f0a25464c0-0"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 3405,
+        "request_file": "42f490f0a25464c0-1"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "deviation": {
+        "result": 73.317537
+      },
+      "dimensions": {
+        "result": {
+          "height": 160,
+          "width": 240
+        }
+      },
+      "location": {
+        "digest": "exiftool",
+        "result": null
+      },
+      "metadata": {
+        "result": {
+          "ImageSize": "240x160",
+          "Megapixels": 0.038
+        }
+      },
+      "ocr": {
+        "result": ""
+      }
+    }
+  }
+}

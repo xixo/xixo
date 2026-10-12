@@ -1,0 +1,53 @@
+{
+  "name": "front-porch.jpg",
+  "mime": "image/jpeg",
+  "result": {
+    "extractor": "image",
+    "files": [
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 6350,
+        "request_file": "4421d1c392f28c50-0"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 37151,
+        "request_file": "4421d1c392f28c50-1"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "deviation": {
+        "result": 56.323006
+      },
+      "dimensions": {
+        "result": {
+          "height": 800,
+          "width": 1200
+        }
+      },
+      "location": {
+        "digest": "exiftool",
+        "result": null
+      },
+      "metadata": {
+        "result": {
+          "ImageSize": "1200x800",
+          "Megapixels": 0.96
+        }
+      },
+      "ocr": {
+        "result": ""
+      }
+    }
+  }
+}

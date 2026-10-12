@@ -1,0 +1,32 @@
+{
+  "name": "archive.zip",
+  "mime": "application/zip",
+  "result": {
+    "extractor": "fallback",
+    "files": [],
+    "steps": {
+      "format": {
+        "result": {
+          "declared": "application/zip",
+          "observed": "zip",
+          "printable": false
+        }
+      },
+      "listing": {
+        "result": [
+          "notes.txt",
+          "rows.csv",
+          "invoice.pdf"
+        ]
+      },
+      "metadata": {
+        "result": {}
+      },
+      "size": {
+        "result": {
+          "bytes": 1424
+        }
+      }
+    }
+  }
+}

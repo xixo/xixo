@@ -1,0 +1,31 @@
+{
+  "name": "minimal.vcf",
+  "mime": "text/vcard",
+  "result": {
+    "extractor": "contact",
+    "files": [],
+    "steps": {
+      "contacts": {
+        "result": [
+          {
+            "fn": "Dora Halloway"
+          }
+        ]
+      },
+      "metadata": {
+        "result": {}
+      },
+      "outline": {
+        "result": [
+          {
+            "from": 0,
+            "name": "Dora Halloway"
+          }
+        ]
+      },
+      "text": {
+        "result": "Dora Halloway"
+      }
+    }
+  }
+}

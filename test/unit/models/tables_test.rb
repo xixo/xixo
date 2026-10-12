@@ -1,17 +1,6 @@
 require "test_helper"
 
 class TablesTest < ActiveSupport::TestCase
-  BUY_LIST = [
-    [ "Elm Street Pantry: Buy List" ],
-    [ "Quantities roll up from the Plan sheet." ],
-    [ "Container", "Qty", "Unit price (CAD)", "Line total (CAD)" ],
-    [ "Hartwell Square Jar 1L", 9, 8.25, 74.25 ],
-    [ "Hartwell Square Jar 3L", 11, 17.75, 195.25 ],
-    [ "TOTAL", 20, nil, 269.5 ],
-    [],
-    [ "A large order." ]
-  ].freeze
-
   LEDGER = [
     %w[Date Description Amount],
     [ "2026-08-02", "Fernwood Grocers", "-40.10" ],
@@ -20,26 +9,16 @@ class TablesTest < ActiveSupport::TestCase
     [ "2026-08-04", "Copperleaf Cafe", "-4.50" ]
   ].freeze
 
-  test "the header is the widest of the first rows, and the titles above it are dropped" do
-    table = Tables.framed("Buy List", BUY_LIST)
+  test "a table an agent sent is kept only in the shape the server reads" do
+    sound = Tables.sound("name" => "t", "columns" => [ "A", 2 ], "rows" => [ [ "x", { "nested" => 1 }, "extra" ], "not a row" ])
 
-    assert_equal [ "Container", "Qty", "Unit price (CAD)", "Line total (CAD)" ], table["columns"]
-    assert_equal "Hartwell Square Jar 1L", table["rows"].first.first
-    assert_equal 3, table["rows"].size, "blank rows and the total go, and so does nothing else"
-  end
-
-  test "a sheet with no row of two cells is not a table" do
-    assert_nil Tables.framed("Notes", [ [ "Just a line" ], [ "Another" ] ])
-  end
-
-  test "a sum leaves out the total row a sheet already has" do
-    table = Tables.framed("Buy List", BUY_LIST)
-
-    assert_equal 20.0, Tables.compute([ table ], { "table" => "buy list", "op" => "sum", "column" => "qty" })["value"]
+    assert_equal({ "name" => "t", "columns" => %w[A 2], "rows" => [ [ "x", '{"nested" => 1}' ] ] }, sound)
+    assert_nil Tables.sound("name" => "t", "columns" => [], "rows" => [])
+    assert_nil Tables.sound([ "not", "a", "table" ])
   end
 
   test "rows are narrowed by every test, and amounts with commas are numbers" do
-    ledger = Tables.framed("ledger.csv", LEDGER)
+    ledger = framed("ledger.csv", LEDGER)
     spec = { table: "ledger.csv", op: "sum", column: "Amount",
              where: [ [ "Description", "contains", "fernwood" ], [ "Date", "starts", "2026-08" ] ] }
 
@@ -50,14 +29,14 @@ class TablesTest < ActiveSupport::TestCase
   end
 
   test "a count needs no column, and a comparison reads numbers" do
-    mixed = Tables.framed("mixed.csv", [ %w[Payee Amount], [ "a", "40" ], [ "b", "-60" ], [ "c", "120" ] ])
+    mixed = framed("mixed.csv", [ %w[Payee Amount], [ "a", "40" ], [ "b", "-60" ], [ "c", "120" ] ])
 
     assert_equal 1, Tables.compute([ mixed ], { op: "count", where: [ [ "Amount", "<", "0" ] ] })["value"]
     assert_equal 2, Tables.compute([ mixed ], { op: "count", where: [ [ "Amount", ">", "-10" ] ] })["value"]
   end
 
   test "a result says what its rows hold, and what the whole table holds when nothing matched" do
-    ledger = Tables.framed("ledger.csv", LEDGER)
+    ledger = framed("ledger.csv", LEDGER)
 
     fernwood = Tables.compute([ ledger ], { op: "count", where: [ [ "Description", "contains", "fernwood" ] ] })
     assert_includes fernwood["spread"], "Description: Fernwood Grocers (3)"
@@ -69,14 +48,14 @@ class TablesTest < ActiveSupport::TestCase
   end
 
   test "a column that only ever goes out is compared by size, as a ledger means it" do
-    ledger = Tables.framed("ledger.csv", LEDGER)
+    ledger = framed("ledger.csv", LEDGER)
 
     assert_equal 2, Tables.compute([ ledger ], { op: "count", where: [ [ "Amount", ">", "35" ] ] })["value"]
     assert_equal 2, Tables.compute([ ledger ], { op: "count", where: [ [ "Amount", "<", "-35" ] ] })["value"]
   end
 
   test "a negative bound on a column that only goes out means more spent than it, as the signs say" do
-    ledger = Tables.framed("ledger.csv", LEDGER)
+    ledger = framed("ledger.csv", LEDGER)
 
     over = Tables.compute([ ledger ], { op: "sum", column: "Amount", where: [ [ "Amount", "<", "-35" ] ] })["value"]
     under = Tables.compute([ ledger ], { op: "sum", column: "Amount", where: [ [ "Amount", ">=", "-35" ] ] })["value"]
@@ -86,7 +65,7 @@ class TablesTest < ActiveSupport::TestCase
   end
 
   test "a date is compared as a date, so a quarter narrows a ledger" do
-    ledger = Tables.framed("ledger.csv", LEDGER)
+    ledger = framed("ledger.csv", LEDGER)
 
     august = Tables.compute([ ledger ], { op: "count", where: [ [ "Date", ">=", "2026-08-01" ], [ "Date", "<", "2026-09-01" ] ] })
 
@@ -94,7 +73,7 @@ class TablesTest < ActiveSupport::TestCase
   end
 
   test "a table's shape is its columns, two rows, and what its columns hold, never every row" do
-    shape = Tables.shape(Tables.framed("ledger.csv", LEDGER))
+    shape = Tables.shape(framed("ledger.csv", LEDGER))
 
     assert_includes shape, "ledger.csv: Date, Description, Amount (4 rows)"
     assert_includes shape, "Description: Fernwood Grocers (3), Copperleaf Cafe (1)"
@@ -104,7 +83,7 @@ class TablesTest < ActiveSupport::TestCase
   end
 
   test "what cannot be worked out is refused with the reason" do
-    ledger = Tables.framed("ledger.csv", LEDGER)
+    ledger = framed("ledger.csv", LEDGER)
 
     assert_raises(Tables::Refused, match: /the columns are Date, Description, Amount/) do
       Tables.compute([ ledger ], { op: "sum", column: "Total" })
@@ -112,4 +91,10 @@ class TablesTest < ActiveSupport::TestCase
     assert_raises(Tables::Refused, match: /op is one of/) { Tables.compute([ ledger ], { op: "median", column: "Amount" }) }
     assert_raises(Tables::Refused, match: /no table called/) { Tables.compute([ ledger, ledger ], { table: "x", op: "count" }) }
   end
+
+  private
+
+    def framed(name, rows)
+      { "name" => name, "columns" => rows.first, "rows" => rows.drop(1) }
+    end
 end

@@ -1,0 +1,61 @@
+{
+  "name": "picture.webp",
+  "mime": "image/webp",
+  "result": {
+    "extractor": "image",
+    "files": [
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 4784,
+        "request_file": "47bd14caf47aebc2-0"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 7043,
+        "request_file": "47bd14caf47aebc2-1"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "deviation": {
+        "result": 41.4924
+      },
+      "dimensions": {
+        "result": {
+          "height": 267,
+          "width": 400
+        }
+      },
+      "frames": {
+        "result": 1
+      },
+      "location": {
+        "digest": "exiftool",
+        "result": null
+      },
+      "metadata": {
+        "result": {
+          "HorizontalScale": 0,
+          "ImageHeight": 267,
+          "ImageSize": "400x267",
+          "ImageWidth": 400,
+          "Megapixels": 0.107,
+          "VP8Version": "0 (bicubic reconstruction, normal loop)",
+          "VerticalScale": 0
+        }
+      },
+      "ocr": {
+        "result": ""
+      }
+    }
+  }
+}

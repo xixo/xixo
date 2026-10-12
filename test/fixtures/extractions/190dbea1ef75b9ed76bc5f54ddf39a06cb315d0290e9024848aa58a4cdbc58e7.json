@@ -1,0 +1,28 @@
+{
+  "name": "certificate.pem",
+  "mime": "application/octet-stream",
+  "result": {
+    "extractor": "fallback",
+    "files": [],
+    "steps": {
+      "format": {
+        "result": {
+          "declared": "application/octet-stream",
+          "observed": "text",
+          "printable": true
+        }
+      },
+      "metadata": {
+        "result": {}
+      },
+      "size": {
+        "result": {
+          "bytes": 253
+        }
+      },
+      "text": {
+        "result": "-----BEGIN CERTIFICATE-----\nMIIBhTCCASugAwIBAgIQPLACEHOLDERNOTREALCERTIFICATEBYTESGOHEREAAAAA\nThisIsNotARealCertificateItIsFixtureFillerForTheThingsTestCorpusXX\nNeedlePEMFIXTURE4173AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n-----END CERTIFICATE-----"
+      }
+    }
+  }
+}

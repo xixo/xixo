@@ -3,6 +3,10 @@ module Analyzer
     prepend Redaction::Message
   end
 
+  class Waiting < StandardError
+    prepend Redaction::Message
+  end
+
   PROMPTS_CHANGED_AT = Time.utc(2026, 9, 7).freeze
 
   def self.all

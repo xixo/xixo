@@ -1,0 +1,74 @@
+{
+  "name": "with-attachments.eml",
+  "mime": "message/rfc822",
+  "result": {
+    "extractor": "email",
+    "files": [
+      {
+        "role": "child",
+        "name": "invoice.pdf",
+        "mime": "application/pdf",
+        "size": 1311,
+        "request_file": "8b211de314a3079c-0"
+      },
+      {
+        "role": "child",
+        "name": "photo.png",
+        "mime": "image/png",
+        "size": 48085,
+        "request_file": "8b211de314a3079c-1"
+      }
+    ],
+    "steps": {
+      "attachments": {
+        "result": [
+          {
+            "content_type": "application/pdf",
+            "filename": "invoice.pdf",
+            "size": 1311
+          },
+          {
+            "content_type": "image/png",
+            "filename": "photo.png",
+            "size": 48085
+          }
+        ]
+      },
+      "headers": {
+        "result": {
+          "cc": "Cyril Vane \u003ccyril@example.invalid\u003e",
+          "date": "2026-03-14T11:05:00Z",
+          "from": "Bea Okonkwo \u003cbea@example.invalid\u003e",
+          "message_id": "invoice-8820@example.invalid",
+          "subject": "Invoice 2026-114 attached",
+          "to": "Ash Pemberton \u003cash@example.invalid\u003e"
+        }
+      },
+      "metadata": {
+        "result": {}
+      },
+      "outline": {
+        "result": [
+          {
+            "from": 0,
+            "name": "Message from Bea Okonkwo \u003cbea@example.invalid\u003e"
+          }
+        ]
+      },
+      "text": {
+        "result": "From: Bea Okonkwo \u003cbea@example.invalid\u003e\nTo: Ash Pemberton \u003cash@example.invalid\u003e\nCc: Cyril Vane \u003ccyril@example.invalid\u003e\nDate: 2026-03-14T11:05:00Z\nSubject: Invoice 2026-114 attached\n\nInvoice 2026-114 attached\n\nThe invoice is attached. Needle: EMAILTEXT-8820\n\nTotal is 880.00, payable within 30 days."
+      },
+      "thread": {
+        "result": {
+          "ids": [
+            "invoice-8820@example.invalid"
+          ]
+        }
+      }
+    }
+  },
+  "kept": {
+    "8b211de314a3079c-0": "8b211de314a3079c-0.pdf",
+    "8b211de314a3079c-1": "8b211de314a3079c-1.png"
+  }
+}

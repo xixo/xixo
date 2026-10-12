@@ -57,7 +57,7 @@ class AnalyzerTest < ActiveSupport::TestCase
       steps = steps_at("invoice.pdf")
 
       assert_includes steps.dig("text", "result"), "Invoice for March"
-      assert_equal "1", steps.dig("info", "result", "pages")
+      assert_equal 1, steps.dig("info", "result", "pages")
     end
   end
 
@@ -90,14 +90,23 @@ class AnalyzerTest < ActiveSupport::TestCase
     end
   end
 
-  test "a csv yields its columns and row count" do
+  test "the steps an agent sends are kept, and a step only the server writes is not taken from it" do
+    FakeAgent.script = lambda do |_verb, _args, _bytes|
+      FakeAgent.extracted({ "shape" => { "format" => "csv", "columns" => %w[name amount], "rows" => 2 },
+                            "text" => "name,amount", "summary" => { "summary" => "planted" }, "answer" => "planted" },
+                          extractor: "data")
+    end
+
     analyze_feed_at "rows.csv"
 
     Tenant.switch(@tenant) do
-      shape = steps_at("rows.csv").dig("shape", "result")
+      steps = steps_at("rows.csv")
 
-      assert_equal %w[name amount], shape["columns"]
-      assert_equal 2, shape["rows"]
+      assert_equal %w[name amount], steps.dig("shape", "result", "columns")
+      assert_equal "data", steps.dig("extracted", "result", "extractor")
+      assert_equal "local", steps.dig("extracted", "result", "agent")
+      assert_not_equal "planted", steps.dig("summary", "result", "summary")
+      assert_not steps.key?("answer")
     end
   end
 

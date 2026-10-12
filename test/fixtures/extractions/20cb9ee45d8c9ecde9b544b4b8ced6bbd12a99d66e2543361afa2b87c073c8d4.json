@@ -1,0 +1,17 @@
+{
+  "name": "no-pass-json.pkpass",
+  "mime": "application/vnd.apple.pkpass",
+  "result": {
+    "extractor": "pkpass",
+    "files": [],
+    "steps": {
+      "metadata": {
+        "result": {}
+      },
+      "pass": {
+        "error": "no pass.json in the bundle",
+        "result": null
+      }
+    }
+  }
+}

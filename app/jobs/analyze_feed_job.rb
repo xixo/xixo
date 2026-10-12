@@ -14,6 +14,9 @@ class AnalyzeFeedJob < ApplicationJob
   retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5 do |job, error|
     job.fail_analysis(error)
   end
+  retry_on Analyzer::Waiting, wait: 5.minutes, attempts: 288 do |job, error|
+    job.fail_analysis(error)
+  end
 
   WHOLE = "whole"
   READING = "reading"
@@ -70,8 +73,13 @@ class AnalyzeFeedJob < ApplicationJob
       Placement.new(feed, analysis: analysis).returned!
 
       unless feed.address?
-        ActiveRecord::Base.transaction(requires_new: true) do
-          Analyzer.for(feed, analysis: analysis).run
+        analyzer = Analyzer.for(feed, analysis: analysis)
+
+        begin
+          analyzer.extract!
+          ActiveRecord::Base.transaction(requires_new: true) { analyzer.run }
+        ensure
+          analyzer.close!
         end
       end
 

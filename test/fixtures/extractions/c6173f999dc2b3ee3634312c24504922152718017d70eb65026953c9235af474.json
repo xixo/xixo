@@ -1,0 +1,43 @@
+{
+  "name": "no-body.eml",
+  "mime": "message/rfc822",
+  "result": {
+    "extractor": "email",
+    "files": [],
+    "steps": {
+      "attachments": {
+        "result": []
+      },
+      "headers": {
+        "result": {
+          "date": "2026-04-10T07:00:00Z",
+          "from": "bea@example.invalid",
+          "message_id": "nobody-2205@example.invalid",
+          "subject": "Headers only, no body. Needle: EMAILNOBODY-2205",
+          "to": "ash@example.invalid"
+        }
+      },
+      "metadata": {
+        "result": {}
+      },
+      "outline": {
+        "result": [
+          {
+            "from": 0,
+            "name": "Message from bea@example.invalid"
+          }
+        ]
+      },
+      "text": {
+        "result": "From: bea@example.invalid\nTo: ash@example.invalid\nDate: 2026-04-10T07:00:00Z\nSubject: Headers only, no body. Needle: EMAILNOBODY-2205\n\nHeaders only, no body. Needle: EMAILNOBODY-2205"
+      },
+      "thread": {
+        "result": {
+          "ids": [
+            "nobody-2205@example.invalid"
+          ]
+        }
+      }
+    }
+  }
+}

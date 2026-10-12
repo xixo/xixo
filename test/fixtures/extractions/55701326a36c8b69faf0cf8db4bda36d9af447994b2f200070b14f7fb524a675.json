@@ -1,0 +1,28 @@
+{
+  "name": "no-extension",
+  "mime": "application/octet-stream",
+  "result": {
+    "extractor": "fallback",
+    "files": [],
+    "steps": {
+      "format": {
+        "result": {
+          "declared": "application/octet-stream",
+          "observed": "text",
+          "printable": true
+        }
+      },
+      "metadata": {
+        "result": {}
+      },
+      "size": {
+        "result": {
+          "bytes": 59
+        }
+      },
+      "text": {
+        "result": "A file with no extension at all.\n\nNeedle: NOEXTENSION-2914"
+      }
+    }
+  }
+}

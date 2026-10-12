@@ -12,7 +12,8 @@ class Resource
           "arch" => text(said["arch"]),
           "hostname" => text(said["hostname"]),
           "folders" => folders(said["folders"]),
-          "services" => services(said["services"])
+          "services" => services(said["services"]),
+          "extractors" => extractors(said["extractors"])
         }
       end
 
@@ -29,6 +30,10 @@ class Resource
         return unless path.start_with?("/") && !path.include?("\0")
 
         path if Pathname.new(path).cleanpath.to_s == path
+      end
+
+      def extractors(value)
+        Array(value).select { |name| name.is_a?(String) && EXTRACTORS.include?(name) }.uniq.sort
       end
 
       def services(value)

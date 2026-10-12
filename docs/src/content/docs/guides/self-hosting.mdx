@@ -16,6 +16,7 @@ docker pull ghcr.io/xixo/xixo:latest
 | --- | --- |
 | Web process | The image's default command, `./bin/thrust ./bin/rails server`, listening on port 80 |
 | Worker process | `./bin/jobs`, from the same image |
+| The agent beside the server | `ghcr.io/xixo/xixo-agent`, which reads every file and holds no database or keys |
 | Postgres | Four databases: `xixo_production`, `xixo_production_cache`, `xixo_production_queue`, and `xixo_production_cable` |
 | OpenSearch | The search index, at `OPENSEARCH_URL` |
 | masks | One issuer per tenant, named by `MASKS_ISSUER_TEMPLATE` |
@@ -63,9 +64,11 @@ x-xixo: &xixo
     XIXO_PUBLIC_ORIGIN: https://%{subdomain}.xixo.example.com
     MASKS_ISSUER_TEMPLATE: https://%{subdomain}.auth.example.com
     XIXO_FILESYSTEM_ROOTS: /data/files
+    XIXO_LOCAL_AGENT: /handoff
   volumes:
     - storage:/rails/storage
     - files:/data/files
+    - agent-handoff:/handoff
 
 services:
   xixo:
@@ -95,6 +98,24 @@ services:
       timeout: 10s
       retries: 3
       start_period: 120s
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+    depends_on:
+      xixo:
+        condition: service_healthy
+
+  agent:
+    image: ghcr.io/xixo/xixo-agent:latest
+    restart: unless-stopped
+    environment:
+      XIXO_AGENT_XIXO: https://acme.xixo.example.com
+      XIXO_AGENT_ISSUER: https://acme.auth.example.com
+      XIXO_AGENT_HANDOFF: /handoff/acme
+    volumes:
+      - agent-state:/var/lib/xixo-agent
+      - agent-handoff:/handoff
     deploy:
       resources:
         limits:
@@ -156,6 +177,8 @@ services:
 volumes:
   storage:
   files:
+  agent-state:
+  agent-handoff:
   postgres:
   opensearch:
   caddy-data:
@@ -184,8 +207,16 @@ What the file does:
 - **The worker starts after the web container is healthy.** The web container migrates the
   databases before it answers `/up`, so the worker never runs against a schema it does not know.
 - **Every service restarts** unless it was stopped by hand.
-- **Memory is capped.** OpenSearch gets three times its heap. The worker gets 6 GB, because each
-  program it runs on a file may hold up to 4 GB. Raise both for a large catalog.
+- **Memory is capped.** OpenSearch gets three times its heap. The agent gets 6 GB, because each
+  program it runs on a file may hold up to 4 GB, and exiftool up to 6. Raise both for a large catalog.
+- **The agent reads every file, and holds nothing else.** It has no database password, no keys, and
+  no access to `storage`. It dials xixo at its public address, so give `XIXO_AGENT_XIXO` the tenant's
+  origin and `XIXO_AGENT_ISSUER` its masks issuer. On first boot it leaves a request in
+  `/handoff/<tenant>`, the worker answers it with a single-use enrollment token, and the agent
+  registers its own key with masks. Its state volume holds that key; deleting the volume enrolls it
+  again. Run one agent for each tenant, each with its own `XIXO_AGENT_HANDOFF` and state volume.
+  To let it read a folder on the host, mount the folder read-only and name it in
+  `XIXO_AGENT_FOLDERS`, separated by colons.
 - **Chromium keeps its sandbox.** The image runs as an unprivileged user, and Docker's default seccomp
   profile gives Chromium the namespaces its sandbox needs. Leave `XIXO_CHROME_NO_SANDBOX` unset, and
   never run the worker privileged.
@@ -386,9 +417,9 @@ production deployment sets at least these:
 | `sync`, `export`, `default` | 5 | `BULK_CONCURRENCY` (default 1) |
 | `analysis` | `ANALYSIS_THREADS` (default 4) | `ANALYSIS_CONCURRENCY` (default 1) |
 
-The worker shells out to Chromium, LibreOffice, Tesseract, Poppler, and FFmpeg, which the image
-includes. The worker runs in its own container so that analysis does not slow down web
-requests, and so the two scale separately. To run jobs inside the web process on a small host, set
+The worker shells out to Chromium for snapshots. Every other program run on a file runs in the agent,
+which the agent image includes. The worker runs in its own container so that analysis does not slow
+down web requests, and so the two scale separately. To run jobs inside the web process on a small host, set
 `SOLID_QUEUE_IN_PUMA=1` on the web container and run no worker.
 
 Syncs and exports checkpoint as they go, so a worker restarted during one resumes from its last
@@ -415,7 +446,8 @@ inference resource points, outside these containers.
 | | |
 | --- | --- |
 | OpenSearch | A 512 MB heap is enough for a personal catalog. Give the container about three times the heap. |
-| Worker | Chromium and LibreOffice each hold a core while they render. Raise `ANALYSIS_CONCURRENCY` when analyses queue. |
+| Worker | Chromium holds a core while it renders. Raise `ANALYSIS_CONCURRENCY` when analyses queue. |
+| Agent | LibreOffice, Tesseract, and FFmpeg each hold a core while they read a file. It answers four requests at once. |
 | Web | `RAILS_MAX_THREADS` (default 3) sizes Puma's threads and the connection pool. |
 
 ## Health check

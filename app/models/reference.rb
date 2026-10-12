@@ -4,9 +4,12 @@ class Reference < ApplicationRecord
   ORIGINAL = "original".freeze
   PREVIEW = "preview".freeze
   THUMBNAIL = "thumbnail".freeze
+  FRAME = "frame".freeze
 
-  ROLES = [ ORIGINAL, PREVIEW, THUMBNAIL ].freeze
-  DERIVED = [ PREVIEW, THUMBNAIL ].freeze
+  ROLES = [ ORIGINAL, PREVIEW, THUMBNAIL, FRAME ].freeze
+  DERIVED = [ PREVIEW, THUMBNAIL, FRAME ].freeze
+  RENDERED = [ THUMBNAIL, PREVIEW ].freeze
+  RENDERED_AS = "image/jpeg".freeze
 
   RETRY_FAILED_AFTER = 1.day
 

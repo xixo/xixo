@@ -1,0 +1,18 @@
+{
+  "name": "feed.xml",
+  "mime": "application/xml",
+  "result": {
+    "extractor": "data",
+    "files": [],
+    "steps": {
+      "shape": {
+        "result": {
+          "format": "unknown"
+        }
+      },
+      "text": {
+        "result": "\u003c?xml version=\"1.0\" encoding=\"UTF-8\"?\u003e\n\u003crss version=\"2.0\"\u003e\n  \u003cchannel\u003e\n    \u003ctitle\u003eShed Diaries\u003c/title\u003e\n    \u003clink\u003ehttps://example.invalid/shed\u003c/link\u003e\n    \u003cdescription\u003eNotes from the allotment. Needle: RSSFEED-3520\u003c/description\u003e\n    \u003citem\u003e\n      \u003ctitle\u003eThe felt roof, again\u003c/title\u003e\n      \u003clink\u003ehttps://example.invalid/shed/felt-roof\u003c/link\u003e\n      \u003cpubDate\u003eMon, 06 Apr 2026 09:14:00 +0000\u003c/pubDate\u003e\n      \u003cdescription\u003e\u003c![CDATA[\u003cp\u003eLifted at the north corner after the gales. Tacks pulled clean through.\u003c/p\u003e]]\u003e\u003c/description\u003e\n    \u003c/item\u003e\n    \u003citem\u003e\n      \u003ctitle\u003eSeed trays, sorted\u003c/title\u003e\n      \u003clink\u003ehttps://example.invalid/shed/seed-trays\u003c/link\u003e\n      \u003cpubDate\u003eThu, 12 Mar 2026 17:40:00 +0000\u003c/pubDate\u003e\n      \u003cdescription\u003eForty trays, stacked by depth.\u003c/description\u003e\n    \u003c/item\u003e\n  \u003c/channel\u003e\n\u003c/rss\u003e"
+      }
+    }
+  }
+}

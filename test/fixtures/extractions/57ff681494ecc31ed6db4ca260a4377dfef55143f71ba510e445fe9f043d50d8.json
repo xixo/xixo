@@ -1,0 +1,28 @@
+{
+  "name": "server.log",
+  "mime": "application/octet-stream",
+  "result": {
+    "extractor": "fallback",
+    "files": [],
+    "steps": {
+      "format": {
+        "result": {
+          "declared": "application/octet-stream",
+          "observed": "text",
+          "printable": true
+        }
+      },
+      "metadata": {
+        "result": {}
+      },
+      "size": {
+        "result": {
+          "bytes": 580
+        }
+      },
+      "text": {
+        "result": "2026-04-06T08:14:02.118Z INFO  boot     starting, pid=41120\n2026-04-06T08:14:02.402Z INFO  db       connected, pool=5\n2026-04-06T08:14:11.883Z INFO  request  GET /things 200 in 41ms\n2026-04-06T08:14:12.004Z INFO  request  GET /references/8812/thumbnail 200 in 118ms\n2026-04-06T08:15:44.219Z WARN  analyze  pdftotext produced no text for docs/scan.pdf\n2026-04-06T08:15:44.220Z ERROR analyze  LOGNEEDLE-9917 unreadable spreadsheet: Can't detect the type\n2026-04-06T08:16:03.771Z INFO  request  POST /graphql 200 in 12ms\n2026-04-06T08:19:55.010Z INFO  shutdown draining, 0 in flight"
+      }
+    }
+  }
+}

@@ -13,3 +13,12 @@ services:
 
   xixo-worker:
     environment: *tenants
+
+  xixo-agent:
+    extra_hosts:
+      - "demo.xixo.localhost:host-gateway"
+      - "demo.masks.localhost:host-gateway"
+    environment:
+      XIXO_AGENT_XIXO: http://demo.xixo.localhost:${XIXO_PORT:-8180}
+      XIXO_AGENT_ISSUER: http://demo.masks.localhost:12345
+      XIXO_AGENT_HANDOFF: /handoff/demo

@@ -24,8 +24,9 @@ class DerivedImagesTest < ActiveSupport::TestCase
 
       assert_equal Resource.internal!(:derived), thumbnail.resource
       assert_equal "\xFF\xD8".b, thumbnail.download.read.byteslice(0, 2)
-      assert_operator width(thumbnail), :<=, Thumbnail.width(Reference::THUMBNAIL)
-      assert_operator width(preview), :<=, Thumbnail.width(Reference::PREVIEW)
+      assert_equal Reference::RENDERED_AS, preview.mime
+      assert_equal({ "thumbnail" => "#{feed.id}/thumbnail.jpg", "preview" => "#{feed.id}/preview.jpg" },
+                   feed.analysis.step_result("derived"))
     end
   end
 
@@ -53,32 +54,35 @@ class DerivedImagesTest < ActiveSupport::TestCase
     end
   end
 
-  test "a hi-res image is bounded on its longest edge, and a changed size renders again on the next pass" do
+  test "a changed size reads the file again with the new settings" do
     Tenant.switch(@tenant) do
       feed = staged("poster.png")
       pass(feed)
-
-      assert_equal 1500, width(feed.references.in_role(Reference::PREVIEW).sole)
-      assert_equal 320, width(feed.references.in_role(Reference::THUMBNAIL).sole)
 
       Setting.write!("hires_size", "1024", subject: nil)
       Setting.write!("thumbnail_size", "160", subject: nil)
       pass(feed.reload)
 
-      assert_equal 1024, width(feed.references.in_role(Reference::PREVIEW).sole)
-      assert_equal 160, width(feed.references.in_role(Reference::THUMBNAIL).sole)
+      assert_equal 2, FakeAgent.asked.size
+      assert_equal({ "thumbnail" => 160, "preview" => 1024 }, FakeAgent.asked.last.args["settings"].slice("thumbnail", "preview"))
+      assert_equal 1, feed.references.in_role(Reference::PREVIEW).count
     end
   end
 
-  test "a pdf's first page is rendered at both sizes the settings name" do
+  test "an animation's frames are kept in order, and a pass with fewer leaves none behind" do
     Tenant.switch(@tenant) do
-      Setting.write!("hires_size", "2048", subject: nil)
-      Setting.write!("thumbnail_size", "240", subject: nil)
-      feed = staged("invoice.pdf")
+      feed = staged("animated.gif")
+      FakeAgent.script = ->(*) { FakeAgent.extracted({ "frames" => 3 }, files: framed(3), extractor: "image") }
       pass(feed)
 
-      assert_equal 240, width(feed.references.in_role(Reference::THUMBNAIL).sole)
-      assert_equal 2048, edges(feed.references.in_role(Reference::PREVIEW).sole).max
+      assert_equal [ 0.0, 0.5, 1.0 ], feed.references.in_role(Reference::FRAME).map { |held| held.locator["at"] }.sort
+
+      Setting.write!("animation_frames", "2", subject: nil)
+      FakeAgent.script = ->(*) { FakeAgent.extracted({ "frames" => 3 }, files: framed(2), extractor: "image") }
+      pass(feed.reload)
+
+      assert_equal 2, feed.references.in_role(Reference::FRAME).count
+      assert_equal 2, Resource.internal!(:derived).blobs.where("key LIKE ?", "#{feed.id}/frame-%").count
     end
   end
 
@@ -143,15 +147,7 @@ class DerivedImagesTest < ActiveSupport::TestCase
       analysis
     end
 
-    def width(reference)
-      edges(reference).first
-    end
-
-    def edges(reference)
-      Tempfile.create([ "derived", ".jpg" ], binmode: true) do |file|
-        file.write(reference.download.read)
-        file.flush
-        %w[width height].map { |edge| Open3.capture2("vipsheader", "-f", edge, file.path).first.to_i }
-      end
+    def framed(count)
+      Array.new(count) { |index| { role: "frame", name: "frame-#{index}.jpg", at: index * 0.5 } }
     end
 end

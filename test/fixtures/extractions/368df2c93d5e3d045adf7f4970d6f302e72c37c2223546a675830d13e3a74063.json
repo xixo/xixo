@@ -1,0 +1,124 @@
+{
+  "name": "garage-tour.mp4",
+  "mime": "video/mp4",
+  "result": {
+    "extractor": "media",
+    "files": [
+      {
+        "role": "audio",
+        "name": "heard.wav",
+        "mime": "audio/wav",
+        "size": 512776,
+        "request_file": "368df2c93d5e3d04-0"
+      },
+      {
+        "role": "frame",
+        "name": "00:00:04",
+        "mime": "image/jpeg",
+        "size": 17263,
+        "request_file": "368df2c93d5e3d04-1",
+        "at": 4
+      },
+      {
+        "role": "frame",
+        "name": "00:00:12",
+        "mime": "image/jpeg",
+        "size": 13892,
+        "request_file": "368df2c93d5e3d04-2",
+        "at": 12
+      },
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 7577,
+        "request_file": "368df2c93d5e3d04-3"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 43920,
+        "request_file": "368df2c93d5e3d04-4"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "metadata": {
+        "result": {
+          "AudioBitsPerSample": 16,
+          "AudioChannels": 1,
+          "AudioFormat": "mp4a",
+          "AudioSampleRate": 22050,
+          "AvgBitrate": "69.2 kbps",
+          "Balance": 0,
+          "CompatibleBrands": "isom, iso2, avc1, mp41",
+          "CompressorID": "avc1",
+          "CompressorName": "Lavc62.28.101 libx264",
+          "Duration": "16.00 s",
+          "Encoder": "Lavf62.12.101",
+          "ImageHeight": 800,
+          "ImageSize": "1200x800",
+          "ImageWidth": 1200,
+          "MajorBrand": "MP4 Base Media v1 [IS0 14496-12:2003]",
+          "MaxBitrate": 15541,
+          "MediaDuration": "16.05 s",
+          "MediaLanguageCode": "und",
+          "Megapixels": 0.96,
+          "Rotation": 0,
+          "TrackDuration": "16.00 s",
+          "VideoFrameRate": 12
+        }
+      },
+      "probe": {
+        "result": {
+          "bit_rate": 73004,
+          "duration": 16,
+          "format": "mov,mp4,m4a,3gp,3g2,mj2",
+          "streams": [
+            {
+              "codec": "h264",
+              "height": 800,
+              "language": "und",
+              "type": "video",
+              "width": 1200
+            },
+            {
+              "channels": 1,
+              "codec": "aac",
+              "language": "und",
+              "sample_rate": 22050,
+              "type": "audio"
+            }
+          ]
+        }
+      },
+      "signal": {
+        "result": {
+          "centroid": 1175,
+          "flatness": 0.0869,
+          "loudness": -16.2,
+          "peak": -2.1,
+          "range": 5.6,
+          "silences": [
+            [
+              5.62,
+              8
+            ],
+            [
+              14.25,
+              16.02
+            ]
+          ],
+          "silent": 4.15,
+          "silent_throughout": false
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "name": "shed-key-note.gif",
+  "mime": "image/gif",
+  "result": {
+    "extractor": "image",
+    "files": [
+      {
+        "role": "frame",
+        "name": "frame-0.jpg",
+        "mime": "image/jpeg",
+        "size": 9851,
+        "request_file": "19053517456ca245-0"
+      },
+      {
+        "role": "frame",
+        "name": "frame-2.jpg",
+        "mime": "image/jpeg",
+        "size": 10239,
+        "request_file": "19053517456ca245-1"
+      },
+      {
+        "role": "frame",
+        "name": "frame-4.jpg",
+        "mime": "image/jpeg",
+        "size": 10000,
+        "request_file": "19053517456ca245-2"
+      },
+      {
+        "role": "frame",
+        "name": "frame-6.jpg",
+        "mime": "image/jpeg",
+        "size": 11160,
+        "request_file": "19053517456ca245-3"
+      },
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 3596,
+        "request_file": "19053517456ca245-4"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 7394,
+        "request_file": "19053517456ca245-5"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "deviation": {
+        "result": 35.419323
+      },
+      "dimensions": {
+        "result": {
+          "height": 270,
+          "width": 600
+        }
+      },
+      "frames": {
+        "result": 8
+      },
+      "location": {
+        "digest": "exiftool",
+        "result": null
+      },
+      "metadata": {
+        "result": {
+          "AnimationIterations": "Infinite",
+          "BackgroundColor": 255,
+          "BitsPerPixel": 8,
+          "ColorResolutionDepth": 8,
+          "Duration": "5.71 s",
+          "FrameCount": 8,
+          "GIFVersion": "89a",
+          "HasColorMap": "Yes",
+          "ImageHeight": 270,
+          "ImageSize": "600x270",
+          "ImageWidth": 600,
+          "Megapixels": 0.162,
+          "PixelAspectRatio": 1,
+          "TransparentColor": 255
+        }
+      },
+      "ocr": {
+        "result": "PORCH NOTE"
+      }
+    }
+  }
+}

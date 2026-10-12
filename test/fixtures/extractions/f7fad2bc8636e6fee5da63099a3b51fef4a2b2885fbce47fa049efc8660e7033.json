@@ -1,0 +1,70 @@
+{
+  "name": "rows.tsv",
+  "mime": "text/tab-separated-values",
+  "result": {
+    "extractor": "data",
+    "files": [],
+    "steps": {
+      "shape": {
+        "result": {
+          "columns": [
+            "station",
+            "line",
+            "zone",
+            "opened"
+          ],
+          "format": "csv",
+          "rows": 5
+        }
+      },
+      "tables": {
+        "result": [
+          {
+            "columns": [
+              "station",
+              "line",
+              "zone",
+              "opened"
+            ],
+            "name": "rows.tsv",
+            "rows": [
+              [
+                "Aldgate",
+                "Circle",
+                "1",
+                "1876"
+              ],
+              [
+                "Barbican",
+                "Metropolitan",
+                "1",
+                "1865"
+              ],
+              [
+                "Chalk Farm",
+                "Northern",
+                "2",
+                "1907"
+              ],
+              [
+                "Dalston",
+                "Overground",
+                "2",
+                "1850"
+              ],
+              [
+                "Needle",
+                "TSVSTATIONS-5562",
+                "3",
+                "1900"
+              ]
+            ]
+          }
+        ]
+      },
+      "text": {
+        "result": "station\tline\tzone\topened\nAldgate\tCircle\t1\t1876\nBarbican\tMetropolitan\t1\t1865\nChalk Farm\tNorthern\t2\t1907\nDalston\tOverground\t2\t1850\nNeedle\tTSVSTATIONS-5562\t3\t1900"
+      }
+    }
+  }
+}

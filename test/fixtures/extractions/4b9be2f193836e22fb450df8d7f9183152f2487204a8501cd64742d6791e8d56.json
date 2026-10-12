@@ -1,0 +1,37 @@
+{
+  "name": "store-card.pkpass",
+  "mime": "application/vnd.apple.pkpass",
+  "result": {
+    "extractor": "pkpass",
+    "files": [],
+    "steps": {
+      "metadata": {
+        "result": {}
+      },
+      "pass": {
+        "result": {
+          "description": "Trade account card",
+          "expiration_date": null,
+          "fields": [
+            {
+              "label": "CREDIT",
+              "value": "250"
+            },
+            {
+              "label": "ACCOUNT",
+              "value": "BH-77120"
+            }
+          ],
+          "logo_text": null,
+          "organization": "Bellwether Hardware",
+          "relevant_date": null,
+          "serial_number": "PKPASSCARD-2286",
+          "style": "storeCard"
+        }
+      },
+      "text": {
+        "result": "storeCard\nBellwether Hardware\nTrade account card\nPKPASSCARD-2286\nCREDIT: 250\nACCOUNT: BH-77120"
+      }
+    }
+  }
+}

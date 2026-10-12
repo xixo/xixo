@@ -1,0 +1,53 @@
+{
+  "name": "photo.jpg",
+  "mime": "image/jpeg",
+  "result": {
+    "extractor": "image",
+    "files": [
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 4956,
+        "request_file": "9aa7bcbae68711ec-0"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 38518,
+        "request_file": "9aa7bcbae68711ec-1"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "deviation": {
+        "result": 42.148321
+      },
+      "dimensions": {
+        "result": {
+          "height": 800,
+          "width": 1200
+        }
+      },
+      "location": {
+        "digest": "exiftool",
+        "result": null
+      },
+      "metadata": {
+        "result": {
+          "ImageSize": "1200x800",
+          "Megapixels": 0.96
+        }
+      },
+      "ocr": {
+        "result": "PHOTO-BELLWETHER-81 23"
+      }
+    }
+  }
+}

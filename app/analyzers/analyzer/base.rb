@@ -1,10 +1,16 @@
-require "open3"
-
 module Analyzer
   class Base
     MAX_TEXT = 200_000
     LEFT_OUT = "dropped".freeze
+    EXTRACTED = "extracted".freeze
+    EXTRACTED_AS = "steps from an agent's extraction".freeze
     DECODED = "decoded by its byte order mark, as UTF-8, or as Windows-1252".freeze
+    STEPS = %w[
+      metadata derived info text dimensions deviation frames location ocr probe signal shape tables events
+      outline contacts pass size format listing headers thread attachments book sheets
+    ].freeze
+    CAPPED = %w[text ocr].freeze
+    MOST_CHILDREN = 100
 
     attr_reader :feed, :reference, :analysis
 
@@ -12,6 +18,7 @@ module Analyzer
       @feed = feed
       @analysis = analysis
       @reference = feed.references.originals.first || feed.staged
+      @received = []
     end
 
     def self.handles?(_feed)
@@ -26,19 +33,33 @@ module Analyzer
       true
     end
 
+    def self.derives?(_feed)
+      false
+    end
+
+    def extract!
+      return if @extracted
+      return if reference.nil?
+
+      @extracted = true
+
+      if self.class.carries_bytes?
+        attempt { step(EXTRACTED, digest: extracted_as, force: wants_files?) { extracted!("extract") } }
+      elsif self.class.derives?(feed)
+        attempt { step(:derived, digest: Extraction.settings.to_json) { extracted!("derive")["derived"] } }
+      end
+    end
+
     def run
-      extract_children! if feed.depth < Feed::DEPTH
+      extract!
+      catalogue_children! if feed.depth < Feed::DEPTH
 
       return feed unless feed.children_ready?
 
       analysis&.update_columns(reference_id: reference&.id)
 
       begin
-        keeping_download do
-          attempt { derive! } if reference && Thumbnail.available_for?(reference.mime)
-          attempt { describe! } if reference && self.class.carries_bytes? && Metadata.describes?(feed.mime)
-          attempt { analyze } if reference
-        end
+        attempt { analyze } if reference
         attempt { summarize! }
         attempt { captioned! }
         left_out!
@@ -48,6 +69,13 @@ module Analyzer
 
       feed.reload.announce_analyzed!
       feed
+    ensure
+      close!
+    end
+
+    def close!
+      @received.each { |held| held.file.close! }
+      @received = []
     end
 
     def analyze
@@ -131,14 +159,14 @@ module Analyzer
     end
 
     def file_size
-      bytes = step_result(:size).to_h["bytes"]
+      bytes = step_hash(:size)["bytes"]
       return nil if bytes.blank?
 
       "Size: #{ActiveSupport::NumberHelper.number_to_human_size(bytes)}"
     end
 
     def summary_body
-      tables = Array(step_result(:tables))
+      tables = step_list(:tables).filter_map { |table| Tables.sound(table) }
       return fenced(tables.map { |table| Tables.shape(table) }.join("\n\n")) if tables.any?
 
       text = step_result(:text).to_s.strip
@@ -170,38 +198,26 @@ module Analyzer
     end
 
 
-    def derive!
-      step(:derived, digest: Thumbnail.widths.to_json) { Thumbnail.stored!(feed, reference) }
-    rescue Thumbnail::Unavailable => e
-      raise Analyzer::Failed, e.message
-    end
-
-    def describe!
-      step(:metadata, digest: Metadata::VERSION) do
-        with_tempfile { |path| Metadata.read(path) }
-      rescue Metadata::Unreadable => e
-        raise Analyzer::Failed, e.message
-      end
-    end
-
     def preview
-      @preview ||= stored_preview || Thumbnail.for(reference, role: Reference::PREVIEW)
-    rescue Thumbnail::Unavailable => e
-      raise Analyzer::Failed, e.message
-    end
-
-    def stored_preview
-      feed.references.in_role(Reference::PREVIEW).first&.download&.read
+      @preview ||= feed.references.in_role(Reference::PREVIEW).first&.download&.read
     rescue Resource::Failed
       nil
     end
 
-    def has_children?
+    def frames_seen
+      feed.references.in_role(Reference::FRAME).sort_by { |held| held.locator.to_h["at"].to_f }
+    end
+
+    def wants_files?
       false
     end
 
-    def children_of(_reference)
+    def skipped_work
       []
+    end
+
+    def received(role)
+      @received.select { |held| held.role == role }
     end
 
     def child_storage
@@ -210,34 +226,100 @@ module Analyzer
 
     private
 
-      def extract_children!
-        return unless has_children?
-
-        readable = feed.references.originals.to_a.presence || [ feed.staged ].compact
-        made = readable.flat_map.with_index { |held, place| catalogue_children(held, place) }
-
-        made.each { |child| child.analyze!(cause: "sync") }
-        feed.children.reset
+      def extracted_as
+        "#{self.class.kind}, #{EXTRACTED_AS}, #{Extraction.settings.to_json}"
       end
 
-      def catalogue_children(reference, place)
-        @reference = reference
-        storage = child_storage
+      def extracted!(verb)
+        extraction = Extraction.new(reference, kind: self.class.kind, mime: feed.mime, verb: verb, skip: skipped_work).call
+        @received.concat(extraction.files)
 
-        children_of(reference).filter_map.with_index do |child, index|
-          key = "#{feed.id}/#{place}/#{index}/#{child.fetch(:filename)}"
+        written = extraction.steps.filter_map { |name, entry| record_extracted!(name.to_s, entry) }
+        extraction.dropped.each { |what, said| left_out(what, said) }
+        derived = keep_derived!
+
+        { "agent" => extraction.agent.key, "extractor" => extraction.extractor, "steps" => written.sort, "derived" => derived }.compact
+      end
+
+      def record_extracted!(name, entry)
+        return nil unless STEPS.include?(name) && entry.is_a?(Hash)
+
+        now = Time.current.iso8601(3)
+        held = { "started_at" => now, "finished_at" => now }
+
+        if entry.key?("error")
+          message = Redaction.scrub(entry["error"].to_s).truncate(500)
+          write_step!(name, held.merge("error" => { "class" => "Extraction", "message" => message }))
+          analysis&.log_fail(log_context, name, "Extraction", message)
+        else
+          result = CAPPED.include?(name) && entry["result"].is_a?(String) ? capped(entry["result"]) : entry["result"]
+          write_step!(name, held.merge("result" => result, "digest" => entry["digest"].presence&.to_s).compact)
+          analysis&.log_done(log_context, name)
+        end
+
+        name
+      end
+
+      def keep_derived!
+        store = Resource.internal!(:derived)
+        kept = Reference::RENDERED.to_h do |role|
+          image = received(role).first
+          next [ role, nil ] if image.nil?
+
+          [ role, stored!(store, "#{feed.id}/#{role}.jpg", image, role: role) ]
+        end
+
+        frames = received(Reference::FRAME).sort_by { |held| [ held.at.to_f, held.name ] }
+        kept_frames!(store, frames) if frames.any?
+
+        kept.compact.presence&.tap { |derived| write_derived!(derived) }
+      end
+
+      def kept_frames!(store, frames)
+        keys = frames.each_with_index.map do |frame, index|
+          stored!(store, format("%<feed>d/frame-%<index>02d.jpg", feed: feed.id, index: index), frame,
+                  role: Reference::FRAME, at: frame.at)
+        end
+
+        feed.references.in_role(Reference::FRAME).where.not(locator_key: keys).destroy_all
+      end
+
+      def stored!(store, key, image, role:, at: nil)
+        image.file.rewind
+        locator = store.upload(key, image.file)
+        locator = locator.merge("at" => at) if at
+
+        Reference.record!(feed: feed, resource: store, locator: locator, locator_key: key,
+                          role: role, mime: Reference::RENDERED_AS)
+        key
+      end
+
+      def write_derived!(derived)
+        now = Time.current.iso8601(3)
+        write_step!("derived", { "started_at" => now, "finished_at" => now, "result" => derived })
+      end
+
+      def catalogue_children!
+        children = received("child").first(MOST_CHILDREN)
+        return if children.empty?
+
+        storage = child_storage
+        made = children.each_with_index.filter_map do |child, index|
+          key = "#{feed.id}/0/#{index}/#{child.name.presence || "attachment-#{index}"}"
           next if Reference.exists?(resource: storage, locator_key: key)
 
           record_child(storage, key, child)
         end
-      rescue Analyzer::Failed
-        []
+
+        made.each { |held| held.analyze!(cause: "sync") }
+        feed.children.reset
       end
 
       def record_child(storage, key, child)
-        storage.upload(key, child.fetch(:body))
+        child.file.rewind
+        storage.upload(key, child.file)
 
-        named = child.fetch(:filename)
+        named = File.basename(key)
 
         held = Feed.create!(
           type: Feed::FILE,
@@ -320,6 +402,21 @@ module Analyzer
 
     def step_result(name)
       analysis&.step_result(name)
+    end
+
+    def step_hash(name)
+      held = step_result(name)
+      held.is_a?(Hash) ? held : {}
+    end
+
+    def step_list(name)
+      held = step_result(name)
+      held.is_a?(Array) ? held : []
+    end
+
+    def step_number(name)
+      held = step_result(name)
+      held.is_a?(Numeric) ? held : nil
     end
 
     private
@@ -435,53 +532,6 @@ module Analyzer
         Time.iso8601(stored["finished_at"]) < reference.changed_at
       rescue ArgumentError, TypeError
         true
-      end
-
-      def keeping_download
-        @keeping = true
-        yield
-      ensure
-        @keeping = false
-        @kept&.close!
-        @kept = nil
-      end
-
-      def with_tempfile(&block)
-        return yield(@kept.path) if @kept && @kept_for == reference
-        return downloaded(&block) unless @keeping
-
-        @kept&.close!
-        @kept = nil
-        file = Tempfile.new([ "feed", File.extname(reference.locator_key.to_s) ], binmode: true)
-
-        begin
-          IO.copy_stream(reference.download, file)
-          file.flush
-        rescue StandardError
-          file.close!
-          raise
-        end
-
-        @kept = file
-        @kept_for = reference
-        yield file.path
-      end
-
-      def downloaded
-        Tempfile.create([ "feed", File.extname(reference.locator_key.to_s) ], binmode: true) do |file|
-          IO.copy_stream(reference.download, file)
-          file.flush
-          yield file.path
-        end
-      end
-
-      def run_command(*args)
-        stdout, stderr, status = Command.capture(*args)
-        raise Analyzer::Failed, "#{args.first} failed: #{stderr.truncate(200)}" unless status.success?
-
-        stdout
-      rescue Command::Stopped => e
-        raise Analyzer::Failed, e.message
       end
   end
 end

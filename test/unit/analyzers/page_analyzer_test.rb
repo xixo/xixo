@@ -55,13 +55,15 @@ class PageAnalyzerTest < ActiveSupport::TestCase
     end
   end
 
-  test "a page thumbnails from its capture rather than from its address" do
+  test "a page's images are derived from its capture, which the agent is sent as a png" do
     Tenant.switch(@tenant) do
-      assert Thumbnail.available_for?(MimeType::PAGE)
+      steps = analyzed.steps
+      asked = FakeAgent.asked.last
 
-      tile = Thumbnail.for(@reference)
-
-      assert_equal "\xFF\xD8".b, tile.byteslice(0, 2)
+      assert_equal "derive", asked.verb
+      assert_equal MimeType::PAGE, asked.args["mime"]
+      assert_equal "\x89PNG".b, asked.bytes.byteslice(0, 4)
+      assert steps.key?("derived")
     end
   end
 

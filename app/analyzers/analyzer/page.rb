@@ -10,6 +10,10 @@ module Analyzer
       false
     end
 
+    def self.derives?(_feed)
+      true
+    end
+
     def self.summary_role
       :vision
     end

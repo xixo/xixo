@@ -1,0 +1,13 @@
+{
+  "name": "letter.rtf",
+  "mime": "text/rtf",
+  "result": {
+    "extractor": "text",
+    "files": [],
+    "steps": {
+      "text": {
+        "result": "{\\rtf1\\ansi\\ansicpg1252\\deff0\\nouicompat{\\fonttbl{\\f0\\fnil\\fcharset0 Helvetica;}}\n{\\colortbl ;\\red0\\green0\\blue0;}\n\\viewkind4\\uc1\\pard\\sa200\\sl276\\slmult1\\f0\\fs22\nDear Neighbour,\\par\n\\par\nThe scaffolding on the east wall comes down on the 22nd. The skip stays a\nfurther week for the roof tiles.\\par\n\\par\nNeedle: RICHTEXT-SCAFFOLD-5108\\par\n\\par\nYours,\\par\nThe management\\par\n}"
+      }
+    }
+  }
+}

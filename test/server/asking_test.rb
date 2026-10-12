@@ -288,7 +288,7 @@ class AskingTest < ActionDispatch::IntegrationTest
                  [ "2026-08-19", "Fernwood Grocers", "-60.25" ], [ "2026-09-01", "Fernwood Grocers", "-9.00" ] ]
         Analysis.create!(feed: feed, cause: "manual", status: "done", finished_at: Time.current, steps: {
           "text" => { "result" => rows.map { |row| row.join(",") }.join("\n") },
-          "tables" => { "result" => [ Tables.framed("ledger.csv", rows) ] }
+          "tables" => { "result" => [ { "name" => "ledger.csv", "columns" => rows.first, "rows" => rows.drop(1) } ] }
         })
       end
     end
@@ -318,7 +318,7 @@ class AskingTest < ActionDispatch::IntegrationTest
         rows = [ %w[Date Payee Amount], [ "2026-08-02", "Fernwood Grocers", "-40.10" ], [ "2026-08-19", "Fernwood Grocers", "-60.25" ] ]
         Analysis.create!(feed: feed, cause: "manual", status: "done", finished_at: Time.current, steps: {
           "text" => { "result" => rows.map { |row| row.join(",") }.join("\n") },
-          "tables" => { "result" => [ Tables.framed("ledger.csv", rows) ] }
+          "tables" => { "result" => [ { "name" => "ledger.csv", "columns" => rows.first, "rows" => rows.drop(1) } ] }
         })
       end
     end

@@ -1,0 +1,60 @@
+{
+  "name": "scan.tif",
+  "mime": "image/tiff",
+  "result": {
+    "extractor": "image",
+    "files": [
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 8049,
+        "request_file": "53c206e09ab26620-0"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 42474,
+        "request_file": "53c206e09ab26620-1"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "deviation": {
+        "result": 38.489178
+      },
+      "dimensions": {
+        "result": {
+          "height": 700,
+          "width": 1000
+        }
+      },
+      "location": {
+        "digest": "exiftool",
+        "result": null
+      },
+      "metadata": {
+        "result": {
+          "FillOrder": "Normal",
+          "ImageHeight": 700,
+          "ImageSize": "1000x700",
+          "ImageWidth": 1000,
+          "Megapixels": 0.7,
+          "Orientation": "Horizontal (normal)",
+          "PageNumber": "0 1",
+          "PrimaryChromaticities": "0.6399999857 0.3300000131 0.3000000119 0.6000000238 0.150000006 0.05999999866",
+          "WhitePoint": "0.3127000034 0.3289999962"
+        }
+      },
+      "ocr": {
+        "result": "RECEIPT\n\nBellwether Hardware Ltd\n14 Bellwether Lane, London\n\nRoofing felt, green mineral 24.99\n\nClout nails, 500g 6.40\nBitumen primer, 2.5L 18.75\nTotal 50.14\n\nOCRRECEIPT-9042\nThank you for your custom"
+      }
+    }
+  }
+}

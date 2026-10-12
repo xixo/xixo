@@ -6,20 +6,10 @@ module Outline
 
   class << self
     def of(text, stored: nil)
-      return Array(stored).first(MOST) if stored.present?
+      return Array(stored).select { |part| part.is_a?(Hash) && part["from"].is_a?(Integer) }.first(MOST) if stored.present?
 
       body = text.to_s
       headings(body).presence || pages(body).presence || minutes(body)
-    end
-
-    def units(names, lines)
-      from = 0
-
-      names.zip(lines).first(MOST).map do |name, line|
-        part = { "name" => name.to_s.squish.truncate(80), "from" => from }
-        from += line.length + 1
-        part
-      end
     end
 
     def at(outline, offset)

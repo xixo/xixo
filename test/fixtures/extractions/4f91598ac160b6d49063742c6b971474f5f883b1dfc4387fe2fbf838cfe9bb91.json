@@ -1,0 +1,80 @@
+{
+  "name": "tone.mp3",
+  "mime": "audio/mpeg",
+  "result": {
+    "extractor": "media",
+    "files": [
+      {
+        "role": "audio",
+        "name": "heard.wav",
+        "mime": "audio/wav",
+        "size": 64126,
+        "request_file": "4f91598ac160b6d4-0"
+      },
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 28618,
+        "request_file": "4f91598ac160b6d4-1"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 28618,
+        "request_file": "4f91598ac160b6d4-2"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "metadata": {
+        "result": {
+          "Artist": "Bellwether",
+          "AudioBitrate": "64 kbps",
+          "AudioLayer": 3,
+          "ChannelMode": "Single Channel",
+          "Duration": "2.06 s (approx)",
+          "EncoderSettings": "Lavf62.12.101",
+          "MPEGAudioVersion": 1,
+          "SampleRate": 44100,
+          "Title": "Shed Diaries theme"
+        }
+      },
+      "probe": {
+        "result": {
+          "artist": "Bellwether",
+          "bit_rate": 65195,
+          "duration": 2.04,
+          "format": "mp3",
+          "streams": [
+            {
+              "channels": 1,
+              "codec": "mp3",
+              "sample_rate": 44100,
+              "type": "audio"
+            }
+          ],
+          "title": "Shed Diaries theme"
+        }
+      },
+      "signal": {
+        "result": {
+          "centroid": 451,
+          "flatness": 0.0037,
+          "loudness": -22.2,
+          "peak": -18.5,
+          "range": 0,
+          "silences": [],
+          "silent": 0,
+          "silent_throughout": false
+        }
+      }
+    }
+  }
+}

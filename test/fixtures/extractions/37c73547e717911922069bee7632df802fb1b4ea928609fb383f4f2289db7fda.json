@@ -1,0 +1,36 @@
+{
+  "name": "dentist.ics",
+  "mime": "text/calendar",
+  "result": {
+    "extractor": "calendar",
+    "files": [],
+    "steps": {
+      "events": {
+        "result": [
+          {
+            "description": "Bring the new insurance card. Arrive ten minutes early.",
+            "dtend": "20261103T150000",
+            "dtstart": "20261103T141500",
+            "location": "Maple Row Dental, 41 King Street, Halbrook",
+            "summary": "Dentist: cleaning with Dr. Okonkwo",
+            "uid": "dentist-20261103@example.invalid"
+          }
+        ]
+      },
+      "metadata": {
+        "result": {}
+      },
+      "outline": {
+        "result": [
+          {
+            "from": 0,
+            "name": "Dentist: cleaning with Dr. Okonkwo, Tuesday, November 3, 2026, 14:15"
+          }
+        ]
+      },
+      "text": {
+        "result": "Dentist: cleaning with Dr. Okonkwo · Tuesday, November 3, 2026, 14:15 · Maple Row Dental, 41 King Street, Halbrook · Bring the new insurance card. Arrive ten minutes early."
+      }
+    }
+  }
+}

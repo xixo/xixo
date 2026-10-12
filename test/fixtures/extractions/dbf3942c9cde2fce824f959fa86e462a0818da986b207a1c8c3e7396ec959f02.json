@@ -1,0 +1,30 @@
+{
+  "name": "book.epub",
+  "mime": "application/epub+zip",
+  "result": {
+    "extractor": "epub",
+    "files": [],
+    "steps": {
+      "book": {
+        "result": {
+          "chapters": [
+            "OEBPS/chapter1.xhtml"
+          ],
+          "creators": [
+            "Bea Okonkwo"
+          ],
+          "identifier": "urn:uuid:epub-5540",
+          "language": "en",
+          "title": "Shed Diaries"
+        }
+      },
+      "metadata": {
+        "error": "exiftool failed: exit status 1: Out of memory in perl:util:safesysrealloc",
+        "result": null
+      },
+      "text": {
+        "result": "Title: Shed Diaries\nBy: Bea Okonkwo\nLanguage: en\n\nThe felt roof, again\nLifted at the north corner after the gales.\nNeedle: EPUBCHAPTER-5540"
+      }
+    }
+  }
+}

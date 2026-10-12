@@ -1,0 +1,35 @@
+{
+  "name": "not-a-message.eml",
+  "mime": "message/rfc822",
+  "result": {
+    "extractor": "email",
+    "files": [],
+    "steps": {
+      "attachments": {
+        "result": []
+      },
+      "headers": {
+        "result": {}
+      },
+      "metadata": {
+        "result": {}
+      },
+      "outline": {
+        "result": [
+          {
+            "from": 0,
+            "name": "Message from its sender"
+          }
+        ]
+      },
+      "text": {
+        "result": "This file has an .eml name and no headers at all.\n\nNeedle: EMAILBROKEN-1193"
+      },
+      "thread": {
+        "result": {
+          "ids": []
+        }
+      }
+    }
+  }
+}

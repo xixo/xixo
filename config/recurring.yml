@@ -37,6 +37,11 @@ shared: &shared
     queue: sync
     schedule: every hour at minute 37
 
+  enroll_local_agent:
+    class: EnrollLocalAgentJob
+    queue: sync
+    schedule: every minute
+
   forget_agent_exchanges:
     class: ForgetAgentExchangesJob
     queue: sync

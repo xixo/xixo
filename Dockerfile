@@ -17,15 +17,10 @@ FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 # Rails app lives here
 WORKDIR /rails
 
-# Install base packages. poppler-utils and tesseract-ocr are what the pdf and
-# image analyzers actually shell out to — pdfinfo, pdftotext, pdftoppm and
-# tesseract — and without them every PDF and every thumbnail fails here while
-# working perfectly on a laptop that has them from the Brewfile.
+# Install base packages.
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y \
-      curl libjemalloc2 libvips libvips-tools libraw-bin libimage-exiftool-perl libarchive-zip-perl poppler-utils tesseract-ocr \
-      ffmpeg \
-      libreoffice-writer postgresql-client \
+      curl libjemalloc2 postgresql-client \
       chromium fonts-liberation fonts-noto-color-emoji && \
     ln -s /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
@@ -61,7 +56,7 @@ FROM base AS build
 
 # Install packages needed to build gems
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential git libpq-dev libvips libyaml-dev pkg-config && \
+    apt-get install --no-install-recommends -y build-essential git libpq-dev libyaml-dev pkg-config && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 # The SPA is built here and only its output is carried forward, so node belongs
@@ -121,7 +116,7 @@ ENV MASKS_CLIENT_PATH=${MASKS_CLIENT_PATH}
 # Run and own only the runtime files as a non-root user for security
 RUN groupadd --system --gid 1000 rails && \
     useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash && \
-    mkdir -p /data/files && chown rails:rails /data/files
+    mkdir -p /handoff && chown rails:rails /handoff
 USER 1000:1000
 
 # Copy built artifacts: gems, application

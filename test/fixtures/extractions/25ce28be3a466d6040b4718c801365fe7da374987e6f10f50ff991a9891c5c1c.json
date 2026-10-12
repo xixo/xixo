@@ -1,0 +1,13 @@
+{
+  "name": "notes.txt",
+  "mime": "text/plain",
+  "result": {
+    "extractor": "text",
+    "files": [],
+    "steps": {
+      "text": {
+        "result": "Kitchen inventory, taken 2026-03-14.\n\nTwo jars of marmalade, one open. Coffee is down to the last bag —\nthe Ethiopian one, ground too fine for the drip cone.\n\nNeedle: PLAINTEXT-MARMALADE-7742"
+      }
+    }
+  }
+}

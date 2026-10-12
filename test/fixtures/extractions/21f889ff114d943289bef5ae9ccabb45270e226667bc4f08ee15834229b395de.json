@@ -1,0 +1,71 @@
+{
+  "name": "truncated.png",
+  "mime": "image/png",
+  "result": {
+    "extractor": "image",
+    "files": [
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 3298,
+        "request_file": "21f889ff114d9432-0"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 22827,
+        "request_file": "21f889ff114d9432-1"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "deviation": {
+        "result": 80.361748
+      },
+      "dimensions": {
+        "result": {
+          "height": 800,
+          "width": 1200
+        }
+      },
+      "location": {
+        "digest": "exiftool",
+        "result": null
+      },
+      "metadata": {
+        "result": {
+          "BackgroundColor": "65535 65535 65535",
+          "BlueX": 0.15,
+          "BlueY": 0.06,
+          "ColorType": "RGB with Alpha",
+          "Datecreate": "2026-09-05T14:57:00+00:00",
+          "Datemodify": "2026-09-05T14:57:00+00:00",
+          "Datetimestamp": "2026-09-05T14:57:00+00:00",
+          "Filter": "Adaptive",
+          "GreenX": 0.3,
+          "GreenY": 0.6,
+          "ImageHeight": 800,
+          "ImageSize": "1200x800",
+          "ImageWidth": 1200,
+          "Interlace": "Noninterlaced",
+          "Megapixels": 0.96,
+          "ModifyDate": "2026:09:05 14:57:00",
+          "RedX": 0.64,
+          "RedY": 0.33,
+          "WhitePointX": 0.3127,
+          "WhitePointY": 0.329
+        }
+      },
+      "ocr": {
+        "result": ""
+      }
+    }
+  }
+}

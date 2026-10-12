@@ -1,0 +1,19 @@
+{
+  "name": "broken.json",
+  "mime": "application/json",
+  "result": {
+    "extractor": "data",
+    "files": [],
+    "steps": {
+      "shape": {
+        "result": {
+          "error": "invalid character '}' looking for beginning of object key string",
+          "format": "invalid"
+        }
+      },
+      "text": {
+        "result": "{\n  \"needle\": \"BROKENJSON-2044\",\n  \"trailing\": \"comma\",\n}"
+      }
+    }
+  }
+}

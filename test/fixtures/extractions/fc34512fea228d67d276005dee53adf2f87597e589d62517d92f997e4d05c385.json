@@ -1,0 +1,17 @@
+{
+  "name": "bad-json.pkpass",
+  "mime": "application/vnd.apple.pkpass",
+  "result": {
+    "extractor": "pkpass",
+    "files": [],
+    "steps": {
+      "metadata": {
+        "result": {}
+      },
+      "pass": {
+        "error": "pass.json is not json: invalid character 't' looking for beginning of object key string",
+        "result": null
+      }
+    }
+  }
+}

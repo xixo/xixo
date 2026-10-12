@@ -3,8 +3,6 @@ module Analyzer
     SLIVER = 10
     FLAT = 1.0
     OCR_CONTEXT = 4_000
-    LOCATED_BY = "exiftool".freeze
-    FRAME_WIDTH = 768
 
     def self.handles?(feed)
       MimeType.image?(feed.mime)
@@ -15,24 +13,8 @@ module Analyzer
     end
 
     def analyze
-      with_tempfile do |original|
-        viewable(original) do |path|
-          step(:dimensions) do
-            {
-              "width" => run_command("vipsheader", "-f", "width", path).strip.to_i,
-              "height" => run_command("vipsheader", "-f", "height", path).strip.to_i
-            }
-          end
-
-          step(:deviation) { run_command("vips", "deviate", path).strip.to_f }
-          step(:frames) { run_command("vipsheader", "-f", "n-pages", path).strip.to_i } if MimeType.animatable?(feed.mime)
-
-          at = step(:location, digest: LOCATED_BY) { located(original) }
-          placed(at) if at.present?
-
-          step(:ocr) { capped(read(path).strip) }
-        end
-      end
+      at = step_result(:location)
+      placed(at) if at.is_a?(Hash) && at["latitude"].is_a?(Numeric) && at["longitude"].is_a?(Numeric)
     end
 
     def summary_prompt
@@ -57,21 +39,18 @@ module Analyzer
             "can identify rather than its category, and transcribe any text exactly as it appears."
 
     def summary_images
-      animated? ? sampled_frames : [ preview ]
+      shown = animated? ? frames_seen.filter_map { |frame| frame.download.read } : [ preview ]
+      shown.compact
+    rescue Resource::Failed
+      [ preview ].compact
     end
 
     def captioned!
-      said = step_result(:summary).to_h["summary"]
+      said = step_hash(:summary)["summary"]
       step(:caption, force: true) { said } if said.present?
     end
 
     private
-
-      def located(path)
-        Metadata.location(path)
-      rescue Metadata::Unreadable
-        nil
-      end
 
       def placed(at)
         places = Resource.capable_of(:places).shared.find { |resource| resource.try(:names_photos?) }
@@ -87,62 +66,27 @@ module Analyzer
         end
       end
 
-      def frames = step_result(:frames).to_i
+      def frames = step_number(:frames).to_i
 
       def animated? = frames > 1
 
-      def picked
-        shown = (frames * Setting.read("animation_frame_share", subject: nil).to_i / 100.0).ceil
-        shown = shown.clamp(1, [ Setting.read("animation_frames", subject: nil).to_i, frames ].min)
-
-        (0...shown).map { |at| at * frames / shown }.uniq
-      end
-
       def moving
         return nil unless animated?
-        return "An animation of #{frames} frames. The image attached is one frame from it." if picked.one?
 
-        "An animation of #{frames} frames. The #{picked.size} images attached are frames from it, in order."
-      end
+        shown = frames_seen.size
+        return "An animation of #{frames} frames." if shown.zero?
+        return "An animation of #{frames} frames. The image attached is one frame from it." if shown == 1
 
-      def sampled_frames
-        @sampled_frames ||= with_tempfile do |path|
-          Dir.mktmpdir do |dir|
-            picked.map do |page|
-              still = File.join(dir, "#{page}.jpg")
-              run_command("vips", "thumbnail", "#{path}[page=#{page}]", still, FRAME_WIDTH.to_s)
-              File.binread(still)
-            end
-          end
-        end
+        "An animation of #{frames} frames. The #{shown} images attached are frames from it, in order."
       end
 
       def taken_at
-        where = step_result(:place).to_h["address"]
+        where = step_hash(:place)["address"]
         return "Taken at: #{where}" if where.present?
 
-        at = step_result(:location).to_h
+        at = step_hash(:location)
         "Taken at: #{at['latitude']}, #{at['longitude']}" if at.present?
       end
-
-      def viewable(path, &block)
-        return yield(path) unless MimeType.raw?(reference.locator_key)
-
-        Raw.preview(path, &block)
-      rescue Raw::Unreadable => e
-        raise Analyzer::Failed, e.message
-      end
-
-      def read(path)
-        run_command("tesseract", path, "stdout")
-      rescue Analyzer::Failed
-        Tempfile.create([ "preview", ".jpg" ], binmode: true) do |file|
-          file.write(preview)
-          file.flush
-          run_command("tesseract", file.path, "stdout")
-        end
-      end
-
 
       def summarize!
         return super unless trivial?
@@ -174,7 +118,7 @@ module Analyzer
       end
 
       def flat?
-        deviation = step_result(:deviation)
+        deviation = step_number(:deviation)
 
         deviation.present? && deviation < FLAT
       end
@@ -191,8 +135,8 @@ module Analyzer
         end
       end
 
-      def width = step_result(:dimensions).to_h["width"].to_i
+      def width = step_hash(:dimensions)["width"].then { |side| side.is_a?(Numeric) ? side.to_i : 0 }
 
-      def height = step_result(:dimensions).to_h["height"].to_i
+      def height = step_hash(:dimensions)["height"].then { |side| side.is_a?(Numeric) ? side.to_i : 0 }
   end
 end

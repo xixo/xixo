@@ -1,22 +1,12 @@
 module Analyzer
   class Media < Base
-    SAMPLE_RATE = "16000".freeze
-    CHANNELS = "1".freeze
     DEFAULT_SPAN = 3600
-    STREAMS = 8
     TAGS = %w[title artist album_artist album date genre composer comment].freeze
-    SILENCE = "-50dB".freeze
-    SHORTEST_SILENCE = 0.5
-    SILENCES = 20
-    SILENT_FLOOR = -70.0
     DYNAMICS = [ [ 3, "steady" ], [ 10, "moderate" ], [ Float::INFINITY, "wide" ] ].freeze
     BRIGHTNESS = [ [ 500, "dark" ], [ 2000, "middle" ], [ Float::INFINITY, "bright" ] ].freeze
     TEXTURE = [ [ 0.05, "tonal" ], [ 0.5, "mixed" ], [ Float::INFINITY, "noisy" ] ].freeze
     WRITTEN_AS = "a timestamp on each line".freeze
     STILLS = %w[mjpeg png gif bmp].freeze
-    FRAMES = 8
-    SCENE_SECONDS = 8
-    FRAME_WIDTH = 768
 
     SCENE = <<~TEXT.freeze
       This is a frame from a video, %<at>s into it. Say in one or two sentences what it shows: the
@@ -35,17 +25,23 @@ module Analyzer
     end
 
     def analyze
-      with_tempfile do |path|
-        step(:probe, digest: TAGS.join(",")) { probe(path) }
-        attempt { step(:signal) { signal(path) } } if audio?
-
-        heard(path)
-
-        seen(path)
-      end
+      heard
+      seen
     end
 
-    def heard(path)
+    def wants_files?
+      listening = Resource.for_declared_role(:transcription)
+      return false if listening.nil? || !audio?
+
+      held = analysis&.step("transcript").to_h
+      !held.key?("result") || held["digest"] != transcript_digest(listening)
+    end
+
+    def skipped_work
+      Resource.for_declared_role(:transcription).nil? ? [ "transcript" ] : []
+    end
+
+    def heard
       listening = Resource.for_declared_role(:transcription)
 
       if listening.nil?
@@ -53,16 +49,16 @@ module Analyzer
         return
       end
 
-      digest = [ WRITTEN_AS, listening.key, listening.model_for(:transcription) ].join("/")
-      attempt { step(:transcript, digest: digest) { transcribe(path, listening) } }
+      attempt { step(:transcript, digest: transcript_digest(listening)) { transcribe(listening) } }
     end
 
-    def seen(path)
+    def seen
       seeing = Resource.for_role(:vision)
-      return if seeing.nil? || !video? || !duration.positive?
+      shown = frames_seen
+      return if seeing.nil? || !video? || shown.empty?
 
-      digest = [ FRAMES, SCENE_SECONDS, seeing.key, seeing.model_for(:vision) ].join("/")
-      attempt { step(:scenes, digest: digest) { scenes(path, seeing) } }
+      digest = [ shown.size, seeing.key, seeing.model_for(:vision) ].join("/")
+      attempt { step(:scenes, digest: digest) { scenes(shown, seeing) } }
     end
 
     def file_facts
@@ -70,7 +66,7 @@ module Analyzer
     end
 
     def summary_body
-      seen = Array(step_result(:scenes)).map { |scene| "[#{scene['at']}] Seen: #{scene['caption']}" }
+      seen = step_list(:scenes).select { |scene| scene.is_a?(Hash) }.map { |scene| "[#{scene['at']}] Seen: #{scene['caption']}" }
       fenced([ step_result(:transcript).to_s.strip, *seen ].compact_blank.join("\n"))
     end
 
@@ -91,140 +87,28 @@ module Analyzer
 
     private
 
-      def probe(path)
-        parsed = JSON.parse(
-          run_command("ffprobe", "-v", "error", "-print_format", "json",
-                      "-show_format", "-show_streams", path)
-        )
-
-        tags = parsed.dig("format", "tags").to_h.transform_keys(&:downcase)
-
-        {
-          "format" => parsed.dig("format", "format_name"),
-          "duration" => parsed.dig("format", "duration")&.to_f&.round(2),
-          "bit_rate" => parsed.dig("format", "bit_rate")&.to_i,
-          "streams" => Array(parsed["streams"]).first(STREAMS).map { |stream| described(stream) }
-        }.merge(TAGS.to_h { |tag| [ tag, tags[tag].to_s.squish.truncate(200).presence ] }).compact
-      rescue JSON::ParserError
-        raise Analyzer::Failed, "ffprobe did not describe #{reference.filename}"
+      def transcript_digest(listening)
+        [ WRITTEN_AS, listening.key, listening.model_for(:transcription) ].join("/")
       end
 
-      def described(stream)
-        {
-          "type" => stream["codec_type"],
-          "codec" => stream["codec_name"],
-          "width" => stream["width"],
-          "height" => stream["height"],
-          "channels" => stream["channels"],
-          "sample_rate" => stream["sample_rate"]&.to_i,
-          "language" => stream.dig("tags", "language")
-        }.compact
-      end
-
-      def transcribe(path, listening)
+      def transcribe(listening)
         raise Analyzer::Failed, "#{reference.filename} carries no audio" unless audio?
 
-        Dir.mktmpdir do |dir|
-          heard = File.join(dir, "heard.wav")
+        wav = received("audio").first
+        raise Analyzer::Failed, "the agent sent no audio of #{reference.filename} to transcribe" if wav.nil?
 
-          run_command("ffmpeg", "-v", "error", "-y", "-i", path, "-vn",
-                      "-t", self.class.span.to_s, "-ac", CHANNELS, "-ar", SAMPLE_RATE,
-                      "-f", "wav", heard)
-
-          capped(listening.transcribe(File.binread(heard)))
-        rescue Resource::Unusable, Resource::Failed => e
-          raise Analyzer::Failed, e.message
-        end
+        wav.file.rewind
+        capped(listening.transcribe(wav.file.read))
+      rescue Resource::Unusable, Resource::Failed => e
+        raise Analyzer::Failed, e.message
       end
 
-      def signal(path)
-        Dir.mktmpdir do |dir|
-          spectral = File.join(dir, "spectral.txt")
-          graph = [
-            "ebur128=peak=true:framelog=quiet",
-            "silencedetect=noise=#{SILENCE}:d=#{SHORTEST_SILENCE}",
-            "aformat=channel_layouts=mono",
-            "aspectralstats=measure=centroid+flatness",
-            "ametadata=mode=print:file=#{spectral}"
-          ].join(",")
-
-          _out, err, status = begin
-            Command.capture("ffmpeg", "-hide_banner", "-nostats", "-i", path, "-vn",
-                            "-t", self.class.span.to_s, "-af", graph, "-f", "null", "-")
-          rescue Command::Stopped => e
-            raise Analyzer::Failed, e.message
-          end
-          raise Analyzer::Failed, "ffmpeg could not measure #{reference.filename}" unless status.success?
-
-          measured(err, File.exist?(spectral) ? File.foreach(spectral).to_a : [])
-        end
-      end
-
-      def measured(said, frames)
-        heard = [ duration, self.class.span ].select(&:positive?).min.to_f
-        loudness = number(said[/I:\s+(-?[\d.]+) LUFS/, 1])
-        silences = silences(said, heard)
-        centroids = series(frames, "centroid")
-        flatness = series(frames, "flatness")
-
-        found = {
-          "loudness" => loudness,
-          "range" => number(said[/LRA:\s+([\d.]+) LU/, 1]),
-          "peak" => number(said[/Peak:\s+(-?[\d.]+) dBFS/, 1]),
-          "silent" => silences.sum { |from, to| to - from }.round(2),
-          "silences" => silences.first(SILENCES),
-          "centroid" => middle(centroids)&.round,
-          "flatness" => middle(flatness)&.round(4)
-        }
-
-        found.merge("silent_throughout" => silent_throughout?(found, heard)).compact
-      end
-
-      def silences(said, heard)
-        starts = said.scan(/silence_start: (-?[\d.]+)/).flatten.map(&:to_f)
-        ends = said.scan(/silence_end: ([\d.]+)/).flatten.map(&:to_f)
-
-        starts.each_with_index.map do |from, index|
-          [ [ from, 0.0 ].max.round(2), (ends[index] || heard).round(2) ]
-        end
-      end
-
-      def silent_throughout?(found, heard)
-        return true if found["loudness"].nil? || found["loudness"] <= SILENT_FLOOR
-
-        heard.positive? && found["silent"] >= heard * 0.95
-      end
-
-      def series(frames, measure)
-        frames.filter_map do |line|
-          value = line[/\.#{measure}=(\S+)/, 1]
-          value && Float(value, exception: false)&.then { |number| number.finite? ? number : nil }
-        end
-      end
-
-      def middle(values)
-        values.empty? ? nil : values.sort[values.size / 2]
-      end
-
-      def number(value)
-        value && Float(value, exception: false)
-      end
-
-      def scenes(path, seeing)
-        count = (duration / SCENE_SECONDS).floor.clamp(1, FRAMES)
-
-        Dir.mktmpdir do |dir|
-          Array.new(count) do |index|
-            at = duration * (index + 0.5) / count
-            moment = stamped(at)
-            frame = File.join(dir, "#{index}.jpg")
-            run_command("ffmpeg", "-v", "error", "-y", "-ss", at.round(2).to_s, "-i", path,
-                        "-frames:v", "1", "-vf", "scale=#{FRAME_WIDTH}:-2", frame)
-
-            said = seeing.summarize(format(SCENE, at: moment), role: :vision, analysis: analysis,
-                                    images: [ File.binread(frame) ])["caption"].to_s.squish
-            { "at" => moment, "caption" => said } if said.present?
-          end.compact
+      def scenes(shown, seeing)
+        shown.filter_map do |frame|
+          moment = stamped(frame.locator.to_h["at"].to_f)
+          said = seeing.summarize(format(SCENE, at: moment), role: :vision, analysis: analysis,
+                                  images: [ frame.download.read ])["caption"].to_s.squish
+          { "at" => moment, "caption" => said } if said.present?
         end
       end
 
@@ -241,11 +125,12 @@ module Analyzer
       end
 
       def streams
-        Array(step_result(:probe).to_h["streams"])
+        Array(step_hash(:probe)["streams"]).select { |stream| stream.is_a?(Hash) }
       end
 
       def duration
-        step_result(:probe).to_h["duration"].to_f
+        held = step_hash(:probe)["duration"]
+        held.is_a?(Numeric) ? held.to_f : 0.0
       end
 
       def duration_said
@@ -255,14 +140,14 @@ module Analyzer
       end
 
       def tags_said
-        held = step_result(:probe).to_h
+        held = step_hash(:probe)
         named = TAGS.filter_map { |tag| "#{tag.tr('_', ' ').capitalize}: #{held[tag]}" if held[tag] }
 
         named.join("\n").presence
       end
 
       def sound_said
-        found = step_result(:signal).to_h
+        found = step_hash(:signal)
         return nil if found.empty?
         return "Sound: silent throughout." if found["silent_throughout"]
 
@@ -275,12 +160,16 @@ module Analyzer
         [
           ("Sound: #{described.join(', ')}." if described.any?),
           ("Loudness: #{found['loudness']} LUFS, peaking at #{found['peak']} dBFS." if found["loudness"]),
-          ("Silent for #{found['silent']} s in #{found['silences'].size} spans." if found["silent"].to_f.positive?)
+          ("Silent for #{found['silent']} s in #{Array(found['silences']).size} spans." if silent?(found["silent"]))
         ].compact.join("\n")
       end
 
+      def silent?(seconds)
+        seconds.is_a?(Numeric) && seconds.positive?
+      end
+
       def banded(value, bands)
-        return nil if value.nil?
+        return nil unless value.is_a?(Numeric)
 
         bands.find { |limit, _| value < limit }&.last
       end

@@ -1,0 +1,22 @@
+{
+  "name": "ragged.csv",
+  "mime": "text/csv",
+  "result": {
+    "extractor": "data",
+    "files": [],
+    "steps": {
+      "shape": {
+        "result": {
+          "error": "record on line 4; parse error on line 5, column 9: extraneous or missing \" in quoted-field",
+          "format": "invalid"
+        }
+      },
+      "tables": {
+        "result": []
+      },
+      "text": {
+        "result": "name,amount\nAsh,10\nBea,20,extra,columns,here\n\"unterminated quote,30\nDora,40"
+      }
+    }
+  }
+}

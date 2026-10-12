@@ -1,0 +1,17 @@
+{
+  "name": "not-a-zip.pkpass",
+  "mime": "application/vnd.apple.pkpass",
+  "result": {
+    "extractor": "pkpass",
+    "files": [],
+    "steps": {
+      "metadata": {
+        "result": {}
+      },
+      "pass": {
+        "error": "unreadable pkpass: zip: not a valid zip file",
+        "result": null
+      }
+    }
+  }
+}

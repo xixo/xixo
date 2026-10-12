@@ -1,0 +1,71 @@
+{
+  "name": "ocr-receipt.png",
+  "mime": "image/png",
+  "result": {
+    "extractor": "image",
+    "files": [
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 8049,
+        "request_file": "d76abcbc32304cb3-0"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 42474,
+        "request_file": "d76abcbc32304cb3-1"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "deviation": {
+        "result": 38.489178
+      },
+      "dimensions": {
+        "result": {
+          "height": 700,
+          "width": 1000
+        }
+      },
+      "location": {
+        "digest": "exiftool",
+        "result": null
+      },
+      "metadata": {
+        "result": {
+          "BackgroundColor": 255,
+          "BlueX": 0.15,
+          "BlueY": 0.06,
+          "ColorType": "Grayscale",
+          "Datecreate": "2026-09-05T14:57:15+00:00",
+          "Datemodify": "2026-09-05T14:57:15+00:00",
+          "Datetimestamp": "2026-09-05T14:57:15+00:00",
+          "Filter": "Adaptive",
+          "GreenX": 0.3,
+          "GreenY": 0.6,
+          "ImageHeight": 700,
+          "ImageSize": "1000x700",
+          "ImageWidth": 1000,
+          "Interlace": "Noninterlaced",
+          "Megapixels": 0.7,
+          "ModifyDate": "2026:09:05 14:57:15",
+          "RedX": 0.64,
+          "RedY": 0.33,
+          "WhitePointX": 0.3127,
+          "WhitePointY": 0.329
+        }
+      },
+      "ocr": {
+        "result": "RECEIPT\n\nBellwether Hardware Ltd\n14 Bellwether Lane, London\n\nRoofing felt, green mineral 24.99\n\nClout nails, 500g 6.40\nBitumen primer, 2.5L 18.75\nTotal 50.14\n\nOCRRECEIPT-9042\nThank you for your custom"
+      }
+    }
+  }
+}

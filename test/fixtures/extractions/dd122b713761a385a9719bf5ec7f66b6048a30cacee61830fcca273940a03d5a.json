@@ -1,0 +1,43 @@
+{
+  "name": "plain.eml",
+  "mime": "message/rfc822",
+  "result": {
+    "extractor": "email",
+    "files": [],
+    "steps": {
+      "attachments": {
+        "result": []
+      },
+      "headers": {
+        "result": {
+          "date": "2026-03-14T09:30:00Z",
+          "from": "Bea Okonkwo \u003cbea@example.invalid\u003e",
+          "message_id": "plain-4471@example.invalid",
+          "subject": "Roof, next steps",
+          "to": "Ash Pemberton \u003cash@example.invalid\u003e"
+        }
+      },
+      "metadata": {
+        "result": {}
+      },
+      "outline": {
+        "result": [
+          {
+            "from": 0,
+            "name": "Message from Bea Okonkwo \u003cbea@example.invalid\u003e"
+          }
+        ]
+      },
+      "text": {
+        "result": "From: Bea Okonkwo \u003cbea@example.invalid\u003e\nTo: Ash Pemberton \u003cash@example.invalid\u003e\nDate: 2026-03-14T09:30:00Z\nSubject: Roof, next steps\n\nRoof, next steps\n\nAsh,\n\nThe felt comes off on the 22nd. Needle: EMAILPLAIN-4471\n\nBea"
+      },
+      "thread": {
+        "result": {
+          "ids": [
+            "plain-4471@example.invalid"
+          ]
+        }
+      }
+    }
+  }
+}

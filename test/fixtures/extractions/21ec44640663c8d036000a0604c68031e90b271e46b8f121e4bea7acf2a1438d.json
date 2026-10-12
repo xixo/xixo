@@ -1,0 +1,43 @@
+{
+  "name": "encoded-headers.eml",
+  "mime": "message/rfc822",
+  "result": {
+    "extractor": "email",
+    "files": [],
+    "steps": {
+      "attachments": {
+        "result": []
+      },
+      "headers": {
+        "result": {
+          "date": "2026-04-07T14:20:00Z",
+          "from": "Björn Sjöberg \u003cbjorn@example.invalid\u003e",
+          "message_id": "encoded-6612@example.invalid",
+          "subject": "Résumé for the 屋根 role — café meeting",
+          "to": "ash@example.invalid"
+        }
+      },
+      "metadata": {
+        "result": {}
+      },
+      "outline": {
+        "result": [
+          {
+            "from": 0,
+            "name": "Message from Björn Sjöberg \u003cbjorn@example.invalid\u003e"
+          }
+        ]
+      },
+      "text": {
+        "result": "From: Björn Sjöberg \u003cbjorn@example.invalid\u003e\nTo: ash@example.invalid\nDate: 2026-04-07T14:20:00Z\nSubject: Résumé for the 屋根 role — café meeting\n\nRésumé for the 屋根 role — café meeting\n\nNon-ASCII headers and body. Needle: EMAILENCODED-6612\n\nÅäö 屋根 café"
+      },
+      "thread": {
+        "result": {
+          "ids": [
+            "encoded-6612@example.invalid"
+          ]
+        }
+      }
+    }
+  }
+}

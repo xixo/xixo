@@ -1,0 +1,13 @@
+{
+  "name": "utf8-bom.txt",
+  "mime": "text/plain",
+  "result": {
+    "extractor": "text",
+    "files": [],
+    "steps": {
+      "text": {
+        "result": "A byte order mark opens this file.\n\nNeedle: BOM-PREFIXED-1204"
+      }
+    }
+  }
+}

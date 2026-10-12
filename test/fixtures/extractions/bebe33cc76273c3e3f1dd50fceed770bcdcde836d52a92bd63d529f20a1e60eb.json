@@ -1,0 +1,13 @@
+{
+  "name": "null-bytes.txt",
+  "mime": "text/plain",
+  "result": {
+    "extractor": "text",
+    "files": [],
+    "steps": {
+      "text": {
+        "result": "Log fragment\u0000\u0000 with embedded NULs\u0000 in the middle.\n\nNeedle: NULBYTE-LOGFRAGMENT-9975"
+      }
+    }
+  }
+}

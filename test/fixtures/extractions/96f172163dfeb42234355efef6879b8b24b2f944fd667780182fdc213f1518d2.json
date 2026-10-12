@@ -1,0 +1,47 @@
+{
+  "name": "diagram.svg",
+  "mime": "image/svg+xml",
+  "result": {
+    "extractor": "image",
+    "files": [
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 3460,
+        "request_file": "96f172163dfeb422-0"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 5916,
+        "request_file": "96f172163dfeb422-1"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "deviation": {
+        "result": 83.094928
+      },
+      "dimensions": {
+        "result": {
+          "height": 220,
+          "width": 400
+        }
+      },
+      "location": {
+        "digest": "exiftool",
+        "result": null
+      },
+      "ocr": {
+        "result": ""
+      }
+    }
+  }
+}

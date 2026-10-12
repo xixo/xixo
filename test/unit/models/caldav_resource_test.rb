@@ -63,19 +63,6 @@ class CaldavResourceTest < ActiveSupport::TestCase
     end
   end
 
-  test "an escaped comma or semicolon survives unescaping" do
-    sync
-
-    Tenant.switch(@tenant) do
-      item = Feed.first
-      Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, item.id) }
-
-      summary = item.reload.analysis.steps.dig("events", "result").first["summary"]
-
-      assert_equal "Lunch with the pelicans, then the tide tables; briefly", summary
-    end
-  end
-
   test "a calendar is read-only and cannot be an export destination" do
     assert_not @resource.storage?
     assert_raises(ArgumentError) { @resource.storage! }

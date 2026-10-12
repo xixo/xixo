@@ -1,0 +1,53 @@
+{
+  "name": "exif-rotated.jpg",
+  "mime": "image/jpeg",
+  "result": {
+    "extractor": "image",
+    "files": [
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 4908,
+        "request_file": "b7a5c34a6dd118d1-0"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 19936,
+        "request_file": "b7a5c34a6dd118d1-1"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "deviation": {
+        "result": 41.99623
+      },
+      "dimensions": {
+        "result": {
+          "height": 533,
+          "width": 800
+        }
+      },
+      "location": {
+        "digest": "exiftool",
+        "result": null
+      },
+      "metadata": {
+        "result": {
+          "ImageSize": "800x533",
+          "Megapixels": 0.426
+        }
+      },
+      "ocr": {
+        "result": "PHOTO-BELLWETHER-8123."
+      }
+    }
+  }
+}

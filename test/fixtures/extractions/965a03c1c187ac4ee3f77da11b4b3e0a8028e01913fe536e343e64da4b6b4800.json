@@ -1,0 +1,83 @@
+{
+  "name": "standup.m4a",
+  "mime": "audio/mp4",
+  "result": {
+    "extractor": "media",
+    "files": [
+      {
+        "role": "audio",
+        "name": "heard.wav",
+        "mime": "audio/wav",
+        "size": 153678,
+        "request_file": "965a03c1c187ac4e-0"
+      },
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 49757,
+        "request_file": "965a03c1c187ac4e-1"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 49757,
+        "request_file": "965a03c1c187ac4e-2"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "metadata": {
+        "result": {
+          "AudioBitsPerSample": 16,
+          "AudioChannels": 1,
+          "AudioFormat": "mp4a",
+          "AudioSampleRate": 16000,
+          "AvgBitrate": "26.9 kbps",
+          "Balance": 0,
+          "CompatibleBrands": "M4A, isom, iso2",
+          "Duration": "4.75 s",
+          "Encoder": "Lavf62.12.101",
+          "MajorBrand": "Apple iTunes AAC-LC (.M4A) Audio",
+          "MediaDuration": "4.82 s",
+          "MediaLanguageCode": "und",
+          "TrackDuration": "4.75 s"
+        }
+      },
+      "probe": {
+        "result": {
+          "bit_rate": 28768,
+          "duration": 4.75,
+          "format": "mov,mp4,m4a,3gp,3g2,mj2",
+          "streams": [
+            {
+              "channels": 1,
+              "codec": "aac",
+              "language": "und",
+              "sample_rate": 16000,
+              "type": "audio"
+            }
+          ]
+        }
+      },
+      "signal": {
+        "result": {
+          "centroid": 1272,
+          "flatness": 0.1722,
+          "loudness": -17.3,
+          "peak": -2.1,
+          "range": 0.6,
+          "silences": [],
+          "silent": 0,
+          "silent_throughout": false
+        }
+      }
+    }
+  }
+}

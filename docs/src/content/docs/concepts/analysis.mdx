@@ -80,13 +80,35 @@ contacts, and the summary is written
 from the first 10,000 characters. A step that cuts something keeps the note with its result, so an
 analysis that reuses the step still shows it.
 
-## The analyzer
+## Extraction
+
+The server never opens a file's bytes. A [xixo agent](/concepts/resources/#machines-and-their-agent)
+reads them and answers with the steps that describe the file, so a parser that a hostile file breaks
+runs in the agent's sandbox, away from the catalog, its database, and its keys. Every install runs one
+agent beside the server, and a machine attached as a `xixo-agent` runs another.
 
 `Analyzer.for` picks an analyzer by the feed's mime type. It walks `Analyzer.all` in order and takes
 the first analyzer that claims the mime type:
 
 `Pdf`, `Image`, `Media`, `Page`, `Doc`, `Epub`, `Xlsx`, `Calendar`, `Pkpass`, `Email`, `Entry`,
 `Contact`, `Data`, `Text`, `Fallback`
+
+The analyzer's name is the extractor it asks for. The analysis job sends the `extract` request before
+it opens a transaction:
+
+- A file in a folder a machine shares is read by that machine's agent where it lies, when the agent's
+  hello lists the extractor. Only what the agent extracted reaches xixo.
+- Any other file, an upload, or a file a cloud resource holds is sent to the agent beside the server,
+  which fetches it once over HTTPS.
+- With no agent connected, the analysis waits and tries again every five minutes, for a day. An agent
+  beside the server that lacks the extractor fails the file with the reason.
+
+The reply holds each step's result or error, what was cut, and the files the agent made. The server
+keeps only the steps it knows, cuts `text` and `ocr` to 200,000 characters itself, and records the
+reply under the step `extracted`, so a second analysis of the same bytes with the same
+[settings](/concepts/tenants/#settings) asks nothing. A `Page` and an `Entry` carry no bytes. A page
+asks the agent only for its images, with the `derive` request, and an entry's text stays on the
+server.
 
 The order matters. `text/calendar` and `text/csv` are both text types. They reach `Calendar` and
 `Data` only because those come before `Text`. `Fallback` claims everything else. It records the size,
@@ -95,99 +117,97 @@ entries if the file is a zip, a tar, or a tar compressed with gzip. A tar is kno
 header and a gzip by the tar inside it. The listing leaves out the pax headers and `._` files that a
 tar made on a Mac carries. A gzip that holds anything other than a tar is not listed.
 
-Every analyzer that reads a file as text decodes it the same way. A UTF-16 file with a byte order
-mark is read as UTF-16, a UTF-8 byte order mark is dropped, and valid UTF-8 is kept as it is. Anything
-else is read as Windows-1252, the superset of Latin-1 that older text files are almost always in.
+The agent decodes every file it reads as text the same way. A UTF-16 file with a byte order mark is
+read as UTF-16, a UTF-8 byte order mark is dropped, and valid UTF-8 is kept as it is. Anything else is
+read as Windows-1252, the superset of Latin-1 that older text files are almost always in.
 
-`Pdf` reads the text layer with `pdftotext`. When that yields fewer than 40 characters a page, the
-PDF is taken to be a scan: its first 30 pages are rendered at 200 dpi and read with `tesseract`, and
-the log says how many pages were read that way.
+For a PDF the agent reads the text layer with `pdftotext`. When that yields fewer than 40 characters
+a page, the PDF is taken to be a scan: its first 30 pages are rendered at 200 dpi and read with
+`tesseract`.
 
-`Doc` converts a Word, OpenDocument, or legacy `.doc` file to a PDF with LibreOffice, which gives it
-a page count. A `.docx` or `.odt` file's text is read from the document itself: each heading becomes a
-markdown heading at its level, so it starts a section of the outline, and each table row becomes one
-line with its cells separated by `|`. A legacy `.doc` file, and a document whose XML cannot be read,
-takes its text from the PDF.
+The agent converts a Word, OpenDocument, or legacy `.doc` file to a PDF with LibreOffice, which gives
+it a page count. A `.docx` or `.odt` file's text is read from the document itself: each heading
+becomes a markdown heading at its level, so it starts a section of the outline, and each table row
+becomes one line with its cells separated by `|`. A legacy `.doc` file, and a document whose XML
+cannot be read, takes its text from the PDF.
 
 HTML in an email, an RSS or Atom entry, or a file read as text keeps its structure the same way. Each
 `h1` to `h6` becomes a markdown heading, and each paragraph, list item, and table row starts a line.
 
-`Email` writes the sender, recipients, date, and subject, then the message's own text. A reply's
-quoted history, found by an `On … wrote:` line, a `-----Original Message-----` line, an Outlook
-header block, or `>` lines that run to the end, goes under a section named **Earlier in the thread**,
-so a passage holds either what this message says or what it quotes, and the summary is written from
-the message's own text. The `thread` step keeps the message's Message-ID, In-Reply-To, and References.
+For an email the agent writes the sender, recipients, date, and subject, then the message's own text.
+A reply's quoted history, found by an `On … wrote:` line, a `-----Original Message-----` line, an
+Outlook header block, or `>` lines that run to the end, goes under a section named **Earlier in the
+thread**, so a passage holds either what this message says or what it quotes, and the summary is
+written from the message's own text. Each attachment comes back as a file, and the server catalogs it
+as a child feed. The `thread` step keeps the message's Message-ID, In-Reply-To, and References.
 Every message that shares one of them is in the same thread, and the `thread` field on a feed and the
 `feed` tool list the thread's messages the reader can read, oldest first, each with its sender.
 
-`Calendar` writes one line for each event, with its title, its date the way a person reads it, its
-place, and its description, and `Contact` writes one line for each contact. Each line is a section of
+A calendar is written one line for each event, with its title, its date the way a person reads it,
+its place, and its description, and a vCard file one line for each contact. Each line is a section of
 the outline, named by the event's title and date or the contact's name, so a passage holds one event
 or one contact and an answer reads the ones the question is about.
 
-`Xlsx` writes every sheet into the text, each under its name, and records under `outline` where
-each sheet starts. `Xlsx`, and `Data` for a CSV or TSV file, also keep each sheet's rows under the
-step `tables`, up to 5,000 rows a sheet. The header is the widest of a sheet's first ten rows, so a
-title above it is left out. An answer works totals and counts out over these rows. A CSV or TSV file is summarized
-from its tables' shape: the columns, two example rows, the values each text column holds most often,
-and the range of each number column and of a column whose values are mostly different, such as a
-date. Its rows never reach the summary, so a long ledger summarizes as quickly as a short one.
+A workbook is written sheet by sheet into the text, each under its name, and `outline` records where
+each sheet starts. A workbook, and a CSV or TSV file, also keep each sheet's rows under the step
+`tables`, up to 5,000 rows a sheet. The header is the widest of a sheet's first ten rows, so a title
+above it is left out, and a totals row is dropped. An answer works totals and counts out over these
+rows. A CSV or TSV file is summarized from its tables' shape: the columns, two example rows, the
+values each text column holds most often, and the range of each number column and of a column whose
+values are mostly different, such as a date. Its rows never reach the summary, so a long ledger
+summarizes as quickly as a short one.
 
-An EPUB is a zip too, and `Epub` claims it first. It follows `META-INF/container.xml` to the package
-document and records the title, creators, publisher, date, language, subjects, and chapter paths
-under the step `book`. The `text` step starts with those details and continues with each chapter's
-text in reading order, one line per paragraph. A chapter listed in `META-INF/encryption.xml` is
-skipped, so a book sold with DRM is cataloged by its details alone.
+An EPUB is a zip too, and its own extractor claims it first. It follows `META-INF/container.xml` to
+the package document and records the title, creators, publisher, date, language, subjects, and
+chapter paths under the step `book`. The `text` step starts with those details and continues with
+each chapter's text in reading order, one line per paragraph. A chapter listed in
+`META-INF/encryption.xml` is skipped, so a book sold with DRM is cataloged by its details alone.
 
-`Image` asks `exiftool` for a photo's GPS coordinates and records them under the step `location`.
-`exiftool` also reads the GPS block of a raw photo, such as a Nikon NEF. A GPS block
-with no position in it, which some cameras write on every frame, reads as latitude 0 and longitude 0,
-and xixo treats it as no location. When a **Places** resource has **Name where photos were taken**
-on, `Image` asks that resource for the address, records it under the step `place`, and tells the
-summary where the photo was taken. The vision model's description of the image is its summary, and
-`Image` keeps it under `caption` too. A GIF, WebP, or APNG records how many frames it has under the
-step `frames`. With more than one, the vision model is sent frames spread evenly across it, in
-order, and told it is looking at an animation, so the description covers what happens in it. How
-many frames it is sent is set by two [settings](/concepts/tenants/#settings), four by default.
+For an image the agent asks `exiftool` for a photo's GPS coordinates, the GPS block of a raw photo
+included, and records them under the step `location`. A GPS block with no position in it reads as no
+location. When a **Places** resource has **Name where photos were taken** on, `Image` asks that
+resource for the address, records it under the step `place`, and tells the summary where the photo
+was taken. The vision model's description of the image is its summary, and `Image` keeps it under
+`caption` too. A GIF, WebP, or APNG records how many frames it has under the step `frames`. With more
+than one, the agent sends frames spread evenly across it, the server keeps them in the `derived`
+store, and the vision model is sent them in order and told it is looking at an animation. How many
+frames it is sent is set by two [settings](/concepts/tenants/#settings), four by default.
 
-`Media` claims audio and video. The `probe` step records the length, streams, and tags such as
+`Media` claims audio and video. The agent's `probe` step records the length, streams, and tags such as
 title, artist, and album. For anything with a sound track, one `ffmpeg` pass records the `signal`
 step: integrated loudness and loudness range in LUFS, true peak, the silent spans, and the median
 spectral centroid and flatness. The summary prompt describes these as dynamics, brightness, and
 texture, and says when a recording is silent throughout. When a resource serves the
-`transcription` role, the `transcript` step sends the first hour to it as 16 kHz mono audio. Each line
+`transcription` role, the agent sends back the first hour as 16 kHz mono audio, and the `transcript`
+step sends that to the resource. With no such resource the agent makes no audio, and once one is
+added the next analysis asks the agent for it again. Each line
 of the transcript opens with the moment it was said, such as `[00:03:12]`. When a resource serves the `vision` role, the
-`scenes` step captions a video's frames: one for each eight seconds, up to eight, taken from the
-middle of each stretch. Each caption is kept with its moment, and the summary reads them after the
+`scenes` step captions the video frames the agent sent: one for each eight seconds, up to eight,
+taken from the middle of each stretch. Each caption is kept with its moment, and the summary reads them after the
 transcript.
 
 Every analyzer inherits the same sequence from `Analyzer::Base`:
 
-1. **Extract children**, if the analyzer has any and the feed is less than four levels deep. For
+1. **Extract** with an agent, as described above. Besides the analyzer's own steps, the agent
+   renders a thumbnail and a hi-res image for images, video, audio, PDFs, and pages, and audio gets a
+   picture of its waveform. The server stores them as references in the internal `derived` store,
+   under the step `derived`. Two [settings](/concepts/tenants/#settings) shared by everyone in the
+   tenant size them. **Thumbnail width** is 320 pixels by default, and a page capture's thumbnail is
+   the top of the page, cut square. **Hi-res size** bounds the longest edge, 1,500 pixels by default,
+   and a page capture keeps its full length at that width. The hi-res image is what a thumbnail opens
+   and what the vision model reads, except for a GIF: its item page plays the GIF itself when it is
+   8 MB or less, and a click opens the original. Changing either setting extracts an item again the
+   next time it is analyzed. The agent also describes the file with `exiftool` under the step
+   `metadata`: EXIF, XMP, and IPTC from photos, camera and lens details, QuickTime and ID3 tags, PDF
+   and Office document properties, and the like, up to 200 named values. It skips plain text, JSON,
+   and XML, whose content is their own metadata.
+2. **Catalog children**, if the agent sent any and the feed is less than four levels deep. For
    example, an email's attachments become child feeds in the internal `children` store, and each is
    analyzed on its own. The analyzer stops here until every child has been analyzed. When the last
    child finishes, xixo analyzes the parent again.
-2. **Derive** a thumbnail and a hi-res image for images, video, audio, PDFs, and pages. Audio gets a
-   picture of its waveform. They are stored as
-   references in the internal `derived` store, under the step `derived`. Two
-   [settings](/concepts/tenants/#settings) shared by everyone in the tenant size them.
-   **Thumbnail width** is 320 pixels by default, and a page capture's thumbnail is the top of the
-   page, cut square. **Hi-res size** bounds the longest edge, 1,500 pixels by default, and a page
-   capture keeps its full length at that width. A PDF's first page
-   is drawn at both sizes, so it stays sharp at any setting. A photo or a video frame is never made
-   larger than it is. The hi-res image is what a thumbnail opens and what the vision
-   model reads, except for a GIF: its item page plays the GIF itself when it is 8 MB or less, and a
-   click opens the original. Changing either setting renders an item's images again the next time it is
-   analyzed.
-3. **Describe** the file with `exiftool` under the step `metadata`: EXIF, XMP, and IPTC from photos,
-   camera and lens details, QuickTime and ID3 tags, PDF and Office document properties, and the
-   like. The step keeps up to 200 named values and drops file system details, maker notes, binary
-   blobs, and container plumbing such as byte offsets and header versions. It skips pages, entries,
-   plain text, JSON, and XML, whose content is their own metadata. `exiftool` stops after 30
-   seconds.
-4. **Analyze** with the analyzer's own steps, such as `text`, `info`, or `listing`. The download
-   made for the metadata is reused here, so the file is fetched once.
-5. **Summarize** with the inference [resource](/concepts/resources/) that serves the analyzer's role.
+3. **Analyze** what needs a model or another resource: a photo's place, a recording's transcript, and
+   a video's scenes.
+4. **Summarize** with the inference [resource](/concepts/resources/) that serves the analyzer's role.
    A text longer than 10,000 characters is summarized in one call from its first 10,000 characters,
    which open with the names of its sections when it has an outline.
    The role is `smart` by default, `vision` for images and pages, and `fast` for email and the
@@ -201,7 +221,7 @@ Every analyzer inherits the same sequence from `Analyzer::Base`:
    [filed under](/concepts/feeds/) the tags. If no resource
    serves the role, there is no summary and no tags.
 
-If derive, analyze, or summarize fails, xixo skips that part and continues. The reference is marked
+If extract, analyze, or summarize fails, xixo skips that part and continues. The reference is marked
 analyzed either way.
 
 ## After the analyzer
@@ -235,7 +255,8 @@ saved, and the title and the conversation's summary follow it. `ExpireOverdueJob
 
 Analysis jobs run on the `analysis` queue, with at most `ANALYSIS_PER_TENANT` (2 by default) running
 per tenant. A `Resource::Failed` error is retried five times with increasing waits, and the analysis
-fails if the last retry fails too. An `Analyzer::Failed` error, or a file with nowhere to go, is
+fails if the last retry fails too. An analysis waiting for an agent is tried again every five minutes
+for a day. An `Analyzer::Failed` error, or a file with nowhere to go, is
 discarded and fails the analysis. Any other error fails the analysis and is raised again.
 
 One question is still open. Connecting two feeds does not analyze the feed on the other side again.

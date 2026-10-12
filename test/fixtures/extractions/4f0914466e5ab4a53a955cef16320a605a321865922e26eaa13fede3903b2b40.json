@@ -1,0 +1,13 @@
+{
+  "name": "crlf.txt",
+  "mime": "text/plain",
+  "result": {
+    "extractor": "text",
+    "files": [],
+    "steps": {
+      "text": {
+        "result": "Windows line endings throughout.\nSecond line, still CRLF.\n\nNeedle: CRLF-ENDINGS-8820"
+      }
+    }
+  }
+}

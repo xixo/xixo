@@ -1,0 +1,61 @@
+{
+  "name": "boarding.pkpass",
+  "mime": "application/vnd.apple.pkpass",
+  "result": {
+    "extractor": "pkpass",
+    "files": [],
+    "steps": {
+      "metadata": {
+        "result": {}
+      },
+      "pass": {
+        "result": {
+          "description": "Boarding pass, EDI to LHR",
+          "expiration_date": "2026-08-30T23:59:00Z",
+          "fields": [
+            {
+              "label": "GATE",
+              "value": "11B"
+            },
+            {
+              "label": "Edinburgh",
+              "value": "EDI"
+            },
+            {
+              "label": "London Heathrow",
+              "value": "LHR"
+            },
+            {
+              "label": "PASSENGER",
+              "value": "PEMBERTON/ASH"
+            },
+            {
+              "label": "BOARDS",
+              "value": "07:15"
+            },
+            {
+              "label": "SEAT",
+              "value": "14A"
+            },
+            {
+              "label": "CLASS",
+              "value": "Economy"
+            },
+            {
+              "label": "TERMS",
+              "value": "Non-transferable. Needle: PKPASSBACK-4417"
+            }
+          ],
+          "logo_text": "Bellwether Air",
+          "organization": "Bellwether Air",
+          "relevant_date": "2026-08-30T07:15:00Z",
+          "serial_number": "PKPASSBOARD-9931",
+          "style": "boardingPass"
+        }
+      },
+      "text": {
+        "result": "boardingPass\nBellwether Air\nBoarding pass, EDI to LHR\nBellwether Air\nPKPASSBOARD-9931\n2026-08-30T07:15:00Z\n2026-08-30T23:59:00Z\nGATE: 11B\nEdinburgh: EDI\nLondon Heathrow: LHR\nPASSENGER: PEMBERTON/ASH\nBOARDS: 07:15\nSEAT: 14A\nCLASS: Economy\nTERMS: Non-transferable. Needle: PKPASSBACK-4417"
+      }
+    }
+  }
+}

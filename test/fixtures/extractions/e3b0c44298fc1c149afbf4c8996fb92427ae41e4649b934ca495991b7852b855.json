@@ -1,0 +1,13 @@
+{
+  "name": "empty.txt",
+  "mime": "text/plain",
+  "result": {
+    "extractor": "text",
+    "files": [],
+    "steps": {
+      "text": {
+        "result": ""
+      }
+    }
+  }
+}

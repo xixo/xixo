@@ -1,0 +1,13 @@
+{
+  "name": "readme.md",
+  "mime": "text/markdown",
+  "result": {
+    "extractor": "text",
+    "files": [],
+    "steps": {
+      "text": {
+        "result": "# Ferry timetable\n\nThe 07:40 sailing is the only one that connects with the bus, and it does\nnot run on Sundays.\n\n| Departure | Arrival | Days      |\n| --------- | ------- | --------- |\n| 07:40     | 08:15   | Mon–Sat   |\n| 12:10     | 12:45   | Daily     |\n| 18:55     | 19:30   | Mon–Fri   |\n\nFares are cash only. See [the operator](https://example.invalid/ferry).\n\nNeedle: MARKDOWN-TIMETABLE-3391"
+      }
+    }
+  }
+}

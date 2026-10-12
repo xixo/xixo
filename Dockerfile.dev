@@ -29,9 +29,7 @@ WORKDIR /rails
 
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y \
-      build-essential curl git libjemalloc2 libpq-dev libvips libvips-tools libraw-bin libimage-exiftool-perl libarchive-zip-perl \
-      libyaml-dev pkg-config poppler-utils postgresql-client tesseract-ocr ffmpeg \
-      libreoffice-writer \
+      build-essential curl git libjemalloc2 libpq-dev libyaml-dev pkg-config postgresql-client \
       chromium fonts-liberation fonts-noto-color-emoji && \
     ln -s /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
@@ -63,6 +61,7 @@ RUN npm ci && cp package-lock.json node_modules/.lock-stamp
 
 COPY . .
 COPY --from=agent /opt/xixo-agent /opt/xixo-agent
+RUN mkdir -p /handoff && chown 1000:1000 /handoff
 
 ENTRYPOINT ["/rails/bin/docker-entrypoint-dev"]
 

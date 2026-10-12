@@ -1,0 +1,64 @@
+{
+  "name": "rows.csv",
+  "mime": "text/csv",
+  "result": {
+    "extractor": "data",
+    "files": [],
+    "steps": {
+      "shape": {
+        "result": {
+          "columns": [
+            "name",
+            "amount",
+            "posted_on",
+            "memo"
+          ],
+          "format": "csv",
+          "rows": 4
+        }
+      },
+      "tables": {
+        "result": [
+          {
+            "columns": [
+              "name",
+              "amount",
+              "posted_on",
+              "memo"
+            ],
+            "name": "rows.csv",
+            "rows": [
+              [
+                "Ash Pemberton",
+                "1240.00",
+                "2026-01-08",
+                "Deposit"
+              ],
+              [
+                "Bea Okonkwo",
+                "-89.55",
+                "2026-01-11",
+                "Hardware store"
+              ],
+              [
+                "Cyril Vane",
+                "-1200.00",
+                "2026-01-12",
+                "Rent"
+              ],
+              [
+                "Dora Halloway",
+                "340.25",
+                "2026-02-02",
+                "Refund CSVLEDGER-2937"
+              ]
+            ]
+          }
+        ]
+      },
+      "text": {
+        "result": "name,amount,posted_on,memo\nAsh Pemberton,1240.00,2026-01-08,Deposit\nBea Okonkwo,-89.55,2026-01-11,Hardware store\nCyril Vane,-1200.00,2026-01-12,Rent\nDora Halloway,340.25,2026-02-02,Refund CSVLEDGER-2937"
+      }
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "name": "sign.png",
+  "mime": "image/png",
+  "result": {
+    "extractor": "image",
+    "files": [
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 4043,
+        "request_file": "6c1eaef703f3370a-0"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 9267,
+        "request_file": "6c1eaef703f3370a-1"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "deviation": {
+        "result": 73.872636
+      },
+      "dimensions": {
+        "result": {
+          "height": 119,
+          "width": 634
+        }
+      },
+      "location": {
+        "digest": "exiftool",
+        "result": null
+      },
+      "metadata": {
+        "result": {
+          "ColorSpace": "Uncalibrated",
+          "ColorType": "Grayscale",
+          "ExifImageHeight": 119,
+          "ExifImageWidth": 634,
+          "Filter": "Adaptive",
+          "ImageHeight": 119,
+          "ImageSize": "634x119",
+          "ImageWidth": 634,
+          "Interlace": "Noninterlaced",
+          "Megapixels": 0.075,
+          "Orientation": "Horizontal (normal)",
+          "PixelUnits": "meters",
+          "PixelsPerUnitX": 11811,
+          "PixelsPerUnitY": 11811
+        }
+      },
+      "ocr": {
+        "result": "PELICAN CENSUS 4820"
+      }
+    }
+  }
+}

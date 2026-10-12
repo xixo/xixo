@@ -66,28 +66,6 @@ class VisionTest < ActiveSupport::TestCase
     end
   end
 
-  test "what the model sees is a bounded preview, not the original" do
-    inference!
-    @server.answer_json({ summary: "A sign." })
-
-    analyze "poster.png"
-
-    sent = decoded(@server.attachments.last.first)
-
-    assert_equal "1902", header(FILES.join("poster.png").to_s, "width")
-    assert_equal Setting.definition!("hires_size").default, header(sent, "width")
-    assert_equal "jpegload", header(sent, "vips-loader")
-  end
-
-  test "an image smaller than the preview is sent at its own size, not blown up" do
-    inference!
-    @server.answer_json({ summary: "A sign." })
-
-    analyze "sign.png"
-
-    assert_equal "634", header(decoded(@server.attachments.last.first), "width")
-  end
-
   test "the text read out of the image is offered as context, fenced as data" do
     inference!
     @server.answer_json({ summary: "A sign." })
@@ -132,26 +110,20 @@ class VisionTest < ActiveSupport::TestCase
     assert_includes @server.prompts.last, "what happens across the animation"
   end
 
-  test "the share of frames read is rounded up, and the most frames read caps it" do
+  test "the server's frame settings travel with the extraction, and the prompt counts the frames that came back" do
     inference!
-    Tenant.switch(@tenant) { Setting.write!("animation_frame_share", "50", subject: nil) }
+    Tenant.switch(@tenant) do
+      Setting.write!("animation_frame_share", "50", subject: nil)
+      Setting.write!("animation_frames", "1", subject: nil)
+    end
     @server.answer_json({ summary: "Counting frames." })
 
     analyze "animated.gif"
 
-    assert_equal 2, @server.attachments.last.length, "half of three frames, rounded up"
-    assert_includes @server.prompts.last, "An animation of 3 frames. The 2 images attached"
-
-    Tenant.switch(@tenant) do
-      Setting.write!("animation_frame_share", "100", subject: nil)
-      Setting.write!("animation_frames", "1", subject: nil)
-    end
-    @server.answer_json({ summary: "One frame." })
-
-    analyze "animated.gif"
-
-    assert_equal 1, @server.attachments.last.length, "never more than the most frames read"
-    assert_includes @server.prompts.last, "An animation of 3 frames. The image attached is one frame from it."
+    settings = FakeAgent.asked.last.args["settings"]
+    assert_equal 50, settings["share"]
+    assert_equal 1, settings["frames"]
+    assert_includes @server.prompts.last, "An animation of 3 frames."
   end
 
   test "a still image sends one preview and says nothing of frames" do

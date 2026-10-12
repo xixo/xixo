@@ -1,0 +1,60 @@
+{
+  "name": "nested-message.eml",
+  "mime": "message/rfc822",
+  "result": {
+    "extractor": "email",
+    "files": [
+      {
+        "role": "child",
+        "name": "forwarded.eml",
+        "mime": "message/rfc822",
+        "size": 344,
+        "request_file": "b7162d88d6601d50-0"
+      }
+    ],
+    "steps": {
+      "attachments": {
+        "result": [
+          {
+            "content_type": "message/rfc822",
+            "filename": "forwarded.eml",
+            "size": 344
+          }
+        ]
+      },
+      "headers": {
+        "result": {
+          "date": "2026-04-08T10:00:00Z",
+          "from": "ash@example.invalid",
+          "message_id": "nested-7704@example.invalid",
+          "subject": "Fwd: Roof, next steps",
+          "to": "cyril@example.invalid"
+        }
+      },
+      "metadata": {
+        "result": {}
+      },
+      "outline": {
+        "result": [
+          {
+            "from": 0,
+            "name": "Message from ash@example.invalid"
+          }
+        ]
+      },
+      "text": {
+        "result": "From: ash@example.invalid\nTo: cyril@example.invalid\nDate: 2026-04-08T10:00:00Z\nSubject: Fwd: Roof, next steps\n\nFwd: Roof, next steps\n\nForwarding Bea's note. Needle: EMAILNESTED-7704"
+      },
+      "thread": {
+        "result": {
+          "ids": [
+            "nested-7704@example.invalid"
+          ]
+        }
+      }
+    }
+  },
+  "kept": {
+    "b7162d88d6601d50-0": "b7162d88d6601d50-0.eml"
+  }
+}

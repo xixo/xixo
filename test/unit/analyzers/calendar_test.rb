@@ -9,33 +9,38 @@ class CalendarTest < ActiveSupport::TestCase
     assert_equal "20261399", Analyzer::Calendar.read_as("20261399")
   end
 
-  test "each event in a calendar is a section of its own, so a passage never runs across two" do
+  test "each event the agent marks as a section stays its own, so a passage never runs across two" do
     tenant = Tenant.create!(subdomain: "calendar-#{SecureRandom.hex(4)}", name: "Calendar")
-    events = (1..12).map do |day|
-      "BEGIN:VEVENT\r\nSUMMARY:Site visit #{day}\r\nDTSTART:202609#{format('%02d', day)}T090000\r\n" \
-        "DESCRIPTION:#{'Bring the ladder and the moisture meter. ' * 4}\r\nEND:VEVENT\r\n"
+    lines = (1..12).map do |day|
+      "Site visit #{day} · #{Analyzer::Calendar.read_as("202609#{format('%02d', day)}T090000")} · " \
+        "#{'Bring the ladder and the moisture meter. ' * 4}".strip
     end
-    body = "BEGIN:VCALENDAR\r\n#{events.join}END:VCALENDAR\r\n"
+    from = 0
+    outline = lines.each_with_index.map do |line, index|
+      part = { "name" => "Site visit #{index + 1}", "from" => from }
+      from += line.length + 1
+      part
+    end
+    FakeAgent.script = ->(*) { FakeAgent.extracted({ "text" => lines.join("\n"), "outline" => outline }, extractor: "calendar") }
 
     Tenant.switch(tenant) do
       storage = Resource::Database.create!(key: "desk", name: "Desk")
-      storage.upload("visits.ics", body)
+      storage.upload("visits.ics", "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n")
       feed = Feed.create!(type: Feed::FILE, key: "visits.ics", title: "visits.ics")
       Reference.record!(feed: feed, resource: storage, locator_key: "visits.ics", mime: "text/calendar",
                         locator: { "key" => "visits.ics" })
       analysis = Analysis.open!(feed: feed, cause: "manual")
 
-      Analyzer.for(feed.reload, analysis: analysis).analyze
+      Analyzer.for(feed.reload, analysis: analysis).extract!
       analysis.finished!
       feed.reload
       Passage.cut!(feed)
 
-      outline = feed.outline
+      held = feed.outline
       text = feed.readable_text
 
-      assert_equal 12, outline.size
-      assert_equal "Site visit 3, Thursday, September 3, 2026, 09:00", outline[2]["name"]
-      assert text[outline[2]["from"]..].start_with?("Site visit 3 ·")
+      assert_equal 12, held.size
+      assert text[held[2]["from"]..].start_with?("Site visit 3 ·")
       assert(feed.passages.all? { |passage| passage.text.scan("Site visit").size == 1 })
     end
   end

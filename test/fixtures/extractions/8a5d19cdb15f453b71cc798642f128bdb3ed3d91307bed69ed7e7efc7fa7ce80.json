@@ -1,0 +1,54 @@
+{
+  "name": "contacts.vcf",
+  "mime": "text/vcard",
+  "result": {
+    "extractor": "contact",
+    "files": [],
+    "steps": {
+      "contacts": {
+        "result": [
+          {
+            "email": [
+              "marguerite@example.invalid"
+            ],
+            "fn": "Marguerite Villeneuve",
+            "name": "Villeneuve Marguerite",
+            "note": "Sam's aunt. Has the spare key to the house.",
+            "tel": [
+              "+1 416 555 0143"
+            ]
+          },
+          {
+            "email": [
+              "priya@orchardlane.invalid"
+            ],
+            "fn": "Priya Raman",
+            "name": "Raman Priya",
+            "org": "Orchard Lane Properties Inc.",
+            "tel": [
+              "+1 905 555 0188"
+            ]
+          }
+        ]
+      },
+      "metadata": {
+        "result": {}
+      },
+      "outline": {
+        "result": [
+          {
+            "from": 0,
+            "name": "Marguerite Villeneuve"
+          },
+          {
+            "from": 115,
+            "name": "Priya Raman"
+          }
+        ]
+      },
+      "text": {
+        "result": "Marguerite Villeneuve · marguerite@example.invalid · +1 416 555 0143 · Sam's aunt. Has the spare key to the house.\nPriya Raman · Orchard Lane Properties Inc. · priya@orchardlane.invalid · +1 905 555 0188"
+      }
+    }
+  }
+}

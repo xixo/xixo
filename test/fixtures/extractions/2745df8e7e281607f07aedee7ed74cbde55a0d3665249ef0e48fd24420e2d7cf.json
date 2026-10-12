@@ -1,0 +1,26 @@
+{
+  "name": "truncated.pdf",
+  "mime": "application/pdf",
+  "result": {
+    "extractor": "pdf",
+    "files": [],
+    "steps": {
+      "derived": {
+        "error": "pdftoppm failed: exit status 1: Syntax Error: Couldn't find trailer dictionary\nSyntax Error: Couldn't find trailer dictionary\nSyntax Error: Couldn't read xref table",
+        "result": null
+      },
+      "info": {
+        "error": "pdfinfo failed: pdfinfo failed: exit status 1: Syntax Error: Couldn't find trailer dictionary\nSyntax Error: Couldn't find trailer dictionary\nSyntax Error: Couldn't read xref table",
+        "result": null
+      },
+      "metadata": {
+        "result": {}
+      },
+      "text": {
+        "digest": "text layer, then ocr past 40 characters a page",
+        "error": "pdftotext failed: pdftotext failed: exit status 1:",
+        "result": null
+      }
+    }
+  }
+}

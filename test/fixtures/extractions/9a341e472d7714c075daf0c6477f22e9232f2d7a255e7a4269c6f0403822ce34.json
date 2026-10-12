@@ -1,0 +1,43 @@
+{
+  "name": "flight-lisbon.eml",
+  "mime": "message/rfc822",
+  "result": {
+    "extractor": "email",
+    "files": [],
+    "steps": {
+      "attachments": {
+        "result": []
+      },
+      "headers": {
+        "result": {
+          "date": "2026-09-22T10:41:07-04:00",
+          "from": "Aerolume Reservations \u003creservations@aerolume.invalid\u003e",
+          "message_id": "confirm-qx7rtm@aerolume.invalid",
+          "subject": "Your trip to Lisbon is confirmed",
+          "to": "Jordan Avery \u003cjordan.avery@example.invalid\u003e"
+        }
+      },
+      "metadata": {
+        "result": {}
+      },
+      "outline": {
+        "result": [
+          {
+            "from": 0,
+            "name": "Message from Aerolume Reservations \u003creservations@aerolume.invalid\u003e"
+          }
+        ]
+      },
+      "text": {
+        "result": "From: Aerolume Reservations \u003creservations@aerolume.invalid\u003e\nTo: Jordan Avery \u003cjordan.avery@example.invalid\u003e\nDate: 2026-09-22T10:41:07-04:00\nSubject: Your trip to Lisbon is confirmed\n\nYour trip to Lisbon is confirmed\n\nHi Jordan,\n\nThanks for booking with Aerolume. Your trip is confirmed.\n\nBooking reference: QX7RTM\n\nOutbound\n  AL 258  Toronto (YYZ) to Lisbon (LIS)\n  Departs Saturday, November 14, 2026 at 21:35 from Terminal 3\n  Arrives Sunday, November 15, 2026 at 09:50\n  Seat 23A, Economy Classic, one checked bag included\n\nReturn\n  AL 259  Lisbon (LIS) to Toronto (YYZ)\n  Departs Sunday, November 29, 2026 at 12:15\n  Arrives Sunday, November 29, 2026 at 15:05\n  Seat 24C, Economy Classic, one checked bag included\n\nPassenger: Jordan Avery\nTotal paid: CAD 1,184.36 on the card ending 0937\n\nOnline check-in opens 24 hours before each departure. Bring the passport you\nbooked with. Changes before October 31 are free; after that a change fee of\nCAD 150 applies.\n\nAerolume Reservations"
+      },
+      "thread": {
+        "result": {
+          "ids": [
+            "confirm-qx7rtm@aerolume.invalid"
+          ]
+        }
+      }
+    }
+  }
+}

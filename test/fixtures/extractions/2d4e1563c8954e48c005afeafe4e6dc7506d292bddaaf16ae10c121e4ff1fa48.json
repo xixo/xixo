@@ -1,0 +1,53 @@
+{
+  "name": "quoted.csv",
+  "mime": "text/csv",
+  "result": {
+    "extractor": "data",
+    "files": [],
+    "steps": {
+      "shape": {
+        "result": {
+          "columns": [
+            "description",
+            "notes",
+            "amount"
+          ],
+          "format": "csv",
+          "rows": 3
+        }
+      },
+      "tables": {
+        "result": [
+          {
+            "columns": [
+              "description",
+              "notes",
+              "amount"
+            ],
+            "name": "quoted.csv",
+            "rows": [
+              [
+                "Chair, oak",
+                "Says \"as found\" on the receipt",
+                "95.00"
+              ],
+              [
+                "Lamp\nwith a two-line field",
+                "Shade is cracked",
+                "22.50"
+              ],
+              [
+                "Rug",
+                "Needle: QUOTEDCSV-4416",
+                "180.00"
+              ]
+            ]
+          }
+        ]
+      },
+      "text": {
+        "result": "description,notes,amount\n\"Chair, oak\",\"Says \"\"as found\"\" on the receipt\",95.00\n\"Lamp\nwith a two-line field\",\"Shade is cracked\",22.50\n\"Rug\",\"Needle: QUOTEDCSV-4416\",180.00"
+      }
+    }
+  }
+}

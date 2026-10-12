@@ -104,6 +104,8 @@ Uploads are staged through Active Storage before a job places them in a resource
 | `XIXO_STAGING_SECRET_ACCESS_KEY` | none | |
 | `XIXO_FILESYSTEM_ROOTS` | none | Directories `filesystem` resources may use, separated by colons. Each tenant is confined to `<root>/<tenant>` under each root, and a relative root in a resource resolves under the first one. The `files` resource that `config/resources.yml` gives every tenant as default storage is one of these. Unset, every `filesystem` resource fails its check with `no filesystem roots are permitted`. |
 | `XIXO_GIT_ROOT` | none | The directory where `git` resources keep their shallow bare clones, at `<root>/<tenant id>/<resource id>.git`. Unset, every `git` resource is unusable. |
+| `XIXO_LOCAL_AGENT` | none | The directory the server shares with the agent beside it. Each tenant whose agent runs there has a directory of its own under it, named by its subdomain. When that agent asks to enroll, the worker leaves it a single-use enrollment token readable by its user alone, and binds the client the agent enrolled as to the `local` machine. Unset, nothing is extracted until a machine's agent is connected. |
+| `XIXO_AGENT_FOLDER` | `./tmp/agent-folder` | Development only: the folder on the host that the dev compose shares read-only with the agent beside the server, at `/folders`. |
 | `XIXO_AGENT_DIR` | `/opt/xixo-agent` | Where the server finds the agent it installs on a machine: `xixo-agent-linux-amd64`, `xixo-agent-linux-arm64`, and the `xixo-agent.service` unit. The server image builds all three there from `agent/`. |
 
 ### Outbound connections

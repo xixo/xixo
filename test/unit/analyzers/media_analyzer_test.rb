@@ -179,31 +179,6 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
     end
   end
 
-  test "a video has a poster, and an audio file has its waveform" do
-    assert Thumbnail.available_for?("video/mp4")
-    assert Thumbnail.available_for?("audio/mp4")
-
-    Tenant.switch(@tenant) do
-      %w[clip.mp4 tone.m4a].each do |key|
-        bytes = Thumbnail.for(reference_at(key))
-
-        assert bytes.bytesize.positive?
-        assert_equal "\xFF\xD8".b, bytes[0, 2].b, "#{key} renders a jpeg, not whatever ffmpeg felt like"
-      end
-    end
-  end
-
-  test "a waveform is as wide as the recording is long, never narrower than the minimum" do
-    Tenant.switch(@tenant) do
-      shorter = image_width(Thumbnail.for(reference_at("tone.m4a")))
-      longer = image_width(Thumbnail.for(reference_at("standup.m4a")))
-
-      assert_operator shorter, :>=, Thumbnail::WAVE_MIN_WIDTH
-      assert_operator longer, :>, shorter
-      assert_operator longer, :<=, Thumbnail::WAVE_MAX_WIDTH
-    end
-  end
-
   test "a recording is measured for loudness, peak, dynamics and spectrum, and the prompt hears it" do
     analyze_feed_at "standup.m4a"
 
@@ -235,26 +210,21 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
     end
   end
 
-  test "a recording of nothing is heard as silence, and its silent span is found" do
-    silent = Dir.mktmpdir do |dir|
-      path = File.join(dir, "quiet.m4a")
-      system("ffmpeg", "-v", "error", "-f", "lavfi", "-i", "anullsrc=r=16000:cl=mono", "-t", "2", path, exception: true)
-      File.binread(path)
-    end
-    @resource.client.put_object(bucket: @bucket, key: "quiet.m4a", body: silent)
-    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+  test "a transcript wanted after the recording was read asks the agent for its sound again" do
+    analyze_feed_at "standup.m4a"
+    first = FakeAgent.asked.size
 
-    analyze_feed_at "quiet.m4a"
+    Tenant.switch(@tenant) { assert_equal [ "transcript" ], FakeAgent.asked.last.args["skip"] }
 
-    Tenant.switch(@tenant) do
-      signal = steps_at("quiet.m4a").dig("signal", "result")
+    listening!.transcribes([ 0.4, "Morning, everyone." ])
+    analyze_feed_at "standup.m4a"
 
-      assert signal["silent_throughout"]
-      assert_in_delta 2.0, signal["silent"], 0.2
+    assert_equal first + 1, FakeAgent.asked.size
+    assert_nil FakeAgent.asked.last.args["skip"]
+    Tenant.switch(@tenant) { assert_equal "[00:00:00] Morning, everyone.", steps_at("standup.m4a").dig("transcript", "result") }
 
-      prompt = Analyzer::Media.new(feed_at("quiet.m4a"), analysis: analysis_at("quiet.m4a")).summary_prompt
-      assert_match(/Sound: silent throughout/, prompt)
-    end
+    analyze_feed_at "standup.m4a"
+    assert_equal first + 1, FakeAgent.asked.size, "a transcript already held needs no second read"
   end
 
   test "a file with no sound in it is not measured" do
@@ -280,13 +250,5 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
                                                       "models" => { "transcription" => "whisper-1" } })
       end
       server
-    end
-
-    def image_width(bytes)
-      Tempfile.create([ "wave", ".jpg" ], binmode: true) do |file|
-        file.write(bytes)
-        file.flush
-        Open3.capture2("vipsheader", "-f", "width", file.path).first.to_i
-      end
     end
 end

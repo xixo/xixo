@@ -13,6 +13,7 @@ class Feed < ApplicationRecord
   ORIGINS = %w[resource feed].freeze
 
   DEPTH = 4
+  THREAD_IDS = 100
   MAX_KEY = 900
   MONTHS = "jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec".freeze
   UNTAGGABLE = %r{[@:/]|\A[\w-]+(\.[\w-]+)+\z|\Afeed\s*\d+\z}i
@@ -319,7 +320,8 @@ class Feed < ApplicationRecord
   end
 
   def thread
-    ids = analysis&.step_result("thread").to_h["ids"]
+    held = analysis&.step_result("thread")
+    ids = held.is_a?(Hash) ? Array(held["ids"]).grep(String).first(THREAD_IDS) : []
     return Feed.none if ids.blank?
 
     sharing = Analysis.settled.where("jsonb_exists_any(steps -> 'thread' -> 'result' -> 'ids', ARRAY[?]::text[])", ids)
@@ -327,7 +329,8 @@ class Feed < ApplicationRecord
   end
 
   def sent_at
-    Time.zone.parse(analysis&.step_result("headers").to_h["date"].to_s)
+    held = analysis&.step_result("headers")
+    Time.zone.parse(held.is_a?(Hash) ? held["date"].to_s : "")
   rescue ArgumentError
     nil
   end

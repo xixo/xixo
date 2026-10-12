@@ -1,0 +1,13 @@
+{
+  "name": "a file with spaces \u0026 symbols #1.txt",
+  "mime": "text/plain",
+  "result": {
+    "extractor": "text",
+    "files": [],
+    "steps": {
+      "text": {
+        "result": "Spaces, an ampersand and a hash in the name.\n\nNeedle: AWKWARDNAME-3852"
+      }
+    }
+  }
+}

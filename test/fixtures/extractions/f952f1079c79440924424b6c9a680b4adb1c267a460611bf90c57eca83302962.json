@@ -1,0 +1,31 @@
+{
+  "name": "archive.tar.gz",
+  "mime": "application/octet-stream",
+  "result": {
+    "extractor": "fallback",
+    "files": [],
+    "steps": {
+      "format": {
+        "result": {
+          "declared": "application/octet-stream",
+          "observed": "gzip",
+          "printable": false
+        }
+      },
+      "listing": {
+        "result": [
+          "notes.txt",
+          "readme.md"
+        ]
+      },
+      "metadata": {
+        "result": {}
+      },
+      "size": {
+        "result": {
+          "bytes": 829
+        }
+      }
+    }
+  }
+}

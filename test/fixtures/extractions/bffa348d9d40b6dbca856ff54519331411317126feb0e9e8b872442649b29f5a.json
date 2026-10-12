@@ -1,0 +1,22 @@
+{
+  "name": "empty.ics",
+  "mime": "text/calendar",
+  "result": {
+    "extractor": "calendar",
+    "files": [],
+    "steps": {
+      "events": {
+        "result": []
+      },
+      "metadata": {
+        "result": {}
+      },
+      "outline": {
+        "result": []
+      },
+      "text": {
+        "result": ""
+      }
+    }
+  }
+}

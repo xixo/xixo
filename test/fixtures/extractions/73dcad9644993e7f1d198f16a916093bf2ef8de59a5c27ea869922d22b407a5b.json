@@ -1,0 +1,65 @@
+{
+  "name": "photo.png",
+  "mime": "image/png",
+  "result": {
+    "extractor": "image",
+    "files": [
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 616,
+        "request_file": "73dcad9644993e7f-0"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 616,
+        "request_file": "73dcad9644993e7f-1"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "deviation": {
+        "result": 0
+      },
+      "dimensions": {
+        "result": {
+          "height": 80,
+          "width": 120
+        }
+      },
+      "location": {
+        "digest": "exiftool",
+        "result": null
+      },
+      "metadata": {
+        "result": {
+          "ColorSpace": "Uncalibrated",
+          "ColorType": "Grayscale",
+          "ExifImageHeight": 80,
+          "ExifImageWidth": 120,
+          "Filter": "Adaptive",
+          "ImageHeight": 80,
+          "ImageSize": "120x80",
+          "ImageWidth": 120,
+          "Interlace": "Noninterlaced",
+          "Megapixels": 0.01,
+          "Orientation": "Horizontal (normal)",
+          "PixelUnits": "meters",
+          "PixelsPerUnitX": 1000,
+          "PixelsPerUnitY": 1000
+        }
+      },
+      "ocr": {
+        "result": ""
+      }
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "name": "html-only.eml",
+  "mime": "message/rfc822",
+  "result": {
+    "extractor": "email",
+    "files": [],
+    "steps": {
+      "attachments": {
+        "result": []
+      },
+      "headers": {
+        "result": {
+          "date": "2026-04-06T08:00:00Z",
+          "from": "noreply@example.invalid",
+          "message_id": "htmlonly-3390@example.invalid",
+          "subject": "Your statement is ready",
+          "to": "ash@example.invalid"
+        }
+      },
+      "metadata": {
+        "result": {}
+      },
+      "outline": {
+        "result": [
+          {
+            "from": 0,
+            "name": "Message from noreply@example.invalid"
+          }
+        ]
+      },
+      "text": {
+        "result": "From: noreply@example.invalid\nTo: ash@example.invalid\nDate: 2026-04-06T08:00:00Z\nSubject: Your statement is ready\n\nYour statement is ready\n\n# Statement\n\nBalance carried forward: £1,240.00\nNeedle: EMAILHTMLONLY-3390"
+      },
+      "thread": {
+        "result": {
+          "ids": [
+            "htmlonly-3390@example.invalid"
+          ]
+        }
+      }
+    }
+  }
+}

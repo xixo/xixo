@@ -33,13 +33,18 @@ class FailurePolicyTest < ActiveSupport::TestCase
   end
 
   test "a file the analyzer cannot read is discarded, not retried forever" do
+    FakeAgent.script = lambda do |_verb, _args, _bytes|
+      result, held = FakeAgent.extracted({}, extractor: "pdf")
+      result[:steps] = { info: { error: "pdfinfo failed: Syntax Error" } }
+      [ result, held ]
+    end
+
     assert_no_enqueued_jobs do
       assert_nothing_raised { Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, @broken.id) } }
     end
 
     Tenant.switch(@tenant) do
-      assert_equal "Analyzer::Failed",
-                   @broken.reload.analysis.step("info").dig("error", "class")
+      assert_equal "Extraction", @broken.reload.analysis.step("info").dig("error", "class")
       assert_not_nil @broken.references.first.reload.analyzed_at
     end
   end

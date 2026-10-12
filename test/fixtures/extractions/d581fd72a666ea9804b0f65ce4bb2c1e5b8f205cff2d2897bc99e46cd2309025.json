@@ -1,0 +1,13 @@
+{
+  "name": "page.html",
+  "mime": "text/html",
+  "result": {
+    "extractor": "text",
+    "files": [],
+    "steps": {
+      "text": {
+        "result": "\u003c!doctype html\u003e\n\u003chtml lang=\"en\"\u003e\n  \u003chead\u003e\n    \u003cmeta charset=\"utf-8\"\u003e\n    \u003ctitle\u003eShed Diaries — the felt roof, again\u003c/title\u003e\n    \u003cmeta name=\"description\" content=\"Notes from the allotment.\"\u003e\n    \u003cstyle\u003ebody { font-family: Helvetica, sans-serif }\u003c/style\u003e\n    \u003cscript\u003econsole.log('this should never reach a search index')\u003c/script\u003e\n  \u003c/head\u003e\n  \u003cbody\u003e\n    \u003ch1\u003eThe felt roof, again\u003c/h1\u003e\n    \u003cp\u003eLifted at the north corner after the gales. Tacks pulled clean through.\u003c/p\u003e\n    \u003cp\u003eNeedle: HTMLPAGE-7729\u003c/p\u003e\n    \u003cul\u003e\n      \u003cli\u003eStrip the north third\u003c/li\u003e\n      \u003cli\u003eRelay on a fresh deck\u003c/li\u003e\n      \u003cli\u003ePrime before the felt goes down\u003c/li\u003e\n    \u003c/ul\u003e\n  \u003c/body\u003e\n\u003c/html\u003e"
+      }
+    }
+  }
+}

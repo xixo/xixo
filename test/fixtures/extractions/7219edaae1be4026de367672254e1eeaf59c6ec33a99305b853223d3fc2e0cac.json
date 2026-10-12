@@ -1,0 +1,87 @@
+{
+  "name": "animated.gif",
+  "mime": "image/gif",
+  "result": {
+    "extractor": "image",
+    "files": [
+      {
+        "role": "frame",
+        "name": "frame-0.jpg",
+        "mime": "image/jpeg",
+        "size": 6606,
+        "request_file": "7219edaae1be4026-0"
+      },
+      {
+        "role": "frame",
+        "name": "frame-1.jpg",
+        "mime": "image/jpeg",
+        "size": 7027,
+        "request_file": "7219edaae1be4026-1"
+      },
+      {
+        "role": "frame",
+        "name": "frame-2.jpg",
+        "mime": "image/jpeg",
+        "size": 7010,
+        "request_file": "7219edaae1be4026-2"
+      },
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 2954,
+        "request_file": "7219edaae1be4026-3"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 2954,
+        "request_file": "7219edaae1be4026-4"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "deviation": {
+        "result": 42.211328
+      },
+      "dimensions": {
+        "result": {
+          "height": 60,
+          "width": 300
+        }
+      },
+      "frames": {
+        "result": 3
+      },
+      "location": {
+        "digest": "exiftool",
+        "result": null
+      },
+      "metadata": {
+        "result": {
+          "AnimationIterations": "Infinite",
+          "BackgroundColor": 0,
+          "BitsPerPixel": 8,
+          "ColorResolutionDepth": 1,
+          "FrameCount": 3,
+          "GIFVersion": "89a",
+          "HasColorMap": "Yes",
+          "ImageHeight": 60,
+          "ImageSize": "300x60",
+          "ImageWidth": 300,
+          "Megapixels": 0.018,
+          "TransparentColor": 0
+        }
+      },
+      "ocr": {
+        "result": "FRAME 1 OCR-91"
+      }
+    }
+  }
+}

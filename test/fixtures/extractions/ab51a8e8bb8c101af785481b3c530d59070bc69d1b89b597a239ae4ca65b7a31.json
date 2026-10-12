@@ -1,0 +1,88 @@
+{
+  "name": "contacts.vcf",
+  "mime": "text/vcard",
+  "result": {
+    "extractor": "contact",
+    "files": [],
+    "steps": {
+      "contacts": {
+        "result": [
+          {
+            "adr": [
+              "14 Bellwether Lane, Flat 3 London EC1A 1BB United Kingdom"
+            ],
+            "bday": "1978-11-04",
+            "email": [
+              "ash@example.invalid",
+              "ash.personal@example.invalid"
+            ],
+            "fn": "Dr. Ash Quill Pemberton",
+            "name": "Pemberton Ash Quill Dr.",
+            "note": "Prefers email. Needle: VCARD3-PEMBERTON-7104 and this note is deliberately folded across a line so unfolding is exercised.",
+            "org": "Bellwether Surveying;Structural",
+            "tel": [
+              "+44 7700 900123",
+              "+44 20 7946 0991"
+            ],
+            "title": "Principal surveyor",
+            "url": [
+              "https://example.invalid/ash"
+            ]
+          },
+          {
+            "email": [
+              "bea@example.invalid"
+            ],
+            "fn": "Bea Okonkwo",
+            "impp": [
+              "xmpp:bea@example.invalid"
+            ],
+            "name": "Okonkwo Bea",
+            "nickname": "Bee",
+            "note": "Needle: VCARD4-OKONKWO-3388",
+            "org": "Allotment Committee",
+            "tel": [
+              "tel:+44-7700-900456"
+            ]
+          },
+          {
+            "adr": [
+              "7 Marchmont Row Edinburgh EH9 1HS Scotland"
+            ],
+            "email": [
+              "cyril@example.invalid"
+            ],
+            "fn": "Cyril Vane",
+            "name": "Vane Cyril",
+            "note": "Apple grouped properties. Needle: VCARDAPPLE-VANE-9265",
+            "tel": [
+              "+44 7700 900789"
+            ]
+          }
+        ]
+      },
+      "metadata": {
+        "result": {}
+      },
+      "outline": {
+        "result": [
+          {
+            "from": 0,
+            "name": "Dr. Ash Quill Pemberton"
+          },
+          {
+            "from": 350,
+            "name": "Bea Okonkwo"
+          },
+          {
+            "from": 458,
+            "name": "Cyril Vane"
+          }
+        ]
+      },
+      "text": {
+        "result": "Dr. Ash Quill Pemberton · Bellwether Surveying;Structural · Principal surveyor · ash@example.invalid ash.personal@example.invalid · +44 7700 900123 +44 20 7946 0991 · 14 Bellwether Lane, Flat 3 London EC1A 1BB United Kingdom · Prefers email. Needle: VCARD3-PEMBERTON-7104 and this note is deliberately folded across a line so unfolding is exercised.\nBea Okonkwo · Allotment Committee · bea@example.invalid · tel:+44-7700-900456 · Needle: VCARD4-OKONKWO-3388\nCyril Vane · cyril@example.invalid · +44 7700 900789 · 7 Marchmont Row Edinburgh EH9 1HS Scotland · Apple grouped properties. Needle: VCARDAPPLE-VANE-9265"
+      }
+    }
+  }
+}

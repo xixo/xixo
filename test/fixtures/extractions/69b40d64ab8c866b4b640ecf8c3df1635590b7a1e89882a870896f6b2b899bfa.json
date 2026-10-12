@@ -1,0 +1,22 @@
+{
+  "name": "report.odt",
+  "mime": "application/vnd.oasis.opendocument.text",
+  "result": {
+    "extractor": "doc",
+    "files": [],
+    "steps": {
+      "info": {
+        "error": "libreoffice produced no pdf",
+        "result": null
+      },
+      "metadata": {
+        "error": "exiftool failed: exit status 1: Out of memory in perl:util:safesysrealloc",
+        "result": null
+      },
+      "text": {
+        "digest": "headings and tables from the document itself, else the pdf's text",
+        "result": "Condition report\n\nNeedle: ODT-CONDITION-6673\n\n1. Roof\n\nThe felt at the north corner has lifted. Tacks have pulled clean through the substrate and the overlap is no longer weathertight.\n\n2. Walls\n\nThe east wall shows hairline cracking above both window heads, consistent with historic settlement rather than active movement.\n\n3. Drainage\n\nThe rear gully is blocked with leaf litter. The soakaway could not be located and may have been built over.\n\nPrepared by Bea Okonkwo, 2026-03-14."
+      }
+    }
+  }
+}

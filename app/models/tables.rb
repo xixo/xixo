@@ -1,7 +1,6 @@
 module Tables
   ROWS = 5_000
-  HEADER_WITHIN = 10
-  TOTALLED = /\A\s*(sub)?totals?\b/i
+  CELLS = 64
   OPS = %w[sum count average min max].freeze
   DAY = /\A\d{4}-\d{2}-\d{2}/
   FLIPPED = { "<" => ">", ">" => "<", "<=" => ">=", ">=" => "<=" }.freeze
@@ -12,19 +11,22 @@ module Tables
   class Refused < StandardError; end
 
   class << self
-    def framed(name, rows)
-      rows = rows.map { |row| Array(row).map { |cell| cell.is_a?(String) ? cell.strip.presence : cell } }
-      at = header_at(rows)
-      return nil if at.nil?
-
-      columns = rows[at].each_with_index.map { |cell, index| cell.to_s.presence || "Column #{index + 1}" }
-      body = rows.drop(at + 1).reject { |row| row.compact.empty? || row.compact.first.to_s.match?(TOTALLED) }.first(ROWS)
-
-      { "name" => name.to_s, "columns" => columns, "rows" => body.map { |row| row.first(columns.size) } }
+    def of(feed)
+      held = feed.analysis&.step_result("tables")
+      Array(held).filter_map { |table| sound(table) }
     end
 
-    def of(feed)
-      Array(feed.analysis&.step_result("tables"))
+    def sound(table)
+      return nil unless table.is_a?(Hash) && table["name"].is_a?(String)
+
+      columns = table["columns"]
+      rows = table["rows"]
+      return nil unless columns.is_a?(Array) && columns.any? && rows.is_a?(Array)
+
+      named = columns.first(CELLS).map(&:to_s)
+      kept = rows.first(ROWS).select { |row| row.is_a?(Array) }.map { |row| row.first(named.size).map { |cell| cell.is_a?(Hash) || cell.is_a?(Array) ? cell.to_s : cell } }
+
+      { "name" => table["name"], "columns" => named, "rows" => kept }
     end
 
     def described(table)
@@ -71,14 +73,6 @@ module Tables
           common = values.tally.max_by(SPREAD) { |_, count| count }.map { |value, count| "#{value} (#{count})" }
           "#{name}: #{common.join(', ')}"
         end
-      end
-
-      def header_at(rows)
-        head = rows.first(HEADER_WITHIN)
-        widest = head.map { |row| row.compact.size }.max.to_i
-        return nil if widest < 2
-
-        head.index { |row| row.compact.size == widest }
       end
 
       def filtered(table, rows, test)

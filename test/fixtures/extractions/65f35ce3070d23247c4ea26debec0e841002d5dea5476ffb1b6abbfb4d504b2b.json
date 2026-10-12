@@ -1,0 +1,53 @@
+{
+  "name": "invoice.pdf",
+  "mime": "application/pdf",
+  "result": {
+    "extractor": "pdf",
+    "files": [
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 7137,
+        "request_file": "65f35ce3070d2324-0"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 52945,
+        "request_file": "65f35ce3070d2324-1"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "info": {
+        "result": {
+          "author": "Bellwether Surveying",
+          "creationdate": "Sat Mar 14 09:30:00 2026 UTC",
+          "page_size": "595 x 842 pts (A4)",
+          "pages": 1,
+          "title": "Invoice 2026-114"
+        }
+      },
+      "metadata": {
+        "result": {
+          "Author": "Bellwether Surveying",
+          "CreateDate": "2026:03:14 09:30:00Z",
+          "PageCount": 1,
+          "Producer": "things corpus",
+          "Title": "Invoice 2026-114"
+        }
+      },
+      "text": {
+        "digest": "text layer, then ocr past 40 characters a page",
+        "result": "Bellwether Surveying\n14 Bellwether Lane, London EC1A 1BB\nInvoice 2026-114\nBilled to: Ash Pemberton, 7 Marchmont Row, Edinburgh\nStructural survey, first visit\n480.00\nRoof inspection, second visit\n260.00\nReport and photographs\n140.00\n--------Total\n880.00\nPayable within 30 days.\nNeedle: PDFINVOICE-4820"
+      }
+    }
+  }
+}

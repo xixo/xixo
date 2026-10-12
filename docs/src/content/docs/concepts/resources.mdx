@@ -306,20 +306,33 @@ the worker reaches an agent connected to a web process. `Resource::XixoAgent` as
 | `ask(verb, args, within:)` | Sends any verb and returns the reply's result. Fails when the agent refuses or says nothing for thirty seconds. |
 | `exchanged(verb, args, within:) { \|answer\| }` | Sends any verb and yields the answer, whose `file(entry)` gathers a file the agent streamed back. The exchange and every chunk are deleted when the block returns. |
 | `read(folder, path)` | Asks for one file in a shared folder and returns it as a temporary file. |
-| `upload(io)` | Streams bytes to the agent as `put` requests of at most 256 KiB, then a closing `put` with the size, and returns the upload's ID once the agent says it kept every byte. |
+| `upload(io)` | Holds bytes for the agent as chunks of at most 256 KiB and returns the upload's ID and size. The machine fetches it once from `/agent/uploads/:id` within fifteen minutes, with its DPoP-bound token and a proof for that URL, and each chunk is deleted as it is sent. |
 
 Bytes from the agent arrive as `chunk {request, seq, data}` frames. A file the agent sends back
 with an answer has an ID of its own, and its chunks name the open question they belong to in `of`.
 xixo gathers the chunks in order into a temporary file and fails when the agent stops sending for a
-minute or sends more than it said. A reply or chunk is taken only from the machine that was asked,
-one question holds at most 256 files and 4 GiB, and exchanges older than an hour are deleted by
-`ForgetAgentExchangesJob`.
+minute or sends more than it said. Chunks are kept in whatever order they arrive, after the reply
+too. A reply or chunk is taken only from the machine that was asked, and a chunk is taken only for a
+`read` or a file. One question holds at most 256 files and 4 GiB, a machine holds at most 64 open
+questions and 8 GiB received, and exchanges older than an hour are deleted by
+`ForgetAgentExchangesJob`. A question asked inside a database transaction, as analysis asks, is
+written and awaited on a connection of its own, so the channel sees it at once.
 
 An `agent-folder` names one of the folders the agent said it shares. Attaching one the agent does
 not share is refused, and a folder the agent stops sharing is unusable. Every path the agent lists
 must be relative and stay inside the folder. The folders are set only by the machine's
 configuration, which xixo writes during an install and never changes over the connection, and the
 agent refuses any path outside them.
+
+### The agent beside the server
+
+Every install runs an agent beside the server, as the `xixo-agent` service of the example compose, and
+it reads every file no machine's agent reads where it lies. It has no database and no keys, and sees
+only its own state and the folders mounted into it read-only. It enrolls itself through a directory
+it shares with the worker, named by `XIXO_LOCAL_AGENT`: it leaves a `wanted` file, `EnrollLocalAgentJob`
+leaves it a single-use enrollment token readable by its user alone, and it writes back the client it
+enrolled as, which the job binds to the `local` machine, **This server**. The job reads nothing
+behind a link. See [extraction](/concepts/analysis/#extraction) for what it is asked.
 
 ## Health, internal stores, archiving, and deleting
 
@@ -336,7 +349,7 @@ a resource that is syncing, since the sync tests it better. Checking an MCP serv
 its tools, so tools it adds or removes reach the proxy within six hours.
 
 xixo keeps two stores for itself: `children`, for what is extracted from a file, and `derived`, for
-previews and thumbnails. Both are database resources, and neither is ever offered as a place for an
+previews, thumbnails, and the frames read from an animation or a video. Both are database resources, and neither is ever offered as a place for an
 upload. Neither is listed or reachable by key through GraphQL or MCP. Neither can be archived,
 synced, scheduled, or made a default, because xixo writes into them regardless of those settings.
 

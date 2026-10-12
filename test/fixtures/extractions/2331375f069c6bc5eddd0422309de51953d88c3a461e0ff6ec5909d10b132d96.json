@@ -1,0 +1,33 @@
+{
+  "name": "photo.vcf",
+  "mime": "text/vcard",
+  "result": {
+    "extractor": "contact",
+    "files": [],
+    "steps": {
+      "contacts": {
+        "result": [
+          {
+            "fn": "Elias Thorne",
+            "name": "Thorne Elias",
+            "note": "Needle: VCARDPHOTO-THORNE-4471"
+          }
+        ]
+      },
+      "metadata": {
+        "result": {}
+      },
+      "outline": {
+        "result": [
+          {
+            "from": 0,
+            "name": "Elias Thorne"
+          }
+        ]
+      },
+      "text": {
+        "result": "Elias Thorne · Needle: VCARDPHOTO-THORNE-4471"
+      }
+    }
+  }
+}

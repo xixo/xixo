@@ -1,0 +1,18 @@
+{
+  "name": "array.json",
+  "mime": "application/json",
+  "result": {
+    "extractor": "data",
+    "files": [],
+    "steps": {
+      "shape": {
+        "result": {
+          "format": "json"
+        }
+      },
+      "text": {
+        "result": "[\n  { \"id\": 1, \"title\": \"Kettle descaled\", \"done\": true },\n  { \"id\": 2, \"title\": \"Gutter cleared\", \"done\": false },\n  { \"id\": 3, \"title\": \"JSONARRAY-1873\", \"done\": false }\n]"
+      }
+    }
+  }
+}

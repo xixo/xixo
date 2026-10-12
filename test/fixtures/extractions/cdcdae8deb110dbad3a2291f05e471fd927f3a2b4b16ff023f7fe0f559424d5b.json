@@ -1,0 +1,84 @@
+{
+  "name": "photo.nef",
+  "mime": "image/x-dcraw",
+  "result": {
+    "extractor": "image",
+    "files": [
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 56197,
+        "request_file": "cdcdae8deb110dba-0"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 400315,
+        "request_file": "cdcdae8deb110dba-1"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "dimensions": {
+        "error": "photo.nef carries no image simple_dcraw could read",
+        "result": null
+      },
+      "metadata": {
+        "result": {
+          "Aperture": 4.5,
+          "AutoFocus": "On",
+          "Contrast": "Normal",
+          "ContrastDetectAF": "Off",
+          "CreateDate": "2025:05:19 12:05:54",
+          "CreatorTool": "NIKON D750 Ver.1.15",
+          "CustomRendered": "Normal",
+          "DOF": "1.33 m (5.37 - 6.69 m)",
+          "DateTimeOriginal": "2025:05:19 12:05:54",
+          "ExposureCompensation": 0,
+          "ExposureMode": "Auto",
+          "ExposureProgram": "Aperture-priority AE",
+          "ExposureTime": "1/250",
+          "FNumber": 4.5,
+          "FileSource": "Digital Camera",
+          "Flash": "Off, Did not fire",
+          "FocalLength": "85.0 mm",
+          "FocalLengthIn35mmFormat": "85 mm",
+          "GainControl": "None",
+          "ISO": 100,
+          "ImageHeight": 4032,
+          "ImageSize": "6032x4032",
+          "ImageWidth": 6032,
+          "LensID": "AF-P Nikkor 70-300mm f/4.5-5.6E ED VR",
+          "LensSpec": "70-300mm f/4.5-5.6 E VR AF-P",
+          "LightSource": "Unknown",
+          "LightValue": 12.3,
+          "Make": "NIKON CORPORATION",
+          "MaxApertureValue": 4.6,
+          "Megapixels": 24.3,
+          "MeteringMode": "Other",
+          "Model": "NIKON D750",
+          "ModifyDate": "2025:05:19 12:05:54",
+          "Orientation": "Rotate 90 CW",
+          "PhaseDetectAF": "On (51-point)",
+          "Saturation": "Normal",
+          "SceneCaptureType": "Standard",
+          "SceneType": "Directly photographed",
+          "SensingMethod": "One-chip color area",
+          "SensitivityType": "Recommended Exposure Index",
+          "Sharpness": "Normal",
+          "ShutterSpeed": "1/250",
+          "Software": "Ver.1.15",
+          "SubjectDistanceRange": "Unknown",
+          "WhiteBalance": "Auto"
+        }
+      }
+    }
+  }
+}

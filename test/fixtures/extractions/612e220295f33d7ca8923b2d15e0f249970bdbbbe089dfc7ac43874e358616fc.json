@@ -1,0 +1,13 @@
+{
+  "name": "latin1.txt",
+  "mime": "text/plain",
+  "result": {
+    "extractor": "text",
+    "files": [],
+    "steps": {
+      "text": {
+        "result": "Café accounts, résumé attached, naïve pricing.\n\nNeedle: LATIN1-INVALIDUTF8-6613"
+      }
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "config.json",
+  "mime": "application/json",
+  "result": {
+    "extractor": "data",
+    "files": [],
+    "steps": {
+      "shape": {
+        "result": {
+          "format": "json",
+          "keys": [
+            "needle",
+            "name",
+            "built",
+            "dimensions",
+            "contents",
+            "power",
+            "insured",
+            "inspections"
+          ]
+        }
+      },
+      "text": {
+        "result": "{\n  \"needle\": \"JSONOBJECT-6708\",\n  \"name\": \"Allotment shed\",\n  \"built\": 1994,\n  \"dimensions\": { \"width_m\": 2.4, \"depth_m\": 1.8, \"height_m\": 2.1 },\n  \"contents\": [\"spade\", \"fork\", \"hose reel\", \"seed trays\"],\n  \"power\": null,\n  \"insured\": false,\n  \"inspections\": [\n    { \"on\": \"2025-04-02\", \"by\": \"Ash Pemberton\", \"passed\": true },\n    { \"on\": \"2026-04-06\", \"by\": \"Bea Okonkwo\", \"passed\": false, \"note\": \"felt roof lifting\" }\n  ]\n}"
+      }
+    }
+  }
+}

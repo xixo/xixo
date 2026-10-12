@@ -1,0 +1,60 @@
+{
+  "name": "inline-image.eml",
+  "mime": "message/rfc822",
+  "result": {
+    "extractor": "email",
+    "files": [
+      {
+        "role": "child",
+        "name": "photo.png",
+        "mime": "image/png",
+        "size": 48085,
+        "request_file": "7923f8ef37060b16-0"
+      }
+    ],
+    "steps": {
+      "attachments": {
+        "result": [
+          {
+            "content_type": "image/png",
+            "filename": "photo.png",
+            "size": 48085
+          }
+        ]
+      },
+      "headers": {
+        "result": {
+          "date": "2026-04-09T09:00:00Z",
+          "from": "bea@example.invalid",
+          "message_id": "inline-5528@example.invalid",
+          "subject": "Photo of the north corner",
+          "to": "ash@example.invalid"
+        }
+      },
+      "metadata": {
+        "result": {}
+      },
+      "outline": {
+        "result": [
+          {
+            "from": 0,
+            "name": "Message from bea@example.invalid"
+          }
+        ]
+      },
+      "text": {
+        "result": "From: bea@example.invalid\nTo: ash@example.invalid\nDate: 2026-04-09T09:00:00Z\nSubject: Photo of the north corner\n\nPhoto of the north corner\n\nSee the inline image. Needle: EMAILINLINE-5528"
+      },
+      "thread": {
+        "result": {
+          "ids": [
+            "inline-5528@example.invalid"
+          ]
+        }
+      }
+    }
+  },
+  "kept": {
+    "7923f8ef37060b16-0": "7923f8ef37060b16-0.png"
+  }
+}

@@ -9,34 +9,15 @@ class EmailThreadTest < ActiveSupport::TestCase
     end
   end
 
-  test "a reply keeps what it says apart from what it quotes" do
-    said = Quoted.split(<<~TEXT)
-      Thursday works. I'll bring the ladder.
+  test "an email's quoted history stays out of its summary, which reads only the new text" do
+    text = "From: ash@example.invalid\n\nThursday works.\n\n## Earlier in the thread\n\nOn Tue, Mar 17, 2026, Bea wrote:\n> Can you do Thursday?"
+    FakeAgent.script = lambda do |*|
+      FakeAgent.extracted({ "headers" => { "from" => "ash@example.invalid", "subject" => "Roof" }, "text" => text,
+                            "outline" => [ { "name" => "Message from ash@example.invalid", "from" => 0 },
+                                           { "name" => "Earlier in the thread", "from" => text.index("## Earlier") } ],
+                            "thread" => { "ids" => %w[r2@example.invalid r1@example.invalid] } }, extractor: "email")
+    end
 
-      On Tue, Mar 17, 2026 at 9:30 AM Bea Okonkwo <bea@example.invalid>
-      wrote:
-      > Can you do Thursday for the roof?
-      > The felt has lifted again.
-    TEXT
-
-    assert_equal "Thursday works. I'll bring the ladder.", said.fresh
-    assert said.earlier.start_with?("On Tue, Mar 17, 2026 at 9:30 AM Bea Okonkwo")
-    assert said.earlier.end_with?("Can you do Thursday for the roof?\nThe felt has lifted again.")
-  end
-
-  test "an Outlook reply's header block starts what it quotes" do
-    said = Quoted.split("Approved.\n\nFrom: Priya Raman\nSent: Monday, March 16, 2026 4:02 PM\nTo: Ash\nSubject: Quote\n\nThe quote is $4,200.")
-
-    assert_equal "Approved.", said.fresh
-    assert_match(/The quote is \$4,200/, said.earlier)
-  end
-
-  test "a message with nothing quoted, or nothing but a quote, is all its own" do
-    assert_nil Quoted.split("Just a note.\n\nThanks").earlier
-    assert_nil Quoted.split("> only a quote\n> and more").earlier
-  end
-
-  test "an email's quoted history is its own section, and the summary reads only the new text" do
     Tenant.switch(@tenant) do
       reply = email(@shared, "reply.eml", id: "r2@example.invalid", in_reply_to: "r1@example.invalid",
                                           body: "Thursday works.\n\nOn Tue, Mar 17, 2026, Bea wrote:\n> Can you do Thursday?")
@@ -81,7 +62,7 @@ class EmailThreadTest < ActiveSupport::TestCase
       feed = Feed.create!(type: Feed::FILE, key: key, title: key)
       Reference.record!(feed: feed, resource: resource, locator_key: key, locator: { "key" => key }, mime: "message/rfc822")
       analysis = Analysis.open!(feed: feed, cause: "manual")
-      Analyzer.for(feed.reload, analysis: analysis).analyze
+      Analyzer.for(feed.reload, analysis: analysis).extract!
       analysis.finished!
       feed.reload
     end

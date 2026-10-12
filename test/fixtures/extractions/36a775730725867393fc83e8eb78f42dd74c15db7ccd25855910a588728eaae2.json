@@ -1,0 +1,49 @@
+{
+  "name": "no-metadata.pdf",
+  "mime": "application/pdf",
+  "result": {
+    "extractor": "pdf",
+    "files": [
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 3646,
+        "request_file": "36a7757307258673-0"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 31813,
+        "request_file": "36a7757307258673-1"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "info": {
+        "result": {
+          "creationdate": "Sat Mar 14 09:30:00 2026 UTC",
+          "page_size": "595 x 842 pts (A4)",
+          "pages": 1
+        }
+      },
+      "metadata": {
+        "result": {
+          "CreateDate": "2026:03:14 09:30:00Z",
+          "PageCount": 1,
+          "Producer": "things corpus"
+        }
+      },
+      "text": {
+        "digest": "text layer, then ocr past 40 characters a page",
+        "result": "A page with no title and no author.\nNeedle: PDFNOMETA-5561"
+      }
+    }
+  }
+}

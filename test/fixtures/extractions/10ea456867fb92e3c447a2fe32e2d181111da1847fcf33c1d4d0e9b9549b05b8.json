@@ -1,0 +1,1357 @@
+{
+  "name": "elm-street-pantry-plan.xlsx",
+  "mime": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "result": {
+    "extractor": "xlsx",
+    "files": [],
+    "steps": {
+      "metadata": {
+        "error": "exiftool failed: exit status 1: Out of memory in perl:util:safesysrealloc",
+        "result": null
+      },
+      "outline": {
+        "result": [
+          {
+            "from": 0,
+            "name": "Container System",
+            "rows": 13
+          },
+          {
+            "from": 951,
+            "name": "Plan",
+            "rows": 52
+          },
+          {
+            "from": 7184,
+            "name": "Buy List",
+            "rows": 14
+          }
+        ]
+      },
+      "sheets": {
+        "result": [
+          {
+            "columns": 7,
+            "headers": [
+              "Elm Street Pantry: Container System",
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "name": "Container System",
+            "rows": 13,
+            "sample": [
+              [
+                "The Hartwell Square Jar is the backbone: glass, square, clamp lid with a silicone gasket, five sizes.",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              [
+                "Container",
+                "Capacity (L)",
+                "W (cm)",
+                "D (cm)",
+                "H (cm)",
+                "Unit price (CAD)",
+                "Where to buy"
+              ],
+              [
+                "Hartwell Square Jar 0.5L",
+                0.5,
+                11,
+                11,
+                12,
+                6.5,
+                "Northgate Kitchen Supply"
+              ],
+              [
+                "Hartwell Square Jar 1L",
+                1,
+                11,
+                11,
+                15.5,
+                8.25,
+                "Northgate Kitchen Supply"
+              ],
+              [
+                "Hartwell Square Jar 1.5L",
+                1.5,
+                12,
+                12,
+                19,
+                11.4,
+                "Northgate Kitchen Supply"
+              ],
+              [
+                "Hartwell Square Jar 2L",
+                2,
+                12.5,
+                13,
+                21.5,
+                13.9,
+                "Northgate Kitchen Supply"
+              ],
+              [
+                "Hartwell Square Jar 3L",
+                3,
+                14,
+                15.5,
+                24,
+                17.75,
+                "Northgate Kitchen Supply"
+              ],
+              [
+                "Hartwell Spice Jar 70ml",
+                0.07,
+                "n/a",
+                "n/a",
+                9,
+                4.8,
+                "Northgate Kitchen Supply"
+              ],
+              [
+                "Tallis Pasta Canister 2.2L",
+                2.2,
+                10,
+                10,
+                29,
+                19.99,
+                "Online"
+              ],
+              [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              [
+                "Long pasta does not fit any Hartwell jar upright: the tallest is 24 cm and spaghetti runs 25.6 cm.",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              [
+                "Prices are what Northgate listed in September 2026 and change often.",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            ],
+            "truncated": false
+          },
+          {
+            "columns": 11,
+            "headers": [
+              "Elm Street Pantry: Plan",
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "name": "Plan",
+            "rows": 52,
+            "sample": [
+              [
+                "Include? = Yes rows roll up into the Buy List. No rows are kept for later.",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              [
+                "Item",
+                "Category",
+                "Include?",
+                "Package",
+                "Package (kg)",
+                "Density (g/L)",
+                "Volume needed (L)",
+                "Container",
+                "Qty",
+                "Shelf",
+                "Notes"
+              ],
+              [
+                "Poppy seeds",
+                "Seeds",
+                "Yes",
+                "250 g",
+                0.25,
+                600,
+                0.42,
+                "Hartwell Square Jar 0.5L",
+                1,
+                "Upper cabinet, left",
+                "Oily, keep out of light"
+              ],
+              [
+                "Saffron threads",
+                "Spices",
+                "Yes",
+                "10 g",
+                0.01,
+                60,
+                0.17,
+                "Hartwell Square Jar 0.5L",
+                1,
+                "Spice rack by the stove",
+                null
+              ],
+              [
+                "Vanilla beans",
+                "Baking",
+                "Yes",
+                "10 pods",
+                0.05,
+                200,
+                0.25,
+                "Hartwell Square Jar 0.5L",
+                1,
+                "Baking cabinet, middle shelf",
+                null
+              ],
+              [
+                "Sesame seeds",
+                "Seeds",
+                "Yes",
+                "500 g",
+                0.5,
+                640,
+                0.78,
+                "Hartwell Square Jar 1L",
+                1,
+                "Upper cabinet, left",
+                "Goes rancid; airtight and dark"
+              ],
+              [
+                "Coconut sugar",
+                "Sugar",
+                "Yes",
+                "500 g",
+                0.5,
+                800,
+                0.63,
+                "Hartwell Square Jar 1L",
+                1,
+                "Baking cabinet, top shelf",
+                null
+              ],
+              [
+                "Turbinado sugar",
+                "Sugar",
+                "Yes",
+                "500 g",
+                0.5,
+                850,
+                0.59,
+                "Hartwell Square Jar 1L",
+                1,
+                "Baking cabinet, top shelf",
+                "For finishing baked goods"
+              ],
+              [
+                "Baking powder",
+                "Baking",
+                "Yes",
+                "450 g tin",
+                0.45,
+                810,
+                0.56,
+                "Hartwell Square Jar 1L",
+                1,
+                "Baking cabinet, middle shelf",
+                "Moisture-sensitive"
+              ],
+              [
+                "Fine salt",
+                "Baking",
+                "Yes",
+                "1 kg",
+                1,
+                1200,
+                0.83,
+                "Hartwell Square Jar 1L",
+                1,
+                "Baking cabinet, middle shelf",
+                null
+              ],
+              [
+                "Instant yeast",
+                "Baking",
+                "Yes",
+                "454 g brick",
+                0.454,
+                700,
+                0.65,
+                "Hartwell Square Jar 1L",
+                1,
+                "Baking cabinet, middle shelf",
+                "Opened yeast goes in the freezer"
+              ],
+              [
+                "Pumpkin seeds",
+                "Seeds",
+                "Yes",
+                "500 g",
+                0.5,
+                620,
+                0.81,
+                "Hartwell Square Jar 1L",
+                1,
+                "Upper cabinet, left",
+                null
+              ],
+              [
+                "Sunflower seeds",
+                "Seeds",
+                "Yes",
+                "500 g",
+                0.5,
+                620,
+                0.81,
+                "Hartwell Square Jar 1L",
+                1,
+                "Upper cabinet, left",
+                null
+              ],
+              [
+                "Flax seeds",
+                "Seeds",
+                "Yes",
+                "500 g",
+                0.5,
+                720,
+                0.69,
+                "Hartwell Square Jar 1L",
+                1,
+                "Upper cabinet, left",
+                "Buy whole, grind as needed"
+              ],
+              [
+                "Black beans",
+                "Legumes",
+                "Yes",
+                "900 g",
+                0.9,
+                780,
+                1.15,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Pantry, second shelf",
+                null
+              ],
+              [
+                "Chickpeas",
+                "Legumes",
+                "Yes",
+                "900 g",
+                0.9,
+                760,
+                1.18,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Pantry, second shelf",
+                null
+              ],
+              [
+                "Baking soda",
+                "Baking",
+                "Yes",
+                "1 kg box",
+                1,
+                930,
+                1.08,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Baking cabinet, middle shelf",
+                "Humidity kills leavening"
+              ],
+              [
+                "Brown sugar",
+                "Sugar",
+                "Yes",
+                "1 kg",
+                1,
+                900,
+                1.11,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Baking cabinet, top shelf",
+                "Airtight keeps it soft"
+              ],
+              [
+                "Cornstarch",
+                "Baking",
+                "Yes",
+                "454 g box",
+                0.454,
+                500,
+                0.91,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Baking cabinet, middle shelf",
+                null
+              ],
+              [
+                "Cocoa powder",
+                "Baking",
+                "Yes",
+                "500 g",
+                0.5,
+                470,
+                1.06,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Baking cabinet, middle shelf",
+                null
+              ]
+            ],
+            "truncated": true
+          },
+          {
+            "columns": 4,
+            "headers": [
+              "Elm Street Pantry: Buy List",
+              null,
+              null,
+              null
+            ],
+            "name": "Buy List",
+            "rows": 14,
+            "sample": [
+              [
+                "Quantities roll up from the Plan sheet, Include? = Yes rows only.",
+                null,
+                null,
+                null
+              ],
+              [
+                "Container",
+                "Qty",
+                "Unit price (CAD)",
+                "Line total (CAD)"
+              ],
+              [
+                "Hartwell Square Jar 0.5L",
+                3,
+                6.5,
+                19.5
+              ],
+              [
+                "Hartwell Square Jar 1L",
+                9,
+                8.25,
+                74.25
+              ],
+              [
+                "Hartwell Square Jar 1.5L",
+                14,
+                11.4,
+                159.6
+              ],
+              [
+                "Hartwell Square Jar 2L",
+                8,
+                13.9,
+                111.2
+              ],
+              [
+                "Hartwell Square Jar 3L",
+                11,
+                17.75,
+                195.25
+              ],
+              [
+                "Hartwell Spice Jar 70ml",
+                14,
+                4.8,
+                67.2
+              ],
+              [
+                "Tallis Pasta Canister 2.2L",
+                2,
+                19.99,
+                39.98
+              ],
+              [
+                "TOTAL",
+                61,
+                null,
+                666.98
+              ],
+              [
+                "With 13% HST",
+                null,
+                null,
+                753.69
+              ],
+              [
+                null,
+                null,
+                null,
+                null
+              ],
+              [
+                "A large order: buy the flours and legumes first and the rest once the shelf fills.",
+                null,
+                null,
+                null
+              ]
+            ],
+            "truncated": false
+          }
+        ]
+      },
+      "tables": {
+        "result": [
+          {
+            "columns": [
+              "Container",
+              "Capacity (L)",
+              "W (cm)",
+              "D (cm)",
+              "H (cm)",
+              "Unit price (CAD)",
+              "Where to buy"
+            ],
+            "name": "Container System",
+            "rows": [
+              [
+                "Hartwell Square Jar 0.5L",
+                0.5,
+                11,
+                11,
+                12,
+                6.5,
+                "Northgate Kitchen Supply"
+              ],
+              [
+                "Hartwell Square Jar 1L",
+                1,
+                11,
+                11,
+                15.5,
+                8.25,
+                "Northgate Kitchen Supply"
+              ],
+              [
+                "Hartwell Square Jar 1.5L",
+                1.5,
+                12,
+                12,
+                19,
+                11.4,
+                "Northgate Kitchen Supply"
+              ],
+              [
+                "Hartwell Square Jar 2L",
+                2,
+                12.5,
+                13,
+                21.5,
+                13.9,
+                "Northgate Kitchen Supply"
+              ],
+              [
+                "Hartwell Square Jar 3L",
+                3,
+                14,
+                15.5,
+                24,
+                17.75,
+                "Northgate Kitchen Supply"
+              ],
+              [
+                "Hartwell Spice Jar 70ml",
+                0.07,
+                "n/a",
+                "n/a",
+                9,
+                4.8,
+                "Northgate Kitchen Supply"
+              ],
+              [
+                "Tallis Pasta Canister 2.2L",
+                2.2,
+                10,
+                10,
+                29,
+                19.99,
+                "Online"
+              ],
+              [
+                "Long pasta does not fit any Hartwell jar upright: the tallest is 24 cm and spaghetti runs 25.6 cm.",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              [
+                "Prices are what Northgate listed in September 2026 and change often.",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            ]
+          },
+          {
+            "columns": [
+              "Item",
+              "Category",
+              "Include?",
+              "Package",
+              "Package (kg)",
+              "Density (g/L)",
+              "Volume needed (L)",
+              "Container",
+              "Qty",
+              "Shelf",
+              "Notes"
+            ],
+            "name": "Plan",
+            "rows": [
+              [
+                "Poppy seeds",
+                "Seeds",
+                "Yes",
+                "250 g",
+                0.25,
+                600,
+                0.42,
+                "Hartwell Square Jar 0.5L",
+                1,
+                "Upper cabinet, left",
+                "Oily, keep out of light"
+              ],
+              [
+                "Saffron threads",
+                "Spices",
+                "Yes",
+                "10 g",
+                0.01,
+                60,
+                0.17,
+                "Hartwell Square Jar 0.5L",
+                1,
+                "Spice rack by the stove",
+                null
+              ],
+              [
+                "Vanilla beans",
+                "Baking",
+                "Yes",
+                "10 pods",
+                0.05,
+                200,
+                0.25,
+                "Hartwell Square Jar 0.5L",
+                1,
+                "Baking cabinet, middle shelf",
+                null
+              ],
+              [
+                "Sesame seeds",
+                "Seeds",
+                "Yes",
+                "500 g",
+                0.5,
+                640,
+                0.78,
+                "Hartwell Square Jar 1L",
+                1,
+                "Upper cabinet, left",
+                "Goes rancid; airtight and dark"
+              ],
+              [
+                "Coconut sugar",
+                "Sugar",
+                "Yes",
+                "500 g",
+                0.5,
+                800,
+                0.63,
+                "Hartwell Square Jar 1L",
+                1,
+                "Baking cabinet, top shelf",
+                null
+              ],
+              [
+                "Turbinado sugar",
+                "Sugar",
+                "Yes",
+                "500 g",
+                0.5,
+                850,
+                0.59,
+                "Hartwell Square Jar 1L",
+                1,
+                "Baking cabinet, top shelf",
+                "For finishing baked goods"
+              ],
+              [
+                "Baking powder",
+                "Baking",
+                "Yes",
+                "450 g tin",
+                0.45,
+                810,
+                0.56,
+                "Hartwell Square Jar 1L",
+                1,
+                "Baking cabinet, middle shelf",
+                "Moisture-sensitive"
+              ],
+              [
+                "Fine salt",
+                "Baking",
+                "Yes",
+                "1 kg",
+                1,
+                1200,
+                0.83,
+                "Hartwell Square Jar 1L",
+                1,
+                "Baking cabinet, middle shelf",
+                null
+              ],
+              [
+                "Instant yeast",
+                "Baking",
+                "Yes",
+                "454 g brick",
+                0.454,
+                700,
+                0.65,
+                "Hartwell Square Jar 1L",
+                1,
+                "Baking cabinet, middle shelf",
+                "Opened yeast goes in the freezer"
+              ],
+              [
+                "Pumpkin seeds",
+                "Seeds",
+                "Yes",
+                "500 g",
+                0.5,
+                620,
+                0.81,
+                "Hartwell Square Jar 1L",
+                1,
+                "Upper cabinet, left",
+                null
+              ],
+              [
+                "Sunflower seeds",
+                "Seeds",
+                "Yes",
+                "500 g",
+                0.5,
+                620,
+                0.81,
+                "Hartwell Square Jar 1L",
+                1,
+                "Upper cabinet, left",
+                null
+              ],
+              [
+                "Flax seeds",
+                "Seeds",
+                "Yes",
+                "500 g",
+                0.5,
+                720,
+                0.69,
+                "Hartwell Square Jar 1L",
+                1,
+                "Upper cabinet, left",
+                "Buy whole, grind as needed"
+              ],
+              [
+                "Black beans",
+                "Legumes",
+                "Yes",
+                "900 g",
+                0.9,
+                780,
+                1.15,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Pantry, second shelf",
+                null
+              ],
+              [
+                "Chickpeas",
+                "Legumes",
+                "Yes",
+                "900 g",
+                0.9,
+                760,
+                1.18,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Pantry, second shelf",
+                null
+              ],
+              [
+                "Baking soda",
+                "Baking",
+                "Yes",
+                "1 kg box",
+                1,
+                930,
+                1.08,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Baking cabinet, middle shelf",
+                "Humidity kills leavening"
+              ],
+              [
+                "Brown sugar",
+                "Sugar",
+                "Yes",
+                "1 kg",
+                1,
+                900,
+                1.11,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Baking cabinet, top shelf",
+                "Airtight keeps it soft"
+              ],
+              [
+                "Cornstarch",
+                "Baking",
+                "Yes",
+                "454 g box",
+                0.454,
+                500,
+                0.91,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Baking cabinet, middle shelf",
+                null
+              ],
+              [
+                "Cocoa powder",
+                "Baking",
+                "Yes",
+                "500 g",
+                0.5,
+                470,
+                1.06,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Baking cabinet, middle shelf",
+                null
+              ],
+              [
+                "Quinoa",
+                "Grains",
+                "Yes",
+                "900 g",
+                0.9,
+                720,
+                1.25,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Pantry, third shelf",
+                null
+              ],
+              [
+                "Couscous",
+                "Grains",
+                "Yes",
+                "700 g",
+                0.7,
+                760,
+                0.92,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Pantry, third shelf",
+                null
+              ],
+              [
+                "Green lentils",
+                "Legumes",
+                "Yes",
+                "900 g",
+                0.9,
+                830,
+                1.08,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Pantry, second shelf",
+                null
+              ],
+              [
+                "Red lentils",
+                "Legumes",
+                "Yes",
+                "900 g",
+                0.9,
+                850,
+                1.06,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Pantry, second shelf",
+                null
+              ],
+              [
+                "Split peas",
+                "Legumes",
+                "Yes",
+                "900 g",
+                0.9,
+                800,
+                1.13,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Pantry, second shelf",
+                null
+              ],
+              [
+                "Pinto beans",
+                "Legumes",
+                "Yes",
+                "900 g",
+                0.9,
+                780,
+                1.15,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Pantry, second shelf",
+                null
+              ],
+              [
+                "Mung beans",
+                "Legumes",
+                "Yes",
+                "900 g",
+                0.9,
+                800,
+                1.13,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Pantry, second shelf",
+                null
+              ],
+              [
+                "Pearl barley",
+                "Grains",
+                "Yes",
+                "900 g",
+                0.9,
+                700,
+                1.29,
+                "Hartwell Square Jar 1.5L",
+                1,
+                "Pantry, third shelf",
+                null
+              ],
+              [
+                "Chia seeds",
+                "Seeds",
+                "Yes",
+                "1 kg",
+                1,
+                700,
+                1.43,
+                "Hartwell Square Jar 2L",
+                1,
+                "Upper cabinet, left",
+                null
+              ],
+              [
+                "Popcorn, white",
+                "Popcorn",
+                "Yes",
+                "1 kg",
+                1,
+                740,
+                1.35,
+                "Hartwell Square Jar 2L",
+                1,
+                "Pantry, top shelf",
+                "Airtight keeps the moisture in, or it won't pop"
+              ],
+              [
+                "Popcorn, mushroom",
+                "Popcorn",
+                "Yes",
+                "1 kg",
+                1,
+                740,
+                1.35,
+                "Hartwell Square Jar 2L",
+                1,
+                "Pantry, top shelf",
+                null
+              ],
+              [
+                "Macaroni",
+                "Pasta",
+                "Yes",
+                "900 g box",
+                0.9,
+                500,
+                1.8,
+                "Hartwell Square Jar 2L",
+                1,
+                "Pantry, floor-level drawer",
+                "Tight; go 3L if buying bulk"
+              ],
+              [
+                "Chocolate chips",
+                "Baking",
+                "Yes",
+                "1 kg",
+                1,
+                720,
+                1.39,
+                "Hartwell Square Jar 2L",
+                1,
+                "Baking cabinet, middle shelf",
+                null
+              ],
+              [
+                "Almonds",
+                "Nuts",
+                "Yes",
+                "1 kg",
+                1,
+                605,
+                1.65,
+                "Hartwell Square Jar 2L",
+                1,
+                "Upper cabinet, right",
+                null
+              ],
+              [
+                "Cashews",
+                "Nuts",
+                "Yes",
+                "1 kg",
+                1,
+                600,
+                1.67,
+                "Hartwell Square Jar 2L",
+                1,
+                "Upper cabinet, right",
+                null
+              ],
+              [
+                "Nutritional yeast",
+                "Staples",
+                "Yes",
+                "300 g",
+                0.3,
+                200,
+                1.5,
+                "Hartwell Square Jar 2L",
+                1,
+                "Pantry, top shelf",
+                "Extremely light"
+              ],
+              [
+                "All-purpose flour",
+                "Flour",
+                "Yes",
+                "2.5 kg bag",
+                2.5,
+                530,
+                4.72,
+                "Hartwell Square Jar 3L",
+                2,
+                "Baking cabinet, bottom shelf",
+                "A full bag needs two 3L jars"
+              ],
+              [
+                "Bread flour",
+                "Flour",
+                "Yes",
+                "2.5 kg bag",
+                2.5,
+                550,
+                4.55,
+                "Hartwell Square Jar 3L",
+                2,
+                "Baking cabinet, bottom shelf",
+                "Same as all-purpose"
+              ],
+              [
+                "Whole wheat flour",
+                "Flour",
+                "Yes",
+                "2 kg bag",
+                2,
+                560,
+                3.57,
+                "Hartwell Square Jar 3L",
+                1,
+                "Baking cabinet, bottom shelf",
+                null
+              ],
+              [
+                "Granulated sugar",
+                "Sugar",
+                "Yes",
+                "2 kg bag",
+                2,
+                800,
+                2.5,
+                "Hartwell Square Jar 3L",
+                1,
+                "Baking cabinet, top shelf",
+                null
+              ],
+              [
+                "Icing sugar",
+                "Sugar",
+                "Yes",
+                "1 kg",
+                1,
+                480,
+                2.08,
+                "Hartwell Square Jar 3L",
+                1,
+                "Baking cabinet, top shelf",
+                "Takes twice the volume you'd guess"
+              ],
+              [
+                "Rolled oats",
+                "Grains",
+                "Yes",
+                "1 kg",
+                1,
+                400,
+                2.5,
+                "Hartwell Square Jar 3L",
+                1,
+                "Pantry, third shelf",
+                null
+              ],
+              [
+                "White rice",
+                "Grains",
+                "Yes",
+                "2 kg",
+                2,
+                780,
+                2.56,
+                "Hartwell Square Jar 3L",
+                1,
+                "Pantry, third shelf",
+                null
+              ],
+              [
+                "Basmati rice",
+                "Grains",
+                "Yes",
+                "2 kg",
+                2,
+                750,
+                2.67,
+                "Hartwell Square Jar 3L",
+                1,
+                "Pantry, third shelf",
+                null
+              ],
+              [
+                "Walnuts",
+                "Nuts",
+                "Yes",
+                "1 kg",
+                1,
+                420,
+                2.38,
+                "Hartwell Square Jar 3L",
+                1,
+                "Upper cabinet, right",
+                "Fridge is better"
+              ],
+              [
+                "Masa harina",
+                "Flour",
+                "No",
+                "1.8 kg bag",
+                1.8,
+                550,
+                3.27,
+                "Hartwell Square Jar 3L",
+                2,
+                "Baking cabinet, bottom shelf",
+                "Skipped for now"
+              ],
+              [
+                "Rye flour",
+                "Flour",
+                "No",
+                "2 kg bag",
+                2,
+                520,
+                3.85,
+                "Hartwell Square Jar 3L",
+                1,
+                "Baking cabinet, bottom shelf",
+                "Skipped for now"
+              ],
+              [
+                "Dried apricots",
+                "Dried fruit",
+                "No",
+                "500 g",
+                0.5,
+                650,
+                0.77,
+                "Hartwell Square Jar 1L",
+                1,
+                "Upper cabinet, right",
+                "Skipped for now"
+              ],
+              [
+                "Spices (each)",
+                "Spices",
+                "Yes",
+                "about 50 g",
+                0.05,
+                500,
+                0.1,
+                "Hartwell Spice Jar 70ml",
+                14,
+                "Spice rack by the stove",
+                "Fourteen jars covers the rack"
+              ],
+              [
+                "Spaghetti",
+                "Pasta",
+                "Yes",
+                "900 g box",
+                0.9,
+                500,
+                1.8,
+                "Tallis Pasta Canister 2.2L",
+                1,
+                "Pantry, floor-level drawer",
+                "Strands run 25.6 cm; no Hartwell jar is tall enough"
+              ],
+              [
+                "Linguine",
+                "Pasta",
+                "Yes",
+                "900 g box",
+                0.9,
+                500,
+                1.8,
+                "Tallis Pasta Canister 2.2L",
+                1,
+                "Pantry, floor-level drawer",
+                "Same height problem as spaghetti"
+              ]
+            ]
+          },
+          {
+            "columns": [
+              "Container",
+              "Qty",
+              "Unit price (CAD)",
+              "Line total (CAD)"
+            ],
+            "name": "Buy List",
+            "rows": [
+              [
+                "Hartwell Square Jar 0.5L",
+                3,
+                6.5,
+                19.5
+              ],
+              [
+                "Hartwell Square Jar 1L",
+                9,
+                8.25,
+                74.25
+              ],
+              [
+                "Hartwell Square Jar 1.5L",
+                14,
+                11.4,
+                159.6
+              ],
+              [
+                "Hartwell Square Jar 2L",
+                8,
+                13.9,
+                111.2
+              ],
+              [
+                "Hartwell Square Jar 3L",
+                11,
+                17.75,
+                195.25
+              ],
+              [
+                "Hartwell Spice Jar 70ml",
+                14,
+                4.8,
+                67.2
+              ],
+              [
+                "Tallis Pasta Canister 2.2L",
+                2,
+                19.99,
+                39.98
+              ],
+              [
+                "With 13% HST",
+                null,
+                null,
+                753.69
+              ],
+              [
+                "A large order: buy the flours and legumes first and the rest once the shelf fills.",
+                null,
+                null,
+                null
+              ]
+            ]
+          }
+        ]
+      },
+      "text": {
+        "result": "Container System\nElm Street Pantry: Container System\nThe Hartwell Square Jar is the backbone: glass, square, clamp lid with a silicone gasket, five sizes.\nContainer | Capacity (L) | W (cm) | D (cm) | H (cm) | Unit price (CAD) | Where to buy\nHartwell Square Jar 0.5L | 0.5 | 11 | 11 | 12 | 6.5 | Northgate Kitchen Supply\nHartwell Square Jar 1L | 1 | 11 | 11 | 15.5 | 8.25 | Northgate Kitchen Supply\nHartwell Square Jar 1.5L | 1.5 | 12 | 12 | 19 | 11.4 | Northgate Kitchen Supply\nHartwell Square Jar 2L | 2 | 12.5 | 13 | 21.5 | 13.9 | Northgate Kitchen Supply\nHartwell Square Jar 3L | 3 | 14 | 15.5 | 24 | 17.75 | Northgate Kitchen Supply\nHartwell Spice Jar 70ml | 0.07 | n/a | n/a | 9 | 4.8 | Northgate Kitchen Supply\nTallis Pasta Canister 2.2L | 2.2 | 10 | 10 | 29 | 19.99 | Online\nLong pasta does not fit any Hartwell jar upright: the tallest is 24 cm and spaghetti runs 25.6 cm.\nPrices are what Northgate listed in September 2026 and change often.\n\nPlan\nElm Street Pantry: Plan\nInclude? = Yes rows roll up into the Buy List. No rows are kept for later.\nItem | Category | Include? | Package | Package (kg) | Density (g/L) | Volume needed (L) | Container | Qty | Shelf | Notes\nPoppy seeds | Seeds | Yes | 250 g | 0.25 | 600 | 0.42 | Hartwell Square Jar 0.5L | 1 | Upper cabinet, left | Oily, keep out of light\nSaffron threads | Spices | Yes | 10 g | 0.01 | 60 | 0.17 | Hartwell Square Jar 0.5L | 1 | Spice rack by the stove\nVanilla beans | Baking | Yes | 10 pods | 0.05 | 200 | 0.25 | Hartwell Square Jar 0.5L | 1 | Baking cabinet, middle shelf\nSesame seeds | Seeds | Yes | 500 g | 0.5 | 640 | 0.78 | Hartwell Square Jar 1L | 1 | Upper cabinet, left | Goes rancid; airtight and dark\nCoconut sugar | Sugar | Yes | 500 g | 0.5 | 800 | 0.63 | Hartwell Square Jar 1L | 1 | Baking cabinet, top shelf\nTurbinado sugar | Sugar | Yes | 500 g | 0.5 | 850 | 0.59 | Hartwell Square Jar 1L | 1 | Baking cabinet, top shelf | For finishing baked goods\nBaking powder | Baking | Yes | 450 g tin | 0.45 | 810 | 0.56 | Hartwell Square Jar 1L | 1 | Baking cabinet, middle shelf | Moisture-sensitive\nFine salt | Baking | Yes | 1 kg | 1 | 1200 | 0.83 | Hartwell Square Jar 1L | 1 | Baking cabinet, middle shelf\nInstant yeast | Baking | Yes | 454 g brick | 0.454 | 700 | 0.65 | Hartwell Square Jar 1L | 1 | Baking cabinet, middle shelf | Opened yeast goes in the freezer\nPumpkin seeds | Seeds | Yes | 500 g | 0.5 | 620 | 0.81 | Hartwell Square Jar 1L | 1 | Upper cabinet, left\nSunflower seeds | Seeds | Yes | 500 g | 0.5 | 620 | 0.81 | Hartwell Square Jar 1L | 1 | Upper cabinet, left\nFlax seeds | Seeds | Yes | 500 g | 0.5 | 720 | 0.69 | Hartwell Square Jar 1L | 1 | Upper cabinet, left | Buy whole, grind as needed\nBlack beans | Legumes | Yes | 900 g | 0.9 | 780 | 1.15 | Hartwell Square Jar 1.5L | 1 | Pantry, second shelf\nChickpeas | Legumes | Yes | 900 g | 0.9 | 760 | 1.18 | Hartwell Square Jar 1.5L | 1 | Pantry, second shelf\nBaking soda | Baking | Yes | 1 kg box | 1 | 930 | 1.08 | Hartwell Square Jar 1.5L | 1 | Baking cabinet, middle shelf | Humidity kills leavening\nBrown sugar | Sugar | Yes | 1 kg | 1 | 900 | 1.11 | Hartwell Square Jar 1.5L | 1 | Baking cabinet, top shelf | Airtight keeps it soft\nCornstarch | Baking | Yes | 454 g box | 0.454 | 500 | 0.91 | Hartwell Square Jar 1.5L | 1 | Baking cabinet, middle shelf\nCocoa powder | Baking | Yes | 500 g | 0.5 | 470 | 1.06 | Hartwell Square Jar 1.5L | 1 | Baking cabinet, middle shelf\nQuinoa | Grains | Yes | 900 g | 0.9 | 720 | 1.25 | Hartwell Square Jar 1.5L | 1 | Pantry, third shelf\nCouscous | Grains | Yes | 700 g | 0.7 | 760 | 0.92 | Hartwell Square Jar 1.5L | 1 | Pantry, third shelf\nGreen lentils | Legumes | Yes | 900 g | 0.9 | 830 | 1.08 | Hartwell Square Jar 1.5L | 1 | Pantry, second shelf\nRed lentils | Legumes | Yes | 900 g | 0.9 | 850 | 1.06 | Hartwell Square Jar 1.5L | 1 | Pantry, second shelf\nSplit peas | Legumes | Yes | 900 g | 0.9 | 800 | 1.13 | Hartwell Square Jar 1.5L | 1 | Pantry, second shelf\nPinto beans | Legumes | Yes | 900 g | 0.9 | 780 | 1.15 | Hartwell Square Jar 1.5L | 1 | Pantry, second shelf\nMung beans | Legumes | Yes | 900 g | 0.9 | 800 | 1.13 | Hartwell Square Jar 1.5L | 1 | Pantry, second shelf\nPearl barley | Grains | Yes | 900 g | 0.9 | 700 | 1.29 | Hartwell Square Jar 1.5L | 1 | Pantry, third shelf\nChia seeds | Seeds | Yes | 1 kg | 1 | 700 | 1.43 | Hartwell Square Jar 2L | 1 | Upper cabinet, left\nPopcorn, white | Popcorn | Yes | 1 kg | 1 | 740 | 1.35 | Hartwell Square Jar 2L | 1 | Pantry, top shelf | Airtight keeps the moisture in, or it won't pop\nPopcorn, mushroom | Popcorn | Yes | 1 kg | 1 | 740 | 1.35 | Hartwell Square Jar 2L | 1 | Pantry, top shelf\nMacaroni | Pasta | Yes | 900 g box | 0.9 | 500 | 1.8 | Hartwell Square Jar 2L | 1 | Pantry, floor-level drawer | Tight; go 3L if buying bulk\nChocolate chips | Baking | Yes | 1 kg | 1 | 720 | 1.39 | Hartwell Square Jar 2L | 1 | Baking cabinet, middle shelf\nAlmonds | Nuts | Yes | 1 kg | 1 | 605 | 1.65 | Hartwell Square Jar 2L | 1 | Upper cabinet, right\nCashews | Nuts | Yes | 1 kg | 1 | 600 | 1.67 | Hartwell Square Jar 2L | 1 | Upper cabinet, right\nNutritional yeast | Staples | Yes | 300 g | 0.3 | 200 | 1.5 | Hartwell Square Jar 2L | 1 | Pantry, top shelf | Extremely light\nAll-purpose flour | Flour | Yes | 2.5 kg bag | 2.5 | 530 | 4.72 | Hartwell Square Jar 3L | 2 | Baking cabinet, bottom shelf | A full bag needs two 3L jars\nBread flour | Flour | Yes | 2.5 kg bag | 2.5 | 550 | 4.55 | Hartwell Square Jar 3L | 2 | Baking cabinet, bottom shelf | Same as all-purpose\nWhole wheat flour | Flour | Yes | 2 kg bag | 2 | 560 | 3.57 | Hartwell Square Jar 3L | 1 | Baking cabinet, bottom shelf\nGranulated sugar | Sugar | Yes | 2 kg bag | 2 | 800 | 2.5 | Hartwell Square Jar 3L | 1 | Baking cabinet, top shelf\nIcing sugar | Sugar | Yes | 1 kg | 1 | 480 | 2.08 | Hartwell Square Jar 3L | 1 | Baking cabinet, top shelf | Takes twice the volume you'd guess\nRolled oats | Grains | Yes | 1 kg | 1 | 400 | 2.5 | Hartwell Square Jar 3L | 1 | Pantry, third shelf\nWhite rice | Grains | Yes | 2 kg | 2 | 780 | 2.56 | Hartwell Square Jar 3L | 1 | Pantry, third shelf\nBasmati rice | Grains | Yes | 2 kg | 2 | 750 | 2.67 | Hartwell Square Jar 3L | 1 | Pantry, third shelf\nWalnuts | Nuts | Yes | 1 kg | 1 | 420 | 2.38 | Hartwell Square Jar 3L | 1 | Upper cabinet, right | Fridge is better\nMasa harina | Flour | No | 1.8 kg bag | 1.8 | 550 | 3.27 | Hartwell Square Jar 3L | 2 | Baking cabinet, bottom shelf | Skipped for now\nRye flour | Flour | No | 2 kg bag | 2 | 520 | 3.85 | Hartwell Square Jar 3L | 1 | Baking cabinet, bottom shelf | Skipped for now\nDried apricots | Dried fruit | No | 500 g | 0.5 | 650 | 0.77 | Hartwell Square Jar 1L | 1 | Upper cabinet, right | Skipped for now\nSpices (each) | Spices | Yes | about 50 g | 0.05 | 500 | 0.1 | Hartwell Spice Jar 70ml | 14 | Spice rack by the stove | Fourteen jars covers the rack\nSpaghetti | Pasta | Yes | 900 g box | 0.9 | 500 | 1.8 | Tallis Pasta Canister 2.2L | 1 | Pantry, floor-level drawer | Strands run 25.6 cm; no Hartwell jar is tall enough\nLinguine | Pasta | Yes | 900 g box | 0.9 | 500 | 1.8 | Tallis Pasta Canister 2.2L | 1 | Pantry, floor-level drawer | Same height problem as spaghetti\n\nBuy List\nElm Street Pantry: Buy List\nQuantities roll up from the Plan sheet, Include? = Yes rows only.\nContainer | Qty | Unit price (CAD) | Line total (CAD)\nHartwell Square Jar 0.5L | 3 | 6.5 | 19.5\nHartwell Square Jar 1L | 9 | 8.25 | 74.25\nHartwell Square Jar 1.5L | 14 | 11.4 | 159.6\nHartwell Square Jar 2L | 8 | 13.9 | 111.2\nHartwell Square Jar 3L | 11 | 17.75 | 195.25\nHartwell Spice Jar 70ml | 14 | 4.8 | 67.2\nTallis Pasta Canister 2.2L | 2 | 19.99 | 39.98\nTOTAL | 61 | 666.98\nWith 13% HST | 753.69\nA large order: buy the flours and legumes first and the rest once the shelf fills."
+      }
+    }
+  }
+}

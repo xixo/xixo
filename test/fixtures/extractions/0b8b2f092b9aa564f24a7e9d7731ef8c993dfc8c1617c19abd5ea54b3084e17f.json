@@ -1,0 +1,13 @@
+{
+  "name": "emoji.txt",
+  "mime": "text/plain",
+  "result": {
+    "extractor": "text",
+    "files": [],
+    "steps": {
+      "text": {
+        "result": "Packing list 🧳\n\n- passport 🛂\n- charger 🔌\n- family 👩‍👩‍👧‍👦\n- 日本語のメモ\n- العربية\n\nNeedle: UNICODE-PACKINGLIST-4457"
+      }
+    }
+  }
+}

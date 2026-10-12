@@ -15,6 +15,8 @@ class Resource
     MOST_RESULT = 4.megabytes
     SERVICE_KINDS = %w[ollama lmstudio].freeze
     PUT_AWAY_TRIES = 3
+    EXTRACTORS = %w[pdf image media doc epub xlsx calendar pkpass email contact data text fallback].freeze
+    LOCAL = "local".freeze
 
     serves :transport
 
@@ -65,6 +67,14 @@ class Resource
         active.find_by("resources.details ->> 'client_id' = ?", client_id.to_s)
       end
 
+      def local
+        active.find_by("resources.details ->> 'local' = 'true'")
+      end
+
+      def local!
+        local || create!(key: LOCAL, name: "This server", details: { "local" => true })
+      end
+
       def binaries
         Pathname.new(ENV.fetch("XIXO_AGENT_DIR", "/opt/xixo-agent"))
       end
@@ -82,6 +92,17 @@ class Resource
       Array(machine["folders"])
     end
 
+    def extractors
+      Array(machine["extractors"])
+    end
+
+    def extracts?(kind)
+      extractors.include?(kind.to_s)
+    end
+
+    def local?
+      details.to_h["local"] == true
+    end
 
     def seen_at
       Time.iso8601(machine["seen_at"].to_s)
@@ -99,6 +120,7 @@ class Resource
 
     def check!
       return true if installing? || connected?
+      raise Resource::Failed, "#{key}: the agent beside the server has not enrolled yet" if client_id.blank? && local?
       raise Resource::Failed, "#{key}: the agent is not installed yet. Paste an SSH key to install it" if client_id.blank?
       raise Resource::Failed, "#{key}: the agent has never connected" if seen_at.nil?
 
@@ -192,6 +214,14 @@ class Resource
                 details = jsonb_set(details, '{machine}', (details -> 'machine') || jsonb_build_object('connected', false, 'seen_at', ?::text)),
                 offline_host = ?, offline_last_seen_at = ?
               SQL
+    end
+
+    def bound!(client_id, revoker: Enrollment.method(:revoke))
+      return if self.client_id == client_id
+
+      revoker.call(tenant, self.client_id) if self.client_id.present?
+      self.details = details.to_h.merge("client_id" => client_id).except("machine")
+      save!
     end
 
     def enrolled!(client_id:, host_key:, version:, arch:, revoker: Enrollment.method(:revoke))

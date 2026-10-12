@@ -1,0 +1,13 @@
+{
+  "name": "UPPERCASE.TXT",
+  "mime": "text/plain",
+  "result": {
+    "extractor": "text",
+    "files": [],
+    "steps": {
+      "text": {
+        "result": "An uppercase extension.\n\nNeedle: UPPEREXT-7266"
+      }
+    }
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "name": "pixel.png",
+  "mime": "image/png",
+  "result": {
+    "extractor": "image",
+    "files": [
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 505,
+        "request_file": "93c1392b408aecb1-0"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 505,
+        "request_file": "93c1392b408aecb1-1"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "deviation": {
+        "error": "vips failed: vips failed: exit status 1: (vips:3357): GLib-GObject-CRITICAL **: 01:41:30.474: value \"nan\" of type 'gdouble' is invalid or out of range for property 'out' of type 'gdouble'\ndeviate: ...",
+        "result": null
+      },
+      "dimensions": {
+        "result": {
+          "height": 1,
+          "width": 1
+        }
+      },
+      "location": {
+        "digest": "exiftool",
+        "result": null
+      },
+      "metadata": {
+        "result": {
+          "ColorSpace": "Uncalibrated",
+          "ColorType": "Grayscale",
+          "ExifImageHeight": 1,
+          "ExifImageWidth": 1,
+          "Filter": "Adaptive",
+          "ImageHeight": 1,
+          "ImageSize": "1x1",
+          "ImageWidth": 1,
+          "Interlace": "Noninterlaced",
+          "Megapixels": 0.000001,
+          "Orientation": "Horizontal (normal)",
+          "PixelUnits": "meters",
+          "PixelsPerUnitX": 1000,
+          "PixelsPerUnitY": 1000
+        }
+      },
+      "ocr": {
+        "result": ""
+      }
+    }
+  }
+}

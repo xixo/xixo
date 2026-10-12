@@ -1,0 +1,75 @@
+{
+  "name": "photo.heic",
+  "mime": "image/heic",
+  "result": {
+    "extractor": "image",
+    "files": [
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 4860,
+        "request_file": "965fcc5ed7c1e8cb-0"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 34349,
+        "request_file": "965fcc5ed7c1e8cb-1"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "deviation": {
+        "result": 73.718688
+      },
+      "dimensions": {
+        "result": {
+          "height": 800,
+          "width": 1200
+        }
+      },
+      "location": {
+        "digest": "exiftool",
+        "result": null
+      },
+      "metadata": {
+        "result": {
+          "AuxiliaryImageType": "urn:mpeg:hevc:2015:auxid:1",
+          "AverageFrameRate": 0,
+          "BitDepthChroma": 12,
+          "BitDepthLuma": 12,
+          "ChromaFormat": "4:2:0",
+          "CompatibleBrands": "mif1, heix, miaf",
+          "ConstantFrameRate": "Unknown",
+          "ConstraintIndicatorFlags": "0 0 0 0 0 0",
+          "GenProfileCompatibilityFlags": "Format Range Extensions",
+          "GeneralLevelIDC": "93 (level 3.1)",
+          "GeneralProfileIDC": "Format Range Extensions",
+          "GeneralProfileSpace": "Conforming",
+          "GeneralTierFlag": "Main Tier",
+          "HEVCConfigurationVersion": 1,
+          "ImagePixelDepth": 12,
+          "ImageSize": "1200x800",
+          "ImageSpatialExtent": "1200x800",
+          "MajorBrand": "High Efficiency Image Format still image (.HEIF)",
+          "Megapixels": 0.96,
+          "MinSpatialSegmentationIDC": 0,
+          "NumTemporalLayers": 1,
+          "ParallelismType": 0,
+          "PrimaryItemReference": 1,
+          "TemporalIDNested": "Yes"
+        }
+      },
+      "ocr": {
+        "result": "PHOTO-BELLWETHER-8123"
+      }
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "name": "icon.ico",
+  "mime": "image/vnd.microsoft.icon",
+  "result": {
+    "extractor": "image",
+    "files": [
+      {
+        "role": "thumbnail",
+        "name": "thumbnail.jpg",
+        "mime": "image/jpeg",
+        "size": 1065,
+        "request_file": "2503e8891fb1c97c-0"
+      },
+      {
+        "role": "preview",
+        "name": "preview.jpg",
+        "mime": "image/jpeg",
+        "size": 1065,
+        "request_file": "2503e8891fb1c97c-1"
+      }
+    ],
+    "steps": {
+      "derived": {
+        "result": {
+          "preview": "preview.jpg",
+          "thumbnail": "thumbnail.jpg"
+        }
+      },
+      "deviation": {
+        "result": 82.841245
+      },
+      "dimensions": {
+        "result": {
+          "height": 64,
+          "width": 64
+        }
+      },
+      "location": {
+        "digest": "exiftool",
+        "result": null
+      },
+      "metadata": {
+        "result": {
+          "ImageSize": "64x64",
+          "Megapixels": 0.004
+        }
+      },
+      "ocr": {
+        "result": ""
+      }
+    }
+  }
+}
