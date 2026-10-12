@@ -92,7 +92,8 @@ the agent is told where xixo is from it.
    fills in **Address**.
 3. Fill in **SSH user** and paste the account's private key into **SSH private key**.
 4. Under **Folders it shares**, list the folders the agent may read, one absolute path per line,
-   such as `/srv/media`. The same characters are refused as above.
+   such as `/srv/media`. End a line with `:rw`, such as `/srv/inbox:rw`, for a folder xixo may
+   also write into. The same characters are refused as above.
 5. Fill in **Host key** with the fingerprint `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`
    prints on the machine. A machine reached directly needs it. A machine reached through a tailnet
    at its tailnet address may leave it empty, since the tailnet vouches for the address, and then
@@ -108,21 +109,38 @@ for each step. The run:
    they differ or when a machine outside a tailnet has none.
 2. Refuses anything other than Linux on x86_64 or aarch64, and an account without `sudo -n`.
 3. Installs the extraction programs with `apt-get` when **Extract on the machine** is on, the same
-   packages as the agent beside the server. On a machine that is not Debian or Ubuntu, or when apt
-   fails, the run says so and goes on, and the agent reads only what needs no program: plain text,
-   data, calendars, contacts, email, books, and spreadsheets.
+   packages as the agent beside the server. apt runs without prompts, keeps any configuration file
+   already changed on the machine, and leaves running services alone. On Ubuntu several of the
+   packages, such as `ffmpeg` and `libraw-bin`, come from the `universe` component. When one
+   package cannot be found, the others still install, and the run names the missing one. On a
+   machine that is not Debian or Ubuntu, or when apt fails, the run says so and goes on, and the
+   agent reads only what needs no program: plain text, data, calendars, contacts, email, books, and
+   spreadsheets.
 4. Places the agent at `/usr/local/bin/xixo-agent` and checks its SHA-256 on the machine.
-5. Writes `/etc/xixo-agent/config.json` with xixo's address, masks' address, and the folders.
+5. Writes `/etc/xixo-agent/config.json` with xixo's address, masks' address, and the folders. On a
+   machine installed before, it keeps `tools`, `lend`, `extracts_for_others`, and
+   `extract_unsandboxed` from the configuration already there.
 6. Asks masks for an enrollment token and runs `xixo-agent enroll`, which makes the agent's keys on
    the machine and registers it with masks as a client of its own.
 7. Installs and starts the `xixo-agent` systemd service as the account. The service sees `/home`,
    `/root`, `/srv`, `/mnt`, `/media`, `/opt`, and `/var/lib` as empty, apart from its own state
-   directory, and each shared folder is mounted back read-only. A file outside the shared folders
-   is missing for the agent even when its account could read it.
+   directory. Each shared folder is mounted back, read-only or, for a `:rw` folder, read-write. A
+   file outside the shared folders is missing for the agent even when its account could read it.
+   The service may use 2 GB of memory, and extraction works in `/var/cache/xixo-agent`, on disk.
 
 xixo drops the private key when the run ends, whether it worked or not. A run that fails after
 the agent enrolls keeps the new client on the machine, so archiving the machine or installing
 again unenrolls it.
+
+To give the agent more memory than 2 GB, for large office documents or video, run
+`sudo systemctl edit xixo-agent` on the machine and add:
+
+```ini
+[Service]
+MemoryMax=4G
+```
+
+The setting lives in a drop-in file, so installing again keeps it.
 
 ## What a machine's card shows
 
@@ -166,13 +184,10 @@ The folders live in the machine's own configuration, so xixo cannot widen them. 
 installed over SSH, change **Folders it shares**, paste the private key again, and save, which runs
 the install again with the new list. On any machine, change them in two places: the `folders` list in
 `/etc/xixo-agent/config.json`, and the `BindReadOnlyPaths=` line in
-`/etc/systemd/system/xixo-agent.service`, where each folder is written as `"-/srv/media"`. Then run
-`sudo systemctl daemon-reload` and `sudo systemctl restart xixo-agent`. A folder only in the
-config is missing for the agent.
-
-An install shares every folder read-only, so a machine's folders are read and synced but never
-written. The folder xixo writes uploads to is on the agent beside the server, which the
-[self-hosting guide](/guides/self-hosting/) sets up.
+`/etc/systemd/system/xixo-agent.service`, where each folder is written as `"-/srv/media"`. A
+writable folder is `{"path": "/srv/inbox", "writable": true}` in the config and goes on a
+`BindPaths=` line in the service. Then run `sudo systemctl daemon-reload` and
+`sudo systemctl restart xixo-agent`. A folder only in the config is missing for the agent.
 
 ## Offer tools to MCP clients
 
@@ -182,8 +197,7 @@ add a `tools` list to `/etc/xixo-agent/config.json`, such as `"tools": ["browse"
 `write`, `extract`, and `models`. The machine's card lists the ones it offers once the agent
 connects again, and a client sees them when it describes the machine through the `resource` tool.
 [Tools a machine offers](/concepts/resources/#tools-a-machine-offers) says what each does and what
-else it needs. An install writes the configuration again without `tools`, so name them again after
-one.
+else it needs. Installing again over SSH keeps the list.
 
 ## Remove a machine
 
@@ -196,5 +210,14 @@ answers.
 
 Installing again over a machine that is already enrolled unenrolls the earlier client before the
 new one enrolls. **Link up again** in a machine's menu makes a fresh code for it, and the earlier
-client is unenrolled once the new one is sent back to xixo. `sudo systemctl disable xixo-agent` on the machine keeps the stopped agent from
-starting at the next boot.
+client is unenrolled once the new one is sent back to xixo.
+
+The agent stays on the machine, stopped. To remove it from a Linux machine:
+
+```sh
+sudo systemctl disable --now xixo-agent
+sudo rm -rf /etc/systemd/system/xixo-agent.service /etc/systemd/system/xixo-agent.service.d
+sudo rm -f /usr/local/bin/xixo-agent
+sudo rm -rf /etc/xixo-agent /var/lib/xixo-agent /var/cache/xixo-agent
+sudo systemctl daemon-reload
+```

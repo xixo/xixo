@@ -41,6 +41,7 @@ On Linux the agent runs as a system service:
 | `/var/lib/xixo-agent/key.json` | The private key the agent signs its client assertions with. |
 | `/var/lib/xixo-agent/dpop.json` | The private key the agent proves its tokens with. |
 | `/var/lib/xixo-agent/registration.json` | The client masks registered for the agent, and its registration access token. |
+| `/var/cache/xixo-agent/work/` | Each extraction's private work folder, emptied when the agent starts. |
 | `/etc/systemd/system/xixo-agent.service` | The unit, from `xixo-agent.service` with `@USER@` and `@FOLDERS@` replaced. |
 
 On macOS the agent runs as the user whose files it shares:
@@ -294,15 +295,49 @@ also runs in its own user namespace, sees no other process in `/proc`, and makes
 only the system calls an ordinary service makes.
 
 The installer writes a `BindReadOnlyPaths=` line in place of `@FOLDERS@`, one
-quoted entry per shared folder. `/home`, `/root`, `/srv`, `/mnt`, `/media`,
-`/opt`, and `/var/lib` are empty for the agent apart from its state directory,
-and each shared folder is mounted back read-only, so a file outside them is
-missing even when the agent's user could read it. This holds behind the agent's
-own path checks.
+quoted entry per shared folder, and a `BindPaths=` line for the writable ones.
+`/home`, `/root`, `/srv`, `/mnt`, `/media`, `/opt`, and `/var/lib` are empty
+for the agent apart from its state directory, and each shared folder is
+mounted back, read-only or read-write, so a file outside them is missing even
+when the agent's user could read it. This holds behind the agent's own path
+checks. `ReadWritePaths=` would not work for a writable folder: it reopens a
+path the agent can already see, and these are hidden until a bind puts them
+back.
+
+The unit also:
+
+- caps the agent and its programs at `MemoryMax=2G`, with `OOMPolicy=continue`
+  so a program the kernel stops for memory fails one extraction and the agent
+  keeps running. `sudo systemctl edit xixo-agent` sets a higher cap in a
+  drop-in that an install leaves alone
+- starts after `time-sync.target`. A clock that is wrong anyway makes masks
+  refuse the agent's assertion, which the agent retries, so it does not stop
+- gives the agent `/var/cache/xixo-agent` as its cache, read through
+  `CACHE_DIRECTORY`, so extraction works on disk on a machine whose `/tmp` is
+  a tmpfs
+- allows `setrlimit`, which `@resources` denies, so the limit script can lower
+  a program's limits on a libc that calls it directly. glibc uses
+  `prlimit64`, which `@system-service` allows
+
+Each extraction program on Linux gets its work folder as `HOME` as well as
+`TMPDIR`. Under `MemoryDenyWriteExecute=yes`, LibreOffice maps its code through
+a file it makes in `$HOME`, and aborts when `$HOME` is the read-only mount
+point a shared folder under `/home` leaves behind. A per-run home also keeps a
+file such as `~/.ExifTool_config` from outliving the extraction.
 
 When masks answers `invalid_client`, the machine was unenrolled, so the agent
 exits with status 78 and the unit's `RestartPreventExitStatus=78` keeps it
 stopped. Any other failure to reach masks or xixo is retried with backoff.
+
+Removing the agent from a machine is done on the machine:
+
+```sh
+sudo systemctl disable --now xixo-agent
+sudo rm -rf /etc/systemd/system/xixo-agent.service /etc/systemd/system/xixo-agent.service.d
+sudo rm -f /usr/local/bin/xixo-agent
+sudo rm -rf /etc/xixo-agent /var/lib/xixo-agent /var/cache/xixo-agent
+sudo systemctl daemon-reload
+```
 
 ## macOS
 
