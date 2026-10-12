@@ -678,3 +678,32 @@ func TestAMachineThatDoesNotLendRefusesReads(t *testing.T) {
 	held.Session(ctx)
 	<-finished
 }
+
+func TestXixoRefusingEveryConnectionStopsTheAgentAfterAWhile(t *testing.T) {
+	folder, _ := shared(t)
+	var connections atomic.Int32
+
+	cable := fake.NewCable(t, "agent-token", "", func(socket *fake.Socket) {
+		connections.Add(1)
+		socket.Send(map[string]any{"type": "disconnect", "reason": "unauthorized", "reconnect": false})
+		socket.Read()
+	})
+
+	held, dpop := agentFor(t, cable.URL, folder, time.Now().Add(time.Hour))
+	cable.Thumbprint = dpop.Thumbprint()
+
+	was := Disowned
+	Disowned = 1500 * time.Millisecond
+	t.Cleanup(func() { Disowned = was })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := held.Run(ctx); !errors.Is(err, ErrRevoked) {
+		t.Fatalf("got %v, want ErrRevoked", err)
+	}
+
+	if connections.Load() < 2 {
+		t.Fatalf("connected %d times, want the agent to keep trying first", connections.Load())
+	}
+}

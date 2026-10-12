@@ -34,6 +34,8 @@ var (
 	ErrOthers  = errors.New("this machine extracts only its own files: its config sets extracts_for_others to false")
 )
 
+var Disowned = 10 * time.Minute
+
 const unknownClient = "no client is registered with that client_id"
 
 type Agent struct {
@@ -168,12 +170,14 @@ func (a *Agent) Run(ctx context.Context) error {
 	}()
 
 	wait := time.Second
+	var disowned time.Time
 
 	for {
 		started := time.Now()
 		next, err := a.open(ctx)
 
 		if err == nil {
+			disowned = time.Time{}
 			a.link.swap(next.conn, next.token)
 
 			if held != nil {
@@ -203,6 +207,15 @@ func (a *Agent) Run(ctx context.Context) error {
 
 		if ctx.Err() != nil {
 			return ctx.Err()
+		}
+
+		closed := &cable.Disconnected{}
+		if errors.As(err, &closed) && closed.Unauthorized() {
+			if disowned.IsZero() {
+				disowned = started
+			} else if time.Since(disowned) >= Disowned {
+				err = fmt.Errorf("%w: xixo has refused this machine's client for %s", ErrRevoked, Disowned)
+			}
 		}
 
 		if errors.Is(err, ErrRevoked) {
