@@ -3047,6 +3047,22 @@ a.tag:hover {
   font-weight: 600;
 }
 
+.setup-by {
+  font-size: var(--t-small);
+  color: var(--muted);
+}
+
+.setup-by a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 2px;
+}
+
+.setup-by a:hover {
+  color: var(--accent);
+}
+
 .setup-step[data-done="true"] .setup-title {
   color: var(--muted);
 }

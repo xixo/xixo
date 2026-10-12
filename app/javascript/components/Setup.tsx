@@ -4,7 +4,17 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { SetSettingDocument, SetupDocument } from 'xixo'
 import { useQuery } from 'xixo/react'
+import { ago } from '../when'
 import { useAloud, useSay } from './Say'
+
+interface Holder {
+  id: string
+  key: string
+  name?: string | null
+  kind: string
+  model?: string | null
+  down: boolean
+}
 
 export const SETUP_SETTING = 'setup_checklist'
 const GUIDE = 'https://docs.xixo.network/guides/connect-an-agent/'
@@ -25,6 +35,9 @@ export function Setup({ onHidden }: { onHidden: () => void }) {
   ).length
   if (left === 0) return null
 
+  const storage = setup.storageResource
+  const inference = setup.inferenceResource
+  const connected = setup.connectedClient
   const command = `claude mcp add --transport http xixo ${window.location.origin}/mcp`
 
   return (
@@ -64,6 +77,7 @@ export function Setup({ onHidden }: { onHidden: () => void }) {
         <Step
           done={setup.storage}
           title="Somewhere to keep what you drop"
+          by={storage && <Held holder={storage} />}
           detail="Attach a folder, an S3 bucket, or a WebDAV share, and make it the default place files land."
         >
           <Attach>Attach storage</Attach>
@@ -72,7 +86,25 @@ export function Setup({ onHidden }: { onHidden: () => void }) {
         <Step
           done={setup.inference}
           title="A model server that answers"
-          detail="Attach Ollama, LM Studio, or another OpenAI-compatible server so xixo can describe what it keeps and answer questions."
+          by={
+            inference && (
+              <Held
+                holder={inference}
+                told={
+                  inference.down
+                    ? 'not answering its check'
+                    : inference.model
+                      ? `${inference.model} answers questions`
+                      : undefined
+                }
+              />
+            )
+          }
+          detail={
+            inference
+              ? 'It failed its last check. Check it again once it is running, or attach another.'
+              : 'Attach Ollama, LM Studio, or another OpenAI-compatible server so xixo can describe what it keeps and answer questions.'
+          }
         >
           <Attach>Attach a model server</Attach>
         </Step>
@@ -80,6 +112,15 @@ export function Setup({ onHidden }: { onHidden: () => void }) {
         <Step
           done={setup.client}
           title="An agent pointed at xixo"
+          by={
+            connected && (
+              <Link to="/settings/activity">
+                {connected.name}
+                {connected.person ? ` for ${connected.person}` : ''}, last
+                called a tool {ago(connected.at)}
+              </Link>
+            )
+          }
           detail="Add xixo to Claude Code or another MCP client, then sign in when it asks."
         >
           <div className="setup-command">
@@ -108,14 +149,25 @@ export function Setup({ onHidden }: { onHidden: () => void }) {
   )
 }
 
+function Held({ holder, told }: { holder: Holder; told?: string }) {
+  return (
+    <Link to={`/settings/resources/${holder.id}`}>
+      {holder.name || holder.key}
+      {told ? ` (${told})` : `, ${holder.kind}`}
+    </Link>
+  )
+}
+
 function Step({
   done,
   title,
+  by,
   detail,
   children,
 }: {
   done: boolean
   title: string
+  by?: ReactNode
   detail: string
   children: ReactNode
 }) {
@@ -128,6 +180,7 @@ function Step({
       )}
       <div className="setup-body">
         <div className="setup-title">{title}</div>
+        {by && <div className="setup-by">{by}</div>}
         {!done && (
           <>
             <Text size="sm" c="dimmed">

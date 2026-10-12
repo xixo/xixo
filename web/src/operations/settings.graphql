@@ -25,5 +25,25 @@ query Setup {
     storage
     inference
     client
+    storageResource {
+      ...SetupResource
+    }
+    inferenceResource {
+      ...SetupResource
+    }
+    connectedClient {
+      name
+      person
+      at
+    }
   }
+}
+
+fragment SetupResource on SetupResource {
+  id
+  key
+  name
+  kind
+  model
+  down
 }
