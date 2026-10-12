@@ -77,7 +77,7 @@ function Runs({ resourceId }: { resourceId: string }) {
     {},
     { skip: !runs.some((run) => RUN_OPEN.has(run.status)) },
   )
-  const streamed = progressed?.runProgressed.run
+  const streamed = progressed?.runProgressed?.run
 
   useEffect(() => {
     if (streamed) setLive((was) => ({ ...was, [streamed.id]: streamed }))
@@ -178,7 +178,7 @@ function Runs({ resourceId }: { resourceId: string }) {
 function Log({ id }: { id: string }) {
   const { data, loading } = useQuery(RunLogDocument, { id })
   const { data: logged } = useSubscription(RunLoggedDocument, { id })
-  const logs = logged?.runProgressed.run.logs ?? data?.run?.logs ?? ''
+  const logs = logged?.runProgressed?.run?.logs ?? data?.run?.logs ?? ''
   const lines = logs.split('\n').filter(Boolean)
 
   if (loading && !data) return <Loader size="xs" color="var(--accent)" />
