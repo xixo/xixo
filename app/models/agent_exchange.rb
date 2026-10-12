@@ -3,7 +3,7 @@ class AgentExchange < ApplicationRecord
 
   STATUSES = %w[asked answered refused].freeze
   UUID = /\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/
-  KEPT_FOR = 1.hour
+  KEPT_FOR = 2.hours
   MOST_RECEIVED = 4.gigabytes
   MOST_FILES = 256
   MOST_HELD = 8.gigabytes

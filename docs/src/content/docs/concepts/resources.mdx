@@ -317,7 +317,7 @@ xixo gathers the chunks in order into a temporary file and fails when the agent 
 minute or sends more than it said. Chunks are kept in whatever order they arrive, after the reply
 too. A reply or chunk is taken only from the machine that was asked, and a chunk is taken only for a
 `read` or a file. One question holds at most 256 files and 4 GiB, a machine holds at most 64 open
-questions and 8 GiB received, and exchanges older than an hour are deleted by
+questions and 8 GiB received, and exchanges older than two hours are deleted by
 `ForgetAgentExchangesJob`. A question asked inside a database transaction, as analysis asks, is
 written and awaited on a connection of its own, so the channel sees it at once.
 

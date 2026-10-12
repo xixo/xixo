@@ -73,6 +73,12 @@ class FilesystemTest < ActiveSupport::TestCase
     end
   end
 
+  test "the sweeper keeps an exchange well past the longest an upload waits to be fetched and then written" do
+    longest = AgentExchange::FETCHED_WITHIN + Resource::Filesystem::MOST_WRITTEN_WITHIN
+
+    assert_operator AgentExchange::KEPT_FOR, :>=, longest + 30.minutes
+  end
+
   test "an agent reaches nothing but its folders" do
     Tenant.switch(@tenant) do
       dav = Resource::Webdav.new(key: "dav", details: { "url" => "http://100.64.0.9/dav/" }, via: @agent)
