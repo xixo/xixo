@@ -259,7 +259,10 @@ resource uses it.
 ## Machines and xixo link
 
 A `machine` resource stands for a machine running `xixo-link`, the program in `link/`. The
-**Resources** page lists machines first, xixo link beside the server among them as **This server**.
+**Resources** page is a card per machine, xixo link beside the server first as **This server**.
+Every other resource sits on the card of the machine it lives on or is reached through, which the
+`machineId` field of a resource names: a `filesystem` its machine, a resource reached over a
+tailnet the linked machine at the address it dials, and anything else **This server**.
 A machine links up in one of two ways: someone runs the install commands on the machine, or xixo
 installs xixo link over SSH.
 

@@ -25,8 +25,7 @@ This works on Linux on x86_64 or aarch64 with systemd, `curl`, `sha256sum`, and 
 macOS on Apple silicon or Intel. xixo link runs as the account that runs the commands, so use the
 one that owns the folders.
 
-1. On **Resources**, choose **Link up** under **Machines**. **Attach** offers the same at the top
-   of its list.
+1. On **Resources**, choose **Link up a machine** below the machines.
 2. Leave **Install it yourself** chosen, name the machine, and choose **Show the commands**. xixo
    asks masks for a code and puts it in the commands. The code works once, for ten minutes.
 3. Pick the machine's system. On Linux, `uname -m` prints `x86_64` for Intel or AMD and `aarch64`
@@ -156,11 +155,14 @@ The setting lives in a drop-in file, so installing again keeps it.
 
 ## What a machine's card shows
 
-Within a minute of starting, xixo link connects. The machine's card under **Machines** says how
-many folders it shares, what kinds of file it reads, whether it reads for other machines, and the
-model servers it found. An offline machine says when it was last seen. **Details** shows its
-hostname, system, xixo link version, folders, the kinds of file it cannot read, and its uptime, memory,
-and disks.
+Within a minute of starting, xixo link connects, and the machine gets its own card on
+**Resources**, with **online** beside its name. One line says how many folders it shares, what
+kinds of file it reads, whether it reads for other machines or lends files it cannot read, the
+tools it offers MCP clients, and any model server it found that is not attached yet. An offline
+machine says **offline** and when it was last seen, and the rows under it stay quiet. The card
+lists the folders and model servers attached on it, or reached at its tailnet address. **Details**
+shows its hostname, system, xixo link version, folders, the kinds of file it cannot read, the model
+servers it found, and its uptime, memory, and disks.
 
 ## Files a machine cannot read
 
@@ -176,9 +178,20 @@ its item says why. Two settings change that:
 
 ## Attach a folder
 
-1. On **Resources**, choose **Attach** and pick **A folder**.
-2. Under **Reached through**, pick the machine, then pick one of its folders in the list below it.
-3. Choose **Attach it**, then sync it like any other resource.
+1. On **Resources**, choose **Add to** followed by the machine's name at the foot of its card.
+2. Under **Folders it shares**, pick a folder. The list holds the ones not attached yet.
+3. Check the name xixo filled in from the folder's, then choose **Attach it**, and sync it like
+   any other resource.
+
+## Attach a model server it found
+
+xixo link looks for Ollama and LM Studio on the machine and says what it found.
+
+1. On **Resources**, choose **Add to** followed by the machine's name.
+2. Under **Model servers it found**, choose **Add**. When xixo reaches the machine over a tailnet,
+   it attaches the model server through that tailnet at the machine's tailnet address, and checks
+   it. Otherwise choose **Set up** and check the **Base URL**.
+3. Choose **Change** on the new row to name a model for each role.
 
 Only an administrator attaches a folder through a machine, as shared or as only theirs. A folder
 xixo link does not share is refused, and so is a folder that is the same as, inside, or around a
@@ -187,7 +200,7 @@ leaves it **offline** until xixo link is back. A folder xixo link stopped sharin
 with the reason.
 
 A full sync that finds nothing in a folder where it found files before marks nothing gone, since an
-unmounted disk looks the same as an emptied folder. The folder's card says when that sync ran, and
+unmounted disk looks the same as an emptied folder. The folder's row says when that sync ran, and
 its items stay until a sync finds files again.
 
 ## Change the folders
