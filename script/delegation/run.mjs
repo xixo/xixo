@@ -93,7 +93,7 @@ async function revoke() {
     await page.goto(masks)
     await signIn(page)
 
-    const line = page.getByText('Xixo can use it while you are away')
+    const line = page.getByText('xixo can use it while you are away')
     const entry = page.locator('details.entry', { has: line })
     await entry.locator('summary').click()
     page.once('dialog', (dialog) => dialog.accept())

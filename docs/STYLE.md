@@ -20,6 +20,10 @@ guide links to a concept page for the why.
 ## Wording
 
 - Write simple, declarative sentences. Get to the point.
+- Write xixo in lowercase wherever people read it, at the start of a sentence
+  and in a heading too: "xixo keeps the original where it lives." The same
+  goes for masks. Code keeps its own casing: the `Xixo` module, the
+  `XixoAgent` class, `XIXO_` variables, and Go identifiers.
 - Use the present tense: "Returns the feed", not "Will return the feed".
 - Use American English and the Oxford comma: "catalog", "color", "red, white,
   and blue".
