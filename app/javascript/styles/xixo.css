@@ -1050,6 +1050,16 @@ pre,
   overflow-wrap: anywhere;
 }
 
+.rcard-notice {
+  padding: var(--s2) var(--s3);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  color: var(--muted);
+  font-size: var(--t-small);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .rcard-foot {
   display: flex;
   align-items: center;
@@ -1146,7 +1156,7 @@ pre,
   display: none;
 }
 
-.rcards[data-compact="true"] :is(.rcard-roles, .rcard-error) {
+.rcards[data-compact="true"] :is(.rcard-roles, .rcard-error, .rcard-notice) {
   grid-column: 1 / -1;
 }
 

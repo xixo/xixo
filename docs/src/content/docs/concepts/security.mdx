@@ -181,6 +181,11 @@ can do.
   xixo from a fixed set of operations, and the model only names them.
 - xixo checks every number in an answer against the evidence and the results it computed, and sends
   an answer with a number from nowhere back once.
+- A [machine's tools](/concepts/resources/#tools-a-machine-offers) do only what the machine's own
+  configuration names, and none runs a program or takes an address. Reading caps at 256 KiB, writing
+  at 1 MiB into a writable folder with `xixo:resources:command`, and a question to the machine's model
+  at 64 KiB to a server on its loopback address. A file read through them is data, and the `resource`
+  tool's description says so.
 
 See [the agent](/concepts/agents/#the-agent) and [asking](/concepts/agents/#asking).
 

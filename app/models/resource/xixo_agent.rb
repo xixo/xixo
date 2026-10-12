@@ -11,6 +11,8 @@ class Resource
     MOST_SERVICES = 16
     MOST_DISKS = 32
     MOST_TEXT = 255
+    MOST_WARNINGS = 16
+    MOST_WARNING = 500
     MOST_PATH = 4096
     TAILNET = [ IPAddr.new("100.64.0.0/10"), IPAddr.new("fd7a:115c:a1e0::/48") ].freeze
     MOST_RESULT = 4.megabytes
@@ -19,6 +21,8 @@ class Resource
     EXTRACTORS = %w[pdf image media doc epub xlsx calendar pkpass email contact data text fallback].freeze
     LOCAL = "local".freeze
     MINTED = "minted_at".freeze
+
+    include Tools
 
     serves :transport
 
@@ -67,7 +71,11 @@ class Resource
       end
 
       def command_schema
-        { health: {}, discover: {} }
+        { health: {}, discover: {} }.merge(tools_schema)
+      end
+
+      def command_help
+        tools_help
       end
 
       def routable?
@@ -132,6 +140,10 @@ class Resource
 
     def extractors
       Array(machine["extractors"])
+    end
+
+    def warnings
+      Array(machine["warnings"]).grep(String)
     end
 
     def extracts?(kind)
@@ -272,7 +284,7 @@ class Resource
     end
 
     def heard!(said)
-      merge_machine!("health" => Health.from(said), "seen_at" => now_stamp)
+      merge_machine!("health" => Health.from(said), "warnings" => Hello.warnings(said.to_h["warnings"]), "seen_at" => now_stamp)
       update_columns(checked_at: Time.current, check_error: nil) if check_error.present?
     end
 

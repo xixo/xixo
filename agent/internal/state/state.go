@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	masks "github.com/masksrb/masks/go"
@@ -17,6 +18,17 @@ import (
 
 const Scope = "xixo:agent"
 
+const (
+	ToolBrowse  = "browse"
+	ToolSearch  = "search"
+	ToolRead    = "read"
+	ToolWrite   = "write"
+	ToolExtract = "extract"
+	ToolModels  = "models"
+)
+
+var Tools = []string{ToolBrowse, ToolSearch, ToolRead, ToolWrite, ToolExtract, ToolModels}
+
 type Config struct {
 	Xixo               string           `json:"xixo"`
 	Issuer             string           `json:"issuer"`
@@ -24,6 +36,7 @@ type Config struct {
 	Lend               bool             `json:"lend"`
 	ExtractsForOthers  bool             `json:"extracts_for_others"`
 	ExtractUnsandboxed bool             `json:"extract_unsandboxed"`
+	Tools              []string         `json:"tools"`
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -50,6 +63,12 @@ func (c *Config) check() error {
 
 	if err := secure("issuer", c.Issuer); err != nil {
 		return err
+	}
+
+	for _, tool := range c.Tools {
+		if !slices.Contains(Tools, tool) {
+			return fmt.Errorf("the tool %q is not one the agent offers: name any of %s", tool, strings.Join(Tools, ", "))
+		}
 	}
 
 	seen := map[string]bool{}

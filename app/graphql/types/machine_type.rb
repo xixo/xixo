@@ -25,6 +25,12 @@ module Types
                        "Such a file on this machine is not read unless the machine lends it to the server."
     field :lends, Boolean, null: false,
           description: "Whether a file this machine cannot read goes to the agent beside the server."
+    field :warnings, [ String ], null: false,
+          description: "What the agent last said is keeping it from working fully, such as a shared folder it " \
+                       "may not read, each as a sentence to show a person."
+    field :tools, [ String ], null: false,
+          description: "The tools the machine offers to MCP clients through xixo, as its agent's config names them: " \
+                       "browse, search, read, write, extract, and models."
     field :services, [ Types::MachineServiceType ], null: false,
           description: "Model servers listening on the machine, with its tailnet address when it has one."
 
@@ -44,6 +50,8 @@ module Types
     def extractors = object.extractors
     def unread = Resource::XixoAgent::EXTRACTORS - object.extractors
     def lends = object.lends?
+    def tools = object.offered_tools
+    def warnings = object.warnings
 
     private
 

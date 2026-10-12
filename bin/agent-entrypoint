@@ -53,11 +53,23 @@ flag() {
 lend="$(flag "${XIXO_AGENT_LEND:-true}" "XIXO_AGENT_LEND")"
 others="$(flag "${XIXO_AGENT_EXTRACTS_FOR_OTHERS:-true}" "XIXO_AGENT_EXTRACTS_FOR_OTHERS")"
 
+tools=""
+IFS=,
+for tool in ${XIXO_AGENT_TOOLS-browse,search,read,extract}; do
+  case "$tool" in
+    "") continue ;;
+    browse | search | read | write | extract | models) ;;
+    *) refuse "XIXO_AGENT_TOOLS names browse, search, read, write, extract, or models: $tool" ;;
+  esac
+  tools="${tools:+$tools, }\"$tool\""
+done
+IFS=$old_ifs
+
 umask 077
 mkdir -p "$state" "$handoff"
-printf '{"xixo": %s, "issuer": %s, "folders": [%s], "lend": %s, "extracts_for_others": %s}\n' \
+printf '{"xixo": %s, "issuer": %s, "folders": [%s], "lend": %s, "extracts_for_others": %s, "tools": [%s]}\n' \
   "$(quoted "$xixo" "XIXO_AGENT_XIXO")" "$(quoted "$issuer" "XIXO_AGENT_ISSUER")" "$folders" \
-  "$lend" "$others" >"$config"
+  "$lend" "$others" "$tools" >"$config"
 
 registered() {
   sed -n 's/.*"client_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$state/registration.json" 2>/dev/null | head -n 1

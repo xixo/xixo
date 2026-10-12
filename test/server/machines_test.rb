@@ -65,18 +65,19 @@ class MachinesTest < ActionDispatch::IntegrationTest
                  body.dig("data", "discovered")
   end
 
-  test "a machine says which kinds of file it reads, which it cannot, and whether it lends them to the server" do
+  test "a machine says which kinds of file it reads, which it cannot, whether it lends them to the server, and which tools it offers" do
     agent = agent_on(@tenant, folders: [ "/srv/media" ])
     Tenant.switch(@tenant) do
-      agent.update_columns(details: agent.details.merge("lend" => true).deep_merge("machine" => { "extractors" => %w[text pdf] }))
+      agent.update_columns(details: agent.details.merge("lend" => true).deep_merge("machine" => { "extractors" => %w[text pdf], "tools" => %w[read shell browse] }))
     end
 
-    body = graphql(Grant::SCOPES, "{ resources { key machine { extractors unread lends } } }")
+    body = graphql(Grant::SCOPES, "{ resources { key machine { extractors unread lends tools } } }")
 
     held = body.dig("data", "resources").find { |listed| listed["key"] == "box" }["machine"]
     assert_equal %w[text pdf], held["extractors"]
     assert_equal Resource::XixoAgent::EXTRACTORS - %w[text pdf], held["unread"]
     assert_equal true, held["lends"]
+    assert_equal %w[browse read], held["tools"]
   end
 
   test "an admin turns lending on for a machine without touching what it learned at install" do

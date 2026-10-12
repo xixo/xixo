@@ -14,7 +14,10 @@ class Resource
           "folders" => folders(said["folders"]),
           "writable" => folders(said["writable"]) & folders(said["folders"]),
           "services" => services(said["services"]),
-          "extractors" => extractors(said["extractors"])
+          "extractors" => extractors(said["extractors"]),
+          "tools" => tools(said["tools"]),
+          "warnings" => warnings(said["warnings"]),
+          "lend" => said["lend"] == true
         }
       end
 
@@ -35,6 +38,22 @@ class Resource
 
       def extractors(value)
         Array(value).select { |name| name.is_a?(String) && EXTRACTORS.include?(name) }.uniq.sort
+      end
+
+      def warnings(value)
+        listed(value).first(MOST_WARNINGS * 4).filter_map do |said|
+          next unless said.is_a?(String)
+
+          said.scrub.gsub(/[[:cntrl:]]/, " ").squish.first(MOST_WARNING).presence
+        end.uniq.first(MOST_WARNINGS)
+      end
+
+      def listed(value)
+        value.is_a?(Array) ? value : []
+      end
+
+      def tools(value)
+        listed(value).select { |name| name.is_a?(String) && Tools::NAMES.include?(name) }.uniq.sort
       end
 
       def services(value)

@@ -101,6 +101,17 @@ An install shares every folder read-only, so a machine's folders are read and sy
 written. The folder xixo writes uploads to is on the agent beside the server, which the
 [self-hosting guide](/guides/self-hosting/) sets up.
 
+## Offer tools to MCP clients
+
+A machine offers no tools to MCP clients until its own configuration names them. On the machine,
+add a `tools` list to `/etc/xixo-agent/config.json`, such as `"tools": ["browse", "search",
+"extract"]`, and run `sudo systemctl restart xixo-agent`. The names are `browse`, `search`, `read`,
+`write`, `extract`, and `models`. The machine's card lists the ones it offers once the agent
+connects again, and a client sees them when it describes the machine through the `resource` tool.
+[Tools a machine offers](/concepts/resources/#tools-a-machine-offers) says what each does and what
+else it needs. An install writes the configuration again without `tools`, so name them again after
+one.
+
 ## Remove a machine
 
 Archive and delete the folders attached through it, then the machine. Archiving the machine

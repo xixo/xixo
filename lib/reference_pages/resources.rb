@@ -81,15 +81,16 @@ module ReferencePages
       end
 
       def commands(klass)
+        help = klass.command_help
         rows = klass.command_schema.map do |name, arguments|
           taken = arguments.map { |argument, type| code("#{argument}: #{type}") }.join(" ")
 
-          [ code(name), taken.presence || "—" ]
+          [ code(name), taken.presence || "—", *([ prose(help[name].to_s) ] if help.any?) ]
         end
 
         return "" if rows.empty?
 
-        "### Commands\n\n#{table([ 'Command', 'Arguments' ], rows)}"
+        "### Commands\n\n#{table([ 'Command', 'Arguments', *('Does' if help.any?) ], rows)}"
       end
   end
 end

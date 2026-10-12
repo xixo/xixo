@@ -58,6 +58,26 @@ class AgentChannelTest < ActionCable::Channel::TestCase
     assert_equal 8_000_000_000, held.machine.dig("health", "memory", "total")
   end
 
+  test "hello and health carry the machine's warnings, its tools, and whether it lends, kept plain and few" do
+    connected
+
+    perform :hello, HELLO.merge("warnings" => [ "may not read /srv/photos\u0007\nat all", 7, "x" * 900 ] + Array.new(30) { |index| "w#{index}" },
+                                "tools" => %w[browse shell read], "lend" => true)
+
+    held = fresh
+    assert_equal "may not read /srv/photos at all", held.warnings.first
+    assert_equal 500, held.warnings.second.size
+    assert_equal 16, held.warnings.size
+    assert_equal %w[browse read], held.offered_tools
+    assert held.lends_bytes?
+
+    perform :health, HEALTH.merge("warnings" => [ "the shared folder /srv/photos does not exist" ])
+    assert_equal [ "the shared folder /srv/photos does not exist" ], fresh.warnings
+
+    perform :health, HEALTH
+    assert_empty fresh.warnings
+  end
+
   test "leaving takes the machine offline, unless a newer connection took its place" do
     connected
     perform :hello, HELLO

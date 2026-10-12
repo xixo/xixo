@@ -451,9 +451,11 @@ What the xixo agent on a machine last said about it. Resolves only for a token c
 | `os` | `String` |  |
 | `seenAt` | `ISO8601DateTime` | When the agent last said anything. |
 | `services` | [`[MachineService!]!`](#machineservice) | Model servers listening on the machine, with its tailnet address when it has one. |
+| `tools` | `[String!]!` | The tools the machine offers to MCP clients through xixo, as its agent's config names them: browse, search, read, write, extract, and models. |
 | `unread` | `[String!]!` | The kinds of file the agent cannot read, because the machine lacks their programs. Such a file on this machine is not read unless the machine lends it to the server. |
 | `uptime` | `Float` | Seconds since the machine started. |
 | `version` | `String` | The version of the agent. |
+| `warnings` | `[String!]!` | What the agent last said is keeping it from working fully, such as a shared folder it may not read, each as a sentence to show a person. |
 
 ### MachineDisk
 

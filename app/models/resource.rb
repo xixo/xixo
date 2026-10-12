@@ -137,6 +137,10 @@ class Resource < ApplicationRecord
       {}
     end
 
+    def command_help
+      {}
+    end
+
     # What a type needs before it can answer, declared rather than written down,
     # so a form is rendered from the type instead of kept in step with it. Nil
     # means a type nobody attaches by hand.
@@ -500,8 +504,16 @@ class Resource < ApplicationRecord
       capabilities: capabilities,
       accepts: accepts,
       up_to: up_to,
-      commands: self.class.command_schema
-    }
+      commands: commands
+    }.merge(command_help.present? ? { help: command_help } : {})
+  end
+
+  def commands
+    self.class.command_schema
+  end
+
+  def command_help
+    self.class.command_help.slice(*commands.keys)
   end
 
   def check!

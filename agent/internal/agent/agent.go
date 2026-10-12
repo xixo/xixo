@@ -59,6 +59,8 @@ type Agent struct {
 	Lend              bool
 	ExtractsForOthers bool
 	Notices           []string
+	Tools             []string
+	ModelPorts        map[string]int
 
 	once    sync.Once
 	link    link
@@ -323,7 +325,7 @@ func (s *session) greet(ctx context.Context) error {
 	hello.Lend = s.Lend
 	hello.ExtractsForOthers = s.ExtractsForOthers
 
-	if err := s.conn.Perform(ctx, "hello", hello); err != nil {
+	if err := s.conn.Perform(ctx, "hello", greeting{Hello: hello, Tools: s.offered()}); err != nil {
 		return err
 	}
 
@@ -500,6 +502,8 @@ func (a *Agent) answer(ctx context.Context, asked *Request) {
 		a.extraction(ctx, asked, true)
 	case verbWrite:
 		a.write(ctx, asked)
+	case verbBrowse, verbFind, verbPeek, verbPlace, verbExamine, verbModel:
+		a.tool(ctx, asked)
 	default:
 		a.refuse(ctx, asked.Request, fmt.Errorf("the agent does not know the verb %q", asked.Verb))
 	}

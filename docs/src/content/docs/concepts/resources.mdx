@@ -292,8 +292,11 @@ refuses a person. Every fifteen seconds the channel closes a connection whose to
 whose machine was archived, and the agent connects again with a new token.
 
 On `hello`, xixo records the machine's hostname, operating system, architecture, agent version,
-folders, and model servers, and clears `offline_host`. `health` adds uptime, load, memory, and
-disks every minute. When the connection closes, the machine goes offline with when it was last
+folders, model servers, the tools it offers, whether it lends its files' bytes, and its warnings,
+and clears `offline_host`. `health` adds uptime, load, memory, and disks every minute, and replaces
+the warnings. A warning is a sentence the agent writes about something keeping it from working
+fully, such as a shared folder it may not read; xixo keeps at most 16, each up to 500 characters,
+and shows them on the machine's card. When the connection closes, the machine goes offline with when it was last
 seen, unless a newer connection has taken its place. A machine not heard from for three minutes is
 not connected either way. What xixo keeps is trimmed and checked first: folders must be clean
 absolute paths, and services are only ollama and LM Studio.
@@ -333,6 +336,42 @@ moves it into place. It creates folders on the way inside the shared folder only
 read-only folder, a link anywhere on the path, a name a walk skips, and bytes that do not match the
 size. It replaces an existing file only when xixo asks it to, which xixo does only for a path the
 catalog already holds on that resource, so a file someone else put there is never overwritten.
+
+### Tools a machine offers
+
+A machine offers MCP clients the tools its agent's configuration names in `tools`, and no others.
+The agent says which in `hello`, and xixo keeps only the names it knows. A client reaches them
+through the `resource` tool at `/mcp`, as commands on the machine, and never through a port on the
+machine: each call is a question on the connection the agent already holds open. The agent refuses
+the verb of a tool its configuration leaves out, and xixo lists and accepts only the commands of the
+tools the machine offers, so neither side can widen what the other allows. A machine whose
+configuration names no tools answers `health` and `discover` alone.
+
+| Tool | Command | Agent verb | Does |
+| --- | --- | --- | --- |
+| `browse` | `browse` | `browse` | Lists the shared folders, or up to 200 files in one, with a cursor to read on. |
+| `search` | `search` | `find` | Matches the query against xixo's index of the machine's folders, then against the paths of its files, ignoring case. The walk stops after 100 matches, 20,000 files, or ten seconds. |
+| `read` | `read` | `peek` | Sends up to 256 KiB of a file. |
+| `write` | `write` | `place` | Writes a file of at most 1 MiB into a writable folder. |
+| `extract` | `extract` | `examine` | Runs the machine's extractors on a file and answers with their steps, and none of the files they make. |
+| `models` | `chat` | `model` | Asks a model server on the machine one question. |
+
+The machine's other settings still apply. `read` sends bytes only from a machine whose configuration
+sets `lend`; from any other machine, or one that is offline, it answers with the text and summary
+analysis drew out of the file and says that the bytes stay on the machine. `write` reaches only the
+folders the configuration marks writable, and xixo lists it only for a machine that has one. `chat`
+is listed only for a machine that reported a model server. The agent sends the question to
+`127.0.0.1` on the port it probed for that kind of server, Ollama on 11434 or LM Studio on 1234, as an
+OpenAI-compatible chat completion. It takes no address, follows no redirect, and caps the prompt at
+64 KiB, the answer at 64 KiB, and the time at 90 seconds.
+
+Every command needs `xixo:resources:read`, and `write` also needs `xixo:resources:command`.
+`browse`, `search`, `read`, and `extract` count as reading the catalog, so an agent run that has read
+the web cannot use them. A folder attached as one person's `filesystem` resource, and a folder that
+holds a file kept to one person, such as storage that holds someone's private upload, are out of
+reach of every other person's token. xixo records each call as an audit event on
+the `mcp` channel, with its arguments. The tools stop short of running anything on the machine: no
+tool takes a command line, a program, or an address.
 
 ### The agent beside the server
 

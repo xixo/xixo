@@ -100,6 +100,8 @@ interface Resource {
     extractors: string[]
     unread: string[]
     lends: boolean
+    tools: string[]
+    warnings: string[]
   } | null
 }
 
@@ -149,6 +151,12 @@ function unread(machine: NonNullable<Resource['machine']>) {
   return machine.lends ? `sends ${kinds} to the server` : `cannot read ${kinds}`
 }
 
+function offering(machine: NonNullable<Resource['machine']>) {
+  return machine.tools.length === 0
+    ? 'offers no tools to MCP clients'
+    : `offers ${machine.tools.join(', ')} to MCP clients`
+}
+
 function machined(machine: NonNullable<Resource['machine']>) {
   const shares = `shares ${machine.folders.length} ${machine.folders.length === 1 ? 'folder' : 'folders'}`
 
@@ -163,6 +171,7 @@ function machined(machine: NonNullable<Resource['machine']>) {
     machine.uptime != null && `up ${Math.floor(machine.uptime / 86400)}d`,
     shares,
     unread(machine),
+    offering(machine),
   ]
     .filter(Boolean)
     .join(' · ')
@@ -672,6 +681,12 @@ function ResourceCard({
       {resource.checkError && (
         <div className="rcard-error">{unraised(resource.checkError)}</div>
       )}
+
+      {resource.machine?.warnings.map((warning) => (
+        <div key={warning} className="rcard-notice">
+          {warning}
+        </div>
+      ))}
 
       {resource.emptiedAt && (
         <div className="rcard-error">

@@ -66,7 +66,8 @@ The configuration looks like this:
   "folders": ["/srv/media", {"path": "/data/files", "writable": true}],
   "lend": false,
   "extracts_for_others": false,
-  "extract_unsandboxed": false
+  "extract_unsandboxed": false,
+  "tools": ["browse", "search", "extract"]
 }
 ```
 
@@ -82,6 +83,15 @@ an extraction on another agent. Left false, a file's bytes stay on the machine:
 the agent still lists, hashes, and extracts its own files, and sends xixo only
 what extraction makes. `extracts_for_others` lets the agent read uploads and
 files from other places that xixo sends it to extract. Both default to false.
+
+`tools` names the tools the machine offers MCP clients through xixo: `browse`,
+`search`, `read`, `write`, `extract`, and `models`. Each is a verb below that
+the agent answers only when its tool is named, and xixo offers a client only the
+tools the agent names. `read` still needs `lend`, and `write` a writable
+folder. A name the agent does not know stops it from starting. Left out, the
+list is empty, and the agent answers only what xixo needs to sync and read its
+folders. The container beside the server sets it from `XIXO_AGENT_TOOLS`, which
+defaults to `browse,search,read,extract`.
 
 `extract_unsandboxed` matters on macOS only. The agent runs every extraction
 program under `sandbox-exec`, and when `sandbox-exec` is missing it runs none
@@ -142,7 +152,7 @@ The agent speaks the Action Cable protocol and subscribes to
 
 | Action | Fields | When |
 | --- | --- | --- |
-| `hello` | `version`, `os`, `arch`, `hostname`, `folders`, `writable`, `services`, `extractors`, `lend`, `extracts_for_others`, `warnings` | Once the subscription is confirmed. |
+| `hello` | `version`, `os`, `arch`, `hostname`, `folders`, `writable`, `services`, `extractors`, `lend`, `extracts_for_others`, `warnings`, `tools` | Once the subscription is confirmed. |
 | `health` | `uptime`, `load`, `memory`, `disks`, `warnings` | After `hello`, and every minute. |
 | `reply` | `request`, `ok`, `result` or `error` | When a request is answered. |
 | `chunk` | `request`, `of`, `seq`, `data` | For each part of a file being read or made. |
@@ -156,6 +166,8 @@ address: `{"kind":"ollama","port":11434,"address":"100.64.0.7"}`, and
 sends each file to an agent that can read it.
 
 `writable` names the shared folders the configuration marks writable.
+
+`tools` names the tools the configuration offers, in a fixed order.
 
 `warnings` is a list of sentences for the person who runs the machine, empty
 when nothing is wrong. The agent checks every shared folder each time it sends
@@ -188,6 +200,12 @@ xixo sends a request as the `message` of a broadcast on the subscription:
 | `extract` | `source`, `size`, `mime`, `filename`, `skip`, `settings` | each made file's `chunk` messages, then the steps and the list of files |
 | `derive` | as `extract` | the thumbnail and preview alone |
 | `write` | `folder`, `path`, `upload`, `size`, `replace` | `{"path","size","modified_at"}` |
+| `browse` | `folder`, `prefix`, `cursor`, `limit` | as `list`, 200 files at most |
+| `find` | `query`, `folder`, `limit` | `{"matches":[{"folder","path","size","modified_at"}],"visited","complete"}` |
+| `peek` | `folder`, `path`, `limit` | `{"data","size","total"}` |
+| `place` | as `write` | as `write` |
+| `examine` | as `extract`, with a shared file as `source` | the steps, and none of the files |
+| `model` | `kind`, `model`, `messages`, `max_tokens` | `{"kind","model","text","truncated","finish_reason"}` |
 
 `list` walks the folder depth first in name order and returns at most `limit`
 regular files, 500 at most. Paths are relative to the folder and
@@ -209,6 +227,35 @@ to overwrite an existing file.
 
 `hash` reads the file where it lies and answers with its SHA-256 in hex and its
 size, sending none of its bytes.
+
+`browse`, `find`, `peek`, `place`, `examine`, and `model` answer MCP clients,
+and each is refused unless the configuration names its tool: `browse`, `search`,
+`read`, `write`, `extract`, and `models`. They refuse an argument they do not
+know.
+
+`find` walks every shared folder, or the one named, and keeps the paths that
+hold `query`, ignoring case. It stops at `limit` matches, 100 at most, after
+20,000 files, or after ten seconds, and `complete` says whether it saw every
+file.
+
+`peek` needs `lend` too. It answers with up to `limit` bytes of the file, 256
+KiB at most, base64 encoded in `data`, with `total` the file's size.
+
+`place` is `write` for a file of at most 1 MiB.
+
+`examine` runs the extractors on a shared file and answers with the steps and
+the source's `sha256` and `size`. It refuses an upload, sends none of the files
+the extractors make, and drops any step larger than 256 KiB, saying so in
+`dropped`. It stops after two minutes.
+
+`model` asks the model server of `kind`, `ollama` or `lmstudio`, one question.
+It posts an OpenAI-compatible chat completion to
+`http://127.0.0.1:<port>/v1/chat/completions`, on port 11434 for Ollama and
+1234 for LM Studio, dialing that address whatever the request says and following
+no redirect. `messages` holds 1 to 32 messages from `system`, `user`, or
+`assistant`, 64 KiB in all. Without `model` it asks `/v1/models` and uses the
+first. `max_tokens` defaults to 1024 and stops at 4096. The answer's text is cut
+at 64 KiB, with `truncated` set, and the whole exchange stops after 90 seconds.
 
 An upload is a file xixo holds for the agent to read. `extract` names it as
 `{"upload": id}` with its `size`, and the agent fetches

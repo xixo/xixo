@@ -147,6 +147,7 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 			Notices:           notices,
 			Lend:              config.Lend,
 			ExtractsForOthers: config.ExtractsForOthers,
+			Tools:             config.Tools,
 		}
 
 		err = running.Run(ctx)

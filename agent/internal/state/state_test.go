@@ -144,3 +144,26 @@ func TestRegistrationKeepsNoRegistrationAccessToken(t *testing.T) {
 		t.Fatalf("the temporary file stayed: %v", err)
 	}
 }
+
+func TestToolsDefaultToNoneAndNameOnlyKnownTools(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example"}`), 0o600)
+
+	held, err := LoadConfig(path)
+	if err != nil || len(held.Tools) != 0 {
+		t.Fatalf("%+v %v", held, err)
+	}
+
+	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example","tools":["browse","models"]}`), 0o600)
+
+	held, err = LoadConfig(path)
+	if err != nil || strings.Join(held.Tools, ",") != "browse,models" {
+		t.Fatalf("%+v %v", held, err)
+	}
+
+	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example","tools":["browse","shell"]}`), 0o600)
+
+	if _, err := LoadConfig(path); err == nil || !strings.Contains(err.Error(), `"shell"`) {
+		t.Fatalf("an unknown tool loaded: %v", err)
+	}
+}
