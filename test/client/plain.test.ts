@@ -12,31 +12,22 @@ import {
 const base = {
   type: 'database',
   key: 'household',
-  via: null,
   capabilities: ['storage'],
-  defaultStorage: false,
-  defaultInference: false,
 }
 
 describe('plain words for resources', () => {
-  test('a card says what a resource does for the person', () => {
-    expect(does({ ...base, defaultStorage: true })).toBe(
-      'A folder on this server, where your uploads go',
-    )
-    expect(does({ ...base, type: 'filesystem', via: 'studio' })).toBe(
-      'A folder on studio',
-    )
+  test('a row says plainly what a resource is, and leaves defaults to its badges', () => {
+    expect(does({ ...base })).toBe('Files kept inside xixo')
+    expect(does({ ...base, type: 'filesystem' })).toBe('A folder')
     expect(does({ ...base, type: 'machine', key: 'local' })).toBe(
-      'The machine xixo runs on',
+      'Where xixo runs',
     )
     expect(
-      does({
-        ...base,
-        type: 'openai-compatible',
-        capabilities: ['inference'],
-        defaultInference: true,
-      }),
-    ).toBe('A model server, which answers your questions')
+      does({ ...base, type: 'openai-compatible', capabilities: ['inference'] }),
+    ).toBe('A model server')
+    expect(does({ ...base, type: 'mystery', capabilities: [] })).toBe(
+      'A tool agents can use',
+    )
   })
 
   test('an error reads as a sentence, and anything unknown stays general', () => {

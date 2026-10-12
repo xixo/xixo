@@ -6,7 +6,6 @@ import {
   Menu,
   NumberInput,
   Popover,
-  Tooltip,
 } from '@mantine/core'
 import {
   IconArchive,
@@ -22,6 +21,7 @@ import {
   IconPlugConnected,
   IconPlus,
   IconRefresh,
+  IconServer,
   IconShieldLock,
   IconSparkles,
   IconStar,
@@ -62,6 +62,7 @@ import {
 } from '../plain'
 import { unraised } from '../shared'
 import { ago, dated } from '../when'
+import { AddTo, addedAs, type Form, type Place, SERVERS } from './AddTo'
 import { Attach, type Editing, glyphFor } from './Attach'
 import { Failed } from './Failed'
 import {
@@ -108,6 +109,7 @@ interface Resource {
   connectedBy?: string | null
   connectUrl?: string | null
   via?: string | null
+  machineId?: string | null
   machine?: {
     hostname?: string | null
     version?: string | null
@@ -126,7 +128,13 @@ interface Resource {
     linked: boolean
     selfLinked: boolean
     linkingUntil?: string | null
-    services: { kind: string; port: number }[]
+    services: {
+      kind: string
+      port: number
+      address?: string | null
+      url?: string | null
+      via?: string | null
+    }[]
     memoryTotal?: number | string | null
     memoryAvailable?: number | string | null
     disks: {
@@ -137,46 +145,81 @@ interface Resource {
   } | null
 }
 
+interface Group {
+  machine: Resource | null
+  place: Place
+  rows: Resource[]
+}
+
 const MACHINE = 'machine'
 const LOCAL = 'local'
+const THIS_SERVER = 'This server'
 
 const CHECKING_POLL = 2000
+
+const SYSTEMS: Record<string, string> = {
+  darwin: 'macOS',
+  linux: 'Linux',
+  windows: 'Windows',
+}
 
 interface Status {
   tone: string
   said: string | null
   busy: boolean
+  wrong: boolean
 }
 
 function status(resource: Resource): Status {
   const machine = resource.machine
 
   if (resource.syncing)
-    return { tone: 'var(--busy)', said: 'syncing', busy: true }
+    return { tone: 'var(--busy)', said: 'syncing', busy: true, wrong: false }
   if (resource.needsConnect)
     return {
       tone: 'var(--bad)',
       said: resource.connectedBy ? 'needs reconnecting' : 'not connected',
       busy: false,
+      wrong: true,
     }
   if (resource.checking)
-    return { tone: 'var(--busy)', said: 'checking', busy: true }
+    return { tone: 'var(--busy)', said: 'checking', busy: true, wrong: false }
   if (machine?.linkingUntil)
-    return { tone: 'var(--busy)', said: 'waiting to link up', busy: true }
+    return {
+      tone: 'var(--busy)',
+      said: 'waiting to link up',
+      busy: true,
+      wrong: false,
+    }
   if (machine && !machine.linked && resource.key !== LOCAL)
-    return { tone: 'var(--edge)', said: 'not linked', busy: false }
+    return {
+      tone: 'var(--edge)',
+      said: 'not linked',
+      busy: false,
+      wrong: false,
+    }
   if (machine)
     return machine.connected
-      ? { tone: 'var(--ok)', said: null, busy: false }
-      : { tone: 'var(--away)', said: 'offline', busy: false }
+      ? { tone: 'var(--ok)', said: 'online', busy: false, wrong: false }
+      : {
+          tone: 'var(--away)',
+          said: ['offline', lastSeen(machine)].filter(Boolean).join(' · '),
+          busy: false,
+          wrong: false,
+        }
   if (resource.offline)
-    return { tone: 'var(--away)', said: 'offline', busy: false }
-  if (!resource.checkedAt)
-    return { tone: 'var(--edge)', said: null, busy: false }
+    return {
+      tone: 'var(--away)',
+      said: resource.offlineLastSeenAt
+        ? `offline · last seen ${ago(resource.offlineLastSeenAt)}`
+        : 'offline',
+      busy: false,
+      wrong: false,
+    }
+  if (resource.checkedAt && !resource.healthy)
+    return { tone: 'var(--bad)', said: 'not working', busy: false, wrong: true }
 
-  return resource.healthy
-    ? { tone: 'var(--ok)', said: null, busy: false }
-    : { tone: 'var(--bad)', said: 'not working', busy: false }
+  return { tone: 'var(--ok)', said: null, busy: false, wrong: false }
 }
 
 function told(resource: Resource) {
@@ -188,9 +231,6 @@ function told(resource: Resource) {
       : `${host} has not been seen on ${resource.via ?? 'its network'}`
   }
 
-  if (resource.machine && !resource.machine.connected)
-    return lastSeen(resource.machine) ?? 'not connected'
-
   if (resource.checkError) return humane(resource.checkError)
 
   return resource.checkedAt
@@ -199,35 +239,111 @@ function told(resource: Resource) {
 }
 
 function plural(count: number, one: string, many = `${one}s`) {
-  return `${count} ${count === 1 ? one : many}`
+  return `${count.toLocaleString()} ${count === 1 ? one : many}`
 }
 
-const MODELS: Record<string, string> = {
-  ollama: 'Ollama',
-  lmstudio: 'LM Studio',
+function named(resource: Resource) {
+  return resource.name || resource.key
 }
 
-function machineLines(machine: NonNullable<Resource['machine']>) {
+function system(machine: Resource) {
+  if (machine.key === LOCAL) return does(machine)
+
+  const held = machine.machine
+  const os = held?.os ? (SYSTEMS[held.os] ?? held.os) : null
+
+  return (
+    [held?.hostname !== machine.key ? held?.hostname : null, os, held?.arch]
+      .filter(Boolean)
+      .join(' · ') || does(machine)
+  )
+}
+
+function facts(machine: NonNullable<Resource['machine']>, place: Place) {
   if (!machine.linked && !machine.connected && !machine.seenAt) return []
 
-  const models = [...new Set(machine.services.map((held) => held.kind))]
-    .map((kind) => MODELS[kind] ?? kind)
-    .join(' and ')
+  const shared = place.folders.length
   const helps = [
     machine.extractsForOthers && 'reads for other machines',
-    machine.lends && 'sends what it cannot read to the server',
+    machine.lends && 'lends files it cannot read',
   ].filter(Boolean)
 
   return [
-    machine.connected ? null : lastSeen(machine)?.replace(/^l/, 'L'),
-    machine.folders.length === 0
+    shared === 0
       ? 'Shares no folders yet'
-      : `Shares ${plural(machine.folders.length, 'folder')}`,
+      : `Shares ${plural(shared, 'folder')}`,
     reads(machine.extractors, machine.unread),
     helps.length > 0 ? `Also ${helps.join(' and ')}` : null,
-    models ? `Has ${models}` : null,
-    warning(machine),
+    machine.tools.length > 0 ? `Tools: ${machine.tools.join(', ')}` : null,
   ].filter((line): line is string => Boolean(line))
+}
+
+function placeOf(machine: Resource | null): Place {
+  if (!machine)
+    return {
+      id: null,
+      key: LOCAL,
+      name: THIS_SERVER,
+      host: 'localhost',
+      local: true,
+      folders: [],
+      services: [],
+    }
+
+  return {
+    id: machine.id,
+    key: machine.key,
+    name: machine.key === LOCAL ? THIS_SERVER : named(machine),
+    host: machine.machine?.hostname || machine.key,
+    local: machine.key === LOCAL,
+    folders: machine.machine?.folders ?? [],
+    services: machine.machine?.services ?? [],
+  }
+}
+
+function grouped(resources: Resource[]): Group[] {
+  const machines = resources
+    .filter((resource) => resource.type === MACHINE)
+    .sort(
+      (a, b) =>
+        Number(b.key === LOCAL) - Number(a.key === LOCAL) ||
+        Number(Boolean(b.machine?.connected)) -
+          Number(Boolean(a.machine?.connected)) ||
+        a.key.localeCompare(b.key),
+    )
+  const local = machines.find((machine) => machine.key === LOCAL) ?? null
+  const known = new Set(machines.map((machine) => machine.id))
+  const others = resources.filter((resource) => resource.type !== MACHINE)
+  const homeless = others.filter(
+    (resource) => !resource.machineId || !known.has(resource.machineId),
+  )
+  const groups = machines.map((machine) => ({
+    machine,
+    place: placeOf(machine),
+    rows: others.filter((resource) => resource.machineId === machine.id),
+  }))
+
+  if (local) {
+    groups[0].rows.push(...homeless)
+    return groups
+  }
+
+  return [{ machine: null, place: placeOf(null), rows: homeless }, ...groups]
+}
+
+function placed(rows: Resource[]) {
+  const rank = (resource: Resource) =>
+    resource.capabilities.includes('storage')
+      ? 0
+      : resource.capabilities.includes('inference')
+        ? 1
+        : resource.capabilities.includes('transport')
+          ? 3
+          : 2
+
+  return [...rows].sort(
+    (a, b) => rank(a) - rank(b) || a.key.localeCompare(b.key),
+  )
 }
 
 export function Resources() {
@@ -302,7 +418,11 @@ export function Resources() {
     refetch()
   }
   const [params, setParams] = useSearchParams()
-  const [attaching, setAttaching] = useState(params.has('attach'))
+  const [adding, setAdding] = useState<{
+    place: string
+    choosing: boolean
+  } | null>(params.has('attach') ? { place: LOCAL, choosing: true } : null)
+  const [form, setForm] = useState<Form | null>(null)
   const [editing, setEditing] = useState<Editing | null>(null)
   const [linkingUp, setLinkingUp] = useState(false)
   const [relinking, setRelinking] = useState<Machine | null>(null)
@@ -323,8 +443,8 @@ export function Resources() {
     return () => window.clearInterval(polling)
   }, [checking, refetch])
 
-  const closeAttach = () => {
-    setAttaching(false)
+  const closeAdding = () => {
+    setAdding(null)
     if (!params.has('attach')) return
 
     const rest = new URLSearchParams(params)
@@ -341,6 +461,11 @@ export function Resources() {
   const transports = resources
     .filter((resource) => resource.capabilities.includes('transport'))
     .map((resource) => resource.key)
+  const groups = shelved ? [] : grouped(resources)
+  const places = groups.map((group) => group.place)
+  const placeNamed = (id?: string | null) =>
+    groups.find((group) => group.rows.some((row) => row.id === id))?.place
+      .name ?? THIS_SERVER
 
   const acts: Acts = {
     check: async (resource) => {
@@ -418,16 +543,28 @@ export function Resources() {
     remove: (resource) => setDeleting(resource),
   }
 
-  const inUse = (key: Shelf) =>
-    resources.filter((resource) => shelfOf(resource) === key)
-  const machineCards = inUse('machines').sort((a, b) =>
-    a.key === LOCAL ? -1 : b.key === LOCAL ? 1 : a.key.localeCompare(b.key),
-  )
+  const drops = resources.find((resource) => resource.defaultStorage)
+  const questions = resources.find((resource) => resource.defaultInference)
+  const goTo = (resource: Resource) =>
+    document
+      .getElementById(`resource-${resource.id}`)
+      ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
 
-  const card = (resource: Resource) => (
-    <ResourceCard
+  const row = (resource: Resource, group?: Group) => (
+    <ResourceRow
       key={resource.id}
       resource={resource}
+      through={
+        group?.place.local &&
+        resource.via &&
+        resource.via !== LOCAL &&
+        resource.type !== MACHINE
+          ? resource.via
+          : null
+      }
+      away={Boolean(
+        group?.machine?.machine?.linked && !group.machine.machine.connected,
+      )}
       landed={resource.id === landed}
       landedRef={resource.id === landed ? arrived : undefined}
       putting={putting === resource.id}
@@ -457,7 +594,7 @@ export function Resources() {
         lead={
           shelved
             ? 'Put away, and still holding everything they ever catalogued.'
-            : 'Your machines, where your files live, what reads them, and the tools agents reach for.'
+            : 'Each machine, and what lives on it or is reached from it.'
         }
       >
         <div className="switcher" data-wide="true">
@@ -484,9 +621,9 @@ export function Resources() {
             radius="xl"
             variant="default"
             leftSection={<IconPlus size={16} stroke={2} />}
-            onClick={() => setAttaching(true)}
+            onClick={() => setAdding({ place: LOCAL, choosing: true })}
           >
-            Attach
+            Add
           </Button>
         )}
       </Intro>
@@ -496,6 +633,39 @@ export function Resources() {
           <IconShieldLock size={15} stroke={1.8} />
           <span>Places everyone shares are changed by an administrator.</span>
           <a href={administratorSignIn()}>Sign in as one</a>
+        </p>
+      )}
+
+      {!shelved && (
+        <p className="defaults-line">
+          <span>
+            <IconStar size={14} stroke={1.8} />
+            {drops ? (
+              <>
+                Drops land in{' '}
+                <button type="button" onClick={() => goTo(drops)}>
+                  {named(drops)}
+                </button>{' '}
+                on {placeNamed(drops.id)}
+              </>
+            ) : (
+              'Nothing takes drops yet'
+            )}
+          </span>
+          <span>
+            <IconSparkles size={14} stroke={1.8} />
+            {questions ? (
+              <>
+                Questions go to{' '}
+                <button type="button" onClick={() => goTo(questions)}>
+                  {named(questions)}
+                </button>{' '}
+                on {placeNamed(questions.id)}
+              </>
+            ) : (
+              'Nothing answers questions yet'
+            )}
+          </span>
         </p>
       )}
 
@@ -526,16 +696,35 @@ export function Resources() {
         />
       )}
 
-      {attaching && (
+      {adding && places.length > 0 && (
+        <AddTo
+          places={places}
+          start={
+            places.find((place) => place.key === adding.place) ?? places[0]
+          }
+          choosing={adding.choosing}
+          held={resources}
+          administrator={administrator}
+          onForm={(next) => {
+            closeAdding()
+            setForm(next)
+          }}
+          onAdded={refetch}
+          onClose={closeAdding}
+        />
+      )}
+
+      {form && (
         <Attach
           opened
           administrator={administrator}
           transports={transports}
-          onLinkUp={() => {
-            closeAttach()
-            setLinkingUp(true)
-          }}
-          onClose={closeAttach}
+          initialType={form.type}
+          initialVia={form.via}
+          initialKey={form.key}
+          initialSettings={form.settings}
+          initialShelf={form.shelf}
+          onClose={() => setForm(null)}
           onAttached={refetch}
         />
       )}
@@ -550,51 +739,31 @@ export function Resources() {
         />
       )}
 
-      {!shelved && (
-        <section className="shelf-group" data-shelf="machines">
-          <div className="shelf-group-head">
-            <h2 className="label">Machines</h2>
-            <span className="shelf-group-note">
-              The computers that make up your xixo
-            </span>
-          </div>
+      {groups.map((group) => (
+        <MachineCard
+          key={group.place.key}
+          group={group}
+          landed={group.machine?.id === landed}
+          landedRef={group.machine?.id === landed ? arrived : undefined}
+          putting={group.machine ? putting === group.machine.id : false}
+          administrator={administrator}
+          acts={acts}
+          onAdd={() => setAdding({ place: group.place.key, choosing: false })}
+        >
+          {placed(group.rows).map((resource) => row(resource, group))}
+        </MachineCard>
+      ))}
 
-          <div className="rcards">
-            {machineCards.map(card)}
-            {administrator && (
-              <LinkUpTile onLinkUp={() => setLinkingUp(true)} />
-            )}
-          </div>
-        </section>
+      {!shelved && administrator && (
+        <LinkUpTile onLinkUp={() => setLinkingUp(true)} />
       )}
 
-      {SHELVES.filter((shelf) => !(shelf.key === 'machines' && !shelved)).map(
-        (shelf) => {
-          const held = inUse(shelf.key)
-          if (held.length === 0) return null
-
-          return (
-            <section
-              key={shelf.key}
-              className="shelf-group"
-              data-shelf={shelf.key}
-            >
-              <div className="shelf-group-head">
-                <h2 className="label">{shelf.title}</h2>
-                <span className="shelf-group-note">{shelf.note}</span>
-              </div>
-
-              <div
-                className="rcards"
-                data-compact={
-                  shelf.key === 'tools' || shelf.key === 'connections'
-                }
-              >
-                {held.map(card)}
-              </div>
-            </section>
-          )
-        },
+      {shelved && resources.length > 0 && (
+        <section className="machine-card">
+          <ul className="machine-rows">
+            {resources.map((resource) => row(resource))}
+          </ul>
+        </section>
       )}
 
       {history && (
@@ -656,48 +825,432 @@ interface Acts {
   remove: (resource: Resource) => void
 }
 
-const SHELVES = [
-  {
-    key: 'machines',
-    title: 'Machines',
-    note: 'The computers that make up your xixo',
-    tone: 'var(--accent)',
-  },
-  {
-    key: 'storage',
-    title: 'Storage',
-    note: 'Where your files live',
-    tone: 'var(--k-text)',
-  },
-  {
-    key: 'models',
-    title: 'Models',
-    note: 'What reads and answers',
-    tone: 'var(--k-image)',
-  },
-  {
-    key: 'tools',
-    title: 'Tools',
-    note: 'What agents can reach for',
-    tone: 'var(--k-data)',
-  },
-  {
-    key: 'connections',
-    title: 'Connections',
-    note: 'How xixo reaches the others',
-    tone: 'var(--k-file)',
-  },
-] as const
+function MachineCard({
+  group,
+  landed,
+  landedRef,
+  putting,
+  administrator,
+  acts,
+  onAdd,
+  children,
+}: {
+  group: Group
+  landed: boolean
+  landedRef?: RefObject<HTMLElement | null>
+  putting: boolean
+  administrator: boolean
+  acts: Acts
+  onAdd: () => void
+  children: ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  const { machine: resource, place } = group
+  const machine = resource?.machine
+  const state = resource ? status(resource) : null
+  const linkable = administrator && resource && !place.local
+  const unlinked = linkable && !machine?.linked && !machine?.linkingUntil
+  const away = Boolean(machine?.linked && !machine.connected)
+  const problem =
+    resource?.checkError &&
+    !resource.checking &&
+    !machine?.linkingUntil &&
+    !away &&
+    !unlinked
+      ? humane(resource.checkError)
+      : null
+  const said = machine ? facts(machine, place) : []
+  const low = machine ? warning(machine) : null
+  const found = place.services.filter(
+    (service) => !addedAs(place, service, group.rows),
+  )
+  const Glyph = place.local ? IconServer : glyphFor(MACHINE)
+  const addable = administrator || place.local
 
-type Shelf = (typeof SHELVES)[number]['key']
+  return (
+    <section
+      ref={landedRef}
+      className="machine-card"
+      data-landed={landed}
+      data-away={away}
+      aria-labelledby={`machine-${place.key}`}
+      style={{ '--state': state?.tone } as CSSProperties}
+    >
+      <header className="machine-head">
+        <span className="machine-icon">
+          <Glyph size={20} stroke={1.6} />
+        </span>
 
-function shelfOf(resource: Resource): Shelf {
-  if (resource.type === MACHINE) return 'machines'
-  if (resource.capabilities.includes('storage')) return 'storage'
-  if (resource.capabilities.includes('inference')) return 'models'
-  if (resource.capabilities.includes('transport')) return 'connections'
+        <div className="machine-name">
+          <h2 id={`machine-${place.key}`} className="machine-title">
+            {place.name}
+          </h2>
+          <div className="machine-sub">
+            {resource ? system(resource) : 'Where xixo runs'}
+          </div>
+        </div>
 
-  return 'tools'
+        {state?.said && (
+          <span
+            className="machine-state"
+            data-busy={state.busy}
+            title={resource ? told(resource) : undefined}
+          >
+            {state.said}
+          </span>
+        )}
+
+        {resource && (
+          <div className="machine-acts">
+            {unlinked && (
+              <Button
+                size="compact-sm"
+                radius="xl"
+                color="brand"
+                leftSection={<IconLink size={14} />}
+                onClick={() => acts.relink(resource)}
+              >
+                Get a fresh code
+              </Button>
+            )}
+            <More
+              resource={resource}
+              administrator={administrator}
+              putting={putting}
+              linkable={Boolean(linkable && !unlinked)}
+              open={open}
+              onDetails={() => setOpen((held) => !held)}
+              acts={acts}
+            />
+          </div>
+        )}
+      </header>
+
+      {(said.length > 0 || found.length > 0) && (
+        <p className="machine-facts">
+          {[
+            ...said,
+            ...found.map(
+              (service) => `Found ${SERVERS[service.kind] ?? service.kind}`,
+            ),
+          ].join(' · ')}
+        </p>
+      )}
+
+      {problem && <div className="rrow-error">{problem}</div>}
+      {low && <div className="rrow-notice">{low}</div>}
+      {machine?.warnings.map((held) => (
+        <div key={held} className="rrow-notice">
+          {held}
+        </div>
+      ))}
+
+      {open && resource && <Details resource={resource} acts={acts} />}
+
+      <ul className="machine-rows">{children}</ul>
+
+      {addable && (
+        <button type="button" className="machine-add" onClick={onAdd}>
+          <IconPlus size={15} stroke={2} />
+          Add to {place.name}
+        </button>
+      )}
+    </section>
+  )
+}
+
+function ResourceRow({
+  resource,
+  through,
+  away,
+  landed,
+  landedRef,
+  putting,
+  administrator,
+  acts,
+}: {
+  resource: Resource
+  through: string | null
+  away: boolean
+  landed: boolean
+  landedRef?: RefObject<HTMLElement | null>
+  putting: boolean
+  administrator: boolean
+  acts: Acts
+}) {
+  const [open, setOpen] = useState(false)
+  const Glyph = glyphFor(resource.type)
+  const state = status(resource)
+  const problem =
+    resource.checkError && !resource.checking && !resource.offline && !away
+      ? humane(resource.checkError)
+      : null
+  const wrong = state.wrong && !away
+  const folder =
+    resource.type === 'filesystem' ? `${resource.settings.folder ?? ''}` : null
+  const counted = resource.capabilities.includes('storage')
+
+  return (
+    <li
+      ref={(node) => {
+        if (landedRef) landedRef.current = node
+      }}
+      id={`resource-${resource.id}`}
+      className="rrow"
+      data-landed={landed}
+      data-failing={wrong}
+      style={{ '--state': state.tone } as CSSProperties}
+    >
+      <span className="rrow-icon">
+        <Glyph size={17} stroke={1.7} />
+      </span>
+
+      <div className="rrow-main">
+        <div className="rrow-name">
+          <h3>{named(resource)}</h3>
+          {resource.defaultStorage && (
+            <span className="rrow-badge">
+              <IconStar size={11} stroke={2} /> drops land here
+            </span>
+          )}
+          {resource.defaultInference && (
+            <span className="rrow-badge">
+              <IconSparkles size={11} stroke={2} /> answers questions
+            </span>
+          )}
+          {resource.personal && (
+            <span className="rrow-badge" data-plain="true">
+              <IconLock size={11} stroke={2} /> only you
+            </span>
+          )}
+        </div>
+        <div className="rrow-says">
+          {folder === null &&
+            [
+              does(resource),
+              counted ? plural(resource.itemsCount, 'item') : null,
+              through ? `through ${through}` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          {folder !== null && (
+            <>
+              <span className="mono">{folder}</span>
+              {counted && ` · ${plural(resource.itemsCount, 'item')}`}
+            </>
+          )}
+        </div>
+      </div>
+
+      {state.said && (wrong || state.busy || resource.offline) && (
+        <span
+          className="rrow-state"
+          data-busy={state.busy}
+          title={told(resource)}
+        >
+          {state.said}
+        </span>
+      )}
+
+      <div className="rrow-acts">
+        {resource.archivedAt ? (
+          resource.manageable && (
+            <>
+              <Button
+                size="compact-sm"
+                radius="xl"
+                variant="subtle"
+                color="red"
+                leftSection={<IconTrash size={14} />}
+                disabled={putting}
+                onClick={() => acts.remove(resource)}
+              >
+                Delete
+              </Button>
+              <Button
+                size="compact-sm"
+                radius="xl"
+                variant="default"
+                leftSection={<IconArchiveOff size={14} />}
+                loading={putting}
+                onClick={() => acts.putAway(resource, false)}
+              >
+                Put back
+              </Button>
+            </>
+          )
+        ) : (
+          <>
+            {resource.manageable &&
+              resource.delegated &&
+              resource.needsConnect &&
+              resource.connectUrl && (
+                <Button
+                  component="a"
+                  href={resource.connectUrl}
+                  size="compact-sm"
+                  radius="xl"
+                  color="brand"
+                  leftSection={<IconPlugConnected size={14} />}
+                >
+                  {resource.connectedBy ? 'Reconnect' : 'Connect'}
+                </Button>
+              )}
+            <More
+              resource={resource}
+              administrator={administrator}
+              putting={putting}
+              linkable={false}
+              compact
+              open={open}
+              onDetails={() => setOpen((held) => !held)}
+              acts={acts}
+            />
+          </>
+        )}
+      </div>
+
+      {problem && <div className="rrow-error">{problem}</div>}
+
+      {resource.emptiedAt && (
+        <div className="rrow-error">
+          The sync {ago(resource.emptiedAt)} found nothing here, so its items
+          stay until a sync finds files again
+        </div>
+      )}
+
+      {open && <Details resource={resource} acts={acts} />}
+    </li>
+  )
+}
+
+function More({
+  resource,
+  administrator,
+  putting,
+  linkable,
+  compact = false,
+  open,
+  onDetails,
+  acts,
+}: {
+  resource: Resource
+  administrator: boolean
+  putting: boolean
+  linkable: boolean
+  compact?: boolean
+  open: boolean
+  onDetails: () => void
+  acts: Acts
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        className="rrow-more"
+        aria-expanded={open}
+        aria-label={`Details of ${resource.key}`}
+        onClick={onDetails}
+      >
+        {compact ? null : 'Details'}
+        <IconChevronDown size={14} stroke={1.8} data-open={open} />
+      </button>
+      <Menu position="bottom-end" width={220}>
+        <Menu.Target>
+          <ActionIcon
+            size={30}
+            radius="xl"
+            variant="subtle"
+            color="gray"
+            aria-label={`More for ${resource.key}`}
+          >
+            <IconDots size={16} stroke={1.8} />
+          </ActionIcon>
+        </Menu.Target>
+        <Menu.Dropdown>
+          {resource.syncable && (
+            <Menu.Item
+              leftSection={<IconRefresh size={15} />}
+              disabled={resource.syncing}
+              onClick={() => acts.sync(resource)}
+            >
+              Sync now
+            </Menu.Item>
+          )}
+          <Menu.Item
+            leftSection={<IconCheck size={15} />}
+            onClick={() => acts.check(resource)}
+          >
+            Check
+          </Menu.Item>
+          <Menu.Item
+            leftSection={<IconHistory size={15} />}
+            onClick={() => acts.history(resource)}
+          >
+            What it has done
+          </Menu.Item>
+          {resource.manageable &&
+            resource.delegated &&
+            !resource.needsConnect &&
+            resource.connectUrl && (
+              <Menu.Item
+                component="a"
+                href={resource.connectUrl}
+                leftSection={<IconPlugConnected size={15} />}
+              >
+                Connect again
+              </Menu.Item>
+            )}
+          {resource.manageable && (
+            <>
+              {linkable && (
+                <Menu.Item
+                  leftSection={<IconLink size={15} />}
+                  onClick={() => acts.relink(resource)}
+                >
+                  Link up again
+                </Menu.Item>
+              )}
+              {administrator && resource.capabilities.includes('storage') && (
+                <Menu.Item
+                  disabled={resource.defaultStorage}
+                  leftSection={<IconStar size={15} />}
+                  onClick={() => acts.takeDrops(resource)}
+                >
+                  Take drops
+                </Menu.Item>
+              )}
+              {administrator && resource.capabilities.includes('inference') && (
+                <Menu.Item
+                  disabled={resource.defaultInference}
+                  leftSection={<IconSparkles size={15} />}
+                  onClick={() => acts.takeQuestions(resource)}
+                >
+                  Take questions
+                </Menu.Item>
+              )}
+              {resource.changeable && (
+                <Menu.Item
+                  leftSection={<IconPencil size={15} />}
+                  onClick={() => acts.change(resource)}
+                >
+                  Change
+                </Menu.Item>
+              )}
+              <Menu.Divider />
+              <Menu.Item
+                leftSection={<IconArchive size={15} />}
+                disabled={putting}
+                onClick={() => acts.putAway(resource, true)}
+              >
+                Put away
+              </Menu.Item>
+            </>
+          )}
+        </Menu.Dropdown>
+      </Menu>
+    </>
+  )
 }
 
 function Details({ resource, acts }: { resource: Resource; acts: Acts }) {
@@ -715,7 +1268,7 @@ function Details({ resource, acts }: { resource: Resource; acts: Acts }) {
         {resource.type}
       </span>,
     ],
-    ...(resource.via
+    ...(resource.via && resource.type !== MACHINE
       ? ([['Reached through', resource.via]] as [string, ReactNode][])
       : []),
     ['Does', resource.capabilities.join(', ') || 'nothing on its own'],
@@ -732,14 +1285,15 @@ function Details({ resource, acts }: { resource: Resource; acts: Acts }) {
     ])
 
   if (machine) {
-    const system = [machine.hostname, machine.os, machine.arch]
+    const held = [machine.hostname, machine.os, machine.arch]
       .filter(Boolean)
       .join(', ')
     const health = [upFor(machine.uptime), memory(machine), ...disks(machine)]
       .filter(Boolean)
       .join('. ')
 
-    if (system) rows.push(['Machine', system])
+    if (held) rows.push(['Machine', held])
+    if (resource.via) rows.push(['Reached through', resource.via])
     if (machine.version) rows.push(['xixo link', machine.version])
     if (machine.folders.length > 0)
       rows.push([
@@ -754,6 +1308,16 @@ function Details({ resource, acts }: { resource: Resource; acts: Acts }) {
       'Offers MCP clients',
       machine.tools.length > 0 ? machine.tools.join(', ') : 'no tools',
     ])
+    if (machine.services.length > 0)
+      rows.push([
+        'Model servers',
+        machine.services
+          .map(
+            (service) =>
+              `${SERVERS[service.kind] ?? service.kind} on port ${service.port}${service.address ? ` at ${service.address}` : ''}`,
+          )
+          .join('\n'),
+      ])
     if (health) rows.push(['Health', health])
   }
 
@@ -765,7 +1329,7 @@ function Details({ resource, acts }: { resource: Resource; acts: Acts }) {
     rows.push(['What it said', unraised(resource.checkError)])
 
   return (
-    <dl className="rcard-details">
+    <dl className="rdetails">
       {rows.map(([term, value]) => (
         <div key={term}>
           <dt>{term}</dt>
@@ -776,280 +1340,6 @@ function Details({ resource, acts }: { resource: Resource; acts: Acts }) {
   )
 }
 
-function ResourceCard({
-  resource,
-  landed,
-  landedRef,
-  putting,
-  administrator,
-  acts,
-}: {
-  resource: Resource
-  landed: boolean
-  landedRef?: RefObject<HTMLElement | null>
-  putting: boolean
-  administrator: boolean
-  acts: Acts
-}) {
-  const [open, setOpen] = useState(false)
-  const Glyph = glyphFor(resource.type)
-  const shelf = shelfOf(resource)
-  const tone = SHELVES.find((held) => held.key === shelf)?.tone
-  const state = status(resource)
-  const machine = resource.machine
-  const linkable =
-    administrator && resource.type === MACHINE && resource.key !== LOCAL
-  const unlinked = linkable && !machine?.linked && !machine?.linkingUntil
-  const away = machine
-    ? Boolean(machine.linked && !machine.connected)
-    : resource.offline
-  const problem =
-    resource.checkError && !resource.checking && !machine?.linkingUntil && !away
-      ? humane(resource.checkError)
-      : null
-  const lines = machine ? machineLines(machine) : []
-
-  return (
-    <article
-      ref={landedRef}
-      className="rcard"
-      data-landed={landed}
-      data-failing={Boolean(
-        !away &&
-          ((resource.checkError && !resource.checking) ||
-            resource.needsConnect),
-      )}
-      style={{ '--tone': tone, '--state': state.tone } as CSSProperties}
-    >
-      <div className="rcard-top">
-        <span className="rcard-icon">
-          <Glyph size={20} stroke={1.6} />
-        </span>
-
-        <div className="rcard-name">
-          <h3 className="rcard-key">{resource.name || resource.key}</h3>
-          <div className="rcard-kind">{does(resource)}</div>
-        </div>
-
-        <Tooltip label={told(resource)}>
-          <span
-            className="rcard-state"
-            data-busy={state.busy}
-            data-quiet={state.said === null}
-            role="img"
-            aria-label={state.said ?? told(resource)}
-          >
-            {state.said}
-          </span>
-        </Tooltip>
-      </div>
-
-      {shelf === 'storage' && (
-        <div className="rcard-figure">
-          <span className="rcard-count">
-            {resource.itemsCount.toLocaleString()}
-          </span>
-          <span className="rcard-unit">
-            {resource.itemsCount === 1 ? 'item' : 'items'}
-          </span>
-          {resource.personal && (
-            <span className="rcard-role" data-plain="true">
-              <IconLock size={12} /> Only you
-            </span>
-          )}
-        </div>
-      )}
-
-      {lines.length > 0 && (
-        <ul className="rcard-lines">
-          {lines.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
-      )}
-
-      {problem && <div className="rcard-error">{problem}</div>}
-
-      {machine?.warnings.map((said) => (
-        <div key={said} className="rcard-notice">
-          {said}
-        </div>
-      ))}
-
-      {resource.emptiedAt && (
-        <div className="rcard-error">
-          The sync {ago(resource.emptiedAt)} found nothing here, so its items
-          stay until a sync finds files again
-        </div>
-      )}
-
-      <footer className="rcard-foot">
-        <button
-          type="button"
-          className="rcard-more"
-          aria-expanded={open}
-          onClick={() => setOpen((held) => !held)}
-        >
-          Details
-          <IconChevronDown size={14} stroke={1.8} data-open={open} />
-        </button>
-
-        {resource.archivedAt ? (
-          <div className="rcard-actions" hidden={!resource.manageable}>
-            <Button
-              size="compact-sm"
-              radius="xl"
-              variant="subtle"
-              color="red"
-              leftSection={<IconTrash size={14} />}
-              disabled={putting}
-              onClick={() => acts.remove(resource)}
-            >
-              Delete
-            </Button>
-            <Button
-              size="compact-sm"
-              radius="xl"
-              variant="default"
-              leftSection={<IconArchiveOff size={14} />}
-              loading={putting}
-              onClick={() => acts.putAway(resource, false)}
-            >
-              Put back
-            </Button>
-          </div>
-        ) : (
-          <div className="rcard-actions">
-            {unlinked && (
-              <Button
-                size="compact-sm"
-                radius="xl"
-                color="brand"
-                leftSection={<IconLink size={14} />}
-                onClick={() => acts.relink(resource)}
-              >
-                Get a fresh code
-              </Button>
-            )}
-
-            {resource.manageable &&
-              resource.delegated &&
-              resource.connectUrl && (
-                <Button
-                  component="a"
-                  href={resource.connectUrl}
-                  size="compact-sm"
-                  radius="xl"
-                  color={resource.needsConnect ? 'brand' : 'gray'}
-                  variant={resource.needsConnect ? 'filled' : 'subtle'}
-                  leftSection={<IconPlugConnected size={14} />}
-                >
-                  {resource.needsConnect
-                    ? resource.connectedBy
-                      ? 'Reconnect'
-                      : 'Connect'
-                    : 'Connect again'}
-                </Button>
-              )}
-
-            {resource.syncable && (
-              <Tooltip label="Sync now">
-                <ActionIcon
-                  size={32}
-                  radius="xl"
-                  variant="default"
-                  aria-label={`Sync ${resource.key}`}
-                  loading={resource.syncing}
-                  onClick={() => acts.sync(resource)}
-                >
-                  <IconRefresh size={16} stroke={1.8} />
-                </ActionIcon>
-              </Tooltip>
-            )}
-
-            <Menu position="bottom-end" width={220}>
-              <Menu.Target>
-                <ActionIcon
-                  size={32}
-                  radius="xl"
-                  variant="subtle"
-                  color="gray"
-                  aria-label={`More for ${resource.key}`}
-                >
-                  <IconDots size={16} stroke={1.8} />
-                </ActionIcon>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Item
-                  leftSection={<IconCheck size={15} />}
-                  onClick={() => acts.check(resource)}
-                >
-                  Check
-                </Menu.Item>
-                <Menu.Item
-                  leftSection={<IconHistory size={15} />}
-                  onClick={() => acts.history(resource)}
-                >
-                  What it has done
-                </Menu.Item>
-                {resource.manageable && (
-                  <>
-                    {linkable && !unlinked && (
-                      <Menu.Item
-                        leftSection={<IconLink size={15} />}
-                        onClick={() => acts.relink(resource)}
-                      >
-                        Link up again
-                      </Menu.Item>
-                    )}
-                    {administrator &&
-                      resource.capabilities.includes('storage') && (
-                        <Menu.Item
-                          disabled={resource.defaultStorage}
-                          leftSection={<IconStar size={15} />}
-                          onClick={() => acts.takeDrops(resource)}
-                        >
-                          Take drops
-                        </Menu.Item>
-                      )}
-                    {administrator &&
-                      resource.capabilities.includes('inference') && (
-                        <Menu.Item
-                          disabled={resource.defaultInference}
-                          leftSection={<IconSparkles size={15} />}
-                          onClick={() => acts.takeQuestions(resource)}
-                        >
-                          Take questions
-                        </Menu.Item>
-                      )}
-                    {resource.changeable && (
-                      <Menu.Item
-                        leftSection={<IconPencil size={15} />}
-                        onClick={() => acts.change(resource)}
-                      >
-                        Change
-                      </Menu.Item>
-                    )}
-                    <Menu.Divider />
-                    <Menu.Item
-                      leftSection={<IconArchive size={15} />}
-                      disabled={putting}
-                      onClick={() => acts.putAway(resource, true)}
-                    >
-                      Put away
-                    </Menu.Item>
-                  </>
-                )}
-              </Menu.Dropdown>
-            </Menu>
-          </div>
-        )}
-      </footer>
-
-      {open && <Details resource={resource} acts={acts} />}
-    </article>
-  )
-}
 function Every({
   resource,
   onKeep,
@@ -1076,7 +1366,7 @@ function Every({
 
   if (!onKeep) {
     return (
-      <span className="rcard-when">
+      <span className="rdetails-when">
         <IconClock size={13} stroke={1.8} />
         {said}
       </span>
@@ -1096,7 +1386,7 @@ function Every({
       <Popover.Target>
         <button
           type="button"
-          className="rcard-when rcard-every"
+          className="rdetails-when rdetails-every"
           aria-label={`Sync schedule for ${resource.key}: ${said}`}
           onClick={() => setOpen((held) => !held)}
         >

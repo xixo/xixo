@@ -3,10 +3,7 @@ import { ago } from './when'
 export interface Plain {
   type: string
   key: string
-  via?: string | null
   capabilities: string[]
-  defaultStorage: boolean
-  defaultInference: boolean
 }
 
 export interface Health {
@@ -23,7 +20,7 @@ export interface Health {
 }
 
 const DOES: Record<string, string> = {
-  database: 'A folder on this server',
+  database: 'Files kept inside xixo',
   s3: 'A storage bucket',
   webdav: 'A shared drive',
   'oauth-google': 'Your Google Drive',
@@ -49,23 +46,18 @@ const DOES: Record<string, string> = {
 export function does(resource: Plain) {
   if (resource.type === 'machine')
     return resource.key === 'local'
-      ? 'The machine xixo runs on'
-      : 'A machine linked to xixo'
-  if (resource.type === 'filesystem')
-    return `A folder on ${resource.via ?? 'a machine'}`
+      ? 'Where xixo runs'
+      : 'A machine running xixo link'
+  if (resource.type === 'filesystem') return 'A folder'
 
-  const base =
+  return (
     DOES[resource.type] ??
     (resource.capabilities.includes('storage')
       ? 'A place your files live'
       : resource.capabilities.includes('inference')
         ? 'Models that read and answer'
         : 'A tool agents can use')
-
-  if (resource.defaultStorage) return `${base}, where your uploads go`
-  if (resource.defaultInference) return `${base}, which answers your questions`
-
-  return base
+  )
 }
 
 const PLAIN_ERRORS: [RegExp, string][] = [

@@ -28,7 +28,6 @@ import {
   IconDeviceDesktop,
   IconFolders,
   IconGitBranch,
-  IconLink,
   IconMail,
   IconMapPin,
   IconNetwork,
@@ -102,7 +101,7 @@ const GLYPHS: Record<string, Glyph> = {
   machine: IconDeviceDesktop,
 }
 
-const GROUPS: {
+export const GROUPS: {
   title: string
   short: string
   tone: string
@@ -220,7 +219,10 @@ export function Attach({
   transports = [],
   administrator = false,
   initialType,
-  onLinkUp,
+  initialVia,
+  initialKey,
+  initialSettings,
+  initialShelf = null,
 }: {
   opened: boolean
   onClose: () => void
@@ -229,7 +231,10 @@ export function Attach({
   transports?: string[]
   administrator?: boolean
   initialType?: string
-  onLinkUp?: () => void
+  initialVia?: string | null
+  initialKey?: string
+  initialSettings?: Typed
+  initialShelf?: string | null
 }) {
   const { data, loading } = useQuery(ResourceTypesDocument, {})
   const attach = useMutation(AttachResourceDocument)
@@ -245,10 +250,10 @@ export function Attach({
   const [refused, setRefused] = useState<string | null>(null)
   const [warned, setWarned] = useState<string | null>(null)
   const [personal, setPersonal] = useState(!administrator)
-  const [via, setVia] = useState(editing?.via ?? DIRECT)
+  const [via, setVia] = useState(editing?.via ?? initialVia ?? DIRECT)
 
   const types = (data?.resourceTypes ?? []).filter(
-    (held) => !onLinkUp || held.type !== LINKED,
+    (held) => held.type !== LINKED,
   )
   const initial = initialType
     ? (data?.resourceTypes ?? []).find((held) => held.type === initialType)
@@ -257,7 +262,7 @@ export function Attach({
     types.find((held) => held.type === chosen) ??
     (initial?.type === chosen ? initial : null)
   const [find, setFind] = useState('')
-  const [shelf, setShelf] = useState<string | null>(null)
+  const [shelf, setShelf] = useState<string | null>(initialShelf)
   const needle = find.trim().toLowerCase()
   const everything = grouped(types)
   const sections = grouped(
@@ -276,8 +281,8 @@ export function Attach({
   }
 
   if (!editing && initial && seededFor !== initial.type) {
-    setTyped(seeded(initial))
-    setKey((held) => held || initial.type)
+    setTyped({ ...seeded(initial), ...initialSettings })
+    setKey((held) => held || initialKey || initial.type)
     setSeededFor(initial.type)
   }
 
@@ -426,22 +431,6 @@ export function Attach({
         <Loader size="sm" color="var(--accent)" />
       ) : !type ? (
         <div className="attach-picker">
-          {onLinkUp && (
-            <button type="button" className="attach-linkup" onClick={onLinkUp}>
-              <span className="attach-icon attach-icon-large">
-                <IconLink size={26} stroke={1.6} />
-              </span>
-              <span className="attach-linkup-text">
-                <span className="attach-linkup-name">Link up a machine</span>
-                <span className="attach-linkup-says">
-                  Put xixo link on another computer. Its folders become
-                  searchable, it helps read files, and its models can answer.
-                </span>
-              </span>
-              <span className="attach-linkup-go">Link up</span>
-            </button>
-          )}
-
           <div className="attach-intro">
             <TextInput
               size="md"
