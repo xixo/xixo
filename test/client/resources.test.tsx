@@ -212,6 +212,54 @@ describe('Resources', () => {
     expect(screen.queryByText('reachable')).toBeNull()
   })
 
+  test('a machine that went offline stays calm and says when it was last seen', async () => {
+    const seenAt = new Date(Date.now() - 3 * 3600 * 1000).toISOString()
+    const studio = resource({
+      id: '7',
+      type: 'machine',
+      key: 'studio',
+      name: 'Studio',
+      capabilities: ['transport'],
+      healthy: false,
+      checkedAt: new Date().toISOString(),
+      checkError: `studio: xixo link was last heard from ${seenAt}`,
+      machine: {
+        hostname: 'studio',
+        version: '0.4.0',
+        connected: false,
+        seenAt,
+        uptime: null,
+        folders: ['/srv/media'],
+        extractors: ['text'],
+        unread: [],
+        lends: false,
+        tools: [],
+        warnings: [],
+        os: 'linux',
+        arch: 'amd64',
+        extractsForOthers: false,
+        linked: true,
+        selfLinked: true,
+        linkingUntil: null,
+        services: [],
+        memoryTotal: null,
+        memoryAvailable: null,
+        disks: [],
+      },
+    })
+    const { client } = fakeClient({
+      Resources: () => ({ administrator: true, resources: [studio] }),
+    })
+
+    show(<Resources />, client, '/settings/resources')
+
+    const card = (await screen.findByText('Studio')).closest('article')
+    expect(card?.getAttribute('data-failing')).toBe('false')
+    expect(card?.querySelector('.rcard-error')).toBeNull()
+    expect(within(card as HTMLElement).getByText('offline')).toBeTruthy()
+    expect(within(card as HTMLElement).getByText(/^Last seen /)).toBeTruthy()
+  })
+
   test('linking up a machine names it, then shows commands carrying the code', async () => {
     const { client, asked } = fakeClient({
       Resources: () => ({

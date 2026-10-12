@@ -802,11 +802,11 @@ function ResourceCard({
   const linkable =
     administrator && resource.type === MACHINE && resource.key !== LOCAL
   const unlinked = linkable && !machine?.linked && !machine?.linkingUntil
+  const away = machine
+    ? Boolean(machine.linked && !machine.connected)
+    : resource.offline
   const problem =
-    resource.checkError &&
-    !resource.checking &&
-    !machine?.linkingUntil &&
-    !(machine?.linked && !machine.connected)
+    resource.checkError && !resource.checking && !machine?.linkingUntil && !away
       ? humane(resource.checkError)
       : null
   const lines = machine ? machineLines(machine) : []
@@ -817,7 +817,9 @@ function ResourceCard({
       className="rcard"
       data-landed={landed}
       data-failing={Boolean(
-        (resource.checkError && !resource.checking) || resource.needsConnect,
+        !away &&
+          ((resource.checkError && !resource.checking) ||
+            resource.needsConnect),
       )}
       style={{ '--tone': tone, '--state': state.tone } as CSSProperties}
     >
