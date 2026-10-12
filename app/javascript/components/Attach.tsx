@@ -48,6 +48,7 @@ import {
   UpdateResourceDocument,
 } from 'xixo'
 import { useMutation, useQuery } from 'xixo/react'
+import { unraised } from '../shared'
 
 type Attaching = ResourceTypesQuery['resourceTypes'][number]
 
@@ -325,7 +326,7 @@ export function Attach({
     onAttached()
 
     if (answered.updateResource.checkError) {
-      setWarned(answered.updateResource.checkError)
+      setWarned(unraised(answered.updateResource.checkError))
       return
     }
 
@@ -362,7 +363,7 @@ export function Attach({
     onAttached()
 
     if (answered.attachResource.checkError) {
-      setWarned(answered.attachResource.checkError)
+      setWarned(unraised(answered.attachResource.checkError))
       return
     }
 

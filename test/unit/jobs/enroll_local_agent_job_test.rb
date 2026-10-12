@@ -95,6 +95,42 @@ class EnrollLocalAgentJobTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { assert_nil Resource::XixoAgent.local.client_id }
   end
 
+  test "the card that said the agent had not enrolled reads healthy once it binds and says hello" do
+    Tenant.switch(@tenant) do
+      local = Resource::XixoAgent.local!
+      local.probe
+      assert_equal "local: the agent beside the server has not enrolled yet", local.reload.check_error
+    end
+
+    handed_a_token
+    @dir.join("client_id").write("local-client")
+    EnrollLocalAgentJob.perform_now
+
+    Tenant.switch(@tenant) do
+      local = Resource::XixoAgent.local
+      assert_nil local.check_error
+      assert_nil local.checked_at
+
+      local.greeted!({ "hostname" => "xixo" }, session: "one")
+      assert local.reload.healthy?
+    end
+  end
+
+  test "a check that read the agent before it said hello is cleared by its next health report" do
+    handed_a_token
+    @dir.join("client_id").write("local-client")
+    EnrollLocalAgentJob.perform_now
+
+    Tenant.switch(@tenant) do
+      local = Resource::XixoAgent.local
+      local.greeted!({ "hostname" => "xixo" }, session: "one")
+      local.update_columns(checked_at: Time.current, check_error: "local: the agent has never connected")
+
+      Resource::XixoAgent.local.heard!({})
+      assert local.reload.healthy?
+    end
+  end
+
   test "a client another machine is enrolled as is not taken" do
     Tenant.switch(@tenant) do
       Resource::XixoAgent.create!(key: "box", details: { "host" => "100.64.0.9", "user" => "jon", "client_id" => "box-client" })

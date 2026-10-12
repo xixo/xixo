@@ -63,3 +63,11 @@ export function toldOfShare(params: URLSearchParams): Told | null {
       return null
   }
 }
+
+const RAISED_AS = /^(?:(?:[A-Z]\w*::)+[A-Z]\w*|[A-Z]\w*Error): /
+
+export function unraised(said: string): string
+export function unraised(said: string | null | undefined): string | null
+export function unraised(said: string | null | undefined) {
+  return said ? said.replace(RAISED_AS, '') : null
+}

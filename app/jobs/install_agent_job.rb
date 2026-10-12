@@ -20,7 +20,7 @@ class InstallAgentJob < ApplicationJob
   rescue StandardError => e
     run&.log_fail(e.message)
     run&.finished!(error: e.message)
-    agent&.update_columns(checked_at: Time.current, check_error: Redaction.scrub("#{e.class}: #{e.message}"))
+    agent&.update_columns(checked_at: Time.current, check_error: Redaction.scrub(Resource.told(e)))
   ensure
     agent&.forget_key!
   end

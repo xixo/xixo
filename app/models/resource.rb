@@ -94,6 +94,10 @@ class Resource < ApplicationRecord
         raise(Refused, "#{key} is not a transport here")
     end
 
+    def told(error)
+      error.message.to_s.strip.presence || error.class.name.demodulize.underscore.humanize
+    end
+
     def sti_name
       return super if self == Resource
 
@@ -501,7 +505,7 @@ class Resource < ApplicationRecord
   end
 
   def check!
-    raise NotImplementedError, "#{self.class} does not implement #check!"
+    raise NotImplementedError, "#{key}: #{self.class.sti_name} has no check"
   end
 
   def check
@@ -828,7 +832,7 @@ class Resource < ApplicationRecord
     rescue Offline
       false
     rescue NotImplementedError, StandardError => e
-      record_check("#{e.class}: #{e.message}")
+      record_check(Resource.told(e))
       false
     end
 

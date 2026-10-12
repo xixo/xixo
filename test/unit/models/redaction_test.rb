@@ -69,7 +69,7 @@ class RedactionTest < ActiveSupport::TestCase
 
       assert_not resource.check
       assert_no_match(/hunter2|s3cret/, resource.reload.check_error)
-      assert_match(/URI::InvalidURIError: bad URI: https:\/\/dav\.example\.test/, resource.check_error)
+      assert_match(/\Abad URI: https:\/\/dav\.example\.test/, resource.check_error)
     end
   end
 

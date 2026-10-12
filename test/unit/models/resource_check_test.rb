@@ -55,7 +55,8 @@ class ResourceCheckTest < ActiveSupport::TestCase
       @unreachable.reload
 
       assert_not_nil @unreachable.checked_at
-      assert_match(/Resource::Failed/, @unreachable.check_error)
+      assert @unreachable.check_error.present?
+      assert_no_match(/Resource::/, @unreachable.check_error)
       assert_not @unreachable.healthy?
     end
   end
@@ -75,7 +76,8 @@ class ResourceCheckTest < ActiveSupport::TestCase
       gpu = Resource::Unchecked.create!(key: "gpu-box", name: "GPU")
 
       assert_not gpu.check
-      assert_match(/NotImplementedError/, gpu.reload.check_error)
+      assert_equal "gpu-box: unchecked has no check", gpu.reload.check_error
+      assert_no_match(/NotImplementedError/, gpu.check_error)
     end
   end
 

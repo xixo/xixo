@@ -165,6 +165,7 @@ class Resource
     end
 
     def check!
+      reload unless new_record? || changed?
       return true if installing? || connected?
       raise Resource::Failed, "#{key}: the agent beside the server has not enrolled yet" if client_id.blank? && local?
       raise Resource::Failed, "#{key}: the agent is not installed yet. Paste an SSH key to install it" if client_id.blank?
@@ -272,6 +273,7 @@ class Resource
 
     def heard!(said)
       merge_machine!("health" => Health.from(said), "seen_at" => now_stamp)
+      update_columns(checked_at: Time.current, check_error: nil) if check_error.present?
     end
 
     def parted!(session:)
@@ -288,6 +290,8 @@ class Resource
 
       revoker.call(tenant, self.client_id) if self.client_id.present?
       self.details = details.to_h.merge("client_id" => client_id).except("machine", MINTED)
+      self.check_error = nil
+      self.checked_at = nil
       save!
     end
 

@@ -48,6 +48,7 @@ import {
 import { useQuery } from 'xixo/react'
 import { session } from '../hooks/useSession'
 import { useTitle } from '../hooks/useTitle'
+import { unraised } from '../shared'
 import { ago, dated } from '../when'
 import { Attach, type Editing, glyphFor } from './Attach'
 import { Failed } from './Failed'
@@ -134,7 +135,7 @@ function told(resource: Resource) {
       : `${host} has not been seen on ${resource.via ?? 'its network'}`
   }
 
-  if (resource.checkError) return resource.checkError
+  if (resource.checkError) return unraised(resource.checkError)
 
   return resource.checkedAt
     ? `checked ${ago(resource.checkedAt)}`
@@ -295,7 +296,7 @@ export function Resources() {
             }
           : {
               text:
-                answered.checkResource?.resource.checkError ??
+                unraised(answered.checkResource?.resource.checkError) ??
                 `${resource.key} did not answer.`,
               wrong: true,
             },
@@ -669,7 +670,7 @@ function ResourceCard({
       )}
 
       {resource.checkError && (
-        <div className="rcard-error">{resource.checkError}</div>
+        <div className="rcard-error">{unraised(resource.checkError)}</div>
       )}
 
       {resource.emptiedAt && (
