@@ -31,6 +31,15 @@ module Types
     field :tools, [ String ], null: false,
           description: "The tools the machine offers to MCP clients through xixo, as its agent's config names them: " \
                        "browse, search, read, write, extract, and models."
+    field :extracts_for_others, Boolean,
+          description: "Whether the machine's own config lets it read files from other places for xixo. " \
+                       "Empty when its agent does not say."
+    field :linked, Boolean, null: false,
+          description: "Whether an agent is enrolled as this machine, whether or not it is connected now."
+    field :self_linked, Boolean, null: false,
+          description: "Whether the machine installed the agent itself, with a code, instead of xixo installing it over SSH."
+    field :linking_until, GraphQL::Types::ISO8601DateTime,
+          description: "When the code handed out to link the machine stops working. Empty when none is waiting."
     field :services, [ Types::MachineServiceType ], null: false,
           description: "Model servers listening on the machine, with its tailnet address when it has one."
 
@@ -52,6 +61,10 @@ module Types
     def lends = object.lends?
     def tools = object.offered_tools
     def warnings = object.warnings
+    def extracts_for_others = object.extracts_for_others
+    def linked = object.client_id.present?
+    def self_linked = object.self_linked?
+    def linking_until = object.link_expires_at
 
     private
 

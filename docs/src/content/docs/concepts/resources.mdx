@@ -258,8 +258,37 @@ resource uses it.
 
 ## Machines and their agent
 
-A `xixo-agent` resource stands for a Linux machine running `xixo-agent`, the program in `agent/`.
-Attaching one with an SSH key starts an `install` run. `InstallAgentJob` connects over SSH to the
+A `xixo-agent` resource stands for a machine running `xixo-agent`, the program in `agent/`. The
+**Resources** page lists machines first, the agent beside the server among them as **This server**.
+A machine links up in one of two ways: someone runs the install commands on the machine, or xixo
+installs the agent over SSH.
+
+### Installing it yourself
+
+`linkMachine` names a new machine, or takes one already attached, and asks masks for an enrollment
+token as described below. xixo shows the token once, as the code in the commands, and keeps only its
+SHA-256 and when it was made, under `linking` in the resource's details. The code works for ten
+minutes and once:
+
+- `GET /agent/download/<build>` and `GET /agent/download/xixo-agent.service` answer only a request
+  carrying a waiting code in `Authorization: Bearer`. A build is one of the files named
+  `xixo-agent-<os>-<arch>` in `XIXO_AGENT_DIR`, and nothing else in that folder is served. The
+  service comes filled in with the account and folders the request names, which pass the same
+  checks an SSH install makes.
+- `xixo-agent enroll` redeems the token with masks and prints the new client's ID. The commands
+  then send that ID to `POST /agent/link` with the same code. xixo finds the machine by the code's
+  digest, refuses a client another machine already holds, binds the client to that machine, and
+  forgets the code. From then on the client's connections are that machine's.
+
+masks does not tell xixo which token a client came from, so the code is the proof: only whoever
+holds a machine's code can name a client for it, and one machine's code never binds another's
+slot. A client enrolled with a token that was never linked is let in nowhere. Asking for a fresh
+code replaces the waiting one, and linking a machine again unenrolls its earlier client once the
+new one names itself. Each address is limited to 30 requests a minute across the three endpoints.
+
+### Installing over SSH
+
+Attaching a machine with an SSH key starts an `install` run. `InstallAgentJob` connects over SSH to the
 address in `host`, which passes the address check through the machine's own `via`, and holds the
 machine to the host key in `host_key`. Only a machine reached through a `tailnet` resource at a
 tailnet address, in `100.64.0.0/10` or `fd7a:115c:a1e0::/48`, may leave `host_key` empty, and then
@@ -273,9 +302,9 @@ ends, whether it worked or not. See [add a machine](/guides/add-a-machine/) for 
 
 ### Enrollment
 
-The run asks masks for an enrollment token at the issuer's `enrollment_endpoint`, as the tenant's
-own client, for the `xixo:agent` scope alone. It passes the token to `xixo-agent enroll` on
-standard input. The agent makes its keys on the machine and registers itself with masks, which
+Either way, xixo asks masks for an enrollment token at the issuer's `enrollment_endpoint`, as the tenant's
+own client, for the `xixo:agent` scope alone. An install over SSH passes the token to `xixo-agent enroll` on
+standard input, and the commands do the same. The agent makes its keys on the machine and registers itself with masks, which
 gives it a client that signs in with `private_key_jwt`, uses only `client_credentials`, and gets
 DPoP-bound tokens. The private keys never leave the machine, and xixo keeps only the client's ID,
 in `client_id`. `xixo:agent` is outside the scopes xixo asks for when a person signs in.
@@ -299,7 +328,7 @@ fully, such as a shared folder it may not read; xixo keeps at most 16, each up t
 and shows them on the machine's card. When the connection closes, the machine goes offline with when it was last
 seen, unless a newer connection has taken its place. A machine not heard from for three minutes is
 not connected either way. What xixo keeps is trimmed and checked first: folders must be clean
-absolute paths, and services are only ollama and LM Studio.
+absolute paths, and services are only ollama and LM Studio. When `hello` carries `extracts_for_others`, xixo keeps that too, and the machine's card says it reads for other machines.
 
 ### Asking the agent
 

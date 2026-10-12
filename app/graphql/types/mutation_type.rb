@@ -17,6 +17,7 @@ module Types
     field :split_reference, mutation: Mutations::SplitReference, grants: "xixo:catalog:write"
 
     field :attach_resource, mutation: Mutations::AttachResource, grants: "xixo:resources:command"
+    field :link_machine, mutation: Mutations::LinkMachine, grants: "xixo:resources:command"
     field :update_resource, mutation: Mutations::UpdateResource, grants: "xixo:resources:command"
     field :archive_resource, mutation: Mutations::ArchiveResource, grants: "xixo:resources:command"
     field :delete_resource, mutation: Mutations::DeleteResource, grants: "xixo:resources:command"

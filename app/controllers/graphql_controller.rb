@@ -11,7 +11,8 @@ class GraphqlController < ApplicationController
       context: {
         tenant: current_tenant,
         tenant_id: current_tenant.id,
-        grant: grant
+        grant: grant,
+        origin: Tenant.origin(request)
       }
     )
 

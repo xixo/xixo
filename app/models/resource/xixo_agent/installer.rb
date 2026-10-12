@@ -24,6 +24,32 @@ class Resource
       INSTALLED_WITHIN = 45.minutes
       TOLD_LINES = 5
 
+      def self.unit(user:, folders:)
+        held = XixoAgent.binaries + UNIT_FILE
+        raise Resource::Failed, "this server holds no #{UNIT_FILE} under #{XixoAgent.binaries}" unless held.file?
+        raise Resource::Failed, "#{user.to_s.first(40).inspect} is not an account name the installer writes down" unless user.to_s.match?(ACCOUNT)
+
+        template = held.read
+        raise Resource::Failed, "#{UNIT_FILE} names no @USER@ to run the agent as" unless template.include?("User=@USER@")
+        raise Resource::Failed, "#{UNIT_FILE} names no #{FOLDERS} to share folders through" unless template.include?("\n#{FOLDERS}\n")
+
+        template.gsub("@USER@", user).sub("#{FOLDERS}\n", bound(shareable!(folders)))
+      end
+
+      def self.shareable!(paths)
+        Array(paths).map(&:to_s).each do |path|
+          next if path.start_with?("/") && Pathname.new(path).cleanpath.to_s == path && !path.match?(UNSHAREABLE)
+
+          raise Resource::Failed, "#{path.first(80).inspect} is not an absolute path the agent can share"
+        end
+      end
+
+      def self.bound(folders)
+        return "" if folders.empty?
+
+        "BindReadOnlyPaths=#{folders.map { |path| %("-#{path.gsub('%', '%%')}") }.join(' ')}\n"
+      end
+
       def initialize(agent, shell:, tailnet: false, minter: Enrollment.method(:mint), revoker: Enrollment.method(:revoke),
                      log: ->(*) { })
         @agent = agent
@@ -202,11 +228,7 @@ class Resource
         end
 
         def folders
-          @folders ||= Array(@agent.details.to_h["folders"]).map(&:to_s).each do |path|
-            next if path.start_with?("/") && Pathname.new(path).cleanpath.to_s == path && !path.match?(UNSHAREABLE)
-
-            raise Resource::Failed, "#{path.first(80).inspect} is not an absolute path the agent can share"
-          end
+          @folders ||= Installer.shareable!(@agent.details.to_h["folders"])
         end
 
         def binary_for(arch)
@@ -217,20 +239,7 @@ class Resource
         end
 
         def unit_for(user)
-          held = XixoAgent.binaries + UNIT_FILE
-          raise Resource::Failed, "this server holds no #{UNIT_FILE} under #{XixoAgent.binaries}" unless held.file?
-
-          template = held.read
-          raise Resource::Failed, "#{UNIT_FILE} names no @USER@ to run the agent as" unless template.include?("User=@USER@")
-          raise Resource::Failed, "#{UNIT_FILE} names no #{FOLDERS} to share folders through" unless template.include?("\n#{FOLDERS}\n")
-
-          template.gsub("@USER@", user).sub("#{FOLDERS}\n", bound)
-        end
-
-        def bound
-          return "" if folders.empty?
-
-          "BindReadOnlyPaths=#{folders.map { |path| %("-#{path.gsub('%', '%%')}") }.join(' ')}\n"
+          Installer.unit(user: user, folders: folders)
         end
 
         def place!(source, target, mode:)

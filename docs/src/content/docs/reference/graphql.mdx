@@ -23,6 +23,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | `discovered`<br />`via: String!` | [`[DiscoveredNode!]!`](#discoverednode) | `xixo:resources:read` | What a transport reaches, offered as resources to attach. Asking for services also knocks on a few well-known ports of each machine that is online. |
 | `feed`<br />`id: ID`<br />`key: String` | [`Feed`](#feed) | `xixo:catalog:read` |  |
 | `feeds`<br />`type: String`<br />`types: [String!]`<br />`mime: String`<br />`resourceId: ID`<br />`tag: String`<br />`connectedTo: ID`<br />`topLevel: Boolean`<br />`after: ID`<br />`limit: Int` | [`FeedPage!`](#feedpage) | `xixo:catalog:read` |  |
+| `linkUp` | [`LinkUp`](#linkup) | `xixo:resources:read` | What a machine needs to link up by installing the xixo agent itself. Empty for anyone but an administrator, who alone links machines. |
 | `resourceTypes` | [`[Attaching!]!`](#attaching) | `xixo:resources:read` | Every type that can be attached, and what each of them needs. |
 | `resources`<br />`archived: Boolean` | [`[Resource!]!`](#resource) | `xixo:resources:read` |  |
 | `run`<br />`id: ID!` | [`Run`](#run) | `xixo:catalog:read` |  |
@@ -37,38 +38,39 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 
 ### Mutation
 
-| Field | Type | Needs |
-| --- | --- | --- |
-| `addNote`<br />`input: AddNoteInput!` | [`AddNotePayload`](#addnotepayload) | `xixo:catalog:write` |
-| `analyzeFeed`<br />`input: AnalyzeFeedInput!` | [`AnalyzeFeedPayload`](#analyzefeedpayload) | `xixo:catalog:write` |
-| `archiveResource`<br />`input: ArchiveResourceInput!` | [`ArchiveResourcePayload`](#archiveresourcepayload) | `xixo:resources:command` |
-| `askCatalog`<br />`input: AskCatalogInput!` | [`AskCatalogPayload`](#askcatalogpayload) | `xixo:catalog:write` |
-| `attachResource`<br />`input: AttachResourceInput!` | [`AttachResourcePayload`](#attachresourcepayload) | `xixo:resources:command` |
-| `cancelAnalysis`<br />`input: CancelAnalysisInput!` | [`CancelAnalysisPayload`](#cancelanalysispayload) | `xixo:catalog:write` |
-| `cancelRun`<br />`input: CancelRunInput!` | [`CancelRunPayload`](#cancelrunpayload) | `xixo:catalog:write` |
-| `checkResource`<br />`input: CheckResourceInput!` | [`CheckResourcePayload`](#checkresourcepayload) | `xixo:resources:command` |
-| `connectFeeds`<br />`input: ConnectFeedsInput!` | [`ConnectFeedsPayload`](#connectfeedspayload) | `xixo:catalog:write` |
-| `deleteFeed`<br />`input: DeleteFeedInput!` | [`DeleteFeedPayload`](#deletefeedpayload) | `xixo:catalog:write` |
-| `deleteResource`<br />`input: DeleteResourceInput!` | [`DeleteResourcePayload`](#deleteresourcepayload) | `xixo:resources:command` |
-| `exportFeeds`<br />`input: ExportFeedsInput!` | [`ExportFeedsPayload`](#exportfeedspayload) | `xixo:catalog:write` |
-| `fetchUrl`<br />`input: FetchUrlInput!` | [`FetchUrlPayload`](#fetchurlpayload) | `xixo:catalog:write` |
-| `forgetFeed`<br />`input: ForgetFeedInput!` | [`ForgetFeedPayload`](#forgetfeedpayload) | `xixo:catalog:write` |
-| `noteFeed`<br />`input: NoteFeedInput!` | [`NoteFeedPayload`](#notefeedpayload) | `xixo:catalog:write` |
-| `pauseFeed`<br />`input: PauseFeedInput!` | [`PauseFeedPayload`](#pausefeedpayload) | `xixo:catalog:write` |
-| `renameFeed`<br />`input: RenameFeedInput!` | [`RenameFeedPayload`](#renamefeedpayload) | `xixo:catalog:write` |
-| `runFeed`<br />`input: RunFeedInput!` | [`RunFeedPayload`](#runfeedpayload) | `xixo:catalog:write` |
-| `saveFeed`<br />`input: SaveFeedInput!` | [`SaveFeedPayload`](#savefeedpayload) | `xixo:catalog:write` |
-| `setDefaultInference`<br />`input: SetDefaultInferenceInput!` | [`SetDefaultInferencePayload`](#setdefaultinferencepayload) | `xixo:resources:command` |
-| `setDefaultStorage`<br />`input: SetDefaultStorageInput!` | [`SetDefaultStoragePayload`](#setdefaultstoragepayload) | `xixo:resources:command` |
-| `setFeedLifetime`<br />`input: SetFeedLifetimeInput!` | [`SetFeedLifetimePayload`](#setfeedlifetimepayload) | `xixo:catalog:write` |
-| `setFeedTimeout`<br />`input: SetFeedTimeoutInput!` | [`SetFeedTimeoutPayload`](#setfeedtimeoutpayload) | `xixo:catalog:write` |
-| `setSetting`<br />`input: SetSettingInput!` | [`SetSettingPayload`](#setsettingpayload) | `xixo:settings:write` |
-| `setSyncInterval`<br />`input: SetSyncIntervalInput!` | [`SetSyncIntervalPayload`](#setsyncintervalpayload) | `xixo:resources:command` |
-| `snapshotUrl`<br />`input: SnapshotUrlInput!` | [`SnapshotUrlPayload`](#snapshoturlpayload) | `xixo:catalog:write` |
-| `splitReference`<br />`input: SplitReferenceInput!` | [`SplitReferencePayload`](#splitreferencepayload) | `xixo:catalog:write` |
-| `syncResource`<br />`input: SyncResourceInput!` | [`SyncResourcePayload`](#syncresourcepayload) | `xixo:resources:command` |
-| `tagFeeds`<br />`input: TagFeedsInput!` | [`TagFeedsPayload`](#tagfeedspayload) | `xixo:catalog:write` |
-| `updateResource`<br />`input: UpdateResourceInput!` | [`UpdateResourcePayload`](#updateresourcepayload) | `xixo:resources:command` |
+| Field | Type | Needs | Description |
+| --- | --- | --- | --- |
+| `addNote`<br />`input: AddNoteInput!` | [`AddNotePayload`](#addnotepayload) | `xixo:catalog:write` |  |
+| `analyzeFeed`<br />`input: AnalyzeFeedInput!` | [`AnalyzeFeedPayload`](#analyzefeedpayload) | `xixo:catalog:write` |  |
+| `archiveResource`<br />`input: ArchiveResourceInput!` | [`ArchiveResourcePayload`](#archiveresourcepayload) | `xixo:resources:command` |  |
+| `askCatalog`<br />`input: AskCatalogInput!` | [`AskCatalogPayload`](#askcatalogpayload) | `xixo:catalog:write` |  |
+| `attachResource`<br />`input: AttachResourceInput!` | [`AttachResourcePayload`](#attachresourcepayload) | `xixo:resources:command` |  |
+| `cancelAnalysis`<br />`input: CancelAnalysisInput!` | [`CancelAnalysisPayload`](#cancelanalysispayload) | `xixo:catalog:write` |  |
+| `cancelRun`<br />`input: CancelRunInput!` | [`CancelRunPayload`](#cancelrunpayload) | `xixo:catalog:write` |  |
+| `checkResource`<br />`input: CheckResourceInput!` | [`CheckResourcePayload`](#checkresourcepayload) | `xixo:resources:command` |  |
+| `connectFeeds`<br />`input: ConnectFeedsInput!` | [`ConnectFeedsPayload`](#connectfeedspayload) | `xixo:catalog:write` |  |
+| `deleteFeed`<br />`input: DeleteFeedInput!` | [`DeleteFeedPayload`](#deletefeedpayload) | `xixo:catalog:write` |  |
+| `deleteResource`<br />`input: DeleteResourceInput!` | [`DeleteResourcePayload`](#deleteresourcepayload) | `xixo:resources:command` |  |
+| `exportFeeds`<br />`input: ExportFeedsInput!` | [`ExportFeedsPayload`](#exportfeedspayload) | `xixo:catalog:write` |  |
+| `fetchUrl`<br />`input: FetchUrlInput!` | [`FetchUrlPayload`](#fetchurlpayload) | `xixo:catalog:write` |  |
+| `forgetFeed`<br />`input: ForgetFeedInput!` | [`ForgetFeedPayload`](#forgetfeedpayload) | `xixo:catalog:write` |  |
+| `linkMachine`<br />`input: LinkMachineInput!` | [`LinkMachinePayload`](#linkmachinepayload) | `xixo:resources:command` | Starts linking a machine that installs the xixo agent itself. Names a new machine, or takes an existing one to link it again, and answers with a code the machine enrolls with once. |
+| `noteFeed`<br />`input: NoteFeedInput!` | [`NoteFeedPayload`](#notefeedpayload) | `xixo:catalog:write` |  |
+| `pauseFeed`<br />`input: PauseFeedInput!` | [`PauseFeedPayload`](#pausefeedpayload) | `xixo:catalog:write` |  |
+| `renameFeed`<br />`input: RenameFeedInput!` | [`RenameFeedPayload`](#renamefeedpayload) | `xixo:catalog:write` |  |
+| `runFeed`<br />`input: RunFeedInput!` | [`RunFeedPayload`](#runfeedpayload) | `xixo:catalog:write` |  |
+| `saveFeed`<br />`input: SaveFeedInput!` | [`SaveFeedPayload`](#savefeedpayload) | `xixo:catalog:write` |  |
+| `setDefaultInference`<br />`input: SetDefaultInferenceInput!` | [`SetDefaultInferencePayload`](#setdefaultinferencepayload) | `xixo:resources:command` |  |
+| `setDefaultStorage`<br />`input: SetDefaultStorageInput!` | [`SetDefaultStoragePayload`](#setdefaultstoragepayload) | `xixo:resources:command` |  |
+| `setFeedLifetime`<br />`input: SetFeedLifetimeInput!` | [`SetFeedLifetimePayload`](#setfeedlifetimepayload) | `xixo:catalog:write` |  |
+| `setFeedTimeout`<br />`input: SetFeedTimeoutInput!` | [`SetFeedTimeoutPayload`](#setfeedtimeoutpayload) | `xixo:catalog:write` |  |
+| `setSetting`<br />`input: SetSettingInput!` | [`SetSettingPayload`](#setsettingpayload) | `xixo:settings:write` |  |
+| `setSyncInterval`<br />`input: SetSyncIntervalInput!` | [`SetSyncIntervalPayload`](#setsyncintervalpayload) | `xixo:resources:command` |  |
+| `snapshotUrl`<br />`input: SnapshotUrlInput!` | [`SnapshotUrlPayload`](#snapshoturlpayload) | `xixo:catalog:write` |  |
+| `splitReference`<br />`input: SplitReferenceInput!` | [`SplitReferencePayload`](#splitreferencepayload) | `xixo:catalog:write` |  |
+| `syncResource`<br />`input: SyncResourceInput!` | [`SyncResourcePayload`](#syncresourcepayload) | `xixo:resources:command` |  |
+| `tagFeeds`<br />`input: TagFeedsInput!` | [`TagFeedsPayload`](#tagfeedspayload) | `xixo:catalog:write` |  |
+| `updateResource`<br />`input: UpdateResourceInput!` | [`UpdateResourcePayload`](#updateresourcepayload) | `xixo:resources:command` |  |
 
 ## Subscriptions
 
@@ -78,6 +80,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | --- | --- | --- |
 | `analysisProgressed`<br />`id: ID` | [`AnalysisProgressedPayload!`](#analysisprogressedpayload) | `xixo:catalog:read` |
 | `feedAnalyzed`<br />`id: ID` | [`FeedAnalyzedPayload!`](#feedanalyzedpayload) | `xixo:catalog:read` |
+| `machineChanged`<br />`id: ID` | [`MachineChangedPayload!`](#machinechangedpayload) | `xixo:resources:read` |
 | `runProgressed`<br />`id: ID` | [`RunProgressedPayload!`](#runprogressedpayload) | `xixo:catalog:read` |
 
 ## Objects
@@ -90,6 +93,17 @@ Autogenerated return type of AddNote.
 | --- | --- | --- |
 | `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
 | `feed` | [`Feed!`](#feed) |  |
+
+### AgentBuild
+
+One build of the xixo agent this server hands out. Resolves only for a token carrying `xixo:resources:read`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `arch` | `String!` | amd64 or arm64. |
+| `file` | `String!` | Its name under /agent/download/. |
+| `os` | `String!` | linux or darwin. |
+| `sha256` | `String!` | The SHA-256 of the binary, in hex. |
 
 ### Analysis
 
@@ -432,6 +446,27 @@ Autogenerated return type of ForgetFeed.
 | `forgotten` | `Boolean!` |  |
 | `places` | `Int!` | How many places it lived that xixo stopped pointing at. |
 
+### LinkMachinePayload
+
+Autogenerated return type of LinkMachine.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `code` | `String!` | The single-use code the machine enrolls and links up with. It is shown only here. |
+| `expiresAt` | `ISO8601DateTime!` | When the code stops working, about ten minutes from now. |
+| `resource` | [`Resource!`](#resource) |  |
+
+### LinkUp
+
+What a machine needs to install the xixo agent itself and link up. Resolves only for a token carrying `xixo:resources:read`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `builds` | [`[AgentBuild!]!`](#agentbuild) | The agent builds this server hands out, by system and architecture. |
+| `issuer` | `String!` | The masks issuer the agent enrolls with. |
+| `xixo` | `String!` | The address the agent dials. |
+
 ### Machine
 
 What the xixo agent on a machine last said about it. Resolves only for a token carrying `xixo:resources:read`.
@@ -442,20 +477,32 @@ What the xixo agent on a machine last said about it. Resolves only for a token c
 | `connected` | `Boolean!` | Whether the agent is connected to xixo now. |
 | `disks` | [`[MachineDisk!]!`](#machinedisk) |  |
 | `extractors` | `[String!]!` | The kinds of file the agent can read, by the programs installed on the machine. |
+| `extractsForOthers` | `Boolean` | Whether the machine's own config lets it read files from other places for xixo. Empty when its agent does not say. |
 | `folders` | `[String!]!` | The folders the agent shares, as its own config lists them. |
 | `hostname` | `String` | The name the machine gives itself. |
 | `lends` | `Boolean!` | Whether a file this machine cannot read goes to the agent beside the server. |
+| `linked` | `Boolean!` | Whether an agent is enrolled as this machine, whether or not it is connected now. |
+| `linkingUntil` | `ISO8601DateTime` | When the code handed out to link the machine stops working. Empty when none is waiting. |
 | `load` | `[Float!]!` | The load average over one, five, and fifteen minutes. |
 | `memoryAvailable` | `BigInt` |  |
 | `memoryTotal` | `BigInt` |  |
 | `os` | `String` |  |
 | `seenAt` | `ISO8601DateTime` | When the agent last said anything. |
+| `selfLinked` | `Boolean!` | Whether the machine installed the agent itself, with a code, instead of xixo installing it over SSH. |
 | `services` | [`[MachineService!]!`](#machineservice) | Model servers listening on the machine, with its tailnet address when it has one. |
 | `tools` | `[String!]!` | The tools the machine offers to MCP clients through xixo, as its agent's config names them: browse, search, read, write, extract, and models. |
 | `unread` | `[String!]!` | The kinds of file the agent cannot read, because the machine lacks their programs. Such a file on this machine is not read unless the machine lends it to the server. |
 | `uptime` | `Float` | Seconds since the machine started. |
 | `version` | `String` | The version of the agent. |
 | `warnings` | `[String!]!` | What the agent last said is keeping it from working fully, such as a shared folder it may not read, each as a sentence to show a person. |
+
+### MachineChangedPayload
+
+Autogenerated return type of MachineChanged.
+
+| Field | Type |
+| --- | --- |
+| `resource` | [`Resource!`](#resource) |
 
 ### MachineDisk
 
@@ -939,6 +986,17 @@ Autogenerated input type of ForgetFeed
 | --- | --- | --- |
 | `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
 | `id` | `ID!` |  |
+
+### LinkMachineInput
+
+Autogenerated input type of LinkMachine
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `id` | `ID` | A machine already attached, for a fresh code. |
+| `key` | `String` | A name for a new machine. |
+| `name` | `String` |  |
 
 ### NoteFeedInput
 

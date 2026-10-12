@@ -120,6 +120,19 @@ module Types
       raise GraphQL::ExecutionError, e.message
     end
 
+    field :link_up, Types::LinkUpType, grants: "xixo:resources:read",
+          description: "What a machine needs to link up by installing the xixo agent itself. Empty for anyone " \
+                       "but an administrator, who alone links machines."
+
+    def link_up
+      return nil unless context[:grant].administers?
+
+      { xixo: context[:origin] || context[:tenant].origin, issuer: context[:tenant].issuer,
+        builds: Resource::XixoAgent::Downloads.builds }
+    rescue Tenant::Unconfigured
+      nil
+    end
+
     field :resource_types, [ Types::AttachingType ], null: false, grants: "xixo:resources:read",
           description: "Every type that can be attached, and what each of them needs."
 

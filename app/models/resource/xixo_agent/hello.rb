@@ -17,7 +17,8 @@ class Resource
           "extractors" => extractors(said["extractors"]),
           "tools" => tools(said["tools"]),
           "warnings" => warnings(said["warnings"]),
-          "lend" => said["lend"] == true
+          "lend" => said["lend"] == true,
+          "extracts_for_others" => [ true, false ].include?(said["extracts_for_others"]) ? said["extracts_for_others"] : nil
         }
       end
 

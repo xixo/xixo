@@ -5,6 +5,7 @@ module Types
     field :feed_analyzed, subscription: Subscriptions::FeedAnalyzed, grants: "xixo:catalog:read"
     field :analysis_progressed, subscription: Subscriptions::AnalysisProgressed,
           grants: "xixo:catalog:read"
+    field :machine_changed, subscription: Subscriptions::MachineChanged, grants: "xixo:resources:read"
     field :run_progressed, subscription: Subscriptions::RunProgressed, grants: "xixo:catalog:read"
   end
 end

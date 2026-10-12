@@ -36,10 +36,10 @@ class Resource
     class << self
       def attaching
         {
-          label: "A machine with the xixo agent",
-          blurb: "A Linux machine xixo connects to once over SSH, installs the agent on, and enrolls with masks. " \
-                 "From then on the agent dials xixo, reports the machine's health, and shares the folders " \
-                 "listed here. The SSH key is used for that one install and then dropped.",
+          label: "A Linux machine xixo sets up",
+          blurb: "xixo signs in to the machine once over SSH, installs the agent, and links it up. The key is " \
+                 "used for that one install and then dropped. From then on the machine's agent dials xixo, " \
+                 "shares the folders listed here, and reads the files in them on the machine.",
           names: "A name for the machine",
           fields: [
             field("host", "Address", required: true, placeholder: "100.64.0.5",
@@ -172,6 +172,30 @@ class Resource
       machine["connected"] == true && seen_at.present? && seen_at > QUIET_AFTER.ago
     end
 
+    def self_linked?
+      !local? && details.to_h["host"].blank?
+    end
+
+    def linking?
+      Linking.waiting?(self)
+    end
+
+    def link_expires_at
+      Linking.expires_at(self)
+    end
+
+    def extracts_for_others
+      held = machine["extracts_for_others"]
+      held if [ true, false ].include?(held)
+    end
+
+    def announce!
+      XixoSchema.subscriptions.trigger(:machine_changed, { id: id.to_s }, Resource.find(id), scope: tenant_id)
+      XixoSchema.subscriptions.trigger(:machine_changed, {}, Resource.find(id), scope: tenant_id)
+    rescue StandardError => e
+      Rails.logger.warn "machine #{id} could not announce: #{e.message}"
+    end
+
     def installing?
       Run.open.exists?(resource_id: id, kind: "install")
     end
@@ -180,6 +204,8 @@ class Resource
       reload unless new_record? || changed?
       return true if installing? || connected?
       raise Resource::Failed, "#{key}: the agent beside the server has not enrolled yet" if client_id.blank? && local?
+      raise Resource::Failed, "#{key}: waiting for the machine to link up" if client_id.blank? && linking?
+      raise Resource::Failed, "#{key}: the machine has not linked up yet. Get a fresh code to link it" if client_id.blank? && self_linked?
       raise Resource::Failed, "#{key}: the agent is not installed yet. Paste an SSH key to install it" if client_id.blank?
       raise Resource::Failed, "#{key}: the agent has never connected" if seen_at.nil?
 
@@ -274,6 +300,7 @@ class Resource
       merge_machine!(Hello.from(said).merge("session" => session, "connected" => true, "seen_at" => now_stamp))
       update_columns(offline_host: nil, offline_last_seen_at: nil, checked_at: Time.current, check_error: nil)
       restate_folders!
+      announce!
     end
 
     def restate_folders!
@@ -295,16 +322,18 @@ class Resource
                 details = jsonb_set(details, '{machine}', (details -> 'machine') || jsonb_build_object('connected', false, 'seen_at', ?::text)),
                 offline_host = ?, offline_last_seen_at = ?
               SQL
+      announce!
     end
 
     def bound!(client_id, revoker: Enrollment.method(:revoke))
       return if self.client_id == client_id
 
       revoker.call(tenant, self.client_id) if self.client_id.present?
-      self.details = details.to_h.merge("client_id" => client_id).except("machine", MINTED)
+      self.details = details.to_h.merge("client_id" => client_id).except("machine", MINTED, Linking::KEY)
       self.check_error = nil
       self.checked_at = nil
       save!
+      announce!
     end
 
     def enrolled!(client_id:, host_key:, installed: nil, revoker: Enrollment.method(:revoke))

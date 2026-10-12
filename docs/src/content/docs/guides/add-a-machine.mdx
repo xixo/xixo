@@ -1,33 +1,79 @@
 ---
 title: Add a machine
-description: Install the xixo agent on a Linux machine over SSH, and attach the folders it shares.
+description: Link up a machine by installing the xixo agent on it yourself, or let xixo install it over SSH, and attach the folders it shares.
 ---
 
-This guide installs the xixo agent on a Linux machine, such as a home server, and attaches the
-folders it shares. xixo connects to the machine once over SSH, installs the agent, and enrolls it
-with masks. After that, the agent dials xixo, reports the machine's health, and lists and reads
-files in its folders when xixo asks. The machine opens no port. See
+This guide links up a machine, such as a home server or a desktop, and attaches the folders it
+shares. The machine runs the xixo agent, which dials xixo, reports the machine's health, and lists
+and reads files in its folders when xixo asks. The machine opens no port. See
 [machines and their agent](/concepts/resources/#machines-and-their-agent) for how it works.
 
-You need:
+There are two ways to put the agent on a machine:
 
-- An administrator's sign-in. Only an administrator attaches a machine.
+- **Install it yourself**: copy the commands xixo shows into a terminal on the machine.
+- **Let xixo install it**: xixo signs in to a Linux machine once over SSH and installs it.
+
+Either way you need:
+
+- An administrator's sign-in. Only an administrator links a machine.
 - A Linux machine on x86_64 or aarch64 with systemd.
-- An account on it with an SSH key and `sudo` without a password. The agent runs as this account
-  and reads only what it can read.
-- A route from xixo to the machine's SSH port. Through a tailnet, follow
-  [reach a tailnet](/guides/tailnet/) first. Directly, the machine needs a public address.
-- `XIXO_PUBLIC_ORIGIN` set on the server, since the agent is told where xixo is from it.
+- A route from the machine to xixo and to masks. The agent dials out, so xixo never needs to reach
+  the machine when you install it yourself.
 
-## Attach the machine
+## Install it yourself
 
-1. On **Resources**, choose **Attach** and pick **A machine with the xixo agent**.
+The machine also needs `curl`, `sha256sum`, and an account with `sudo`. The agent runs as the
+account that runs the commands, so use the one that owns the folders.
+
+1. On **Resources**, choose **Link up** under **Machines**. **Attach** offers the same at the top
+   of its list.
+2. Leave **Install it yourself** chosen, name the machine, and choose **Show the commands**. xixo
+   asks masks for a code and puts it in the commands. The code works once, for ten minutes.
+3. Pick the machine's system. `uname -m` prints `x86_64` for Intel or AMD and `aarch64` for ARM.
+4. Under **Folders it shares**, list the folders the agent may read, one absolute path per line.
+   These fill in the commands. The config on the machine decides what is shared, and xixo reads
+   nothing outside it. A path holding a colon, a quotation mark, an apostrophe, a backslash, or a
+   control character is refused.
+5. Under **More options**, turn on **Help read files from other machines** to let xixo send this
+   machine files from elsewhere to read, and **Let xixo fetch whole files from it** for downloads,
+   previews, and reading elsewhere. Both are off unless you turn them on, and both land in the
+   machine's config as `extracts_for_others` and `lend`.
+6. Run the three steps in one terminal on the machine, in order. They share the code through the
+   `code` variable.
+
+The steps:
+
+1. **Get the agent** downloads the agent for the machine from xixo with the code, checks its
+   SHA-256, and installs it at `/usr/local/bin/xixo-agent`.
+2. **Say what it shares** writes `/etc/xixo-agent/config.json` and fetches the systemd service from
+   xixo, filled in with the account and the folders, into
+   `/etc/systemd/system/xixo-agent.service`. The service mounts each folder read-only.
+3. **Link up and start** creates `/var/lib/xixo-agent`, runs `xixo-agent enroll` with the code on
+   standard input, sends the client it prints back to xixo with the same code, and starts the
+   service.
+
+The code reaches `curl` and the agent on standard input, never as an argument, so it does not show
+in the process list. The dialog waits while you work. Once the client is sent it says the machine
+is linked, and when the agent says hello it says the machine is linked up.
+
+When the code runs out first, choose **Get a fresh code** and copy the commands again. The old code
+stops working. A machine whose code ran out before it linked up shows **Get a fresh code** on its
+card.
+
+## Let xixo install it
+
+This needs an account on the machine with an SSH key and `sudo` without a password, and a route from
+xixo to the machine's SSH port. Through a tailnet, follow [reach a tailnet](/guides/tailnet/) first.
+Directly, the machine needs a public address. `XIXO_PUBLIC_ORIGIN` must be set on the server, since
+the agent is told where xixo is from it.
+
+1. On **Resources**, choose **Link up**, pick **Let xixo install it**, and choose
+   **Set it up over SSH**. This opens **A Linux machine xixo sets up**.
 2. Under **Reached through**, pick the tailnet, and under **On tailnet**, pick the machine. This
    fills in **Address**.
 3. Fill in **SSH user** and paste the account's private key into **SSH private key**.
 4. Under **Folders it shares**, list the folders the agent may read, one absolute path per line,
-   such as `/srv/media`. A path holding a colon, a quotation mark, an apostrophe, a backslash, or
-   a control character is refused.
+   such as `/srv/media`. The same characters are refused as above.
 5. Fill in **Host key** with the fingerprint `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`
    prints on the machine. A machine reached directly needs it. A machine reached through a tailnet
    at its tailnet address may leave it empty, since the tailnet vouches for the address, and then
@@ -57,8 +103,15 @@ for each step. The run:
 
 xixo drops the private key when the run ends, whether it worked or not. A run that fails after
 the agent enrolls keeps the new client on the machine, so archiving the machine or installing
-again unenrolls it. Within a minute the agent connects, and the machine's card shows its hostname, the agent's version, its uptime, how many
-folders it shares, and the kinds of file it cannot read.
+again unenrolls it.
+
+## What a machine's card shows
+
+Within a minute of starting, the agent connects. The machine's card under **Machines** says how
+many folders it shares, what kinds of file it reads, whether it reads for other machines, and the
+model servers it found. An offline machine says when it was last seen. **Details** shows its
+hostname, system, agent version, folders, the kinds of file it cannot read, and its uptime, memory,
+and disks.
 
 ## Files a machine cannot read
 
@@ -66,7 +119,8 @@ A file on a machine is read by that machine's own agent, so only its text leaves
 file whose program the machine lacks, such as a PDF on a machine without poppler, is not read, and
 its item says why. Two settings change that:
 
-- Run the install again with **Extract on the machine** on, which installs the programs.
+- Install the programs on the machine, or run an SSH install again with **Extract on the machine**
+  on.
 - Turn on **Send files this machine can't read to the server** in the machine's settings. Each such
   file is then copied to the agent beside the server, which reads it there. The copy is deleted once
   it is read.
@@ -89,9 +143,9 @@ its items stay until a sync finds files again.
 
 ## Change the folders
 
-The folders live in the machine's own configuration, so xixo cannot widen them. Either change
-**Folders it shares**, paste the private key again, and save, which runs the install again with
-the new list, or change them on the machine in two places: the `folders` list in
+The folders live in the machine's own configuration, so xixo cannot widen them. For a machine xixo
+installed over SSH, change **Folders it shares**, paste the private key again, and save, which runs
+the install again with the new list. On any machine, change them in two places: the `folders` list in
 `/etc/xixo-agent/config.json`, and the `BindReadOnlyPaths=` line in
 `/etc/systemd/system/xixo-agent.service`, where each folder is written as `"-/srv/media"`. Then run
 `sudo systemctl daemon-reload` and `sudo systemctl restart xixo-agent`. A folder only in the
@@ -122,5 +176,6 @@ and the error says so, since an agent left enrolled could still sign in. Try aga
 answers.
 
 Installing again over a machine that is already enrolled unenrolls the earlier client before the
-new one enrolls. `sudo systemctl disable xixo-agent` on the machine keeps the stopped agent from
+new one enrolls. **Link up again** in a machine's menu makes a fresh code for it, and the earlier
+client is unenrolled once the new one is sent back to xixo. `sudo systemctl disable xixo-agent` on the machine keeps the stopped agent from
 starting at the next boot.
