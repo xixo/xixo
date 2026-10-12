@@ -1,5 +1,9 @@
 module ApplicationCable
   class Connection < ActionCable::Connection::Base
+    include Masks::Rails::Authentication
+
+    UNKNOWN_MACHINE = "unknown_machine".freeze
+
     identified_by :tenant, :grant, :machine, :client_id
 
     attr_reader :expires_at
@@ -9,9 +13,9 @@ module ApplicationCable
 
       Tenant.switch(tenant) do
         if request.authorization.present?
-          held = enrolled || reject_unauthorized_connection
+          held = enrolled
           self.machine = held.machine
-          self.client_id = held.claims.client_id
+          self.client_id = held.client_id
         else
           self.grant = granted || reject_unauthorized_connection
         end
@@ -22,32 +26,38 @@ module ApplicationCable
       expires_at.present? && expires_at <= Time.current
     end
 
+    def session
+      request.session
+    end
+
+    def refuse(reason)
+      close(reason: reason, reconnect: false) if websocket&.alive?
+      reject_unauthorized_connection
+    end
+
     private
 
       def granted
-        tokens = Masks::Client::Tokens.from_h(masks_session)
-        return nil if tokens.nil? || tokens.access_token.blank? || tokens.expired?
+        return nil unless masks_signed_in?
 
-        Grant.new(
-          tenant: tenant,
-          claims: resource.authenticate("Bearer #{tokens.access_token}")
-        )
+        Grant.new(tenant: tenant, claims: resource.authenticate("Bearer #{masks_tokens.access_token}"))
       rescue Masks::Client::Error, Grant::Denied, Tenant::Unconfigured
         nil
       end
 
       def enrolled
-        held = Resource::Machine::Caller.from(request, path: "/cable")
-        return nil if held.nil?
+        held = Resource::Machine::Caller.from(request, path: "/cable") || reject_unauthorized_connection
+        return unenrolled(held) if held.machine.nil?
 
         @expires_at = held.expires_at
         held
       end
 
-      def masks_session
-        held = request.session[Masks::Rails.config.session_key]
+      def unenrolled(held)
+        refuse(UNKNOWN_MACHINE) unless EnrollLocalLinkJob.awaits?(tenant, held.client_id)
 
-        held.is_a?(Hash) ? held : nil
+        EnrollLocalLinkJob.perform_later(tenant.subdomain)
+        reject_unauthorized_connection
       end
 
       def resource

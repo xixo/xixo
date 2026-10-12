@@ -62,6 +62,23 @@ class EnrollLocalLinkJobTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { assert_equal "local-client", Resource::Machine.local.client_id }
   end
 
+  test "a run for one tenant binds only that tenant's client, and xixo knows which client it awaits" do
+    other = Tenant.create!(subdomain: "local-#{SecureRandom.hex(4)}", name: "Other")
+    connect!(other)
+    handed_a_token
+    @root.join(other.subdomain).tap(&:mkpath).join("client_id").write("other-client")
+    @dir.join("client_id").write("local-client\n")
+
+    assert EnrollLocalLinkJob.awaits?(@tenant, "local-client")
+    assert_not EnrollLocalLinkJob.awaits?(@tenant, "other-client")
+    assert_not EnrollLocalLinkJob.awaits?(@tenant, "")
+
+    EnrollLocalLinkJob.perform_now(@tenant.subdomain)
+
+    Tenant.switch(@tenant) { assert_equal "local-client", Resource::Machine.local.client_id }
+    Tenant.switch(other) { assert_nil Resource::Machine.local }
+  end
+
   test "a machine that enrolled again leaves its earlier client unenrolled in masks" do
     handed_a_token
     @dir.join("client_id").write("first-client")

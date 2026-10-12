@@ -289,10 +289,10 @@ class LinkChannelTest < ActionCable::Channel::TestCase
     perform :health, HEALTH
 
     assert_nil fresh.machine["health"]
-    assert_equal [ { reason: "unauthorized", reconnect: false } ], closed
+    assert_equal [ { reason: "unknown_machine", reconnect: false } ], closed
 
     subscription.send(:expire)
-    assert_equal [ { reason: "unauthorized", reconnect: false } ] * 2, closed
+    assert_equal [ { reason: "unknown_machine", reconnect: false } ] * 2, closed
   end
 
   test "a client the machine no longer names cannot subscribe" do

@@ -2,7 +2,7 @@ class Resource
   class Machine
     module Linking
       KEY = "linking".freeze
-      LINKED_WITHIN = (Enrollment::LASTS + 120).seconds
+      LINKED_WITHIN = Enrollment::LASTS.seconds
       BEARER = /\ABearer ([A-Za-z0-9._~+\/=-]{16,512})\z/
 
       Code = Data.define(:token, :expires_at)

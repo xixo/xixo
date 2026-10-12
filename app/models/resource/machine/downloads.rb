@@ -9,7 +9,9 @@ class Resource
       MANIFEST = ".release-please-manifest.json".freeze
       RELEASED = /\A\d+\.\d+\.\d+\z/
 
-      Build = Data.define(:os, :arch, :file, :sha256)
+      Build = Data.define(:os, :arch, :file, :path) do
+        def sha256 = Downloads.digest(path)
+      end
 
       module_function
 
@@ -19,7 +21,7 @@ class Resource
           next unless matched
 
           path = binary(file)
-          Build.new(os: matched[1], arch: matched[2], file: file, sha256: digest(path)) if path
+          Build.new(os: matched[1], arch: matched[2], file: file, path: path) if path
         end
       rescue SystemCallError
         []

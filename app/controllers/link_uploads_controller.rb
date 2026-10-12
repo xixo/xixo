@@ -1,7 +1,7 @@
 class LinkUploadsController < ActionController::API
   def show
     held = Resource::Machine::Caller.from(request, path: request.path)
-    return head(:unauthorized) if held.nil?
+    return head(:unauthorized) if held&.machine.nil?
 
     exchange = LinkExchange.taken!(held.machine, params[:request])
     return head(:not_found) if exchange.nil?

@@ -1,6 +1,7 @@
 class EnrollLocalLinkJob < ApplicationJob
   queue_as :sync
   across_tenants!
+  limits_concurrency to: 1, key: "enroll_local_link", on_conflict: :discard
 
   WANTED = "wanted".freeze
   TOKEN = "token".freeze
@@ -13,11 +14,26 @@ class EnrollLocalLinkJob < ApplicationJob
     ENV["XIXO_LOCAL_LINK"].presence&.then { |path| Pathname.new(path) }
   end
 
-  def perform
+  def self.awaits?(tenant, client_id)
+    root = handoff
+    return false if root.nil? || client_id.blank?
+
+    read_plain(root.join(tenant.subdomain, CLIENT)) == client_id
+  end
+
+  def self.read_plain(path)
+    File.open(path, File::RDONLY | File::NOFOLLOW) do |file|
+      file.stat.file? ? file.read(256).to_s.strip : nil
+    end
+  rescue SystemCallError
+    nil
+  end
+
+  def perform(subdomain = nil)
     root = self.class.handoff
     return if root.nil? || !plain_directory?(root)
 
-    Tenant.find_each do |tenant|
+    (subdomain ? Tenant.where(subdomain: subdomain) : Tenant.all).find_each do |tenant|
       dir = root.join(tenant.subdomain)
       next unless tenant.connected? && plain_directory?(dir)
 
@@ -35,7 +51,7 @@ class EnrollLocalLinkJob < ApplicationJob
     end
 
     def bind(machine, dir)
-      said = read_plain(dir.join(CLIENT))
+      said = self.class.read_plain(dir.join(CLIENT))
       return if !said&.match?(CLIENT_ID) || machine.client_id == said
 
       unless awaited?(machine)
@@ -73,14 +89,6 @@ class EnrollLocalLinkJob < ApplicationJob
       minted = Resource::Machine::Enrollment.mint(tenant, name: "#{machine.name}, #{tenant.subdomain}")
       machine.update!(details: machine.details.to_h.merge(Resource::Machine::MINTED => Time.current.utc.iso8601))
       write_plain(dir, TOKEN, minted)
-    end
-
-    def read_plain(path)
-      File.open(path, File::RDONLY | File::NOFOLLOW) do |file|
-        file.stat.file? ? file.read(256).to_s.strip : nil
-      end
-    rescue SystemCallError
-      nil
     end
 
     def write_plain(dir, name, content)

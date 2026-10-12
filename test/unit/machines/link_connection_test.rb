@@ -1,8 +1,20 @@
 require "test_helper"
 require_relative "../../support/machines"
 
+module RefusalRecorder
+  def self.reasons = (@reasons ||= [])
+
+  def refuse(reason)
+    RefusalRecorder.reasons << reason
+    super
+  end
+end
+
+ApplicationCable::Connection.prepend(RefusalRecorder)
+
 class LinkConnectionTest < ActionCable::Connection::TestCase
   include Machines
+  include ActiveJob::TestHelper
 
   tests ApplicationCable::Connection
 
@@ -88,13 +100,43 @@ class LinkConnectionTest < ActionCable::Connection::TestCase
     assert_reject_connection { present(token, proof) }
   end
 
-  test "a client no machine here was enrolled as is refused, and so is an archived machine" do
+  test "a client no machine here was enrolled as is told so for good, and so is an archived machine" do
+    RefusalRecorder.reasons.clear
     stranger = machine_token(@tenant, client_id: "stranger")
     assert_reject_connection { present(stranger, dpop_proof(stranger, url: cable_url)) }
 
     Tenant.switch(@tenant) { @machine.update!(archived_at: Time.current) }
     token = machine_token(@tenant, client_id: "box-client")
     assert_reject_connection { present(token, dpop_proof(token, url: cable_url)) }
+
+    assert_equal [ "unknown_machine" ] * 2, RefusalRecorder.reasons
+  end
+
+  test "a token xixo cannot vouch for is refused without saying the machine is gone" do
+    RefusalRecorder.reasons.clear
+    token = machine_token(@tenant, client_id: "box-client")
+    expired = machine_token(@tenant, client_id: "box-client", expires_in: -1.minute)
+
+    assert_reject_connection { present(token, dpop_proof(token, url: cable_url, method: "POST")) }
+    assert_reject_connection { present(expired, dpop_proof(expired, url: cable_url)) }
+
+    assert_empty RefusalRecorder.reasons
+  end
+
+  test "the client xixo link beside the server named is turned away to wait while xixo binds it" do
+    RefusalRecorder.reasons.clear
+    root = Pathname.new(Dir.mktmpdir)
+    root.join(@tenant.subdomain).tap(&:mkpath).join("client_id").write("local-client\n")
+    ENV["XIXO_LOCAL_LINK"] = root.to_s
+    token = machine_token(@tenant, client_id: "local-client")
+
+    assert_enqueued_with(job: EnrollLocalLinkJob, args: [ @tenant.subdomain ]) do
+      assert_reject_connection { present(token, dpop_proof(token, url: cable_url)) }
+    end
+    assert_empty RefusalRecorder.reasons
+  ensure
+    ENV.delete("XIXO_LOCAL_LINK")
+    FileUtils.rm_rf(root) if root
   end
 
   test "another tenant's machine is refused here" do

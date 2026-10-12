@@ -59,7 +59,7 @@ class LinkChannel < ApplicationCable::Channel
         linked = Resource::Machine.enrolled(client_id)
         next yield linked if linked&.id == machine.id
 
-        connection.close(reason: "unauthorized", reconnect: false)
+        connection.close(reason: ApplicationCable::Connection::UNKNOWN_MACHINE, reconnect: false)
       end
     end
 
@@ -68,9 +68,8 @@ class LinkChannel < ApplicationCable::Channel
     end
 
     def expire
-      held = current?
-      return unless connection.expired? || !held
+      return connection.close(reason: ApplicationCable::Connection::UNKNOWN_MACHINE, reconnect: false) unless current?
 
-      connection.close(reason: "unauthorized", reconnect: held)
+      connection.close(reason: "unauthorized", reconnect: true) if connection.expired?
     end
 end

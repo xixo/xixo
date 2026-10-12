@@ -56,6 +56,7 @@ class LinkingTest < ActionDispatch::IntegrationTest
       machine = Resource::Machine.find_by!(key: "studio")
       assert_not_includes machine.details.to_json, linked["code"]
       assert machine.credentials.to_h.empty?
+      assert_equal [ "bob" ], machine.operators
       assert machine.valid?
       error = assert_raises(Resource::Failed) { machine.check! }
       assert_match(/waiting for the machine to link up/, error.message)
@@ -69,6 +70,9 @@ class LinkingTest < ActionDispatch::IntegrationTest
     assert_response :ok
     assert_equal "x86 binary", response.body
     assert_equal "no-store", response.headers["Cache-Control"]
+    Tenant.switch(@tenant) do
+      assert_equal({ "file" => "xixo-link-linux-amd64" }, AuditEvent.where(channel: "link", action: "download", status: "ok").sole.arguments)
+    end
 
     get "/link/download/xixo-link-linux-amd64", headers: bearer("enroll-#{'x' * 40}")
     assert_response :unauthorized
@@ -119,9 +123,13 @@ class LinkingTest < ActionDispatch::IntegrationTest
   test "the machine names its client with the code once, and xixo lets that client in" do
     code = link("studio")
 
-    post "/link", params: { client_id: "client-studio" }, headers: bearer(code)
+    link_up(code, client_id: "client-studio")
     assert_response :ok
     assert_match(/Linked up as studio/, response.body)
+    Tenant.switch(@tenant) do
+      linked = AuditEvent.where(channel: "link", action: "link").sole
+      assert_equal [ "ok", "client", "client-studio" ], [ linked.status, linked.actor, linked.actor_name ]
+    end
 
     Tenant.switch(@tenant) do
       machine = Resource::Machine.find_by!(key: "studio")
@@ -129,11 +137,24 @@ class LinkingTest < ActionDispatch::IntegrationTest
       assert_nil machine.details["linking"]
     end
 
-    post "/link", params: { client_id: "client-other" }, headers: bearer(code)
+    link_up(code, client_id: "client-other")
     assert_response :unauthorized
     Tenant.switch(@tenant) { assert_nil Resource::Machine.enrolled("client-other") }
 
     get "/link/download/xixo-link-linux-amd64", headers: bearer(code)
+    assert_response :unauthorized
+    Tenant.switch(@tenant) { assert_equal 2, AuditEvent.where(channel: "link", status: "denied").count }
+  end
+
+  test "a machine linked again as the client it already is uses up its code" do
+    machine = machine_on(@tenant, key: "box", client_id: "client-box")
+    code = graphql(Grant::SCOPES, LINK, id: machine.id).dig("data", "linkMachine", "code")
+
+    link_up(code, client_id: "client-box")
+    assert_response :ok
+    Tenant.switch(@tenant) { assert_nil machine.reload.details["linking"] }
+
+    link_up(code, client_id: "client-box")
     assert_response :unauthorized
   end
 
@@ -141,12 +162,13 @@ class LinkingTest < ActionDispatch::IntegrationTest
     machine_on(@tenant, key: "box", client_id: "client-box")
     code = link("studio")
 
-    post "/link", params: { client_id: "client-box" }, headers: bearer(code)
+    link_up(code, client_id: "client-box")
     assert_response :unprocessable_content
     assert_match(/Another machine is linked as that client/, response.body)
 
-    post "/link", params: { client_id: "not a client\nid" }, headers: bearer(code)
-    assert_response :unprocessable_content
+    post "/link", params: { code: code, client_id: "client-studio" }, headers: bearer(code)
+    assert_response :unauthorized
+    assert_match(/takes the machine's own token/, response.body)
 
     Tenant.switch(@tenant) do
       assert_equal "client-box", Resource::Machine.find_by!(key: "box").client_id
@@ -159,11 +181,11 @@ class LinkingTest < ActionDispatch::IntegrationTest
     id = Tenant.switch(@tenant) { Resource::Machine.find_by!(key: "studio").id }
     second = graphql(Grant::SCOPES, LINK, id: id).dig("data", "linkMachine", "code")
 
-    post "/link", params: { client_id: "client-studio" }, headers: bearer(first)
+    link_up(first, client_id: "client-studio")
     assert_response :unauthorized
 
     travel Resource::Machine::Linking::LINKED_WITHIN + 1.minute do
-      post "/link", params: { client_id: "client-studio" }, headers: bearer(second)
+      link_up(second, client_id: "client-studio")
       assert_response :unauthorized
 
       Tenant.switch(@tenant) do
@@ -182,7 +204,7 @@ class LinkingTest < ActionDispatch::IntegrationTest
 
     held = Resource::Machine::Enrollment.method(:revoke)
     Resource::Machine::Enrollment.define_singleton_method(:revoke) { |_tenant, client_id| revoked << client_id }
-    post "/link", params: { client_id: "client-new" }, headers: bearer(code)
+    link_up(code, client_id: "client-new")
     assert_response :ok
     assert_equal [ "client-old" ], revoked
     Tenant.switch(@tenant) { assert_equal "client-new", machine.reload.client_id }
@@ -218,6 +240,14 @@ class LinkingTest < ActionDispatch::IntegrationTest
 
     def host
       "#{@tenant.subdomain}.xixo.test"
+    end
+
+    def link_up(code, client_id:)
+      token = machine_token(@tenant, client_id: client_id)
+      post "/link", params: { code: code }, headers: {
+        "HOST" => host, "Authorization" => "DPoP #{token}",
+        "DPoP" => dpop_proof(token, url: "http://#{host}/link", method: "POST")
+      }
     end
 
     def bearer(code)

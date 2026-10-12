@@ -342,7 +342,10 @@ class Resource
     end
 
     def bound!(client_id, revoker: Enrollment.method(:revoke))
-      return if self.client_id == client_id
+      if self.client_id == client_id
+        update!(details: details.to_h.except(Linking::KEY)) if details.to_h.key?(Linking::KEY)
+        return
+      end
 
       revoker.call(tenant, self.client_id) if self.client_id.present?
       self.details = details.to_h.merge("client_id" => client_id).except("machine", MINTED, Linking::KEY)
