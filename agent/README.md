@@ -25,7 +25,7 @@ CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags "-s -w -X main
 | `/var/lib/xixo-agent/key.json` | The private key the agent signs its client assertions with. |
 | `/var/lib/xixo-agent/dpop.json` | The private key the agent proves its tokens with. |
 | `/var/lib/xixo-agent/registration.json` | The client masks registered for the agent, and its registration access token. |
-| `/etc/systemd/system/xixo-agent.service` | The unit, from `xixo-agent.service` with `@USER@` replaced. |
+| `/etc/systemd/system/xixo-agent.service` | The unit, from `xixo-agent.service` with `@USER@` and `@FOLDERS@` replaced. |
 
 The state directory is mode 0700 and every file in it is mode 0600. The keys
 are made on the machine the first time the agent enrolls and never leave it.
@@ -163,6 +163,13 @@ state directory for that user, restarts the agent when it stops, and keeps it
 from writing anywhere else, gaining privileges, or reaching devices. The agent
 also runs in its own user namespace, sees no other process in `/proc`, and makes
 only the system calls an ordinary service makes.
+
+The installer writes a `BindReadOnlyPaths=` line in place of `@FOLDERS@`, one
+quoted entry per shared folder. `/home`, `/root`, `/srv`, `/mnt`, `/media`,
+`/opt`, and `/var/lib` are empty for the agent apart from its state directory,
+and each shared folder is mounted back read-only, so a file outside them is
+missing even when the agent's user could read it. This holds behind the agent's
+own path checks.
 
 When masks answers `invalid_client`, the machine was unenrolled, so the agent
 exits with status 78 and the unit's `RestartPreventExitStatus=78` keeps it

@@ -54,7 +54,7 @@ class InstallerTest < ActiveSupport::TestCase
     @binaries = Dir.mktmpdir
     File.binwrite(File.join(@binaries, "xixo-agent-linux-arm64"), "arm binary")
     File.binwrite(File.join(@binaries, "xixo-agent-linux-amd64"), "x86 binary")
-    File.write(File.join(@binaries, "xixo-agent.service"), "[Service]\nUser=@USER@\nExecStart=/usr/local/bin/xixo-agent run\n")
+    FileUtils.cp(Rails.root.join("agent/xixo-agent.service"), File.join(@binaries, "xixo-agent.service"))
     ENV["XIXO_AGENT_DIR"] = @binaries
     ENV["XIXO_PUBLIC_ORIGIN"] = "https://%{subdomain}.xixo.test"
     @minted = []
@@ -91,6 +91,44 @@ class InstallerTest < ActiveSupport::TestCase
     assert_not_includes enroll.first, "minted-for-Box"
     assert_includes shell.commands, "sudo -n install -d -m 0700 -o jon -g jon /var/lib/xixo-agent"
     assert_includes shell.commands, "sudo -n systemctl restart xixo-agent"
+  end
+
+  test "the unit hides where people keep files and binds back only the shared folders, read-only" do
+    shell = FakeShell.new
+
+    Tenant.switch(@tenant) do
+      installer(machine(details: { "folders" => [ "/srv/media", "/srv/My Photos", "/home/jon/100% done" ] }), shell).install!
+    end
+
+    unit = shell.written["/etc/systemd/system/xixo-agent.service.new"]
+    assert_match(/^ProtectHome=tmpfs$/, unit)
+    assert_match(%r{^TemporaryFileSystem=/srv:ro /mnt:ro /media:ro /opt:ro /var/lib:ro$}, unit)
+    assert_includes unit, %(\nBindReadOnlyPaths="-/srv/media" "-/srv/My Photos" "-/home/jon/100%% done"\n)
+    assert_no_match(/@FOLDERS@|@USER@/, unit)
+  end
+
+  test "a machine that shares no folders binds none" do
+    shell = FakeShell.new
+
+    Tenant.switch(@tenant) { installer(machine(details: { "folders" => [] }), shell).install! }
+
+    unit = shell.written["/etc/systemd/system/xixo-agent.service.new"]
+    assert_no_match(/BindReadOnlyPaths|@FOLDERS@/, unit)
+    assert_match(/^ProtectHome=tmpfs$/, unit)
+  end
+
+  test "a folder that could write its own unit directives is refused before anything is written" do
+    [ "/srv/media\nExecStartPre=/bin/sh -c id", "/srv/me\"dia", "/srv/media\\x0a", "/srv/a:/etc" ].each do |hostile|
+      shell = FakeShell.new
+
+      Tenant.switch(@tenant) do
+        assert_raises(Resource::Failed) { installer(machine(key: "box-#{SecureRandom.hex(3)}", details: { "folders" => [ hostile ] }), shell).install! }
+      end
+
+      assert_nil shell.written["/etc/xixo-agent/config.json.new"], hostile
+      assert_nil shell.written["/etc/systemd/system/xixo-agent.service.new"], hostile
+    end
+    assert_empty @minted
   end
 
   test "a host key other than the pinned one stops the install before anything is sent" do

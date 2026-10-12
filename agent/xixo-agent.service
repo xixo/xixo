@@ -17,7 +17,9 @@ ConfigurationDirectory=xixo-agent
 UMask=0077
 NoNewPrivileges=yes
 ProtectSystem=strict
-ProtectHome=read-only
+ProtectHome=tmpfs
+TemporaryFileSystem=/srv:ro /mnt:ro /media:ro /opt:ro /var/lib:ro
+@FOLDERS@
 PrivateTmp=yes
 PrivateDevices=yes
 ProtectKernelTunables=yes

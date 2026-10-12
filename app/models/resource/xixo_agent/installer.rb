@@ -13,6 +13,8 @@ class Resource
       ACCOUNT = /\A[a-z_][a-z0-9_.-]{0,31}\z/i
       CLIENT_ID = /\A[A-Za-z0-9._:-]{1,200}\z/
       FINGERPRINT = %r{\ASHA256:[A-Za-z0-9+/]{43}\z}
+      FOLDERS = "@FOLDERS@".freeze
+      UNSHAREABLE = /[[:cntrl:]:"'\\]/
 
       def initialize(agent, shell:, minter: Enrollment.method(:mint), revoker: Enrollment.method(:revoke), log: ->(*) { })
         @agent = agent
@@ -119,7 +121,7 @@ class Resource
 
         def folders
           @folders ||= Array(@agent.details.to_h["folders"]).map(&:to_s).each do |path|
-            next if path.start_with?("/") && Pathname.new(path).cleanpath.to_s == path && !path.include?("\0")
+            next if path.start_with?("/") && Pathname.new(path).cleanpath.to_s == path && !path.match?(UNSHAREABLE)
 
             raise Resource::Failed, "#{path.first(80).inspect} is not an absolute path the agent can share"
           end
@@ -138,8 +140,15 @@ class Resource
 
           template = held.read
           raise Resource::Failed, "#{UNIT_FILE} names no @USER@ to run the agent as" unless template.include?("User=@USER@")
+          raise Resource::Failed, "#{UNIT_FILE} names no #{FOLDERS} to share folders through" unless template.include?("\n#{FOLDERS}\n")
 
-          template.gsub("@USER@", user)
+          template.gsub("@USER@", user).sub("#{FOLDERS}\n", bound)
+        end
+
+        def bound
+          return "" if folders.empty?
+
+          "BindReadOnlyPaths=#{folders.map { |path| %("-#{path.gsub('%', '%%')}") }.join(' ')}\n"
         end
 
         def place!(source, target, mode:)

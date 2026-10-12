@@ -26,7 +26,8 @@ You need:
    fills in **Address**.
 3. Fill in **SSH user** and paste the account's private key into **SSH private key**.
 4. Under **Folders it shares**, list the folders the agent may read, one absolute path per line,
-   such as `/srv/media`.
+   such as `/srv/media`. A path holding a colon, a quotation mark, an apostrophe, a backslash, or
+   a control character is refused.
 5. Optionally, fill in **Host key** with the fingerprint `ssh-keygen -lf
    /etc/ssh/ssh_host_ed25519_key.pub` prints on the machine. Left empty, the key the machine
    offers on the first install is kept.
@@ -41,7 +42,10 @@ for each step. The run:
 4. Writes `/etc/xixo-agent/config.json` with xixo's address, masks' address, and the folders.
 5. Asks masks for an enrollment token and runs `xixo-agent enroll`, which makes the agent's keys on
    the machine and registers it with masks as a client of its own.
-6. Installs and starts the `xixo-agent` systemd service as the account.
+6. Installs and starts the `xixo-agent` systemd service as the account. The service sees `/home`,
+   `/root`, `/srv`, `/mnt`, `/media`, `/opt`, and `/var/lib` as empty, apart from its own state
+   directory, and each shared folder is mounted back read-only. A file outside the shared folders
+   is missing for the agent even when its account could read it.
 
 xixo drops the private key when the run ends, whether it worked or not. Within a minute the agent
 connects, and the machine's card shows its hostname, the agent's version, its uptime, and how many
@@ -60,8 +64,11 @@ leaves it **offline** until the agent is back.
 
 The folders live in the machine's own configuration, so xixo cannot widen them. Either change
 **Folders it shares**, paste the private key again, and save, which runs the install again with
-the new list, or edit `/etc/xixo-agent/config.json` on the machine and run
-`sudo systemctl restart xixo-agent`.
+the new list, or change them on the machine in two places: the `folders` list in
+`/etc/xixo-agent/config.json`, and the `BindReadOnlyPaths=` line in
+`/etc/systemd/system/xixo-agent.service`, where each folder is written as `"-/srv/media"`. Then run
+`sudo systemctl daemon-reload` and `sudo systemctl restart xixo-agent`. A folder only in the
+config is missing for the agent.
 
 ## Remove a machine
 
