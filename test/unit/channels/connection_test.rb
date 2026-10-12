@@ -37,10 +37,16 @@ class ConnectionTest < ActionCable::Connection::TestCase
     assert_reject_connection { connect_as(@tenant) }
   end
 
+  test "a token only in the cookie is refused, since the session lives in the cache" do
+    sign_in(@tenant)
+    cookies.encrypted[Rails.application.config.session_options[:key]] = { value: @session }
+    @session = nil
+
+    assert_reject_connection { connect_as(@tenant) }
+  end
+
   test "a session carrying nonsense is refused rather than raising" do
-    cookies.encrypted[session_key] = {
-      value: { Masks::Rails.config.session_key => { "access_token" => "not-a-jwt" } }
-    }
+    @session = { Masks::Rails.config.session_key => { "access_token" => "not-a-jwt" } }
 
     assert_reject_connection { connect_as(@tenant) }
   end
@@ -57,11 +63,7 @@ class ConnectionTest < ActionCable::Connection::TestCase
   private
 
     def connect_as(tenant)
-      connect "/cable", headers: { "HOST" => "#{tenant.subdomain}.xixo.test" }
-    end
-
-    def session_key
-      Rails.application.config.session_options[:key]
+      connect "/cable", headers: { "HOST" => "#{tenant.subdomain}.xixo.test" }, session: @session.to_h
     end
 
     def sign_in(tenant, scopes: Grant::SCOPES, expires_in: 1.hour)
@@ -70,14 +72,12 @@ class ConnectionTest < ActionCable::Connection::TestCase
         audience: "http://#{tenant.subdomain}.xixo.test/mcp"
       )
 
-      cookies.encrypted[session_key] = {
-        value: {
-          Masks::Rails.config.session_key => {
-            "access_token" => token,
-            "token_type" => "Bearer",
-            "expires_in" => expires_in.to_i,
-            "obtained_at" => Time.current.to_i
-          }
+      @session = {
+        Masks::Rails.config.session_key => {
+          "access_token" => token,
+          "token_type" => "Bearer",
+          "expires_in" => expires_in.to_i,
+          "obtained_at" => Time.current.to_i
         }
       }
     end

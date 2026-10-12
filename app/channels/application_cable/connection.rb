@@ -45,9 +45,9 @@ module ApplicationCable
       end
 
       def masks_session
-        session = cookies.encrypted[Rails.application.config.session_options[:key]]
+        held = request.session[Masks::Rails.config.session_key]
 
-        session.is_a?(Hash) ? session[Masks::Rails.config.session_key] : nil
+        held.is_a?(Hash) ? held : nil
       end
 
       def resource
