@@ -18,6 +18,7 @@ class Resource
     PUT_AWAY_TRIES = 3
     EXTRACTORS = %w[pdf image media doc epub xlsx calendar pkpass email contact data text fallback].freeze
     LOCAL = "local".freeze
+    MINTED = "minted_at".freeze
 
     serves :transport
 
@@ -286,7 +287,7 @@ class Resource
       return if self.client_id == client_id
 
       revoker.call(tenant, self.client_id) if self.client_id.present?
-      self.details = details.to_h.merge("client_id" => client_id).except("machine")
+      self.details = details.to_h.merge("client_id" => client_id).except("machine", MINTED)
       save!
     end
 

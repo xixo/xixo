@@ -7,6 +7,7 @@ class EnrollLocalAgentJob < ApplicationJob
   CLIENT = "client_id".freeze
   CLIENT_ID = /\A[\w.:-]{1,200}\z/
   REPLACED_AFTER = (Resource::XixoAgent::Enrollment::LASTS - 60).seconds
+  BOUND_WITHIN = (Resource::XixoAgent::Enrollment::LASTS + 120).seconds
 
   def self.handoff
     ENV["XIXO_LOCAL_AGENT"].presence&.then { |path| Pathname.new(path) }
@@ -35,9 +36,32 @@ class EnrollLocalAgentJob < ApplicationJob
 
     def bind(agent, dir)
       said = read_plain(dir.join(CLIENT))
-      return unless said&.match?(CLIENT_ID)
+      return if !said&.match?(CLIENT_ID) || agent.client_id == said
+
+      unless awaited?(agent)
+        return refuse(agent, "the agent beside the server named the client #{said}, which no enrollment token " \
+                             "xixo handed it in the last #{BOUND_WITHIN.inspect} made. Clear the agent's state in " \
+                             "/var/lib/xixo-agent and restart it to enroll it again")
+      end
+
+      if Resource::XixoAgent.where.not(id: agent.id).exists?([ "resources.details ->> 'client_id' = ?", said ])
+        return refuse(agent, "the agent beside the server named the client #{said}, which another machine is " \
+                             "enrolled as")
+      end
 
       agent.bound!(said)
+    end
+
+    def awaited?(agent)
+      minted = Time.iso8601(agent.details.to_h[Resource::XixoAgent::MINTED].to_s)
+      minted > BOUND_WITHIN.ago
+    rescue ArgumentError
+      false
+    end
+
+    def refuse(agent, said)
+      Rails.logger.warn("EnrollLocalAgentJob: #{said}")
+      agent.update_columns(checked_at: Time.current, check_error: said) unless agent.check_error == said
     end
 
     def offer(tenant, agent, dir)
@@ -47,6 +71,7 @@ class EnrollLocalAgentJob < ApplicationJob
       return if regular?(token) && File.lstat(token).mtime > REPLACED_AFTER.ago
 
       minted = Resource::XixoAgent::Enrollment.mint(tenant, name: "#{agent.name}, #{tenant.subdomain}")
+      agent.update!(details: agent.details.to_h.merge(Resource::XixoAgent::MINTED => Time.current.utc.iso8601))
       write_plain(dir, TOKEN, minted)
     end
 

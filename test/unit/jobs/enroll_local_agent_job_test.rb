@@ -44,6 +44,7 @@ class EnrollLocalAgentJobTest < ActiveSupport::TestCase
   end
 
   test "the client the agent enrolled as becomes the agent beside the server" do
+    handed_a_token
     @dir.join("client_id").write("local-client\n")
 
     EnrollLocalAgentJob.perform_now
@@ -52,8 +53,10 @@ class EnrollLocalAgentJobTest < ActiveSupport::TestCase
   end
 
   test "an agent that enrolled again leaves its earlier client unenrolled in masks" do
+    handed_a_token
     @dir.join("client_id").write("first-client")
     EnrollLocalAgentJob.perform_now
+    handed_a_token
 
     revoked = []
     held = Resource::XixoAgent::Enrollment.method(:revoke)
@@ -67,7 +70,49 @@ class EnrollLocalAgentJobTest < ActiveSupport::TestCase
     Resource::XixoAgent::Enrollment.define_singleton_method(:revoke, held) if held
   end
 
+  test "a client named with no token handed out, or long after one, is not taken and the card says why" do
+    @dir.join("client_id").write("planted-client")
+    EnrollLocalAgentJob.perform_now
+
+    Tenant.switch(@tenant) do
+      local = Resource::XixoAgent.local
+      assert_nil local.client_id
+      assert_match(/named the client planted-client, which no enrollment token xixo handed it/, local.check_error)
+      local.update!(details: local.details.merge(Resource::XixoAgent::MINTED => 1.hour.ago.utc.iso8601))
+    end
+
+    EnrollLocalAgentJob.perform_now
+    Tenant.switch(@tenant) { assert_nil Resource::XixoAgent.local.client_id }
+  end
+
+  test "a client another machine is enrolled as is not taken" do
+    Tenant.switch(@tenant) do
+      Resource::XixoAgent.create!(key: "box", details: { "host" => "100.64.0.9", "user" => "jon", "client_id" => "box-client" })
+    end
+    handed_a_token
+    @dir.join("client_id").write("box-client")
+
+    EnrollLocalAgentJob.perform_now
+
+    Tenant.switch(@tenant) do
+      local = Resource::XixoAgent.local
+      assert_nil local.client_id
+      assert_match(/which another machine is enrolled as/, local.check_error)
+    end
+  end
+
+  test "binding the client the token made closes the wait, so a second name is not taken" do
+    handed_a_token
+    @dir.join("client_id").write("local-client")
+    EnrollLocalAgentJob.perform_now
+    @dir.join("client_id").write("later-client")
+    EnrollLocalAgentJob.perform_now
+
+    Tenant.switch(@tenant) { assert_equal "local-client", Resource::XixoAgent.local.client_id }
+  end
+
   test "a client id behind a link, or one that is not an id, is not taken" do
+    handed_a_token
     secret = @root.join("secret").tap { |path| path.write("SECRET_KEY_BASE") }
     File.symlink(secret, @dir.join("client_id"))
 
@@ -94,6 +139,13 @@ class EnrollLocalAgentJobTest < ActiveSupport::TestCase
   end
 
   private
+
+    def handed_a_token
+      @dir.join("wanted").write("")
+      FileUtils.rm_f(@dir.join("token"))
+      minting("token-#{SecureRandom.hex(4)}") { EnrollLocalAgentJob.perform_now }
+      FileUtils.rm_f(@dir.join("wanted"))
+    end
 
     def minting(token)
       held = Resource::XixoAgent::Enrollment.method(:mint)

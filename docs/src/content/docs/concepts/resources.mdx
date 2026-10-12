@@ -341,8 +341,10 @@ it reads every file no machine's agent reads where it lies. It has no database a
 only its own state and the folders mounted into it. It enrolls itself through a directory
 it shares with the worker, named by `XIXO_LOCAL_AGENT`: it leaves a `wanted` file, `EnrollLocalAgentJob`
 leaves it a single-use enrollment token readable by its user alone, and it writes back the client it
-enrolled as, which the job binds to the `local` machine, **This server**. The job reads nothing
-behind a link. See [extraction](/concepts/analysis/#extraction) for what it is asked.
+enrolled as, which the job binds to the `local` machine, **This server**. It binds a client only
+within twelve minutes of handing out a token, once for each token, and never one another machine is
+enrolled as. A client named any other way is refused, and the reason shows on the machine's card.
+Deleting the agent's state volume enrolls it again. The job reads nothing behind a link. See [extraction](/concepts/analysis/#extraction) for what it is asked.
 
 ## Health, internal stores, archiving, and deleting
 
