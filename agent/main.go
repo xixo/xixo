@@ -10,10 +10,13 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
+	"slices"
 	"strings"
 	"syscall"
 
 	"github.com/xixo/xixo/agent/internal/agent"
+	"github.com/xixo/xixo/agent/internal/extract"
 	_ "github.com/xixo/xixo/agent/internal/extract/documents"
 	_ "github.com/xixo/xixo/agent/internal/extract/plain"
 	_ "github.com/xixo/xixo/agent/internal/extract/rich"
@@ -26,10 +29,12 @@ var version = "dev"
 
 const revoked = 78
 
+var revokedStatus = revoked
+
 const usage = `xixo-agent connects this machine to xixo.
 
   xixo-agent enroll --token - [--name NAME] [--config PATH] [--state DIR]
-  xixo-agent run [--config PATH] [--state DIR]
+  xixo-agent run [--config PATH] [--state DIR] [--revoked-status N]
   xixo-agent version
 `
 
@@ -41,7 +46,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "xixo-agent:", err)
 
 		if errors.Is(err, agent.ErrRevoked) {
-			os.Exit(revoked)
+			os.Exit(revokedStatus)
 		}
 
 		os.Exit(1)
@@ -105,9 +110,14 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 
 		return nil
 	case "run":
+		stopped := set.Int("revoked-status", revoked, "the exit status when this machine was unenrolled")
+
 		if err := set.Parse(args[1:]); err != nil {
 			return err
 		}
+
+		revokedStatus = *stopped
+		searchPath()
 
 		config, err := state.LoadConfig(*configPath)
 		if err != nil {
@@ -122,6 +132,8 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 		shared := folders.New(config.Folders)
 		shared.Pin()
 
+		run, notices := runner(config)
+
 		running := &agent.Agent{
 			Xixo:              config.Xixo,
 			Version:           version,
@@ -131,6 +143,8 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 			DPoP:              dpop,
 			Log:               slog.New(slog.NewTextHandler(os.Stderr, nil)),
 			Work:              workDir(),
+			Runner:            run,
+			Notices:           notices,
 			Lend:              config.Lend,
 			ExtractsForOthers: config.ExtractsForOthers,
 		}
@@ -148,8 +162,41 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 	}
 }
 
+func runner(config *state.Config) (extract.Runner, []string) {
+	if runtime.GOOS != "darwin" {
+		return extract.Limited{}, nil
+	}
+
+	confine, err := extract.Sandbox()
+	if err == nil {
+		return extract.Limited{Confine: confine}, nil
+	}
+
+	if config.ExtractUnsandboxed {
+		return extract.Limited{}, []string{"sandbox-exec is missing, so extraction programs run unsandboxed: the config sets extract_unsandboxed"}
+	}
+
+	return extract.Limited{Refused: extract.ErrUnconfined}, []string{"sandbox-exec is missing, so the agent runs no extraction programs and offers only the extractors that need none"}
+}
+
+func searchPath() {
+	held := filepath.SplitList(os.Getenv("PATH"))
+
+	for _, dir := range state.SearchPath {
+		if !slices.Contains(held, dir) {
+			held = append(held, dir)
+		}
+	}
+
+	os.Setenv("PATH", strings.Join(held, string(os.PathListSeparator)))
+}
+
 func workDir() string {
 	cache, _, _ := strings.Cut(os.Getenv("CACHE_DIRECTORY"), ":")
+	if cache == "" {
+		cache = state.DefaultCache
+	}
+
 	if cache == "" {
 		return os.TempDir()
 	}

@@ -58,6 +58,7 @@ type Agent struct {
 
 	Lend              bool
 	ExtractsForOthers bool
+	Notices           []string
 
 	once    sync.Once
 	link    link
@@ -316,7 +317,8 @@ func (a *Agent) open(ctx context.Context) (*session, error) {
 
 func (s *session) greet(ctx context.Context) error {
 	hello := s.Machine.Hello(ctx, s.Version, s.Folders.Names())
-	hello.Extractors = extract.Available()
+	hello.Extractors = extract.AvailableTo(s.Runner)
+	hello.Warnings = s.warnings()
 	hello.Writable = s.Folders.Writable()
 	hello.Lend = s.Lend
 	hello.ExtractsForOthers = s.ExtractsForOthers
@@ -325,7 +327,7 @@ func (s *session) greet(ctx context.Context) error {
 		return err
 	}
 
-	return s.conn.Perform(ctx, "health", s.Machine.Health(s.Folders.Names()))
+	return s.conn.Perform(ctx, "health", s.health())
 }
 
 func (s *session) listen(ctx context.Context) {
@@ -413,7 +415,7 @@ func (s *session) serve(ctx context.Context) (bool, error) {
 
 			return false, err
 		case <-ticker.C:
-			if err := s.conn.Perform(ctx, "health", s.Machine.Health(s.Folders.Names())); err != nil {
+			if err := s.conn.Perform(ctx, "health", s.health()); err != nil {
 				return false, err
 			}
 		case <-expiring:
@@ -457,7 +459,7 @@ func (a *Agent) take(ctx context.Context, asked *Request) {
 func (a *Agent) answer(ctx context.Context, asked *Request) {
 	switch asked.Verb {
 	case "health":
-		a.reply(ctx, asked.Request, a.Machine.Health(a.Folders.Names()))
+		a.reply(ctx, asked.Request, a.health())
 	case "list":
 		query := folders.Query{}
 		if err := decode(asked.Args, &query); err != nil {

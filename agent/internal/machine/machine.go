@@ -27,10 +27,11 @@ type Disk struct {
 }
 
 type Health struct {
-	Uptime float64   `json:"uptime"`
-	Load   []float64 `json:"load"`
-	Memory Memory    `json:"memory"`
-	Disks  []Disk    `json:"disks"`
+	Uptime   float64   `json:"uptime"`
+	Load     []float64 `json:"load"`
+	Memory   Memory    `json:"memory"`
+	Disks    []Disk    `json:"disks"`
+	Warnings []string  `json:"warnings"`
 }
 
 type Service struct {
@@ -50,6 +51,7 @@ type Hello struct {
 	Extractors        []string  `json:"extractors"`
 	Lend              bool      `json:"lend"`
 	ExtractsForOthers bool      `json:"extracts_for_others"`
+	Warnings          []string  `json:"warnings"`
 }
 
 var Known = []Service{
@@ -64,7 +66,7 @@ type Machine struct {
 }
 
 func New() *Machine {
-	return &Machine{Proc: "/proc", Probe: listening, Tailnet: tailnetAddress}
+	return &Machine{Proc: procRoot, Probe: listening, Tailnet: tailnetAddress}
 }
 
 func (m *Machine) Hello(ctx context.Context, version string, folders []string) Hello {
@@ -102,8 +104,29 @@ func (m *Machine) Services(ctx context.Context) []Service {
 }
 
 func (m *Machine) Health(folders []string) Health {
-	held := Health{Load: []float64{0, 0, 0}, Disks: []Disk{}}
+	held := Health{Load: []float64{0, 0, 0}, Disks: []Disk{}, Warnings: []string{}}
 
+	if m.Proc == "" {
+		native(&held)
+	} else {
+		m.fromProc(&held)
+	}
+
+	for _, path := range append([]string{"/"}, folders...) {
+		var stat unix.Statfs_t
+
+		if unix.Statfs(path, &stat) != nil {
+			continue
+		}
+
+		size := uint64(stat.Bsize)
+		held.Disks = append(held.Disks, Disk{Path: path, Total: uint64(stat.Blocks) * size, Free: uint64(stat.Bavail) * size})
+	}
+
+	return held
+}
+
+func (m *Machine) fromProc(held *Health) {
 	if raw, err := os.ReadFile(m.Proc + "/uptime"); err == nil {
 		if fields := strings.Fields(string(raw)); len(fields) > 0 {
 			held.Uptime, _ = strconv.ParseFloat(fields[0], 64)
@@ -121,19 +144,6 @@ func (m *Machine) Health(folders []string) Health {
 	if raw, err := os.ReadFile(m.Proc + "/meminfo"); err == nil {
 		held.Memory = memory(raw)
 	}
-
-	for _, path := range append([]string{"/"}, folders...) {
-		var stat unix.Statfs_t
-
-		if unix.Statfs(path, &stat) != nil {
-			continue
-		}
-
-		size := uint64(stat.Bsize)
-		held.Disks = append(held.Disks, Disk{Path: path, Total: uint64(stat.Blocks) * size, Free: uint64(stat.Bavail) * size})
-	}
-
-	return held
 }
 
 func memory(raw []byte) Memory {
@@ -179,7 +189,7 @@ func tailnetAddress(ctx context.Context) string {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
-	out, err := exec.CommandContext(ctx, "tailscale", "ip", "-4").Output()
+	out, err := exec.CommandContext(ctx, tailscale(), "ip", "-4").Output()
 	if err != nil {
 		return ""
 	}
@@ -190,4 +200,18 @@ func tailnetAddress(ctx context.Context) string {
 	}
 
 	return first
+}
+
+func tailscale() string {
+	if found, err := exec.LookPath("tailscale"); err == nil {
+		return found
+	}
+
+	for _, app := range tailscaleApps {
+		if info, err := os.Stat(app); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0o111 != 0 {
+			return app
+		}
+	}
+
+	return "tailscale"
 }

@@ -15,18 +15,15 @@ import (
 	"github.com/xixo/xixo/agent/internal/folders"
 )
 
-const (
-	DefaultConfig = "/etc/xixo-agent/config.json"
-	DefaultState  = "/var/lib/xixo-agent"
-	Scope         = "xixo:agent"
-)
+const Scope = "xixo:agent"
 
 type Config struct {
-	Xixo              string           `json:"xixo"`
-	Issuer            string           `json:"issuer"`
-	Folders           []folders.Shared `json:"folders"`
-	Lend              bool             `json:"lend"`
-	ExtractsForOthers bool             `json:"extracts_for_others"`
+	Xixo               string           `json:"xixo"`
+	Issuer             string           `json:"issuer"`
+	Folders            []folders.Shared `json:"folders"`
+	Lend               bool             `json:"lend"`
+	ExtractsForOthers  bool             `json:"extracts_for_others"`
+	ExtractUnsandboxed bool             `json:"extract_unsandboxed"`
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -127,6 +124,10 @@ func (s State) Keys() (*masks.Key, *masks.Key, error) {
 
 func (s State) MakeKeys() (*masks.Key, *masks.Key, error) {
 	if err := os.MkdirAll(s.Dir, 0o700); err != nil {
+		return nil, nil, err
+	}
+
+	if err := os.Chmod(s.Dir, 0o700); err != nil {
 		return nil, nil, err
 	}
 

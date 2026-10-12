@@ -107,7 +107,7 @@ func TestLimitedBlocksUntrustedVipsLoaders(t *testing.T) {
 }
 
 func TestLimitedCapsTheFilesAProgramWrites(t *testing.T) {
-	if runtime.GOOS != "linux" {
+	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
 		t.Skip("only Linux runs the limit script")
 	}
 

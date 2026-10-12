@@ -133,9 +133,13 @@ These are in [rich/README.md](rich/README.md).
 
 ## Programs
 
-Every program runs under `Limited`: a deadline, a data limit on Linux set by
-`/bin/sh` with `ulimit -d` just before the program starts, and its whole process
-group killed past the deadline. The data limit is 4 GiB, except for `exiftool`,
+Every program runs under `Limited`: a deadline, a data limit on Linux and a
+file size limit set by `/bin/sh` with `ulimit -d` and `ulimit -f` just before
+the program starts, and its whole process group killed past the deadline. macOS
+refuses `ulimit -d`, so there the data limit is skipped and the file size limit
+stays. On macOS each program also runs under `sandbox-exec`, which lets it
+write only inside the extraction's work folder and reach no network; the
+[agent README](../../README.md#the-sandbox) describes the profile. The data limit is 4 GiB, except for `exiftool`,
 which gets 6 GiB. Its zip reader sizes a buffer from a zip64 local header's
 4 GiB placeholder size, so a small docx, xlsx, odt, ods, or epub written with
 zip64 headers needs about 5 GiB of address space while touching only a few

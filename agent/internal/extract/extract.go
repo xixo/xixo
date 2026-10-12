@@ -148,9 +148,19 @@ func For(mime, name string) Extractor {
 }
 
 func Available() []string {
+	return AvailableTo(nil)
+}
+
+func AvailableTo(run Runner) []string {
 	names := []string{}
+	held, limited := run.(Limited)
+	refused := limited && held.Refused != nil
 
 	for _, e := range Registered() {
+		if refused && len(e.Needs()) > 0 {
+			continue
+		}
+
 		if usable(e) {
 			names = append(names, e.Name())
 		}

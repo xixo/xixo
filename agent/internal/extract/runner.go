@@ -34,20 +34,21 @@ var (
 	ErrBudget  = errors.New("the extraction wrote more than its work folder holds, so the program was stopped")
 )
 
-const cappedScript = `want=$1; files=$2; shift 2; ` +
-	`hard=$(ulimit -H -d); if [ "$hard" != unlimited ] && [ "$hard" -lt "$want" ]; then want=$hard; fi; ulimit -d "$want" || exit 125; ` +
+const limitScript = `want=$1; files=$2; strict=$3; shift 3; ` +
+	`hard=$(ulimit -H -d); if [ "$hard" != unlimited ] && [ "$hard" -lt "$want" ]; then want=$hard; fi; ` +
+	`ulimit -d "$want" 2>/dev/null || [ "$strict" = 0 ] || exit 125; ` +
 	`hard=$(ulimit -H -f); if [ "$hard" != unlimited ] && [ "$hard" -lt "$files" ]; then files=$hard; fi; ulimit -f "$files" || exit 125; ` +
 	`exec "$@"`
 
-const uncappedScript = `shift 2; exec "$@"`
-
 type Limited struct {
-	Memory uint64
-	File   int64
-	Dir    string
-	Env    []string
-	Watch  string
-	Budget int64
+	Memory  uint64
+	File    int64
+	Dir     string
+	Env     []string
+	Watch   string
+	Budget  int64
+	Confine Confiner
+	Refused error
 }
 
 func Within(run Runner, dir string, budget int64) Runner {
@@ -124,12 +125,35 @@ func (l Limited) memoryFor(program string) uint64 {
 	return MostMemory
 }
 
-func limitScript() string {
-	if runtime.GOOS == "darwin" {
-		return uncappedScript
+func strictMemory() string {
+	if runtime.GOOS == "linux" {
+		return "1"
 	}
 
-	return cappedScript
+	return "0"
+}
+
+func (l Limited) command(program string, args []string) ([]string, error) {
+	if l.Refused != nil {
+		return nil, l.Refused
+	}
+
+	held := append([]string{"/bin/sh", "-c", limitScript, "xixo-agent-limit", strconv.FormatUint(l.memoryFor(program)>>10, 10), l.blocks(), strictMemory(), program}, args...)
+	if l.Confine == nil {
+		return held, nil
+	}
+
+	work := l.Watch
+	if work == "" {
+		work = l.Dir
+	}
+
+	prefix, err := l.Confine(work, program)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(prefix, held...), nil
 }
 
 func (l Limited) Run(ctx context.Context, limit time.Duration, program string, args ...string) ([]byte, error) {
@@ -144,12 +168,15 @@ func (l Limited) RunTo(ctx context.Context, limit time.Duration, stdout io.Write
 		limit = DefaultTime
 	}
 
-	kilobytes := strconv.FormatUint(l.memoryFor(program)>>10, 10)
+	argv, err := l.command(program, args)
+	if err != nil {
+		return err
+	}
 
 	ctx, cancel := context.WithTimeout(ctx, limit)
 	defer cancel()
 
-	command := exec.Command("/bin/sh", append([]string{"-c", limitScript(), "xixo-agent-limit", kilobytes, l.blocks(), program}, args...)...)
+	command := exec.Command(argv[0], argv[1:]...)
 	command.Dir = l.Dir
 	command.Env = l.environment()
 	command.Stdout = stdout

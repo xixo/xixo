@@ -171,6 +171,38 @@ func (f *Folders) Pin() {
 	}
 }
 
+func (f *Folders) Unreadable() map[string]error {
+	held := map[string]error{}
+
+	for _, folder := range f.name {
+		if err := f.readable(folder); err != nil {
+			held[folder] = err
+		}
+	}
+
+	return held
+}
+
+func (f *Folders) readable(folder string) error {
+	root, err := f.root(folder)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+
+	dir, err := root.Open(".")
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+
+	if _, err := dir.ReadDir(1); err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
 func (f *Folders) resolve(configured string) (string, error) {
 	if err := trusted(configured); err != nil {
 		return "", err
