@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -14,6 +15,7 @@ import (
 
 const (
 	OcrPages = 30
+	OcrBatch = 8
 	OcrDPI   = "200"
 	Sparse   = 40
 	PdfReads = "text layer, then ocr past 40 characters a page"
@@ -128,27 +130,31 @@ func (s *session) recognized(pdf string, pages int) (string, error) {
 	var read []string
 	var failed error
 	rendered := 0
-	for page := 1; page <= last; page++ {
+	for first := 1; first <= last; first += OcrBatch {
 		if err := s.ctx.Err(); err != nil {
 			return "", err
 		}
-		prefix := filepath.Join(dir, "page")
-		number := strconv.Itoa(page)
-		if _, err := s.run(Patience, "pdftoppm", "-r", OcrDPI, "-gray", "-png", "-f", number, "-l", number, "-singlefile", pdf, prefix); err != nil {
+		through := min(first+OcrBatch-1, last)
+		prefix := filepath.Join(dir, "b"+strconv.Itoa(first))
+		if _, err := s.run(Patience, "pdftoppm", "-r", OcrDPI, "-gray", "-png", "-f", strconv.Itoa(first), "-l", strconv.Itoa(through), pdf, prefix); err != nil {
 			failed = err
-			if pages == 0 && rendered > 0 {
+			if pages == 0 {
 				break
 			}
 			continue
 		}
-		rendered++
-		said, err := s.run(Patience, "tesseract", prefix+".png", "stdout")
-		os.Remove(prefix + ".png")
-		if err != nil {
-			continue
-		}
-		if text := strings.TrimSpace(said); text != "" {
-			read = append(read, text)
+		images, _ := filepath.Glob(prefix + "-*.png")
+		sort.Strings(images)
+		for _, image := range images {
+			rendered++
+			said, err := s.run(Patience, "tesseract", image, "stdout")
+			os.Remove(image)
+			if err != nil {
+				continue
+			}
+			if text := strings.TrimSpace(said); text != "" {
+				read = append(read, text)
+			}
 		}
 	}
 	if rendered == 0 && failed != nil {

@@ -2,8 +2,6 @@ package plain
 
 import (
 	"errors"
-	"io"
-	"os"
 	"strings"
 
 	"github.com/xixo/xixo/link/internal/extract"
@@ -23,13 +21,7 @@ const MostRead = 64 << 20
 var ErrTooLarge = errors.New("the file is larger than xixo link reads as text")
 
 func bytesOf(in extract.Input, out *extract.Output) ([]byte, error) {
-	opened, err := os.Open(in.Path)
-	if err != nil {
-		return nil, err
-	}
-	defer opened.Close()
-
-	raw, err := io.ReadAll(io.LimitReader(opened, MostRead+1))
+	raw, err := extract.Head(in.Path, MostRead+1)
 	if err != nil {
 		return nil, err
 	}

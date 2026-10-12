@@ -55,7 +55,7 @@ func (Fallback) Extract(ctx context.Context, in extract.Input) (*extract.Output,
 		return nil, err
 	}
 
-	head, err := headOf(in.Path)
+	head, err := extract.Head(in.Path, sniff)
 	if err != nil {
 		return nil, err
 	}
@@ -89,22 +89,6 @@ func (Fallback) Extract(ctx context.Context, in extract.Input) (*extract.Output,
 	}
 
 	return out, nil
-}
-
-func headOf(name string) ([]byte, error) {
-	opened, err := os.Open(name)
-	if err != nil {
-		return nil, err
-	}
-	defer opened.Close()
-
-	head := make([]byte, sniff)
-	count, err := io.ReadFull(opened, head)
-	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
-		return nil, err
-	}
-
-	return head[:count], nil
 }
 
 func observe(head []byte, printable bool) string {

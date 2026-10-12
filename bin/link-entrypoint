@@ -75,6 +75,18 @@ registered() {
   sed -n 's/.*"client_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$state/registration.json" 2>/dev/null | head -n 1
 }
 
+child=""
+
+stop() {
+  if [ -n "$child" ]; then
+    kill -TERM "$child" 2>/dev/null || true
+    wait "$child" || true
+  fi
+  exit 143
+}
+
+trap stop TERM INT
+
 while :; do
   until [ -n "$(registered)" ]; do
     : >"$handoff/wanted"
@@ -98,10 +110,9 @@ while :; do
 
   "$@" &
   child=$!
-  trap 'kill -TERM "$child" 2>/dev/null; wait "$child"; exit 143' TERM INT
   status=0
   wait "$child" || status=$?
-  trap - TERM INT
+  child=""
 
   [ "$status" -eq 78 ] || exit "$status"
 

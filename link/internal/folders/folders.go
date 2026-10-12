@@ -553,20 +553,20 @@ func (f *Folders) Write(folder, name string, body io.Reader, size int64, replace
 
 func (f *Folders) overlaps(folder string) bool {
 	cleaned := filepath.Clean(folder)
-	separator := string(filepath.Separator)
 
 	for _, other := range f.name {
-		if other == cleaned {
-			continue
-		}
-
-		if other == separator || cleaned == separator ||
-			strings.HasPrefix(cleaned, other+separator) || strings.HasPrefix(other, cleaned+separator) {
+		if other != cleaned && (Within(cleaned, other) || Within(other, cleaned)) {
 			return true
 		}
 	}
 
 	return false
+}
+
+func Within(inner, outer string) bool {
+	separator := string(filepath.Separator)
+
+	return outer == separator || strings.HasPrefix(inner, outer+separator)
 }
 
 func made(root *os.Root, dir string) error {

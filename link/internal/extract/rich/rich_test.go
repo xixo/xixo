@@ -421,7 +421,7 @@ func TestAMessageIsReadNoFurtherThanItsLimit(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "long.eml")
 	os.WriteFile(path, bytes.Repeat([]byte("x"), 4096), 0o644)
 
-	held, err := headOf(path, 100)
+	held, err := extract.Head(path, 100)
 	if err != nil || len(held) != 100 {
 		t.Fatalf("read %d bytes, %v", len(held), err)
 	}

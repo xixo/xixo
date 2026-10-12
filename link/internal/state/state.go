@@ -87,17 +87,13 @@ func (c *Config) check() error {
 
 	for outer := range seen {
 		for inner := range seen {
-			if outer != inner && within(inner, outer) {
+			if outer != inner && folders.Within(inner, outer) {
 				return fmt.Errorf("the folder %q lies inside the folder %q: share one or the other", inner, outer)
 			}
 		}
 	}
 
 	return nil
-}
-
-func within(inner, outer string) bool {
-	return outer == string(filepath.Separator) || strings.HasPrefix(inner, outer+string(filepath.Separator))
 }
 
 func (c *Config) Resource() string {
@@ -128,17 +124,7 @@ func (s State) path(name string) string {
 var ErrNoKeys = errors.New("this machine holds no keys: run xixo-link enroll first")
 
 func (s State) Keys() (*masks.Key, *masks.Key, error) {
-	key, err := s.key("key.json")
-	if err != nil {
-		return nil, nil, err
-	}
-
-	dpop, err := s.key("dpop.json")
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return key, dpop, nil
+	return pair(s.key)
 }
 
 func (s State) MakeKeys() (*masks.Key, *masks.Key, error) {
@@ -150,12 +136,16 @@ func (s State) MakeKeys() (*masks.Key, *masks.Key, error) {
 		return nil, nil, err
 	}
 
-	key, err := s.made("key.json")
+	return pair(s.made)
+}
+
+func pair(load func(string) (*masks.Key, error)) (*masks.Key, *masks.Key, error) {
+	key, err := load("key.json")
 	if err != nil {
 		return nil, nil, err
 	}
 
-	dpop, err := s.made("dpop.json")
+	dpop, err := load("dpop.json")
 	if err != nil {
 		return nil, nil, err
 	}

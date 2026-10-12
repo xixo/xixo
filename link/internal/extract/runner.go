@@ -35,9 +35,9 @@ var (
 )
 
 const limitScript = `want=$1; files=$2; strict=$3; shift 3; ` +
-	`hard=$(ulimit -H -d); if [ "$hard" != unlimited ] && [ "$hard" -lt "$want" ]; then want=$hard; fi; ` +
-	`ulimit -d "$want" 2>/dev/null || [ "$strict" = 0 ] || exit 125; ` +
-	`hard=$(ulimit -H -f); if [ "$hard" != unlimited ] && [ "$hard" -lt "$files" ]; then files=$hard; fi; ulimit -f "$files" || exit 125; ` +
+	`clamp() { hard=$(ulimit -H "-$1"); if [ "$hard" != unlimited ] && [ "$hard" -lt "$2" ]; then echo "$hard"; else echo "$2"; fi; }; ` +
+	`ulimit -d "$(clamp d "$want")" 2>/dev/null || [ "$strict" = 0 ] || exit 125; ` +
+	`ulimit -f "$(clamp f "$files")" || exit 125; ` +
 	`exec "$@"`
 
 type Limited struct {

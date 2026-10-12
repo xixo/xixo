@@ -19,23 +19,21 @@ const (
 )
 
 type wire struct {
-	using sync.RWMutex
-	lock  sync.Mutex
+	lock  sync.RWMutex
+	once  sync.Once
 	conn  *cable.Conn
 	token *masks.Token
 	up    chan struct{}
 }
 
-func (l *wire) swap(conn *cable.Conn, token *masks.Token) *cable.Conn {
-	l.using.Lock()
-	defer l.using.Unlock()
+func (l *wire) ready() {
+	l.once.Do(func() { l.up = make(chan struct{}) })
+}
 
+func (l *wire) swap(conn *cable.Conn, token *masks.Token) {
+	l.ready()
 	l.lock.Lock()
 	defer l.lock.Unlock()
-
-	if l.up == nil {
-		l.up = make(chan struct{})
-	}
 
 	old := l.conn
 	l.conn, l.token = conn, token
@@ -46,52 +44,49 @@ func (l *wire) swap(conn *cable.Conn, token *masks.Token) *cable.Conn {
 	case conn == nil && old != nil:
 		l.up = make(chan struct{})
 	}
-
-	return old
 }
 
-func (l *wire) current(ctx context.Context) (*cable.Conn, *masks.Token, error) {
+func (l *wire) held(ctx context.Context) (*cable.Conn, *masks.Token, func(), error) {
+	l.ready()
 	timer := time.NewTimer(rejoin)
 	defer timer.Stop()
 
 	for {
-		l.lock.Lock()
-		if l.up == nil {
-			l.up = make(chan struct{})
+		l.lock.RLock()
+		if l.conn != nil {
+			return l.conn, l.token, l.lock.RUnlock, nil
 		}
 
-		conn, token, up := l.conn, l.token, l.up
-		l.lock.Unlock()
-
-		if conn != nil {
-			return conn, token, nil
-		}
+		up := l.up
+		l.lock.RUnlock()
 
 		select {
 		case <-up:
 		case <-ctx.Done():
-			return nil, nil, ctx.Err()
+			return nil, nil, nil, ctx.Err()
 		case <-timer.C:
-			return nil, nil, ErrApart
+			return nil, nil, nil, ErrApart
 		}
 	}
 }
 
+func (l *wire) current(ctx context.Context) (*cable.Conn, *masks.Token, error) {
+	conn, token, release, err := l.held(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	release()
+
+	return conn, token, nil
+}
+
 func (l *wire) perform(ctx context.Context, action string, payload any) error {
-	if _, _, err := l.current(ctx); err != nil {
+	conn, _, release, err := l.held(ctx)
+	if err != nil {
 		return err
 	}
-
-	l.using.RLock()
-	defer l.using.RUnlock()
-
-	l.lock.Lock()
-	conn := l.conn
-	l.lock.Unlock()
-
-	if conn == nil {
-		return ErrApart
-	}
+	defer release()
 
 	ctx, cancel := context.WithTimeout(ctx, written)
 	defer cancel()
