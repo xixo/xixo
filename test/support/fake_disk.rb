@@ -22,26 +22,26 @@ module FakeDisk
       fake_disk? ? Resource::Machine::EXTRACTORS : super
     end
 
-    def exchanged(verb, args = {}, within: nil, &block)
-      return super(verb, args, **{ within: within }.compact, &block) unless fake_disk?
+    def exchanged(verb, args = {}, **, &block)
+      return super unless fake_disk?
 
       FakeDisk.exchanged(self, verb.to_s, args.to_h.deep_stringify_keys, &block)
     end
 
-    def ask(verb, args = {}, within: nil)
-      return super(verb, args, **{ within: within }.compact) unless fake_disk?
+    def ask(verb, args = {}, **)
+      return super unless fake_disk?
 
       FakeDisk.answer(self, verb.to_s, args.to_h.stringify_keys)
     end
 
-    def read(folder, path, within: nil)
-      return super(folder, path, **{ within: within }.compact) unless fake_disk?
+    def read(folder, path, **)
+      return super unless fake_disk?
 
       FakeDisk.read(self, folder, path)
     end
 
-    def glimpse(folder, path, limit:, within: nil)
-      return super(folder, path, limit: limit, **{ within: within }.compact) unless fake_disk?
+    def glimpse(folder, path, limit:, **)
+      return super unless fake_disk?
 
       FakeDisk.glimpse(self, folder, path, limit)
     end

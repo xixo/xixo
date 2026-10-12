@@ -1,6 +1,6 @@
 module FirstAdministrator
   def start
-    tenant = Tenant.resolve(request.host)
+    tenant = Current.tenant
     params[:privilege] = "admin" if params[:privilege].blank? && tenant&.connected? && !tenant.administered?
 
     super
