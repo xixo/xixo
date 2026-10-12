@@ -290,7 +290,7 @@ describe('Resources', () => {
     show(<Resources />, client, '/settings/resources')
 
     await userEvent.click(
-      await screen.findByRole('button', { name: 'Link up' }),
+      await screen.findByRole('button', { name: /Link up a machine/ }),
     )
     const dialog = await screen.findByRole('dialog', {
       name: 'Link up a machine',

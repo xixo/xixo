@@ -3138,50 +3138,47 @@ a.tag:hover {
   gap: var(--s3);
 }
 
-.linkup {
-  --tone: var(--accent);
-
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+.linkup-tile {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--s4) var(--s6);
-  padding: var(--s5) var(--s6);
-  border: 1px solid color-mix(in srgb, var(--brand) 40%, var(--line));
-  border-radius: calc(var(--radius) + 4px);
-  background:
-    radial-gradient(
-      90% 120% at 0% 0%,
-      color-mix(in srgb, var(--brand) 20%, transparent),
-      transparent 65%
-    ),
-    var(--raised);
-  box-shadow: var(--sheen), var(--lift);
-}
-
-.linkup-lead {
-  display: grid;
-  gap: var(--s1);
-}
-
-.linkup-title {
-  margin: 0;
-  color: var(--bright);
-  font-size: var(--t-title);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-
-.linkup-says {
-  margin: 0;
-  max-width: 52ch;
+  justify-content: center;
+  gap: var(--s2);
+  min-height: 12rem;
+  padding: var(--s4);
+  border: 1px dashed var(--line-firm, var(--line));
+  border-radius: var(--radius);
+  background: transparent;
   color: var(--soft);
-  line-height: 1.55;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    color 120ms ease,
+    background 120ms ease;
+}
+
+.linkup-tile:hover,
+.linkup-tile:focus-visible {
+  border-color: var(--accent);
+  color: var(--bright);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.linkup-tile-name {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.linkup-tile-says {
+  font-size: var(--t-small);
 }
 
 .linkup-gives {
-  display: grid;
-  gap: var(--s2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s5);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -3435,17 +3432,6 @@ a.tag:hover {
   font-weight: 600;
 }
 
-@media (max-width: 860px) {
-  .linkup {
-    grid-template-columns: minmax(0, 1fr);
-    padding: var(--s5);
-  }
-
-  .linkup-go {
-    justify-content: flex-start;
-  }
-}
-
 @media (max-width: 640px) {
   .linkup-ways {
     grid-template-columns: minmax(0, 1fr);
@@ -3582,11 +3568,6 @@ a.tag:hover {
 
 .linkup-options summary:hover {
   color: var(--text);
-}
-
-.linkup-go {
-  display: flex;
-  justify-content: flex-end;
 }
 
 .rcard-top .rcard-kind {

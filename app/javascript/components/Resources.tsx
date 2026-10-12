@@ -67,7 +67,7 @@ import { Failed } from './Failed'
 import {
   LinkUpDialog,
   type LinkUpInfo,
-  LinkUpPanel,
+  LinkUpTile,
   type Machine,
 } from './LinkUp'
 import { RunsDialog } from './Runs'
@@ -559,14 +559,12 @@ export function Resources() {
             </span>
           </div>
 
-          <LinkUpPanel
-            administrator={administrator}
-            onLinkUp={() => setLinkingUp(true)}
-          />
-
-          {machineCards.length > 0 && (
-            <div className="rcards">{machineCards.map(card)}</div>
-          )}
+          <div className="rcards">
+            {machineCards.map(card)}
+            {administrator && (
+              <LinkUpTile onLinkUp={() => setLinkingUp(true)} />
+            )}
+          </div>
         </section>
       )}
 

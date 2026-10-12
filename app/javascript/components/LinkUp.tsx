@@ -15,7 +15,7 @@ import {
   IconCircleCheck,
   IconFileText,
   IconFolders,
-  IconLink,
+  IconPlus,
   IconSparkles,
   IconTerminal2,
   IconWand,
@@ -51,57 +51,15 @@ function plural(count: number, one: string, many = `${one}s`) {
   return `${count} ${count === 1 ? one : many}`
 }
 
-export function LinkUpPanel({
-  administrator,
-  onLinkUp,
-}: {
-  administrator: boolean
-  onLinkUp: () => void
-}) {
+export function LinkUpTile({ onLinkUp }: { onLinkUp: () => void }) {
   return (
-    <section className="linkup" aria-labelledby="linkup-title">
-      <div className="linkup-lead">
-        <h3 id="linkup-title" className="linkup-title">
-          Link up a machine
-        </h3>
-        <p className="linkup-says">
-          Put xixo link on another computer. Its files stay where they are.
-        </p>
-      </div>
-
-      <ul className="linkup-gives">
-        <li>
-          <IconFolders size={18} stroke={1.7} />
-          Its folders become searchable
-        </li>
-        <li>
-          <IconFileText size={18} stroke={1.7} />
-          It helps read files
-        </li>
-        <li>
-          <IconSparkles size={18} stroke={1.7} />
-          Its models can answer
-        </li>
-      </ul>
-
-      <div className="linkup-go">
-        {administrator ? (
-          <Button
-            radius="xl"
-            color="brand"
-            size="md"
-            leftSection={<IconLink size={17} stroke={2} />}
-            onClick={onLinkUp}
-          >
-            Link up
-          </Button>
-        ) : (
-          <Text size="sm" c="dimmed">
-            An administrator links machines.
-          </Text>
-        )}
-      </div>
-    </section>
+    <button type="button" className="linkup-tile" onClick={onLinkUp}>
+      <IconPlus size={22} stroke={1.8} />
+      <span className="linkup-tile-name">Link up a machine</span>
+      <span className="linkup-tile-says">
+        Put xixo link on another computer
+      </span>
+    </button>
   )
 }
 
@@ -190,6 +148,21 @@ export function LinkUpDialog({
         </Stack>
       ) : (
         <Stack gap="var(--s5)">
+          <ul className="linkup-gives">
+            <li>
+              <IconFolders size={18} stroke={1.7} />
+              Its folders become searchable
+            </li>
+            <li>
+              <IconFileText size={18} stroke={1.7} />
+              It helps read files
+            </li>
+            <li>
+              <IconSparkles size={18} stroke={1.7} />
+              Its models can answer
+            </li>
+          </ul>
+
           <div className="linkup-ways">
             <button
               type="button"
