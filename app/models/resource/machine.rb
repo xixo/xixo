@@ -69,6 +69,10 @@ class Resource
             field("lend", "Send files this machine can't read to the server", kind: "boolean", value: "false",
                   help: "A file this machine has no program for goes to xixo link beside the server. Left off, " \
                         "such a file is not read, and nothing on this machine leaves it but text."),
+            field("keep_tools", "Keep write and models on a reinstall", kind: "boolean", value: "false",
+                  help: "A reinstall keeps browse, search, read, and extract from the config already on the " \
+                        "machine. Turned on, it keeps write and models too, which let xixo write into the " \
+                        "machine's folders and ask its model server."),
             field("operators", "Who operates it", kind: "lines",
                   help: "The masks subjects, one per line, whose clients may browse its folders, read its files' " \
                         "bytes, write into them, run its extractors, and ask its model server. The administrator " \
@@ -176,6 +180,10 @@ class Resource
 
     def lends?
       details.to_h["lend"] == true
+    end
+
+    def keeps_tools?
+      details.to_h["keep_tools"] == true
     end
 
     def seen_at

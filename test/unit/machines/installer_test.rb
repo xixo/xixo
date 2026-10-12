@@ -142,7 +142,7 @@ class InstallerTest < ActiveSupport::TestCase
 
   test "installing again keeps the tools and settings the machine's own config holds" do
     held = { "xixo" => "https://old.example", "folders" => [ "/old" ], "lend" => true, "extracts_for_others" => "yes",
-             "tools" => [ "browse", "write", "shell" ] }
+             "extract_unsandboxed" => true, "tools" => [ "browse", "write", "shell" ] }
     shell = FakeShell.new(answers: { %r{\Asudo -n cat /etc/xixo-link/config.json\z} => JSON.generate(held) })
 
     Tenant.switch(@tenant) { installer(machine, shell).install! }
@@ -151,9 +151,19 @@ class InstallerTest < ActiveSupport::TestCase
     assert_equal [ "/srv/media", "/srv/My Photos" ], config["folders"]
     assert_equal "https://#{@tenant.subdomain}.xixo.test", config["xixo"]
     assert_equal true, config["lend"]
-    assert_equal [ "browse", "write" ], config["tools"]
+    assert_equal [ "browse" ], config["tools"]
     assert_not config.key?("extracts_for_others")
+    assert_not config.key?("extract_unsandboxed")
     assert_includes shell.commands, "sudo -n chown -R jon:jon /var/lib/xixo-link"
+  end
+
+  test "installing again keeps write and models only for a machine set to keep them" do
+    held = { "tools" => [ "browse", "write", "models" ] }
+    shell = FakeShell.new(answers: { %r{\Asudo -n cat /etc/xixo-link/config.json\z} => JSON.generate(held) })
+
+    Tenant.switch(@tenant) { installer(machine(details: { "keep_tools" => true }), shell).install! }
+
+    assert_equal [ "browse", "write", "models" ], JSON.parse(shell.written["/etc/xixo-link/config.json.new"])["tools"]
   end
 
   test "a first install, with no config on the machine yet, names no tools" do

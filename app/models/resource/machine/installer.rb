@@ -23,7 +23,8 @@ class Resource
       APT = "sudo -n env DEBIAN_FRONTEND=noninteractive NEEDRESTART_SUSPEND=1 apt-get".freeze
       KEPT_CONFFILES = "-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold".freeze
       WRITABLE = ":rw".freeze
-      MACHINE_SETTINGS = %w[lend extracts_for_others extract_unsandboxed].freeze
+      MACHINE_SETTINGS = %w[lend extracts_for_others].freeze
+      KEPT_TOOLS = %w[browse search read extract].freeze
       INSTALLED_WITHIN = 45.minutes
       TOLD_LINES = 5
 
@@ -266,7 +267,7 @@ class Resource
           return {} unless held.is_a?(Hash)
 
           kept = held.slice(*MACHINE_SETTINGS).select { |_, value| value == true }
-          tools = Array(held["tools"]).select { |name| name.is_a?(String) } & Tools::NAMES
+          tools = Array(held["tools"]).select { |name| name.is_a?(String) } & (@machine.keeps_tools? ? Tools::NAMES : KEPT_TOOLS)
           kept["tools"] = tools if held["tools"].is_a?(Array)
           @log.call("kept #{kept.keys.to_sentence} from the config already on the machine") if kept.any?
           kept
