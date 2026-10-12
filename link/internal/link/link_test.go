@@ -571,14 +571,11 @@ func TestARefusedAssertionKeepsTrying(t *testing.T) {
 	}
 }
 
-func TestXixoClosingForGoodStopsTheLink(t *testing.T) {
+func TestXixoKnowingNoMachineForTheClientStopsTheLink(t *testing.T) {
 	folder, _ := shared(t)
 
 	cable := fake.NewCable(t, "link-token", "", func(socket *fake.Socket) {
-		socket.Subscribe(identifier)
-		socket.Next()
-		socket.Next()
-		socket.Send(map[string]any{"type": "disconnect", "reason": "unauthorized", "reconnect": false})
+		socket.Send(map[string]any{"type": "disconnect", "reason": "unknown_machine", "reconnect": false})
 		socket.Read()
 	})
 
@@ -679,7 +676,7 @@ func TestAMachineThatDoesNotLendRefusesReads(t *testing.T) {
 	<-finished
 }
 
-func TestXixoRefusingEveryConnectionStopsTheLinkAfterAWhile(t *testing.T) {
+func TestXixoRefusingEveryConnectionKeepsTheLinkTrying(t *testing.T) {
 	folder, _ := shared(t)
 	var connections atomic.Int32
 
@@ -692,18 +689,14 @@ func TestXixoRefusingEveryConnectionStopsTheLinkAfterAWhile(t *testing.T) {
 	held, dpop := linkFor(t, cable.URL, folder, time.Now().Add(time.Hour))
 	cable.Thumbprint = dpop.Thumbprint()
 
-	was := Disowned
-	Disowned = 1500 * time.Millisecond
-	t.Cleanup(func() { Disowned = was })
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2500*time.Millisecond)
 	defer cancel()
 
-	if err := held.Run(ctx); !errors.Is(err, ErrRevoked) {
-		t.Fatalf("got %v, want ErrRevoked", err)
+	if err := held.Run(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("got %v, want xixo link still retrying when its context ended", err)
 	}
 
 	if connections.Load() < 2 {
-		t.Fatalf("connected %d times, want xixo link to keep trying first", connections.Load())
+		t.Fatalf("connected %d times, want xixo link to keep trying", connections.Load())
 	}
 }

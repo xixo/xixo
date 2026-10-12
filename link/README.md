@@ -126,11 +126,17 @@ keeps the token out of the process list. `--name` is the name masks shows for
 the machine, and defaults to the hostname. Enrolling again registers a new
 client with the same key and deletes the previous one.
 
+`xixo-link link --code -` reads the code xixo showed for the machine from
+standard input and tells xixo which machine this is: it asks masks for a token
+with its own key and posts the code to `/link` with that token and a DPoP
+proof. xixo takes the code only with a token for a client no other machine is
+linked as. Run it after `enroll`, with the same code.
+
 `xixo-link run` connects to xixo and serves it until it is stopped.
 
 `xixo-link version` prints the version.
 
-`enroll` and `run` take `--config PATH` and `--state DIR`. They default to
+`enroll`, `link`, and `run` take `--config PATH` and `--state DIR`. They default to
 `/etc/xixo-link/config.json` and `/var/lib/xixo-link` on Linux, and to
 `~/Library/Application Support/xixo-link/config.json` and
 `~/Library/Application Support/xixo-link/state` on macOS.
@@ -342,9 +348,12 @@ a file it makes in `$HOME`, and aborts when `$HOME` is the read-only mount
 point a shared folder under `/home` leaves behind. A per-run home also keeps a
 file such as `~/.ExifTool_config` from outliving the extraction.
 
-When masks answers `invalid_client`, the machine was unenrolled, so xixo link
-exits with status 78 and the unit's `RestartPreventExitStatus=78` keeps it
-stopped. Any other failure to reach masks or xixo is retried with backoff.
+When masks answers `invalid_client`, or xixo closes the connection with the
+reason `unknown_machine` because no machine is enrolled as the client, the
+machine was unenrolled, so xixo link exits with status 78 and the unit's
+`RestartPreventExitStatus=78` keeps it stopped. Any other failure to reach
+masks or xixo, including xixo turning a token away for another reason, is
+retried with backoff.
 
 Removing xixo link from a machine is done on the machine:
 
@@ -409,6 +418,12 @@ silicon and on Intel Macs.
 
    ```sh
    ~/Library/Application\ Support/xixo-link/bin/xixo-link enroll --token -
+   ```
+
+   Then link it up with the same code, pasted the same way:
+
+   ```sh
+   ~/Library/Application\ Support/xixo-link/bin/xixo-link link --code -
    ```
 
 5. Install the launch agent and start it:

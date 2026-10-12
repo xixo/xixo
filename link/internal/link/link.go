@@ -34,8 +34,6 @@ var (
 	ErrOthers  = errors.New("this machine extracts only its own files: its config sets extracts_for_others to false")
 )
 
-var Disowned = 10 * time.Minute
-
 const unknownClient = "no client is registered with that client_id"
 
 type Link struct {
@@ -164,23 +162,23 @@ func (a *Link) Run(ctx context.Context) error {
 
 	var held *session
 
-	defer func() {
+	drop := func() {
 		if held != nil {
 			held.end()
+			held = nil
 		}
 
 		a.wire.swap(nil, nil)
-	}()
+	}
+	defer drop()
 
 	wait := time.Second
-	var disowned time.Time
 
 	for {
 		started := time.Now()
 		next, err := a.open(ctx)
 
 		if err == nil {
-			disowned = time.Time{}
 			a.wire.swap(next.conn, next.token)
 
 			if held != nil {
@@ -199,13 +197,9 @@ func (a *Link) Run(ctx context.Context) error {
 				continue
 			}
 
-			held.end()
-			held = nil
-			a.wire.swap(nil, nil)
+			drop()
 		} else if held != nil && held.ended() {
-			held.end()
-			held = nil
-			a.wire.swap(nil, nil)
+			drop()
 		}
 
 		if ctx.Err() != nil {
@@ -213,12 +207,8 @@ func (a *Link) Run(ctx context.Context) error {
 		}
 
 		closed := &cable.Disconnected{}
-		if errors.As(err, &closed) && closed.Unauthorized() {
-			if disowned.IsZero() {
-				disowned = started
-			} else if time.Since(disowned) >= Disowned {
-				err = fmt.Errorf("%w: xixo has refused this machine's client for %s", ErrRevoked, Disowned)
-			}
+		if errors.As(err, &closed) && closed.Withdrawn() {
+			err = fmt.Errorf("%w: xixo has no machine enrolled as this client", ErrRevoked)
 		}
 
 		if errors.Is(err, ErrRevoked) {
@@ -283,8 +273,7 @@ type session struct {
 	conn      *cable.Conn
 	token     *masks.Token
 	listening context.Context
-	stop      context.CancelFunc
-	failed    chan error
+	stop      context.CancelCauseFunc
 }
 
 func (a *Link) open(ctx context.Context) (*session, error) {
@@ -304,7 +293,7 @@ func (a *Link) open(ctx context.Context) (*session, error) {
 		return nil, err
 	}
 
-	held := &session{Link: a, conn: conn, token: token, failed: make(chan error, 1)}
+	held := &session{Link: a, conn: conn, token: token}
 
 	if err := held.greet(ctx); err != nil {
 		conn.Close()
@@ -333,7 +322,7 @@ func (s *session) greet(ctx context.Context) error {
 }
 
 func (s *session) listen(ctx context.Context) {
-	s.listening, s.stop = context.WithCancel(ctx)
+	s.listening, s.stop = context.WithCancelCause(ctx)
 
 	go func() {
 		for {
@@ -342,7 +331,7 @@ func (s *session) listen(ctx context.Context) {
 			stop()
 
 			if err != nil {
-				s.failed <- final(err)
+				s.stop(err)
 
 				return
 			}
@@ -361,30 +350,13 @@ func (s *session) listen(ctx context.Context) {
 	}()
 }
 
-func final(err error) error {
-	disconnected := &cable.Disconnected{}
-
-	if errors.As(err, &disconnected) && disconnected.Unauthorized() {
-		return fmt.Errorf("%w: %w", ErrRevoked, err)
-	}
-
-	return err
-}
-
 func (s *session) ended() bool {
-	select {
-	case err := <-s.failed:
-		s.failed <- err
-
-		return true
-	default:
-		return false
-	}
+	return s.listening != nil && s.listening.Err() != nil
 }
 
 func (s *session) end() {
 	if s.stop != nil {
-		s.stop()
+		s.stop(nil)
 	}
 
 	s.conn.Close()
@@ -412,10 +384,8 @@ func (s *session) serve(ctx context.Context) (bool, error) {
 		select {
 		case <-ctx.Done():
 			return false, ctx.Err()
-		case err := <-s.failed:
-			s.failed <- err
-
-			return false, err
+		case <-s.listening.Done():
+			return false, context.Cause(s.listening)
 		case <-ticker.C:
 			if err := s.conn.Perform(ctx, "health", s.health()); err != nil {
 				return false, err

@@ -34,6 +34,7 @@ var revokedStatus = revoked
 const usage = `xixo-link connects this machine to xixo.
 
   xixo-link enroll --token - [--name NAME] [--config PATH] [--state DIR]
+  xixo-link link --code - [--config PATH] [--state DIR]
   xixo-link run [--config PATH] [--state DIR] [--revoked-status N]
   xixo-link version
 `
@@ -82,14 +83,9 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 			return err
 		}
 
-		held := *token
-		if held == "-" {
-			read, err := io.ReadAll(io.LimitReader(stdin, 4096))
-			if err != nil {
-				return err
-			}
-
-			held = string(read)
+		held, err := given(*token, stdin)
+		if err != nil {
+			return err
 		}
 
 		if held == "" {
@@ -107,6 +103,31 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 		}
 
 		fmt.Fprintln(stdout, registered.ClientID)
+
+		return nil
+	case "link":
+		code := set.String("code", "", "the code xixo showed for this machine, or - to read it from standard input")
+
+		if err := set.Parse(args[1:]); err != nil {
+			return err
+		}
+
+		config, err := state.LoadConfig(*configPath)
+		if err != nil {
+			return err
+		}
+
+		held, err := given(*code, stdin)
+		if err != nil {
+			return err
+		}
+
+		told, err := link.LinkUp(ctx, config, state.State{Dir: *stateDir}, held)
+		if err != nil {
+			return err
+		}
+
+		fmt.Fprintln(stdout, told)
 
 		return nil
 	case "run":
@@ -161,6 +182,16 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 
 		return fmt.Errorf("%q is not a command", args[0])
 	}
+}
+
+func given(value string, stdin io.Reader) (string, error) {
+	if value != "-" {
+		return value, nil
+	}
+
+	read, err := io.ReadAll(io.LimitReader(stdin, 4096))
+
+	return string(read), err
 }
 
 func runner(config *state.Config) (extract.Runner, []string) {

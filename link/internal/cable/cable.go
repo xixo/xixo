@@ -22,6 +22,8 @@ const (
 
 var ErrRejected = errors.New("xixo refused the subscription")
 
+const UnknownMachine = "unknown_machine"
+
 type Frame struct {
 	Type       string          `json:"type,omitempty"`
 	Identifier string          `json:"identifier,omitempty"`
@@ -49,8 +51,8 @@ func (d *Disconnected) Error() string {
 	return "xixo closed the connection: " + d.Reason
 }
 
-func (d *Disconnected) Unauthorized() bool {
-	return d.Reason == "unauthorized" && !d.Reconnect
+func (d *Disconnected) Withdrawn() bool {
+	return d.Reason == UnknownMachine && !d.Reconnect
 }
 
 const Handshake = 30 * time.Second
