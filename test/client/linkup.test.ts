@@ -95,8 +95,28 @@ describe('linking up a machine', () => {
       offered([
         { os: 'linux', arch: 'amd64', file: 'a', sha256: '' },
         { os: 'plan9', arch: 'amd64', file: 'b', sha256: '' },
+        { os: 'darwin', arch: 'arm64', file: 'c', sha256: '' },
       ]).map((build) => build.file),
-    ).toEqual(['a'])
+    ).toEqual(['a', 'c'])
     expect(quoted("it's")).toBe(`'it'\\''s'`)
+  })
+
+  test('a Mac gets the agent in its Library and starts it as a launch agent', () => {
+    const [get, shares, last] = steps({
+      ...plan,
+      build: { ...plan.build, os: 'darwin', file: 'xixo-agent-darwin-arm64' },
+    })
+
+    expect(get.command).toContain('shasum -a 256 -c -')
+    expect(get.command).toContain(
+      'install -m 0755 xixo-agent "$dir/bin/xixo-agent"',
+    )
+    expect(shares.command).toContain('cat > "$dir/config.json"')
+    expect(shares.command).toContain(
+      `'https://xixo.example.com/agent/download/xixo-agent.plist' | sed "s|@HOME@|$HOME|g"`,
+    )
+    expect(last.command).toContain('"$dir/bin/xixo-agent" enroll --token -')
+    expect(last.command).toContain('launchctl bootstrap "gui/$(id -u)"')
+    expect(last.command).not.toContain('sudo')
   })
 })

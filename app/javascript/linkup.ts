@@ -22,11 +22,18 @@ export interface Step {
   command: string
 }
 
-export const SYSTEMS: Record<string, string> = { linux: 'Linux' }
+export const SYSTEMS: Record<string, string> = {
+  linux: 'Linux',
+  darwin: 'macOS',
+}
 
-export const ARCHES: Record<string, string> = {
-  amd64: 'Intel or AMD (x86_64)',
-  arm64: 'ARM (aarch64)',
+const ARCHES: Record<string, Record<string, string>> = {
+  linux: { amd64: 'Intel or AMD (x86_64)', arm64: 'ARM (aarch64)' },
+  darwin: { amd64: 'Intel', arm64: 'Apple silicon' },
+}
+
+export function buildLabel(build: Build) {
+  return `${SYSTEMS[build.os] ?? build.os} on ${ARCHES[build.os]?.[build.arch] ?? build.arch}`
 }
 
 const UNSHAREABLE = /[\p{Cc}:"'\\]/u
@@ -84,7 +91,60 @@ export function config(plan: Plan) {
   )
 }
 
+function linked(plan: Plan, agent: string) {
+  return [
+    `client=$(printf %s "$code" | ${agent} enroll --token - --name ${quoted(plan.name)}) &&`,
+    `${bearer()} --data-urlencode "client_id=$client" ${quoted(`${plan.xixo}/agent/link`)} &&`,
+  ]
+}
+
+function mac(plan: Plan): Step[] {
+  const download = `${plan.xixo}/agent/download/${plan.build.file}`
+  const plist = '"$HOME/Library/LaunchAgents/network.xixo.agent.plist"'
+
+  return [
+    {
+      title: 'Get the agent',
+      detail:
+        'Downloads the agent from this xixo with the code, checks that it arrived whole, and puts it in your Library.',
+      command: [
+        `code=${quoted(plan.code)}`,
+        'dir="$HOME/Library/Application Support/xixo-agent"',
+        'mkdir -p "$dir/bin"',
+        `${bearer()} -o xixo-agent ${quoted(download)}`,
+        `echo ${quoted(`${plan.build.sha256}  xixo-agent`)} | shasum -a 256 -c -`,
+        'install -m 0755 xixo-agent "$dir/bin/xixo-agent"',
+        'rm xixo-agent',
+      ].join('\n'),
+    },
+    {
+      title: 'Say what it shares',
+      detail:
+        'Writes the config and the launch agent. The config on the machine is the only place its folders are named. Change it there to change them later.',
+      command: [
+        `cat > "$dir/config.json" <<'EOF'`,
+        config(plan),
+        'EOF',
+        'chmod 600 "$dir/config.json"',
+        'mkdir -p "$HOME/Library/LaunchAgents"',
+        `${bearer()} ${quoted(`${plan.xixo}/agent/download/xixo-agent.plist`)} | sed "s|@HOME@|$HOME|g" > ${plist}`,
+      ].join('\n'),
+    },
+    {
+      title: 'Link up and start',
+      detail:
+        'Enrolls the Mac with its own keys, tells xixo which machine it is, and starts the agent as you. A folder in Documents, Desktop, Downloads, or iCloud Drive also needs Full Disk Access for xixo-agent in System Settings.',
+      command: [
+        ...linked(plan, '"$dir/bin/xixo-agent"'),
+        `launchctl bootstrap "gui/$(id -u)" ${plist}`,
+      ].join('\n'),
+    },
+  ]
+}
+
 export function steps(plan: Plan): Step[] {
+  if (plan.build.os === 'darwin') return mac(plan)
+
   const download = `${plan.xixo}/agent/download/${plan.build.file}`
   const unit = [
     `${plan.xixo}/agent/download/xixo-agent.service?user=$(id -un)`,
@@ -122,8 +182,7 @@ export function steps(plan: Plan): Step[] {
         'Enrolls the machine with its own keys, tells xixo which machine it is, and starts the agent as you, the account that owns the folders.',
       command: [
         'sudo install -d -m 0700 -o "$(id -un)" -g "$(id -gn)" /var/lib/xixo-agent',
-        `client=$(printf %s "$code" | xixo-agent enroll --token - --name ${quoted(plan.name)}) &&`,
-        `${bearer()} --data-urlencode "client_id=$client" ${quoted(`${plan.xixo}/agent/link`)} &&`,
+        ...linked(plan, 'xixo-agent'),
         'sudo systemctl daemon-reload && sudo systemctl enable --now xixo-agent',
       ].join('\n'),
     },

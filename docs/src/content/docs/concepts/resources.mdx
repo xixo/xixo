@@ -270,8 +270,9 @@ token as described below. xixo shows the token once, as the code in the commands
 SHA-256 and when it was made, under `linking` in the resource's details. The code works for ten
 minutes and once:
 
-- `GET /agent/download/<build>` and `GET /agent/download/xixo-agent.service` answer only a request
-  carrying a waiting code in `Authorization: Bearer`. A build is one of the files named
+- `GET /agent/download/<build>`, `GET /agent/download/xixo-agent.service`, and
+  `GET /agent/download/xixo-agent.plist` answer only a request carrying a waiting code in
+  `Authorization: Bearer`. A build is one of the files named
   `xixo-agent-<os>-<arch>` in `XIXO_AGENT_DIR`, and nothing else in that folder is served. The
   service comes filled in with the account and folders the request names, which pass the same
   checks an SSH install makes.
@@ -284,7 +285,7 @@ masks does not tell xixo which token a client came from, so the code is the proo
 holds a machine's code can name a client for it, and one machine's code never binds another's
 slot. A client enrolled with a token that was never linked is let in nowhere. Asking for a fresh
 code replaces the waiting one, and linking a machine again unenrolls its earlier client once the
-new one names itself. Each address is limited to 30 requests a minute across the three endpoints.
+new one names itself. Each address is limited to 30 requests a minute across these endpoints.
 
 ### Installing over SSH
 

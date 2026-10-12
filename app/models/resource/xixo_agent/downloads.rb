@@ -3,6 +3,7 @@ class Resource
     module Downloads
       BUILD = /\Axixo-agent-(linux|darwin)-(amd64|arm64)\z/
       UNIT = Installer::UNIT_FILE
+      PLIST = "xixo-agent.plist".freeze
 
       Build = Data.define(:os, :arch, :file, :sha256)
 
@@ -24,6 +25,13 @@ class Resource
         return nil unless file.to_s.match?(BUILD)
 
         path = XixoAgent.binaries + file.to_s
+        path if File.lstat(path).file?
+      rescue SystemCallError
+        nil
+      end
+
+      def plist
+        path = XixoAgent.binaries + PLIST
         path if File.lstat(path).file?
       rescue SystemCallError
         nil

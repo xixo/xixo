@@ -22,6 +22,7 @@ class LinkingTest < ActionDispatch::IntegrationTest
     File.binwrite(File.join(@binaries, "xixo-agent-linux-amd64"), "x86 binary")
     File.binwrite(File.join(@binaries, "notes.txt"), "not a build")
     FileUtils.cp(Rails.root.join("agent/xixo-agent.service"), File.join(@binaries, "xixo-agent.service"))
+    FileUtils.cp(Rails.root.join("agent/xixo-agent.plist"), File.join(@binaries, "xixo-agent.plist"))
     ENV["XIXO_AGENT_DIR"] = @binaries
   end
 
@@ -73,6 +74,13 @@ class LinkingTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
 
     get "/agent/download/xixo-agent-linux-amd64", headers: { "HOST" => host }
+    assert_response :unauthorized
+
+    get "/agent/download/xixo-agent.plist", headers: bearer(code)
+    assert_response :ok
+    assert_includes response.body, "<string>network.xixo.agent</string>"
+
+    get "/agent/download/xixo-agent.plist", headers: { "HOST" => host }
     assert_response :unauthorized
 
     get "/agent/download/xixo-agent-darwin-arm64", headers: bearer(code)

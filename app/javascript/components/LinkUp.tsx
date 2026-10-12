@@ -5,7 +5,7 @@ import {
   Code,
   CopyButton,
   Modal,
-  SegmentedControl,
+  Select,
   Stack,
   Text,
   Textarea,
@@ -24,11 +24,10 @@ import { useEffect, useState } from 'react'
 import { LinkMachineDocument, MachineChangedDocument } from 'xixo'
 import { useMutation, useSubscription } from 'xixo/react'
 import {
-  ARCHES,
   type Build,
+  buildLabel,
   folderLines,
   offered,
-  SYSTEMS,
   steps,
   unshareable,
 } from '../linkup'
@@ -387,17 +386,21 @@ function Commands({
 
       <Stack gap="var(--s3)">
         <div className="label">The machine</div>
-        <SegmentedControl
+        <Select
+          size="md"
+          aria-label="The machine's system"
+          allowDeselect={false}
           value={build.file}
-          onChange={setFile}
+          onChange={(next) => next && setFile(next)}
           data={builds.map((held) => ({
             value: held.file,
-            label: `${SYSTEMS[held.os]} on ${ARCHES[held.arch] ?? held.arch}`,
+            label: buildLabel(held),
           }))}
         />
         <Text size="xs" c="dimmed">
-          uname -m on the machine prints x86_64 for Intel or AMD, and aarch64
-          for ARM. It needs systemd, curl, and sudo.
+          {build.os === 'darwin'
+            ? 'Apple menu, About This Mac, says Apple M1 or later for Apple silicon. It needs curl, which macOS has.'
+            : 'uname -m on the machine prints x86_64 for Intel or AMD, and aarch64 for ARM. It needs systemd, curl, and sudo.'}
         </Text>
         <Textarea
           size="md"

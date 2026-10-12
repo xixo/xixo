@@ -15,6 +15,13 @@ class AgentLinksController < ActionController::API
     send_file path, type: "application/octet-stream", disposition: "attachment", filename: "xixo-agent"
   end
 
+  def plist
+    path = Resource::XixoAgent::Downloads.plist
+    return plain("There is no launch agent here.\n", :not_found) if path.nil?
+
+    send_file path, type: "application/xml", disposition: "attachment", filename: Resource::XixoAgent::Downloads::PLIST
+  end
+
   def unit
     folders = Array(params[:folders]).first(MOST_FOLDERS)
     body = Resource::XixoAgent::Installer.unit(user: params[:user].to_s, folders: folders)

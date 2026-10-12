@@ -16,20 +16,21 @@ There are two ways to put the agent on a machine:
 Either way you need:
 
 - An administrator's sign-in. Only an administrator links a machine.
-- A Linux machine on x86_64 or aarch64 with systemd.
 - A route from the machine to xixo and to masks. The agent dials out, so xixo never needs to reach
   the machine when you install it yourself.
 
 ## Install it yourself
 
-The machine also needs `curl`, `sha256sum`, and an account with `sudo`. The agent runs as the
-account that runs the commands, so use the one that owns the folders.
+This works on Linux on x86_64 or aarch64 with systemd, `curl`, `sha256sum`, and `sudo`, and on
+macOS on Apple silicon or Intel. The agent runs as the account that runs the commands, so use the
+one that owns the folders.
 
 1. On **Resources**, choose **Link up** under **Machines**. **Attach** offers the same at the top
    of its list.
 2. Leave **Install it yourself** chosen, name the machine, and choose **Show the commands**. xixo
    asks masks for a code and puts it in the commands. The code works once, for ten minutes.
-3. Pick the machine's system. `uname -m` prints `x86_64` for Intel or AMD and `aarch64` for ARM.
+3. Pick the machine's system. On Linux, `uname -m` prints `x86_64` for Intel or AMD and `aarch64`
+   for ARM. On a Mac, **About This Mac** names an Apple M chip for Apple silicon.
 4. Under **Folders it shares**, list the folders the agent may read, one absolute path per line.
    These fill in the commands. The config on the machine decides what is shared, and xixo reads
    nothing outside it. A path holding a colon, a quotation mark, an apostrophe, a backslash, or a
@@ -41,7 +42,7 @@ account that runs the commands, so use the one that owns the folders.
 6. Run the three steps in one terminal on the machine, in order. They share the code through the
    `code` variable.
 
-The steps:
+The steps on Linux:
 
 1. **Get the agent** downloads the agent for the machine from xixo with the code, checks its
    SHA-256, and installs it at `/usr/local/bin/xixo-agent`.
@@ -51,6 +52,24 @@ The steps:
 3. **Link up and start** creates `/var/lib/xixo-agent`, runs `xixo-agent enroll` with the code on
    standard input, sends the client it prints back to xixo with the same code, and starts the
    service.
+
+The steps on macOS use no `sudo`:
+
+1. **Get the agent** downloads the agent from xixo with the code, checks its SHA-256 with
+   `shasum`, and installs it at `~/Library/Application Support/xixo-agent/bin/xixo-agent`. `curl`
+   sets no quarantine mark, so macOS runs it without a prompt.
+2. **Say what it shares** writes `~/Library/Application Support/xixo-agent/config.json` with mode
+   0600, and fetches the launch agent from xixo into
+   `~/Library/LaunchAgents/network.xixo.agent.plist`.
+3. **Link up and start** enrolls the Mac, sends its client back to xixo, and starts the launch
+   agent with `launchctl bootstrap`.
+
+macOS guards `~/Documents`, `~/Desktop`, `~/Downloads`, iCloud Drive, and removable and network
+volumes. To share a folder there, add
+`~/Library/Application Support/xixo-agent/bin/xixo-agent` under **Full Disk Access** in
+**Privacy & Security**, then run `launchctl kickstart -k gui/$(id -u)/network.xixo.agent`. Until
+then the machine's card shows the agent's warning that it may not read the folder. See
+[the agent on macOS](https://github.com/xixo/xixo/tree/main/agent#macos) for more.
 
 The code reaches `curl` and the agent on standard input, never as an argument, so it does not show
 in the process list. The dialog waits while you work. Once the client is sent it says the machine
@@ -62,7 +81,7 @@ card.
 
 ## Let xixo install it
 
-This needs an account on the machine with an SSH key and `sudo` without a password, and a route from
+This works on Linux on x86_64 or aarch64 with systemd. It needs an account on the machine with an SSH key and `sudo` without a password, and a route from
 xixo to the machine's SSH port. Through a tailnet, follow [reach a tailnet](/guides/tailnet/) first.
 Directly, the machine needs a public address. `XIXO_PUBLIC_ORIGIN` must be set on the server, since
 the agent is told where xixo is from it.
