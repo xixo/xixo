@@ -79,6 +79,10 @@ func (l Limited) environment() []string {
 		held = append(held, "TMPDIR="+l.Watch)
 	}
 
+	if l.Watch != "" && runtime.GOOS == "linux" {
+		held = append(held, "HOME="+l.Watch)
+	}
+
 	return held
 }
 

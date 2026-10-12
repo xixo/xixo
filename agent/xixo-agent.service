@@ -1,8 +1,8 @@
 [Unit]
 Description=xixo agent
 Documentation=https://github.com/xixo/xixo/tree/main/agent
-Wants=network-online.target
-After=network-online.target
+Wants=network-online.target time-sync.target
+After=network-online.target time-sync.target
 
 [Service]
 Type=simple
@@ -14,6 +14,10 @@ RestartPreventExitStatus=78
 StateDirectory=xixo-agent
 StateDirectoryMode=0700
 ConfigurationDirectory=xixo-agent
+CacheDirectory=xixo-agent
+CacheDirectoryMode=0700
+MemoryMax=2G
+OOMPolicy=continue
 UMask=0077
 NoNewPrivileges=yes
 ProtectSystem=strict
@@ -41,6 +45,7 @@ ProtectProc=invisible
 RemoveIPC=yes
 SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources
+SystemCallFilter=setrlimit
 SystemCallErrorNumber=EPERM
 PrivateUsers=yes
 DevicePolicy=closed

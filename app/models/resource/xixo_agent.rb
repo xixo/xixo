@@ -57,8 +57,9 @@ class Resource
                         "its address. Left empty there, the key seen on the first install is kept, and every " \
                         "later install must meet the same one."),
             field("folders", "Folders it shares", kind: "lines", placeholder: "/srv/media",
-                  help: "Absolute paths, one per line. The agent reads nothing outside them, and only an install " \
-                        "or the machine's own config changes them."),
+                  help: "Absolute paths, one per line. End a line with :rw for a folder xixo may also write " \
+                        "into. The agent reads nothing outside them, and only an install or the machine's own " \
+                        "config changes them."),
             field("programs", "Extract on the machine", kind: "boolean", value: "true",
                   help: "Installs the programs that read PDFs, office documents, images, audio, and video with " \
                         "apt on Debian or Ubuntu, so only text leaves the machine. Left off, the machine reads " \

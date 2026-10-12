@@ -113,6 +113,58 @@ class InstallerTest < ActiveSupport::TestCase
     assert_no_match(/@FOLDERS@|@USER@/, unit)
   end
 
+  test "a folder marked :rw is written to the config as writable and bound back read-write" do
+    shell = FakeShell.new
+
+    Tenant.switch(@tenant) do
+      installer(machine(details: { "folders" => [ "/srv/media", "/srv/inbox:rw", "/home/jon/Drop Box:rw" ] }), shell).install!
+    end
+
+    config = JSON.parse(shell.written["/etc/xixo-agent/config.json.new"])
+    assert_equal [ "/srv/media", { "path" => "/srv/inbox", "writable" => true },
+                   { "path" => "/home/jon/Drop Box", "writable" => true } ], config["folders"]
+
+    unit = shell.written["/etc/systemd/system/xixo-agent.service.new"]
+    assert_includes unit, %(\nBindReadOnlyPaths="-/srv/media"\nBindPaths="-/srv/inbox" "-/home/jon/Drop Box"\n)
+    assert_no_match(/ReadWritePaths/, unit)
+  end
+
+  test "the unit caps memory, waits for the clock, keeps its work on disk, and lets its programs lower their limits" do
+    unit = Rails.root.join("agent/xixo-agent.service").read
+
+    assert_match(/^MemoryMax=2G$/, unit)
+    assert_match(/^OOMPolicy=continue$/, unit)
+    assert_match(/^After=.*\btime-sync\.target\b/, unit)
+    assert_match(/^CacheDirectory=xixo-agent$/, unit)
+    assert_match(/^SystemCallFilter=~@privileged @resources\nSystemCallFilter=setrlimit$/, unit)
+    assert_match(/^RestartPreventExitStatus=78$/, unit)
+  end
+
+  test "installing again keeps the tools and settings the machine's own config holds" do
+    held = { "xixo" => "https://old.example", "folders" => [ "/old" ], "lend" => true, "extracts_for_others" => "yes",
+             "tools" => [ "browse", "write", "shell" ] }
+    shell = FakeShell.new(answers: { %r{\Asudo -n cat /etc/xixo-agent/config.json\z} => JSON.generate(held) })
+
+    Tenant.switch(@tenant) { installer(machine, shell).install! }
+
+    config = JSON.parse(shell.written["/etc/xixo-agent/config.json.new"])
+    assert_equal [ "/srv/media", "/srv/My Photos" ], config["folders"]
+    assert_equal "https://#{@tenant.subdomain}.xixo.test", config["xixo"]
+    assert_equal true, config["lend"]
+    assert_equal [ "browse", "write" ], config["tools"]
+    assert_not config.key?("extracts_for_others")
+    assert_includes shell.commands, "sudo -n chown -R jon:jon /var/lib/xixo-agent"
+  end
+
+  test "a first install, with no config on the machine yet, names no tools" do
+    shell = FakeShell.new(answers: { %r{\Asudo -n cat /etc/xixo-agent/config.json\z} => Resource::XixoAgent::Shell::Ran.new(status: 1, out: "", err: "No such file") })
+
+    Tenant.switch(@tenant) { installer(machine, shell).install! }
+
+    config = JSON.parse(shell.written["/etc/xixo-agent/config.json.new"])
+    assert_equal %w[folders issuer xixo], config.keys.sort
+  end
+
   test "a machine that shares no folders binds none" do
     shell = FakeShell.new
 
@@ -456,7 +508,8 @@ class InstallerTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { installer(machine, shell).install! }
 
     install = shell.commands.find { |command| command.include?("apt-get install") }
-    assert_equal "sudo -n env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends " \
+    assert_equal "sudo -n env DEBIAN_FRONTEND=noninteractive NEEDRESTART_SUSPEND=1 apt-get install -y " \
+                 "--no-install-recommends -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold " \
                  "#{Resource::XixoAgent::Installer::PACKAGES.join(' ')}", install
     assert_equal Resource::XixoAgent::Installer::INSTALLED_WITHIN, shell.within(install)
     assert_operator shell.commands.index { |command| command.include?("apt-get update") }, :<, shell.commands.index(install)
@@ -505,6 +558,21 @@ class InstallerTest < ActiveSupport::TestCase
     assert told.any? { |line| line.include?("Unable to locate package ffmpeg") }
     assert told.any? { |line| line.include?("http://apt.example/ubuntu") }
     assert_no_match(/hunter2/, told.join("\n"))
+  end
+
+  test "a package apt cannot find leaves the rest installed, and the install says which one" do
+    told = []
+    failed = Resource::XixoAgent::Shell::Ran.new(status: 100, out: "", err: "E: Unable to locate package ffmpeg\n")
+    shell = FakeShell.new(answers: { /apt-get install .* ffmpeg/ => failed })
+
+    Tenant.switch(@tenant) do
+      agent = machine
+      installer(agent, shell, log: ->(line) { told << line }).install!
+
+      assert_match(/except ffmpeg, which apt could not install/, agent.reload.details.dig("installed", "programs"))
+    end
+
+    assert shell.commands.any? { |command| command.end_with?("--force-confold poppler-utils") }
   end
 
   test "a machine set to leave the programs off gets no apt at all" do

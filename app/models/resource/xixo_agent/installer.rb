@@ -20,7 +20,10 @@ class Resource
         tesseract-ocr ffmpeg libreoffice-writer libreoffice-calc fonts-liberation
       ].freeze
       DEBIANS = %w[debian ubuntu].freeze
-      APT = "sudo -n env DEBIAN_FRONTEND=noninteractive apt-get".freeze
+      APT = "sudo -n env DEBIAN_FRONTEND=noninteractive NEEDRESTART_SUSPEND=1 apt-get".freeze
+      KEPT_CONFFILES = "-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold".freeze
+      WRITABLE = ":rw".freeze
+      MACHINE_SETTINGS = %w[lend extracts_for_others extract_unsandboxed].freeze
       INSTALLED_WITHIN = 45.minutes
       TOLD_LINES = 5
 
@@ -36,18 +39,23 @@ class Resource
         template.gsub("@USER@", user).sub("#{FOLDERS}\n", bound(shareable!(folders)))
       end
 
-      def self.shareable!(paths)
-        Array(paths).map(&:to_s).each do |path|
-          next if path.start_with?("/") && Pathname.new(path).cleanpath.to_s == path && !path.match?(UNSHAREABLE)
+      def self.shareable!(lines)
+        Array(lines).map(&:to_s).to_h do |line|
+          path = line.delete_suffix(WRITABLE)
+          next [ path, line != path ] if path.start_with?("/") && Pathname.new(path).cleanpath.to_s == path && !path.match?(UNSHAREABLE)
 
-          raise Resource::Failed, "#{path.first(80).inspect} is not an absolute path the agent can share"
+          raise Resource::Failed, "#{line.first(80).inspect} is not an absolute path the agent can share"
         end
       end
 
       def self.bound(folders)
-        return "" if folders.empty?
+        written, read = folders.partition { |_, writable| writable }.map { |held| held.map(&:first) }
 
-        "BindReadOnlyPaths=#{folders.map { |path| %("-#{path.gsub('%', '%%')}") }.join(' ')}\n"
+        [ [ "BindReadOnlyPaths", read ], [ "BindPaths", written ] ].filter_map do |directive, paths|
+          next if paths.empty?
+
+          "#{directive}=#{paths.map { |path| %("-#{path.gsub('%', '%%')}") }.join(' ')}\n"
+        end.join
       end
 
       def initialize(agent, shell:, tailnet: false, minter: Enrollment.method(:mint), revoker: Enrollment.method(:revoke),
@@ -71,8 +79,9 @@ class Resource
         @log.call("placed the agent for linux/#{arch} at #{BINARY}")
 
         run!("sudo -n install -d -m 0755 #{CONFIG_DIR}")
-        write!(CONFIG, JSON.pretty_generate(config), mode: "0644")
+        write!(CONFIG, JSON.pretty_generate(config.merge(kept_settings)), mode: "0644")
         run!("sudo -n install -d -m 0700 -o #{user} -g #{group} #{STATE}")
+        run!("sudo -n chown -R #{user}:#{group} #{STATE}")
         @log.call("wrote #{CONFIG} sharing #{folders.size} #{'folder'.pluralize(folders.size)}")
 
         client_id = enroll!
@@ -160,13 +169,35 @@ class Resource
           end
 
           apt!("update -qq")
-          apt!("install -y --no-install-recommends #{PACKAGES.join(' ')}")
-          @log.call("installed the extraction programs with apt on #{named}")
-          "installed"
+          missed = packages!
+          if missed.empty?
+            @log.call("installed the extraction programs with apt on #{named}")
+            return "installed"
+          end
+
+          told = "installed the extraction programs with apt on #{named} except #{missed.join(', ')}, which apt " \
+                 "could not install, so what needs them is not read on the machine"
+          @log.call(told)
+          told.first(300)
         rescue Resource::Failed => e
           told = "the extraction programs did not install, so the agent reads only what needs no program: #{e.message}"
           @log.call(told)
           told.first(300)
+        end
+
+        def packages!
+          apt!("install -y --no-install-recommends #{KEPT_CONFFILES} #{PACKAGES.join(' ')}")
+          []
+        rescue Resource::Failed => e
+          missed = PACKAGES.reject do |package|
+            apt!("install -y --no-install-recommends #{KEPT_CONFFILES} #{package}")
+            true
+          rescue Resource::Failed
+            false
+          end
+          raise e if missed.size == PACKAGES.size
+
+          missed
         end
 
         def distribution
@@ -224,7 +255,23 @@ class Resource
         end
 
         def config
-          { "xixo" => @agent.tenant.origin, "issuer" => @agent.tenant.issuer, "folders" => folders }
+          listed = folders.map { |path, writable| writable ? { "path" => path, "writable" => true } : path }
+
+          { "xixo" => @agent.tenant.origin, "issuer" => @agent.tenant.issuer, "folders" => listed }
+        end
+
+        def kept_settings
+          ran = @shell.run("sudo -n cat #{CONFIG}")
+          held = ran.status&.zero? ? JSON.parse(ran.out.to_s) : {}
+          return {} unless held.is_a?(Hash)
+
+          kept = held.slice(*MACHINE_SETTINGS).select { |_, value| value == true }
+          tools = Array(held["tools"]).select { |name| name.is_a?(String) } & Tools::NAMES
+          kept["tools"] = tools if held["tools"].is_a?(Array)
+          @log.call("kept #{kept.keys.to_sentence} from the config already on the machine") if kept.any?
+          kept
+        rescue JSON::ParserError
+          {}
         end
 
         def folders
@@ -239,7 +286,7 @@ class Resource
         end
 
         def unit_for(user)
-          Installer.unit(user: user, folders: folders)
+          Installer.unit(user: user, folders: @agent.details.to_h["folders"])
         end
 
         def place!(source, target, mode:)

@@ -135,3 +135,20 @@ func TestWithinStopsAProgramPastTheWorkBudget(t *testing.T) {
 		t.Fatalf("TMPDIR was %q", said)
 	}
 }
+
+func TestWithinGivesAProgramTheWorkFolderAsItsHomeOnLinux(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("only Linux moves a program's home into its work folder")
+	}
+
+	dir := t.TempDir()
+
+	out, err := Within(Limited{Env: []string{"HOME=/home/someone", "PATH=" + os.Getenv("PATH")}}, dir, 1<<20).Run(context.Background(), 5*time.Second, "sh", "-c", "echo $HOME")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.TrimSpace(string(out)) != dir {
+		t.Fatalf("HOME was %q", out)
+	}
+}
