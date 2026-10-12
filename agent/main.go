@@ -23,6 +23,8 @@ import (
 
 var version = "dev"
 
+const revoked = 78
+
 const usage = `xixo-agent connects this machine to xixo.
 
   xixo-agent enroll --token - [--name NAME] [--config PATH] [--state DIR]
@@ -36,6 +38,11 @@ func main() {
 
 	if err := command(ctx, os.Args[1:], os.Stdin, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, "xixo-agent:", err)
+
+		if errors.Is(err, agent.ErrRevoked) {
+			os.Exit(revoked)
+		}
+
 		os.Exit(1)
 	}
 }

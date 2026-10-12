@@ -26,6 +26,8 @@ const (
 	ChunkSize = 256 << 10
 )
 
+var ErrRevoked = errors.New("masks no longer knows this machine, so xixo unenrolled it")
+
 type Agent struct {
 	Xixo     string
 	Version  string
@@ -134,6 +136,12 @@ func (a *Agent) Run(ctx context.Context) error {
 			continue
 		}
 
+		if errors.Is(err, ErrRevoked) {
+			a.Log.Error("stopping for good", "error", err)
+
+			return err
+		}
+
 		if time.Since(started) > time.Minute {
 			wait = time.Second
 		}
@@ -164,6 +172,10 @@ func (a *Agent) Session(ctx context.Context) error {
 	a.settle()
 
 	token, err := a.Tokens.Token(ctx)
+	if masks.HasCode(err, "invalid_client") {
+		return fmt.Errorf("%w: %w", ErrRevoked, err)
+	}
+
 	if err != nil {
 		return fmt.Errorf("masks gave no token: %w", err)
 	}

@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -313,5 +314,41 @@ func TestRunReconnects(t *testing.T) {
 	case <-again:
 	case <-ctx.Done():
 		t.Fatal("the agent did not reconnect")
+	}
+}
+
+func TestAnUnenrolledMachineStopsForGood(t *testing.T) {
+	agent, _ := agentFor(t, "http://127.0.0.1:1", t.TempDir(), time.Now().Add(time.Hour))
+	asked := 0
+	agent.Tokens = masks.TokenSourceFunc(func(context.Context) (*masks.Token, error) {
+		asked++
+
+		return nil, &masks.Error{Code: "invalid_client", Description: "this client is archived"}
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err := agent.Run(ctx)
+	if !errors.Is(err, ErrRevoked) {
+		t.Fatalf("got %v, want ErrRevoked", err)
+	}
+
+	if asked != 1 {
+		t.Fatalf("asked masks %d times, want once", asked)
+	}
+}
+
+func TestAnotherRefusalKeepsTrying(t *testing.T) {
+	agent, _ := agentFor(t, "http://127.0.0.1:1", t.TempDir(), time.Now().Add(time.Hour))
+	agent.Tokens = masks.TokenSourceFunc(func(context.Context) (*masks.Token, error) {
+		return nil, &masks.Error{Code: "server_error"}
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+	defer cancel()
+
+	if err := agent.Run(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("got %v, want the agent still retrying when its context ended", err)
 	}
 }

@@ -160,4 +160,10 @@ The agent never walks or reads symbolic links or these names: `.git`, `.hg`,
 `xixo-agent.service` runs `xixo-agent run` as the user named in place of
 `@USER@`, which is the user who owns the shared folders. systemd creates the
 state directory for that user, restarts the agent when it stops, and keeps it
-from writing anywhere else, gaining privileges, or reaching devices.
+from writing anywhere else, gaining privileges, or reaching devices. The agent
+also runs in its own user namespace, sees no other process in `/proc`, and makes
+only the system calls an ordinary service makes.
+
+When masks answers `invalid_client`, the machine was unenrolled, so the agent
+exits with status 78 and the unit's `RestartPreventExitStatus=78` keeps it
+stopped. Any other failure to reach masks or xixo is retried with backoff.
