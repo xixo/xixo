@@ -9,10 +9,10 @@ class AgentLinksController < ActionController::API
   before_action :awaited
 
   def download
-    path = Resource::XixoAgent::Downloads.binary(params[:file])
-    return plain("There is no such build here.\n", :not_found) if path.nil?
+    build = Resource::XixoAgent::Downloads.builds.find { |held| held.file == params[:file].to_s }
+    return plain("There is no such build here.\n", :not_found) if build.nil?
 
-    send_file path, type: "application/octet-stream", disposition: "attachment", filename: "xixo-agent"
+    send_file Resource::XixoAgent::Downloads.binary(build.file), type: "application/octet-stream", disposition: "attachment", filename: "xixo-agent"
   end
 
   def plist
