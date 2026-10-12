@@ -18,6 +18,13 @@ module Fingerprint
     sha.hexdigest
   end
 
+  def self.reported(said)
+    found = said.to_h["sha256"].to_s
+    raise ArgumentError, "the agent reported #{found.first(80).inspect} as a SHA-256" unless found.match?(/\A\h{64}\z/)
+
+    found.downcase
+  end
+
   def self.lock!(digest)
     connection = ActiveRecord::Base.connection
     raise ArgumentError, "a fingerprint is only locked inside a transaction" unless connection.transaction_open?

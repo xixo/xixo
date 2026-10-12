@@ -56,8 +56,8 @@ class Extraction
   private
 
     def route
-      own = own_agent
-      return [ own, { "folder" => reference.resource.folder, "path" => reference.locator.to_h["path"].to_s } ] if own
+      folder = reference.try(:resource)
+      return on_machine(folder) if folder.is_a?(Resource::AgentFolder)
 
       local = Resource::XixoAgent.local
       raise Analyzer::Waiting, "no agent beside the server is connected to read #{filename}" unless local&.connected?
@@ -68,14 +68,16 @@ class Extraction
       [ local, nil ]
     end
 
-    def own_agent
-      folder = reference.try(:resource)
-      return nil unless folder.is_a?(Resource::AgentFolder)
-
+    def on_machine(folder)
       agent = folder.agent
-      return nil unless agent&.connected? && agent.offered_folders.include?(folder.folder) && reads?(agent)
+      raise Analyzer::Waiting, "the agent that shares #{filename} is not connected" unless agent&.connected?
+      raise Analyzer::Failed, "#{agent.key} no longer shares #{folder.folder}" unless agent.offered_folders.include?(folder.folder)
 
-      agent
+      unless reads?(agent)
+        raise Analyzer::Failed, "#{agent.key} has no #{kind} extractor, and a file on a machine is read only by its own agent"
+      end
+
+      [ agent, { "folder" => folder.folder, "path" => reference.locator.to_h["path"].to_s } ]
     end
 
     def reads?(agent)
@@ -105,6 +107,7 @@ class Extraction
       raise Analyzer::Failed, "#{agent.key} answered #{verb} with something that is not an extraction" unless result.is_a?(Hash)
 
       @extractor = result["extractor"].to_s.first(40).presence
+      noted(result)
       @steps = result["steps"].is_a?(Hash) ? result["steps"] : {}
       @dropped = said(result["dropped"])
       answer.files.first(MOST_FILES).each { |entry| @files << kept(answer, entry) }
@@ -118,6 +121,12 @@ class Extraction
         at: entry["at"].is_a?(Numeric) ? entry["at"].to_f : nil,
         file: answer.file(entry)
       )
+    end
+
+    def noted(result)
+      return if result["sha256"].blank? || !reference.respond_to?(:fingerprinted!) || reference.digest.present?
+
+      reference.fingerprinted!(Fingerprint.reported(result))
     end
 
     def said(dropped)

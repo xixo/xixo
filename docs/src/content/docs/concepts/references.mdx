@@ -94,7 +94,8 @@ what move references.
 
 `digest` is the SHA-256 of an original's bytes. Every original gets one: an analysis computes it
 before it reads anything, and a recurring job fills in any that are missing. An upload carries the
-digest it arrived with.
+digest it arrived with. For a file in a folder a machine shares, the machine's agent reports the
+digest with a `hash` request or with its extraction, so the file's bytes never cross to xixo for it.
 
 Two originals share a feed when they have the same join key, which is the digest together with the
 owner of the resource. A tenant's resources join each other, and a person's own resources join only

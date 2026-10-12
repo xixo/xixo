@@ -96,12 +96,14 @@ the first analyzer that claims the mime type:
 The analyzer's name is the extractor it asks for. The analysis job sends the `extract` request before
 it opens a transaction:
 
-- A file in a folder a machine shares is read by that machine's agent where it lies, when the agent's
-  hello lists the extractor. Only what the agent extracted reaches xixo.
-- Any other file, an upload, or a file a cloud resource holds is sent to the agent beside the server,
-  which fetches it once over HTTPS.
-- With no agent connected, the analysis waits and tries again every five minutes, for a day. An agent
-  beside the server that lacks the extractor fails the file with the reason.
+- A file in a folder a machine shares is read only by that machine's agent, where it lies. Only what
+  the agent extracted and its SHA-256 reach xixo. When the agent's hello does not list the extractor,
+  the file fails with the reason, and its bytes stay on the machine.
+- An upload, or a file a cloud resource holds, is sent to the agent beside the server, which fetches
+  it once over HTTPS.
+- With the agent that should read the file not connected, the analysis waits and tries again every
+  five minutes, for a day. An agent beside the server that lacks the extractor fails the file with the
+  reason.
 
 The reply holds each step's result or error, what was cut, and the files the agent made. The server
 keeps only the steps it knows, cuts `text` and `ocr` to 200,000 characters itself, and records the

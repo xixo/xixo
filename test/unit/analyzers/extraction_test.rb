@@ -24,18 +24,61 @@ class ExtractionTest < ActiveSupport::TestCase
 
     assert_equal [ { "folder" => "/srv/notes", "path" => "plan.txt" } ],
                  asked.filter_map { |verb, args| args["source"] if verb == "extract" }
+    assert_equal [ { "folder" => "/srv/notes", "path" => "plan.txt" } ], asked.filter_map { |verb, args| args if verb == "hash" }
+    assert_not asked.any? { |verb, _| verb == "read" }
     assert_empty FakeAgent.asked
-    Tenant.switch(@tenant) { assert_equal "the plan", feed.reload.analysis.step_result("text") }
+    Tenant.switch(@tenant) do
+      assert_equal "the plan", feed.reload.analysis.step_result("text")
+      assert_equal sha("plan.txt"), feed.reference.digest
+    end
   end
 
-  test "a file its machine cannot read is sent to the agent beside the server" do
+  test "a digest a machine has not reported yet is taken from its extraction" do
+    feed = Tenant.switch(@tenant) { on_machine("later.txt") }
+    asked = []
+
+    with_method(Reference, :fingerprint!, -> { false }) do
+      answering(asked, { "text" => "later" }) { analyze(feed) }
+    end
+
+    assert_not asked.any? { |verb, _| verb == "read" }
+    Tenant.switch(@tenant) { assert_equal sha("later.txt"), feed.reference.reload.digest }
+  end
+
+  test "a file its machine cannot read stays on the machine and fails with the reason" do
     feed = Tenant.switch(@tenant) { on_machine("budget.pdf") }
-    read = ->(*) { Tempfile.new("read").tap { |file| file.write("%PDF bytes") && file.rewind } }
+    asked = []
 
-    with_method(Resource::XixoAgent, :read, read) { analyze(feed) }
+    answering(asked, { "text" => "never" }) { analyze(feed) }
 
-    assert_equal "%PDF bytes", FakeAgent.asked.last.bytes
-    assert_equal FakeAgent.asked.last.args.dig("source", "upload"), FakeAgent.forgotten.last
+    assert_not asked.any? { |verb, _| %w[read extract].include?(verb) }
+    assert_empty FakeAgent.asked
+    Tenant.switch(@tenant) do
+      assert_match(/box has no pdf extractor/, feed.reload.analysis.step("extracted").dig("error", "message"))
+    end
+  end
+
+  test "the same file on two machines becomes one item by the digests their agents report" do
+    other = agent_on(@tenant, key: "attic", folders: [ "/mnt/photos" ])
+    first, second = Tenant.switch(@tenant) do
+      copy = Resource::AgentFolder.create!(key: "attic-photos", name: "Attic photos", via: other, details: { "folder" => "/mnt/photos" })
+      [ on_machine("beach.jpg"), create_feed(resource: copy, locator_key: "beach-copy.jpg",
+                                             locator: { "path" => "beach-copy.jpg", "size" => 10, "modified_at" => Time.current.utc.iso8601 }) ]
+    end
+    references = Tenant.switch(@tenant) { [ first, second ].map { |feed| feed.references.first.id } }
+    asked = []
+
+    answering(asked, {}, digests: { "beach.jpg" => sha("beach"), "beach-copy.jpg" => sha("beach") }) do
+      Tenant.switch(@tenant) { DigestReferencesJob.perform_now }
+    end
+
+    assert_not asked.any? { |verb, _| verb == "read" }
+    Tenant.switch(@tenant) do
+      held = Reference.where(id: references).order(:id).to_a
+
+      assert_equal [ sha("beach") ] * 2, held.map(&:digest)
+      assert_equal 1, held.map(&:feed_id).uniq.size
+    end
   end
 
   test "with no agent connected, analysis waits and is tried again" do
@@ -95,13 +138,26 @@ class ExtractionTest < ActiveSupport::TestCase
       Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, feed.id) }
     end
 
-    def answering(asked, steps, &)
+    def sha(name)
+      Digest::SHA256.hexdigest("bytes of #{name}")
+    end
+
+    def answering(asked, steps, digests: {}, &)
+      sha = method(:sha)
       exchanged = lambda do |verb, args = {}, within: nil, &block|
         asked << [ verb, args ]
         next block.call(FakeAgent::Answer.new({ "size" => 0 }, {})) if verb == "read"
 
+        if verb == "hash"
+          found = digests.fetch(args["path"]) { sha.call(args["path"]) }
+          next block.call(FakeAgent::Answer.new({ "sha256" => found, "size" => 10 }, {}))
+        end
+
         result, held = FakeAgent.extracted(steps)
-        block.call(FakeAgent::Answer.new(result.deep_stringify_keys, held))
+        path = args.dig("source", "path")
+        result = result.deep_stringify_keys
+        result = result.merge("sha256" => sha.call(path), "size" => 10) if path
+        block.call(FakeAgent::Answer.new(result, held))
       end
 
       with_method(Resource::XixoAgent, :exchanged, exchanged, &)

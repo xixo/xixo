@@ -149,14 +149,19 @@ class Reference < ApplicationRecord
   end
 
   def fingerprint!
+    return fingerprinted!(resource.reading { resource.digest_of(locator) }) if resource.respond_to?(:digest_of)
+
     io = download
-    found = Fingerprint.of(io)
+    fingerprinted!(Fingerprint.of(io))
+  ensure
+    io.close if io.respond_to?(:close)
+  end
+
+  def fingerprinted!(found)
     return false if Reference.where(id: id, digest: nil, version: version).update_all(digest: found).zero?
 
     self.digest = found
     true
-  ensure
-    io.close if io.respond_to?(:close)
   end
 
   def twins

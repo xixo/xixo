@@ -116,6 +116,11 @@ class Resource
       agent.read(folder, relative!(locator.to_h["path"]))
     end
 
+    def digest_of(locator)
+      shared!
+      Fingerprint.reported(agent.ask("hash", { "folder" => folder, "path" => relative!(locator.to_h["path"]) }))
+    end
+
     def command_list(prefix: nil, limit: nil)
       shared!
       count = (limit || 1000).to_i.clamp(1, PAGE)
