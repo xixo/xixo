@@ -76,6 +76,15 @@ A walk never enters version control folders such as `.git`, dependency folders s
 **Also skip** adds names or patterns of its own. A prefix walks only the folders that can hold it, and
 a sync resumed from its cursor passes over the folders it already walked without opening them.
 
+xixo link also watches its shared folders and sends a `changed` message naming the paths that
+changed, a couple of seconds after they settle; see [the xixo link README](https://github.com/xixo/xixo/tree/main/link#the-conversation-with-xixo)
+for how it watches on Linux and macOS and where it stops. For each folder resource on that folder
+with a sync interval, `SyncPathsJob` lists just those paths, at most 256 to a message, keeps what
+it finds, and marks gone what it held there and no longer finds, so a new or removed file shows up
+without waiting for the next sync. A path that turns out to hold more than 2,000 files, or a message
+that says it overflowed, starts a whole sync instead. A folder that syncs only on demand ignores
+these messages, and the scheduled walk still runs to catch anything a watch missed.
+
 ## Resources connected through masks
 
 Google Drive, OneDrive, and an MCP server whose authentication is `masks` use a person's own

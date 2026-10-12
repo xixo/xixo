@@ -2,6 +2,7 @@ require "test_helper"
 require_relative "../../support/machines"
 
 class FilesystemTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
   include Machines
 
   setup do
@@ -104,6 +105,37 @@ class FilesystemTest < ActiveSupport::TestCase
       assert_equal [ "/srv/media" ], asked.map { |args| args["folder"] }.uniq
       first = folder.locator_for(Resource::Filesystem::Entry.new(path: "a", size: 5, modified_at: Time.utc(2026, 10, 11, 12)))
       assert_equal "2026-10-11T12:00:00Z:5", folder.version_for(first)
+    end
+  end
+
+  test "a change xixo link tells of is looked at again at once: kept where it is, and gone where it is not" do
+    Tenant.switch(@tenant) do
+      folder = attached
+      at = Time.utc(2026, 10, 11, 12)
+      gone = folder.keep!(Resource::Filesystem::Entry.new(path: "old/gone.txt", size: 5, modified_at: at))
+      beside = folder.keep!(Resource::Filesystem::Entry.new(path: "older.txt", size: 5, modified_at: at))
+      asked = answering(folder, [ { "entries" => [ entry("new.txt"), entry("new.txt.bak") ] }, { "entries" => [] } ])
+
+      folder.looked_again!(%w[new.txt old])
+
+      assert_equal %w[new.txt old], asked.map { |args| args["prefix"] }
+      assert Reference.originals.exists?(resource_id: folder.id, locator_key: "new.txt", gone_at: nil)
+      assert_not Reference.originals.exists?(resource_id: folder.id, locator_key: "new.txt.bak")
+      assert gone.reload.gone_at
+      assert_nil beside.reload.gone_at
+    end
+  end
+
+  test "a change too wide to look at path by path walks the whole folder instead" do
+    Tenant.switch(@tenant) do
+      folder = attached
+      pages = (0..4).map do |page|
+        { "entries" => (0...500).map { |n| entry(format("wide/%<page>d-%<n>03d.txt", page: page, n: n)) }, "cursor" => "more" }
+      end
+      answering(folder, pages)
+
+      assert_enqueued_with(job: SyncResourceJob) { folder.looked_again!(%w[wide]) }
+      assert_not Reference.originals.exists?(resource_id: folder.id)
     end
   end
 

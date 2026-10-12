@@ -2,6 +2,8 @@ class Resource
   class Filesystem < Resource
     PAGE = 500
     LOOKED_AT = 10
+    MOST_CHANGED = 256
+    MOST_LOOKED_AGAIN = 2_000
     WRITTEN_WITHIN = 30.seconds
     WRITTEN_PER_MEGABYTE = 1.second
     MOST_WRITTEN_WITHIN = 1.hour
@@ -51,6 +53,13 @@ class Resource
 
       def address_on(host, port: nil)
         host
+      end
+
+      def inside?(path)
+        return false unless path.is_a?(String) && path.valid_encoding?
+        return false if path.empty? || path.bytesize > Machine::MOST_PATH || path.start_with?("/") || path.include?("\0")
+
+        path.split("/").none? { |part| part.empty? || part.in?(%w[. ..]) }
       end
 
       def declared_folder(folder, tenant)
@@ -134,6 +143,21 @@ class Resource
       [ modified_at, locator.to_h["size"] ].compact.join(":")
     end
 
+    def changed_later!(paths, everything: false)
+      return sync! if everything
+
+      SyncPathsJob.perform_later(tenant_id, id, paths) if paths.any?
+    rescue ArgumentError
+      nil
+    end
+
+    def looked_again!(paths)
+      shared!
+      paths.first(MOST_CHANGED).each do |path|
+        break unless looked_again(path)
+      end
+    end
+
     def download(locator)
       shared!
       machine.read(folder, relative!(locator.to_h["path"]))
@@ -187,6 +211,41 @@ class Resource
 
     private
 
+      def looked_again(asked)
+        path = scoped(asked)
+        found = beneath(path)
+
+        if found.nil?
+          sync!
+          return false
+        end
+
+        found.each { |entry| keep!(entry) }
+        Reference.originals.where(resource_id: id, gone_at: nil)
+                 .where("locator_key = ? OR locator_key LIKE ?", path, "#{Reference.sanitize_sql_like(path)}/%")
+                 .where.not(locator_key: found.map(&:path))
+                 .update_all(gone_at: Time.current)
+        true
+      rescue ArgumentError
+        true
+      end
+
+      def beneath(path)
+        found = []
+        after = nil
+
+        loop do
+          entries, more = listed(prefix: path, cursor: after, limit: PAGE)
+          found.concat(entries.select { |entry| entry.path == path || entry.path.start_with?("#{path}/") })
+          return nil if found.size > MOST_LOOKED_AGAIN
+          break if !more || entries.empty?
+
+          after = entries.last.path
+        end
+
+        found
+      end
+
       def listed(prefix: nil, cursor: nil, limit: PAGE)
         asked = { "folder" => folder, "limit" => limit, "prefix" => prefix.presence, "cursor" => cursor,
                   "skip" => Array(details.to_h["skip"]).presence }.compact
@@ -223,14 +282,9 @@ class Resource
 
       def relative!(path)
         held = path.to_s
-        parts = held.split("/")
+        return held if Filesystem.inside?(held)
 
-        if held.empty? || held.bytesize > Machine::MOST_PATH || held.start_with?("/") || held.include?("\0") ||
-           !held.valid_encoding? || parts.any? { |part| part.empty? || part.in?(%w[. ..]) }
-          raise Resource::Failed, "#{key}: #{held.first(80).inspect} is not a path inside the folder"
-        end
-
-        held
+        raise Resource::Failed, "#{key}: #{held.first(80).inspect} is not a path inside the folder"
       end
 
       def shared!

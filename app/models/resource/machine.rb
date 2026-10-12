@@ -378,6 +378,18 @@ class Resource
       end
     end
 
+    def changed!(said)
+      said = said.to_h
+      folder = Hello.folder(said["folder"])
+      return if folder.nil? || !offered_folders.include?(folder)
+
+      paths = Hello.listed(said["paths"]).first(Filesystem::MOST_CHANGED).select { |path| Filesystem.inside?(path) }.uniq
+      Filesystem.active.where(via_id: id).where.not(sync_interval: nil)
+                .where("resources.details ->> 'folder' = ?", folder).find_each do |held|
+        held.changed_later!(paths, everything: said["overflow"] == true)
+      end
+    end
+
     def heard!(said)
       merge_machine!("health" => Health.from(said), "warnings" => Hello.warnings(said.to_h["warnings"]), "seen_at" => now_stamp)
       update_columns(checked_at: Time.current, check_error: nil) if check_error.present?

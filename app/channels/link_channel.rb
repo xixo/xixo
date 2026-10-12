@@ -16,6 +16,10 @@ class LinkChannel < ApplicationCable::Channel
     within { |linked| linked.heard!(data) }
   end
 
+  def changed(data)
+    within { |linked| linked.changed!(data) }
+  end
+
   def reply(data)
     within do |linked|
       exchange = LinkExchange.for(linked, data["request"])

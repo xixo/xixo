@@ -2,6 +2,7 @@ require "test_helper"
 require_relative "../../support/machines"
 
 class LinkChannelTest < ActionCable::Channel::TestCase
+  include ActiveJob::TestHelper
   include Machines
 
   tests LinkChannel
@@ -76,6 +77,29 @@ class LinkChannelTest < ActionCable::Channel::TestCase
 
     perform :health, HEALTH
     assert_empty fresh.warnings
+  end
+
+  test "a change names the paths of a folder looked at again, and an overflow walks the whole folder" do
+    connected
+    perform :hello, HELLO
+    media = Tenant.switch(@tenant) do
+      Resource::Filesystem.create!(key: "on-demand", details: { "folder" => "/srv/media" }, via: @machine)
+      Resource::Filesystem.create!(key: "media", details: { "folder" => "/srv/media" }, via: @machine, sync_interval: 3600)
+    end
+
+    perform :changed, "folder" => "/srv/media", "paths" => [ "a/b.txt", "../etc/passwd", "/etc/passwd", "a//c", 5, "a/b.txt" ]
+
+    assert_equal [ [ @tenant.id, media.id, [ "a/b.txt" ] ] ],
+                 enqueued_jobs.select { |job| job["job_class"] == "SyncPathsJob" }.map { |job| ActiveJob::Arguments.deserialize(job["arguments"]) }
+
+    assert_no_enqueued_jobs(only: [ SyncPathsJob, SyncResourceJob ]) do
+      perform :changed, "folder" => "/etc", "paths" => [ "passwd" ]
+      perform :changed, "folder" => "/srv/media", "paths" => "a/b.txt"
+    end
+
+    assert_enqueued_with(job: SyncResourceJob) do
+      perform :changed, "folder" => "/srv/media", "paths" => [], "overflow" => true
+    end
   end
 
   test "leaving takes the machine offline, unless a newer connection took its place" do
