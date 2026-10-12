@@ -1,6 +1,6 @@
 Rails.application.config.to_prepare do
   Masks::Rails.configure do |config|
-    config.name = Rails.application.class.module_parent_name
+    config.name = "xixo"
     config.issuer = ->(request) { Tenant.issuer_url(request) }
     config.resource = ->(request) { Tenant.resource_url(request) }
     config.redirect_uri = ->(request) { Tenant.redirect_url(request) }

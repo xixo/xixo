@@ -763,7 +763,8 @@ CREATE TABLE public.tenants (
     client_secret text,
     registration_access_token text,
     registration_client_uri character varying,
-    connected_at timestamp(6) without time zone
+    connected_at timestamp(6) without time zone,
+    administered_at timestamp(6) without time zone
 );
 
 
@@ -2185,6 +2186,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261012190000'),
 ('20261012140000'),
 ('20261012030000'),
 ('20261011200000'),

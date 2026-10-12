@@ -55,8 +55,16 @@ class Tenant < ApplicationRecord
     update!(
       client_id: nil, client_secret: nil,
       registration_access_token: nil, registration_client_uri: nil,
-      connected_at: nil
+      connected_at: nil, administered_at: nil
     )
+  end
+
+  def administered?
+    administered_at.present?
+  end
+
+  def administered!
+    update_columns(administered_at: Time.current) unless administered?
   end
 
   def connect!(registration)
