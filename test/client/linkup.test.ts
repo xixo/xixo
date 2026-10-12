@@ -172,4 +172,29 @@ describe('linking up a machine', () => {
       lines.filter((line) => line.includes('$reader')).join('\n'),
     ).not.toContain('Authorization')
   })
+
+  test('a Linux machine installs the readers with apt unless asked not to', () => {
+    const asked = {
+      ...plan,
+      packages: ['poppler-utils', 'ffmpeg'],
+      programs: true,
+    }
+    const readers = steps(asked).find(
+      (step) => step.title === 'Install the readers',
+    )
+
+    expect(readers?.command).toContain(
+      'apt-get install -y --no-install-recommends poppler-utils ffmpeg',
+    )
+    expect(
+      steps({ ...asked, programs: false }).some(
+        (step) => step.title === 'Install the readers',
+      ),
+    ).toBe(false)
+    expect(
+      steps({ ...asked, build: { ...plan.build, os: 'darwin' } }).some(
+        (step) => step.title === 'Install the readers',
+      ),
+    ).toBe(false)
+  })
 })

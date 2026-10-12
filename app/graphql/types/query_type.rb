@@ -128,7 +128,8 @@ module Types
       return nil unless context[:grant].administers?
 
       { xixo: context[:origin] || context[:tenant].origin, issuer: context[:tenant].issuer,
-        builds: Resource::Machine::Downloads.builds, mac_reader: Resource::Machine::Downloads.mac_reader }
+        builds: Resource::Machine::Downloads.builds, mac_reader: Resource::Machine::Downloads.mac_reader,
+        packages: Resource::Machine::Installer::PACKAGES }
     rescue Tenant::Unconfigured
       nil
     end

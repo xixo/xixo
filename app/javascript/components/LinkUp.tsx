@@ -39,6 +39,7 @@ export interface LinkUpInfo {
   issuer: string
   builds: Build[]
   macReader?: string | null
+  packages: string[]
 }
 
 export interface Machine {
@@ -277,6 +278,7 @@ function Commands({
   const [tools, setTools] = useState<string[]>(STANDARD_TOOLS)
   const [extractsForOthers, setExtractsForOthers] = useState(false)
   const [lend, setLend] = useState(false)
+  const [programs, setPrograms] = useState(true)
   const left = useCountdown(code.expiresAt)
   const { data } = useSubscription(MachineChangedDocument, { id: code.id })
   const heard = data?.machineChanged.resource.machine
@@ -333,6 +335,8 @@ function Commands({
     name: code.key,
     build,
     macReader: info.macReader ?? null,
+    packages: info.packages,
+    programs,
     folders: typed,
     tools,
     extractsForOthers,
@@ -430,6 +434,14 @@ function Commands({
         <details className="linkup-options">
           <summary>More options</summary>
           <Stack gap="var(--s3)" mt="var(--s3)">
+            {build.os === 'linux' && (
+              <Checkbox
+                label="Install the programs that read files"
+                description="PDFs, images, audio, video, and office documents, with apt on Debian or Ubuntu."
+                checked={programs}
+                onChange={(event) => setPrograms(event.currentTarget.checked)}
+              />
+            )}
             <Checkbox
               label="Help read files from other machines"
               description="xixo may send it files from elsewhere to read, when it has the programs for them."

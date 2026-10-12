@@ -466,6 +466,7 @@ What a machine needs to install xixo link itself and link up. Resolves only for 
 | `builds` | [`[LinkBuild!]!`](#linkbuild) | The xixo link builds this server hands out, by system and architecture. |
 | `issuer` | `String!` | The masks issuer xixo link enrolls with. |
 | `macReader` | `String` | Where a Mac gets the mac reader: the asset of the GitHub release of this server's version, with its SHA-256 beside it at the same address ending .sha256. Empty when the server's version is unknown. |
+| `packages` | `[String!]!` | The Debian and Ubuntu packages that hold the programs xixo link reads PDFs, images, audio, video, and office documents with. |
 | `xixo` | `String!` | The address xixo link dials. |
 
 ### Machine

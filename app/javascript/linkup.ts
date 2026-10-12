@@ -16,6 +16,8 @@ export interface Plan {
   name: string
   build: Build
   macReader?: string | null
+  packages?: string[]
+  programs?: boolean
   folders: Shared[]
   tools: string[]
   extractsForOthers: boolean
@@ -225,6 +227,27 @@ function mac(plan: Plan): Step[] {
   ]
 }
 
+function readers(plan: Plan): Step[] {
+  if (!plan.programs || !plan.packages?.length) return []
+
+  const apt = 'sudo env DEBIAN_FRONTEND=noninteractive apt-get'
+
+  return [
+    {
+      title: 'Install the readers',
+      detail:
+        'Installs the programs that read PDFs, images, audio, video, and office documents, with apt on Debian or Ubuntu. On another system, install them with its own package manager.',
+      command: [
+        'if command -v apt-get > /dev/null; then',
+        `  ${apt} update -qq && ${apt} install -y --no-install-recommends ${plan.packages.join(' ')}`,
+        'else',
+        "  echo 'This system has no apt, so install the readers with its own package manager.'",
+        'fi',
+      ].join('\n'),
+    },
+  ]
+}
+
 export function steps(plan: Plan): Step[] {
   if (plan.build.os === 'darwin') return mac(plan)
 
@@ -262,6 +285,7 @@ export function steps(plan: Plan): Step[] {
         `${bearer()} "${unit}" | sudo tee /etc/systemd/system/xixo-link.service > /dev/null`,
       ].join('\n'),
     },
+    ...readers(plan),
     {
       title: 'Link up and start',
       detail:
