@@ -3,7 +3,9 @@ package agent
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -55,7 +57,13 @@ type Sent struct {
 	At          *float64 `json:"at,omitempty"`
 }
 
+type Digest struct {
+	SHA256 string `json:"sha256"`
+	Size   int64  `json:"size"`
+}
+
 type Extracted struct {
+	Digest
 	Extractor string                  `json:"extractor"`
 	Steps     map[string]extract.Step `json:"steps"`
 	Dropped   map[string]string       `json:"dropped,omitempty"`
@@ -78,14 +86,7 @@ func (s *session) extraction(ctx context.Context, asked *Request, deriving bool)
 	}
 	defer os.RemoveAll(work)
 
-	path, err := s.source(ctx, wanted, work)
-	if err != nil {
-		s.refuse(ctx, asked.Request, err)
-
-		return
-	}
-
-	info, err := os.Stat(path)
+	path, digest, err := s.source(ctx, wanted, work)
 	if err != nil {
 		s.refuse(ctx, asked.Request, err)
 
@@ -101,7 +102,7 @@ func (s *session) extraction(ctx context.Context, asked *Request, deriving bool)
 		Path: path,
 		Name: filepath.Base(named),
 		MIME: wanted.MIME,
-		Size: info.Size(),
+		Size: digest.Size,
 		Skip: map[string]bool{},
 		Work: work,
 		Run:  s.Runner,
@@ -143,7 +144,7 @@ func (s *session) extraction(ctx context.Context, asked *Request, deriving bool)
 		steps = map[string]extract.Step{}
 	}
 
-	s.reply(ctx, asked.Request, Extracted{Extractor: out.Extractor, Steps: steps, Dropped: out.Dropped, Files: sent})
+	s.reply(ctx, asked.Request, Extracted{Digest: digest, Extractor: out.Extractor, Steps: steps, Dropped: out.Dropped, Files: sent})
 }
 
 func (s *session) extracted(ctx context.Context, in extract.Input, deriving bool) (*extract.Output, error) {
@@ -171,40 +172,73 @@ func (s *session) extracted(ctx context.Context, in extract.Input, deriving bool
 	return out, nil
 }
 
-func (s *session) source(ctx context.Context, wanted Extraction, work string) (string, error) {
+func (s *session) source(ctx context.Context, wanted Extraction, work string) (string, Digest, error) {
 	if wanted.Source.Upload != "" {
 		return s.fetch(ctx, wanted, work)
 	}
 
 	opened, err := s.Folders.Open(wanted.Source.Folder, wanted.Source.Path)
 	if err != nil {
-		return "", err
+		return "", Digest{}, err
 	}
 	defer opened.Close()
 
+	if opened.Size > MostUpload {
+		return "", Digest{}, ErrTooLarge
+	}
+
 	kept := filepath.Join(work, "source"+safeExtension(wanted.Source.Path))
 
-	target, err := os.OpenFile(kept, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	digest, err := copied(kept, io.LimitReader(opened, MostUpload+1))
 	if err != nil {
-		return "", err
+		return "", Digest{}, err
 	}
 
-	if _, err := io.Copy(target, io.LimitReader(opened, MostUpload)); err != nil {
-		target.Close()
-
-		return "", err
+	if digest.Size > MostUpload {
+		return "", Digest{}, ErrTooLarge
 	}
 
-	return kept, target.Close()
+	return kept, digest, nil
 }
 
-func (s *session) fetch(ctx context.Context, wanted Extraction, work string) (string, error) {
+func copied(kept string, from io.Reader) (Digest, error) {
+	target, err := os.OpenFile(kept, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		return Digest{}, err
+	}
+
+	hashed := sha256.New()
+	written, err := io.Copy(io.MultiWriter(target, hashed), from)
+
+	if closed := target.Close(); err == nil {
+		err = closed
+	}
+
+	if err != nil {
+		return Digest{}, err
+	}
+
+	return Digest{SHA256: hex.EncodeToString(hashed.Sum(nil)), Size: written}, nil
+}
+
+func digested(from io.Reader) (Digest, error) {
+	hashed := sha256.New()
+
+	written, err := io.Copy(hashed, from)
+	if err != nil {
+		return Digest{}, err
+	}
+
+	return Digest{SHA256: hex.EncodeToString(hashed.Sum(nil)), Size: written}, nil
+}
+
+func (s *session) fetch(ctx context.Context, wanted Extraction, work string) (string, Digest, error) {
 	if !uploadName.MatchString(wanted.Source.Upload) {
-		return "", ErrNoUpload
+		return "", Digest{}, ErrNoUpload
 	}
 
 	if wanted.Size < 0 || wanted.Size > MostUpload {
-		return "", ErrTooLarge
+		return "", Digest{}, ErrTooLarge
 	}
 
 	target := strings.TrimSuffix(s.Xixo, "/") + "/agent/uploads/" + wanted.Source.Upload
@@ -214,7 +248,7 @@ func (s *session) fetch(ctx context.Context, wanted Extraction, work string) (st
 	for attempt := 0; ; attempt++ {
 		response, err := s.fetched(ctx, target, nonce)
 		if err != nil {
-			return "", err
+			return "", Digest{}, err
 		}
 
 		offered := response.Header.Get("DPoP-Nonce")
@@ -225,10 +259,10 @@ func (s *session) fetch(ctx context.Context, wanted Extraction, work string) (st
 			continue
 		}
 
-		err = keep(response, kept, wanted.Size)
+		digest, err := keep(response, kept, wanted.Size)
 		response.Body.Close()
 
-		return kept, err
+		return kept, digest, err
 	}
 }
 
@@ -249,34 +283,25 @@ func (s *session) fetched(ctx context.Context, target, nonce string) (*http.Resp
 	return uploadClient.Do(request)
 }
 
-func keep(response *http.Response, kept string, size int64) error {
+func keep(response *http.Response, kept string, size int64) (Digest, error) {
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("xixo answered the upload with %s", response.Status)
+		return Digest{}, fmt.Errorf("xixo answered the upload with %s", response.Status)
 	}
 
 	if response.ContentLength >= 0 && response.ContentLength != size {
-		return ErrUploadSize
+		return Digest{}, ErrUploadSize
 	}
 
-	target, err := os.OpenFile(kept, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	digest, err := copied(kept, io.LimitReader(response.Body, size+1))
 	if err != nil {
-		return err
+		return Digest{}, err
 	}
 
-	written, err := io.Copy(target, io.LimitReader(response.Body, size+1))
-	if closed := target.Close(); err == nil {
-		err = closed
+	if digest.Size != size {
+		return Digest{}, ErrUploadSize
 	}
 
-	if err != nil {
-		return err
-	}
-
-	if written != size {
-		return ErrUploadSize
-	}
-
-	return nil
+	return digest, nil
 }
 
 func safeExtension(name string) string {

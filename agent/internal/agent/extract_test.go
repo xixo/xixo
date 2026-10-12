@@ -3,8 +3,11 @@ package agent
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,7 +29,8 @@ const (
 
 func TestAnUploadIsExtractedAndItsFilesComeBackFirst(t *testing.T) {
 	folder, _ := shared(t)
-	if err := os.WriteFile(filepath.Join(folder, "dentist.ics"), []byte("BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Cleaning NEEDLE-ICS\r\nDTSTART:20261012T093000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"), 0o644); err != nil {
+	ics := []byte("BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Cleaning NEEDLE-ICS\r\nDTSTART:20261012T093000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n")
+	if err := os.WriteFile(filepath.Join(folder, "dentist.ics"), ics, 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -73,9 +77,17 @@ func TestAnUploadIsExtractedAndItsFilesComeBackFirst(t *testing.T) {
 			t.Errorf("upload text %v", text)
 		}
 
+		if result := got.done[extractID]["result"].(map[string]any); result["sha256"] != sum(body) || fmt.Sprint(result["size"]) != fmt.Sprint(len(body)) {
+			t.Errorf("upload digest %v %v", result["sha256"], result["size"])
+		}
+
 		calendar := got.done[folderID]["result"].(map[string]any)
 		if calendar["extractor"] != "calendar" {
 			t.Errorf("folder extraction %v", calendar)
+		}
+
+		if calendar["sha256"] != sum(ics) {
+			t.Errorf("folder digest %v", calendar["sha256"])
 		}
 
 		if !bytes.Contains([]byte(calendar["steps"].(map[string]any)["text"].(map[string]any)["result"].(string)), []byte("NEEDLE-ICS")) {
@@ -180,6 +192,64 @@ func TestFilesStreamBeforeTheReplyUnderTheirOwnIDs(t *testing.T) {
 
 		return out, nil
 	}
+	cable.Thumbprint = dpop.Thumbprint()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	held.Session(ctx)
+	<-finished
+}
+
+func sum(body []byte) string {
+	hashed := sha256.Sum256(body)
+
+	return hex.EncodeToString(hashed[:])
+}
+
+func TestHashAnswersWithTheDigestAndSendsNoBytes(t *testing.T) {
+	folder, _ := shared(t)
+	body := bytes.Repeat([]byte("a photograph's bytes "), 40000)
+	if err := os.WriteFile(filepath.Join(folder, "photo.raw"), body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	finished := make(chan struct{})
+
+	var cable *fake.Cable
+	var dpop *masks.Key
+	var held *Agent
+
+	cable = fake.NewCable(t, "agent-token", "", func(socket *fake.Socket) {
+		defer close(finished)
+
+		socket.Subscribe(identifier)
+		socket.Next()
+		socket.Next()
+
+		socket.Ask(identifier, map[string]any{"request": "r-hash", "verb": "hash", "args": map[string]any{"folder": folder, "path": "photo.raw"}})
+		socket.Ask(identifier, map[string]any{"request": "r-escape", "verb": "hash", "args": map[string]any{"folder": folder, "path": "../outside"}})
+
+		got := gather(socket, 2)
+
+		if len(got.chunks) != 0 {
+			t.Errorf("hash sent %d chunks", len(got.chunks))
+		}
+
+		result := got.done["r-hash"]["result"].(map[string]any)
+		if result["sha256"] != sum(body) || fmt.Sprint(result["size"]) != fmt.Sprint(len(body)) {
+			t.Errorf("hash answered %v", result)
+		}
+
+		if got.done["r-escape"]["ok"] != false {
+			t.Errorf("hash read outside its folder: %v", got.done["r-escape"])
+		}
+
+		socket.Close()
+	})
+
+	held, dpop = agentFor(t, cable.URL, folder, time.Now().Add(time.Hour))
+	held.Work = t.TempDir()
 	cable.Thumbprint = dpop.Thumbprint()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)

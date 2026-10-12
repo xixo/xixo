@@ -119,6 +119,7 @@ xixo sends a request as the `message` of a broadcast on the subscription:
 | `health` | none | The fields of a `health` message. |
 | `list` | `folder`, `cursor`, `prefix`, `limit`, `skip` | `{"entries":[{"path","size","modified_at"}],"cursor"}` |
 | `read` | `folder`, `path` | `chunk` messages, then `{"size"}` |
+| `hash` | `folder`, `path` | `{"sha256","size"}` |
 | `extract` | `source`, `size`, `mime`, `filename`, `skip`, `settings` | each made file's `chunk` messages, then the steps and the list of files |
 | `derive` | as `extract` | the thumbnail and preview alone |
 
@@ -131,6 +132,9 @@ that are always skipped.
 
 `read` sends the file as `chunk` messages of at most 256 KiB, base64 encoded,
 numbered from 0, followed by a reply holding the number of bytes sent.
+
+`hash` reads the file where it lies and answers with its SHA-256 in hex and its
+size, sending none of its bytes.
 
 An upload is a file xixo holds for the agent to read. `extract` names it as
 `{"upload": id}` with its `size`, and the agent fetches
@@ -145,7 +149,8 @@ machine it was staged for, within 15 minutes.
 (`{"folder", "path"}`) and answers with its steps. Each file it makes, such as a
 thumbnail, is sent first as `chunk` messages under a new id, with `of` naming
 the `extract` request, and the reply lists the files with their role, name,
-type, size, and that id. [internal/extract/README.md](internal/extract/README.md)
+type, size, and that id. The reply also carries the source's `sha256` and
+`size`, computed as the agent read it. [internal/extract/README.md](internal/extract/README.md)
 describes every step.
 
 A refused request is answered with `"ok": false` and an `error`. The agent

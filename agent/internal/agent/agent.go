@@ -361,6 +361,15 @@ func (s *session) answer(ctx context.Context, asked *Request) {
 		}
 
 		s.read(ctx, asked.Request, wanted)
+	case "hash":
+		wanted := Read{}
+		if err := decode(asked.Args, &wanted); err != nil {
+			s.refuse(ctx, asked.Request, err)
+
+			return
+		}
+
+		s.hash(ctx, asked.Request, wanted)
 	case verbExtract:
 		s.extraction(ctx, asked, false)
 	case verbDerive:
@@ -368,6 +377,25 @@ func (s *session) answer(ctx context.Context, asked *Request) {
 	default:
 		s.refuse(ctx, asked.Request, fmt.Errorf("the agent does not know the verb %q", asked.Verb))
 	}
+}
+
+func (s *session) hash(ctx context.Context, request string, wanted Read) {
+	opened, err := s.Folders.Open(wanted.Folder, wanted.Path)
+	if err != nil {
+		s.refuse(ctx, request, err)
+
+		return
+	}
+	defer opened.Close()
+
+	digest, err := digested(opened)
+	if err != nil {
+		s.refuse(ctx, request, err)
+
+		return
+	}
+
+	s.reply(ctx, request, digest)
 }
 
 func (s *session) read(ctx context.Context, request string, wanted Read) {
