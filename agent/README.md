@@ -116,8 +116,7 @@ xixo sends a request as the `message` of a broadcast on the subscription:
 | `health` | none | The fields of a `health` message. |
 | `list` | `folder`, `cursor`, `prefix`, `limit`, `skip` | `{"entries":[{"path","size","modified_at"}],"cursor"}` |
 | `read` | `folder`, `path` | `chunk` messages, then `{"size"}` |
-| `put` | `seq` and `data`, or `done` and `size` | Nothing until the closing put, then `{"size"}` |
-| `extract` | `source`, `mime`, `filename`, `skip`, `settings` | each made file's `chunk` messages, then the steps and the list of files |
+| `extract` | `source`, `size`, `mime`, `filename`, `skip`, `settings` | each made file's `chunk` messages, then the steps and the list of files |
 | `derive` | as `extract` | the thumbnail and preview alone |
 
 `list` walks the folder depth first in name order and returns at most `limit`
@@ -130,13 +129,14 @@ that are always skipped.
 `read` sends the file as `chunk` messages of at most 256 KiB, base64 encoded,
 numbered from 0, followed by a reply holding the number of bytes sent.
 
-`put` sends bytes to the agent ahead of an `extract`. Each piece is at most
-256 KiB of base64 data numbered from 0, and the closing put names the total
-size, which must match what arrived. The agent keeps an upload in a private
-temporary file of at most 4 GiB, holds at most eight at once, uses each one for
-one extraction, and deletes it afterwards or after 15 minutes unused. `put`
-requests are handled in the order they arrive, apart from the four that run at
-once.
+An upload is a file xixo holds for the agent to read. `extract` names it as
+`{"upload": id}` with its `size`, and the agent fetches
+`<xixo>/agent/uploads/<id>` once over HTTPS with its token and a fresh DPoP
+proof. The address is built from the configured xixo address and the id, which
+must be a UUID, so the token never goes anywhere else, and a redirect is not
+followed. The body goes into the extraction's private work directory, at most
+4 GiB, and must be exactly `size` bytes. xixo serves an upload once, to the
+machine it was staged for, within 15 minutes.
 
 `extract` reads an upload (`{"upload": id}`) or a shared file
 (`{"folder", "path"}`) and answers with its steps. Each file it makes, such as a

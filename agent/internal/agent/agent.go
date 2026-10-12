@@ -162,7 +162,7 @@ func (a *Agent) Run(ctx context.Context) error {
 type session struct {
 	*Agent
 	conn     *cable.Conn
-	uploads  *uploads
+	token    *masks.Token
 	working  sync.WaitGroup
 	slots    chan struct{}
 	draining bool
@@ -192,8 +192,7 @@ func (a *Agent) Session(ctx context.Context) error {
 
 	a.Log.Info("connected to xixo", "xixo", a.Xixo)
 
-	held := &session{Agent: a, conn: conn, uploads: newUploads(a.Work), slots: make(chan struct{}, a.Parallel)}
-	defer held.uploads.close()
+	held := &session{Agent: a, conn: conn, token: token, slots: make(chan struct{}, a.Parallel)}
 
 	return held.serve(ctx, token)
 }
@@ -278,12 +277,6 @@ func (s *session) serve(ctx context.Context, token *masks.Token) error {
 
 			asked := &Request{}
 			if json.Unmarshal(frame.Message, asked) != nil || asked.Request == "" {
-				continue
-			}
-
-			if asked.Verb == verbPut {
-				s.put(ctx, asked)
-
 				continue
 			}
 

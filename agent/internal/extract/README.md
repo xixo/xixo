@@ -21,8 +21,8 @@ xixo asks with the `extract` verb.
 ```
 
 `source` is either `{"folder", "path"}`, a file one of the agent's folders
-shares, or `{"upload": id}`, bytes xixo sent first with `put` requests under
-that id. `skip` names steps xixo already holds. `settings` carries the
+shares, or `{"upload": id}`, bytes the agent fetches from
+`<xixo>/agent/uploads/<id>`, which must be exactly `size` bytes. `skip` names steps xixo already holds. `settings` carries the
 server's thumbnail width, preview width, the most frames and the percentage of
 frames read from an animation, and the seconds of audio to transcribe; a missing value takes the server's default.
 

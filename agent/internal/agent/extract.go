@@ -7,11 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/xixo/xixo/agent/internal/extract"
 )
@@ -19,27 +19,17 @@ import (
 const (
 	MostUpload  = 4 << 30
 	MostFiles   = 256
-	UploadKept  = 15 * time.Minute
-	MostUploads = 8
-	verbPut     = "put"
 	verbExtract = "extract"
 	verbDerive  = "derive"
 )
 
 var (
-	ErrNoUpload   = errors.New("no upload holds that id")
+	ErrNoUpload   = errors.New("an upload is named by a uuid")
 	ErrUploadSize = errors.New("the upload's size does not match what arrived")
 	ErrTooLarge   = errors.New("the upload is larger than the agent keeps")
-	ErrOutOfOrder = errors.New("an upload's pieces arrived out of order")
-	ErrBusy       = errors.New("the agent is holding as many uploads as it keeps")
+	uploadClient  = &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	uploadName    = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 )
-
-type Put struct {
-	Seq  *int   `json:"seq,omitempty"`
-	Data string `json:"data,omitempty"`
-	Done bool   `json:"done,omitempty"`
-	Size *int64 `json:"size,omitempty"`
-}
 
 type Source struct {
 	Upload string `json:"upload,omitempty"`
@@ -72,172 +62,6 @@ type Extracted struct {
 	Files     []Sent                  `json:"files"`
 }
 
-type upload struct {
-	file     *os.File
-	size     int64
-	next     int
-	done     bool
-	taken    bool
-	failed   error
-	lastSeen time.Time
-}
-
-type uploads struct {
-	mu   sync.Mutex
-	dir  string
-	held map[string]*upload
-}
-
-func newUploads(dir string) *uploads {
-	return &uploads{dir: dir, held: map[string]*upload{}}
-}
-
-func (u *uploads) put(id string, piece Put) (int64, bool, error) {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-
-	u.sweep()
-
-	held := u.held[id]
-	if held == nil {
-		if piece.Done && piece.Seq == nil {
-			return 0, true, ErrNoUpload
-		}
-
-		if len(u.held) >= MostUploads {
-			return 0, true, ErrBusy
-		}
-
-		file, err := os.CreateTemp(u.dir, "upload-*")
-		if err != nil {
-			return 0, false, err
-		}
-
-		held = &upload{file: file}
-		u.held[id] = held
-	}
-
-	held.lastSeen = time.Now()
-
-	if held.failed != nil {
-		return 0, piece.Done, held.failed
-	}
-
-	if piece.Seq != nil {
-		if *piece.Seq != held.next {
-			held.failed = ErrOutOfOrder
-
-			return 0, piece.Done, held.failed
-		}
-
-		bytes, err := base64.StdEncoding.DecodeString(piece.Data)
-		if err != nil {
-			held.failed = fmt.Errorf("a piece was not base64: %w", err)
-
-			return 0, piece.Done, held.failed
-		}
-
-		if len(bytes) > ChunkSize || held.size+int64(len(bytes)) > MostUpload {
-			held.failed = ErrTooLarge
-
-			return 0, piece.Done, held.failed
-		}
-
-		if _, err := held.file.Write(bytes); err != nil {
-			held.failed = err
-
-			return 0, piece.Done, held.failed
-		}
-
-		held.size += int64(len(bytes))
-		held.next++
-	}
-
-	if !piece.Done {
-		return held.size, false, nil
-	}
-
-	if piece.Size == nil || *piece.Size != held.size {
-		held.failed = ErrUploadSize
-
-		return 0, true, held.failed
-	}
-
-	held.done = true
-
-	return held.size, true, nil
-}
-
-func (u *uploads) take(id string) (string, func(), error) {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-
-	held := u.held[id]
-	if held == nil || !held.done || held.taken || held.failed != nil {
-		return "", nil, ErrNoUpload
-	}
-
-	held.taken = true
-
-	return held.file.Name(), func() { u.forget(id) }, nil
-}
-
-func (u *uploads) forget(id string) {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-
-	u.drop(id)
-}
-
-func (u *uploads) drop(id string) {
-	held := u.held[id]
-	if held == nil {
-		return
-	}
-
-	held.file.Close()
-	os.Remove(held.file.Name())
-	delete(u.held, id)
-}
-
-func (u *uploads) sweep() {
-	for id, held := range u.held {
-		if !held.taken && time.Since(held.lastSeen) > UploadKept {
-			u.drop(id)
-		}
-	}
-}
-
-func (u *uploads) close() {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-
-	for id := range u.held {
-		u.drop(id)
-	}
-}
-
-func (s *session) put(ctx context.Context, asked *Request) {
-	piece := Put{}
-	if err := decode(asked.Args, &piece); err != nil {
-		s.refuse(ctx, asked.Request, err)
-
-		return
-	}
-
-	size, closing, err := s.uploads.put(asked.Request, piece)
-
-	switch {
-	case err != nil && closing:
-		s.uploads.forget(asked.Request)
-		s.refuse(ctx, asked.Request, err)
-	case err != nil:
-		s.Log.Warn("an upload went wrong", "request", asked.Request, "error", err)
-	case closing:
-		s.reply(ctx, asked.Request, Size{Size: size})
-	}
-}
-
 func (s *session) extraction(ctx context.Context, asked *Request, deriving bool) {
 	wanted := Extraction{}
 	if err := decode(asked.Args, &wanted); err != nil {
@@ -254,7 +78,7 @@ func (s *session) extraction(ctx context.Context, asked *Request, deriving bool)
 	}
 	defer os.RemoveAll(work)
 
-	path, err := s.source(wanted, work)
+	path, err := s.source(ctx, wanted, work)
 	if err != nil {
 		s.refuse(ctx, asked.Request, err)
 
@@ -347,23 +171,9 @@ func (s *session) extracted(ctx context.Context, in extract.Input, deriving bool
 	return out, nil
 }
 
-func (s *session) source(wanted Extraction, work string) (string, error) {
+func (s *session) source(ctx context.Context, wanted Extraction, work string) (string, error) {
 	if wanted.Source.Upload != "" {
-		path, forget, err := s.uploads.take(wanted.Source.Upload)
-		if err != nil {
-			return "", err
-		}
-
-		kept := filepath.Join(work, "source"+safeExtension(wanted.Filename))
-		if err := os.Rename(path, kept); err != nil {
-			forget()
-
-			return "", err
-		}
-
-		forget()
-
-		return kept, nil
+		return s.fetch(ctx, wanted, work)
 	}
 
 	opened, err := s.Folders.Open(wanted.Source.Folder, wanted.Source.Path)
@@ -386,6 +196,87 @@ func (s *session) source(wanted Extraction, work string) (string, error) {
 	}
 
 	return kept, target.Close()
+}
+
+func (s *session) fetch(ctx context.Context, wanted Extraction, work string) (string, error) {
+	if !uploadName.MatchString(wanted.Source.Upload) {
+		return "", ErrNoUpload
+	}
+
+	if wanted.Size < 0 || wanted.Size > MostUpload {
+		return "", ErrTooLarge
+	}
+
+	target := strings.TrimSuffix(s.Xixo, "/") + "/agent/uploads/" + wanted.Source.Upload
+	kept := filepath.Join(work, "source"+safeExtension(wanted.Filename))
+	nonce := ""
+
+	for attempt := 0; ; attempt++ {
+		response, err := s.fetched(ctx, target, nonce)
+		if err != nil {
+			return "", err
+		}
+
+		offered := response.Header.Get("DPoP-Nonce")
+		if response.StatusCode == http.StatusUnauthorized && attempt == 0 && offered != "" && offered != nonce {
+			response.Body.Close()
+			nonce = offered
+
+			continue
+		}
+
+		err = keep(response, kept, wanted.Size)
+		response.Body.Close()
+
+		return kept, err
+	}
+}
+
+func (s *session) fetched(ctx context.Context, target, nonce string) (*http.Response, error) {
+	proof, err := s.DPoP.Proof(http.MethodGet, target, s.token.AccessToken, nonce)
+	if err != nil {
+		return nil, err
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	request.Header.Set("Authorization", "DPoP "+s.token.AccessToken)
+	request.Header.Set("DPoP", proof)
+
+	return uploadClient.Do(request)
+}
+
+func keep(response *http.Response, kept string, size int64) error {
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("xixo answered the upload with %s", response.Status)
+	}
+
+	if response.ContentLength >= 0 && response.ContentLength != size {
+		return ErrUploadSize
+	}
+
+	target, err := os.OpenFile(kept, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+
+	written, err := io.Copy(target, io.LimitReader(response.Body, size+1))
+	if closed := target.Close(); err == nil {
+		err = closed
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if written != size {
+		return ErrUploadSize
+	}
+
+	return nil
 }
 
 func safeExtension(name string) string {

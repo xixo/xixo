@@ -38,6 +38,7 @@ type Cable struct {
 	lock    sync.Mutex
 	proofs  []Proof
 	refused int
+	uploads map[string][]byte
 }
 
 func NewCable(t *testing.T, token, thumbprint string, handle func(*Socket)) *Cable {
@@ -62,14 +63,31 @@ func (c *Cable) Refused() int {
 	return c.refused
 }
 
+func (c *Cable) Stage(id string, body []byte) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if c.uploads == nil {
+		c.uploads = map[string][]byte{}
+	}
+
+	c.uploads[id] = body
+}
+
 func (c *Cable) serve(response http.ResponseWriter, request *http.Request) {
+	if strings.HasPrefix(request.URL.Path, "/agent/uploads/") {
+		c.upload(response, request)
+
+		return
+	}
+
 	if request.URL.Path != "/cable" {
 		http.NotFound(response, request)
 
 		return
 	}
 
-	proof, err := c.check(request)
+	proof, err := c.check(request, "/cable", true)
 	if err != nil {
 		c.lock.Lock()
 		c.refused++
@@ -104,12 +122,44 @@ func (c *Cable) serve(response http.ResponseWriter, request *http.Request) {
 	c.Handle(&Socket{T: c.T, ws: ws})
 }
 
-func (c *Cable) check(request *http.Request) (*Proof, error) {
+func (c *Cable) upload(response http.ResponseWriter, request *http.Request) {
+	if _, err := c.check(request, request.URL.Path, false); err != nil {
+		c.lock.Lock()
+		c.refused++
+		c.lock.Unlock()
+
+		if c.Nonce != "" {
+			response.Header().Set("DPoP-Nonce", c.Nonce)
+		}
+
+		http.Error(response, err.Error(), http.StatusUnauthorized)
+
+		return
+	}
+
+	id := strings.TrimPrefix(request.URL.Path, "/agent/uploads/")
+
+	c.lock.Lock()
+	body, ok := c.uploads[id]
+	delete(c.uploads, id)
+	c.lock.Unlock()
+
+	if !ok {
+		http.NotFound(response, request)
+
+		return
+	}
+
+	response.Header().Set("Content-Length", fmt.Sprint(len(body)))
+	response.Write(body)
+}
+
+func (c *Cable) check(request *http.Request, path string, origin bool) (*Proof, error) {
 	if got := request.Header.Get("Authorization"); got != "DPoP "+c.Token {
 		return nil, fmt.Errorf("authorization %q", got)
 	}
 
-	if got := request.Header.Get("Origin"); got != c.URL {
+	if got := request.Header.Get("Origin"); origin && got != c.URL {
 		return nil, fmt.Errorf("origin %q", got)
 	}
 
@@ -143,7 +193,7 @@ func (c *Cable) check(request *http.Request) (*Proof, error) {
 	switch {
 	case proof.Method != http.MethodGet:
 		return nil, fmt.Errorf("htm %q", proof.Method)
-	case proof.Target != c.URL+"/cable":
+	case proof.Target != c.URL+path:
 		return nil, fmt.Errorf("htu %q", proof.Target)
 	case proof.Hash != base64.RawURLEncoding.EncodeToString(sum[:]):
 		return nil, fmt.Errorf("ath %q", proof.Hash)

@@ -50,39 +50,23 @@ func TestAnUploadIsExtractedAndItsFilesComeBackFirst(t *testing.T) {
 
 		socket.Next()
 
-		half := len(body) / 2
-		socket.Ask(identifier, map[string]any{"request": uploadID, "verb": "put", "args": map[string]any{"seq": 0, "data": base64.StdEncoding.EncodeToString(body[:half])}})
-		socket.Ask(identifier, map[string]any{"request": uploadID, "verb": "put", "args": map[string]any{"seq": 1, "data": base64.StdEncoding.EncodeToString(body[half:])}})
-		socket.Ask(identifier, map[string]any{"request": uploadID, "verb": "put", "args": map[string]any{"done": true, "size": len(body)}})
-
-		socket.Ask(identifier, map[string]any{"request": badID, "verb": "put", "args": map[string]any{"seq": 0, "data": base64.StdEncoding.EncodeToString(body)}})
-		socket.Ask(identifier, map[string]any{"request": badID, "verb": "put", "args": map[string]any{"done": true, "size": len(body) + 1}})
-
-		got := gather(socket, 2)
-
-		if got.done[uploadID]["ok"] != true {
-			t.Fatalf("the upload was refused: %v", got.done[uploadID])
-		}
-
-		if size, _ := got.done[uploadID]["result"].(map[string]any)["size"].(json.Number).Int64(); size != int64(len(body)) {
-			t.Errorf("upload reply %v", got.done[uploadID])
-		}
-
-		if got.done[badID]["ok"] != false {
-			t.Errorf("a short upload was taken: %v", got.done[badID])
-		}
+		cable.Stage(uploadID, body)
+		cable.Stage(badID, body)
 
 		socket.Ask(identifier, map[string]any{"request": extractID, "verb": "extract", "args": map[string]any{
-			"source": map[string]any{"upload": uploadID}, "mime": "text/plain", "filename": "note.txt",
+			"source": map[string]any{"upload": uploadID}, "size": len(body), "mime": "text/plain", "filename": "note.txt",
+		}})
+		socket.Ask(identifier, map[string]any{"request": badID, "verb": "extract", "args": map[string]any{
+			"source": map[string]any{"upload": badID}, "size": len(body) + 1, "mime": "text/plain", "filename": "short.txt",
 		}})
 		socket.Ask(identifier, map[string]any{"request": folderID, "verb": "extract", "args": map[string]any{
 			"source": map[string]any{"folder": folder, "path": "dentist.ics"}, "mime": "text/calendar",
 		}})
 		socket.Ask(identifier, map[string]any{"request": fileID, "verb": "extract", "args": map[string]any{
-			"source": map[string]any{"upload": uploadID}, "mime": "text/plain", "filename": "again.txt",
+			"source": map[string]any{"upload": uploadID}, "size": len(body), "mime": "text/plain", "filename": "again.txt",
 		}})
 
-		got = gather(socket, 3)
+		got := gather(socket, 4)
 
 		steps := got.done[extractID]["result"].(map[string]any)["steps"].(map[string]any)
 		if text := steps["text"].(map[string]any)["result"]; text != string(body) {
@@ -100,6 +84,10 @@ func TestAnUploadIsExtractedAndItsFilesComeBackFirst(t *testing.T) {
 
 		if got.done[fileID]["ok"] != false {
 			t.Errorf("an upload was extracted twice: %v", got.done[fileID])
+		}
+
+		if got.done[badID]["ok"] != false {
+			t.Errorf("an upload short of its size was extracted: %v", got.done[badID])
 		}
 
 		socket.Close()
