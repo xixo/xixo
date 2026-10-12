@@ -21,15 +21,25 @@ quoted() {
 }
 
 folders=""
+
+shared() {
+  case "$1" in
+    /*) ;;
+    *) refuse "a shared folder must be an absolute path: $1" ;;
+  esac
+  folders="${folders:+$folders, }{\"path\": $(quoted "$1" "a shared folder"), \"writable\": $2}"
+}
+
 old_ifs=$IFS
 IFS=:
 for folder in ${XIXO_AGENT_FOLDERS:-}; do
   [ -n "$folder" ] || continue
-  case "$folder" in
-    /*) ;;
-    *) refuse "a shared folder must be an absolute path: $folder" ;;
-  esac
-  folders="${folders:+$folders, }$(quoted "$folder" "a shared folder")"
+  shared "$folder" false
+done
+for folder in ${XIXO_AGENT_WRITABLE:-}; do
+  [ -n "$folder" ] || continue
+  shared "$folder" true
+  mkdir -p "$folder" 2>/dev/null || true
 done
 IFS=$old_ifs
 

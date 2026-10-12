@@ -19,8 +19,8 @@ bytes, and uploads them to the destination.
   at `2024/beach.jpg` lands at `photos/2024/beach.jpg`.
 - In an `s3` resource, the bucket is the resource's key, and the path is the object key from the
   bucket's root. The resource's `prefix` does not apply.
-- In a `filesystem` resource, the path is relative to the resource's root, which sits inside the
-  tenant's directory under `XIXO_FILESYSTEM_ROOTS`.
+- In a `filesystem` resource, the path is relative to the shared folder, and the folder must be one
+  the machine's agent marks writable.
 - Only original bytes are copied. Previews, thumbnails, analyses, titles, tags, and edges stay in
   xixo.
 - Each copy is recorded as another reference on its feed, so the feed lists the destination among its

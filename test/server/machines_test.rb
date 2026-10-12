@@ -55,13 +55,13 @@ class MachinesTest < ActionDispatch::IntegrationTest
     body = graphql(Grant::SCOPES, <<~GQL)
       {
         resources { key machine { hostname connected folders } }
-        discovered(via: "#{agent.key}") { hostName services { type address } address(type: "agent-folder") }
+        discovered(via: "#{agent.key}") { hostName services { type address } address(type: "filesystem") }
       }
     GQL
 
     listed = body.dig("data", "resources").find { |held| held["key"] == "box" }
     assert_equal({ "hostname" => "box", "connected" => true, "folders" => [ "/srv/media" ] }, listed["machine"])
-    assert_equal [ { "hostName" => "media", "services" => [ { "type" => "agent-folder", "address" => "/srv/media" } ], "address" => nil } ],
+    assert_equal [ { "hostName" => "media", "services" => [ { "type" => "filesystem", "address" => "/srv/media" } ], "address" => nil } ],
                  body.dig("data", "discovered")
   end
 
@@ -69,7 +69,7 @@ class MachinesTest < ActionDispatch::IntegrationTest
     agent_on(@tenant, folders: [ "/srv/media" ])
     attach = <<~GQL
       mutation($settings: JSON) {
-        attachResource(input: { type: "agent-folder", key: "media", settings: $settings, via: "box" }) {
+        attachResource(input: { type: "filesystem", key: "media", settings: $settings, via: "box" }) {
           resource { key via }
         }
       }

@@ -55,3 +55,28 @@ func TestKeysAreMadeOnceAndKeptPrivate(t *testing.T) {
 		}
 	}
 }
+
+func TestFoldersArePathsOrWritableObjects(t *testing.T) {
+	cases := map[string]bool{
+		`{"xixo":"https://x.example","issuer":"https://id.example","folders":["/srv/media",{"path":"/data/files","writable":true}]}`: true,
+		`{"xixo":"https://x.example","issuer":"https://id.example","folders":[{"path":"/data/files"}]}`:                              true,
+		`{"xixo":"https://x.example","issuer":"https://id.example","folders":[{"path":"/data/files","writeable":true}]}`:             false,
+		`{"xixo":"https://x.example","issuer":"https://id.example","folders":[{"path":"/data/../files","writable":true}]}`:           false,
+		`{"xixo":"https://x.example","issuer":"https://id.example","folders":["/srv",{"path":"/srv","writable":true}]}`:              false,
+		`{"xixo":"https://x.example","issuer":"https://id.example","folders":[7]}`:                                                   false,
+	}
+
+	for body, fine := range cases {
+		path := filepath.Join(t.TempDir(), "config.json")
+		os.WriteFile(path, []byte(body), 0o600)
+
+		held, err := LoadConfig(path)
+		if (err == nil) != fine {
+			t.Errorf("%s gave %v", body, err)
+		}
+
+		if fine && len(held.Folders) > 1 && (held.Folders[0].Writable || !held.Folders[1].Writable) {
+			t.Errorf("%s read as %+v", body, held.Folders)
+		}
+	}
+}

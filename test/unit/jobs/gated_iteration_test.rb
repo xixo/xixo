@@ -16,8 +16,6 @@ class GatedIterationTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
 
-    ENV["XIXO_FILESYSTEM_ROOTS"] = Dir.tmpdir
-
     @tenant = Tenant.create!(subdomain: "gated-#{SecureRandom.hex(4)}", name: "Gated")
 
     @root = Pathname.new(Dir.tmpdir) + @tenant.subdomain + "gated"
@@ -25,14 +23,11 @@ class GatedIterationTest < ActiveSupport::TestCase
     6.times { |index| (@root + "file-#{index}.txt").write("contents #{index}") }
 
     Tenant.switch(@tenant) do
-      @resource = Resource::Filesystem.create!(
-        key: "gated-#{SecureRandom.hex(4)}", details: { "root" => @root.to_s }
-      )
+      @resource = disk_folder(@root, key: "gated-#{SecureRandom.hex(4)}")
     end
   end
 
   teardown do
-    ENV.delete("XIXO_FILESYSTEM_ROOTS")
     FileUtils.remove_entry(@root.dirname) if @root.dirname.exist?
   end
 
@@ -97,9 +92,7 @@ class GatedIterationTest < ActiveSupport::TestCase
     other = nil
 
     Tenant.switch(@tenant) do
-      other = Resource::Filesystem.create!(
-        key: "open-#{SecureRandom.hex(4)}", details: { "root" => @root.to_s }
-      )
+      other = disk_folder(@root, key: "open-#{SecureRandom.hex(4)}")
       Gate.set!(key: "sync", reference: @resource, enabled: false)
     end
 

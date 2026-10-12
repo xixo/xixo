@@ -3,8 +3,9 @@ shipped: &shipped
     type: filesystem
     name: Files
     default_storage: true
+    via: local
     settings:
-      root: "."
+      folder: "/data/files/%{tenant}"
 
 development: *shipped
 

@@ -38,7 +38,7 @@ The fields for every type, with their help text, are listed in the
 | Card | Type | Asks for |
 | --- | --- | --- |
 | **Object storage** | `s3` | **Endpoint**, **Access key**, **Secret key**, and optionally **Region**, **Prefix**, and **Address the bucket by path** |
-| **A directory** | `filesystem` | **Directory**, relative to this tenant's own directory |
+| **A folder** | `filesystem` | **Folder**, one a machine's agent shares, picked under **Reached through** |
 | **WebDAV** | `webdav` | **Collection URL**, and a username and password if the server wants them |
 | **Web search** | `search` | **Provider** (`exa`, `brave`, or `tavily`) and **API key** |
 | **Fetch a page** | `curl` | Nothing |
@@ -55,8 +55,8 @@ The fields for every type, with their help text, are listed in the
 | **Slack** | `slack` | **Bot token** |
 | **A git repository** | `git` | **Repository URL**, and an **Access token** for a private repository |
 
-**A directory** appears only when the server was started with `XIXO_FILESYSTEM_ROOTS`. A model
-backend's **Agent model** must call tools. Its **Embedding model** must produce vectors of the width
+**A folder** names one of the folders a machine's agent shares, the agent beside the server
+included. See [add a machine](/guides/add-a-machine/). A model backend's **Agent model** must call tools. Its **Embedding model** must produce vectors of the width
 the search index was built for, `XIXO_EMBEDDING_DIMENSIONS`.
 
 To give [questions](/guides/ask/) the web, attach **Web search** to search it, **Fetch a page** to read

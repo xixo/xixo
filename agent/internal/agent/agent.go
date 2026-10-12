@@ -229,6 +229,7 @@ func (s *session) serve(ctx context.Context, token *masks.Token) (bool, error) {
 
 	hello := s.Machine.Hello(ctx, s.Version, s.Folders.Names())
 	hello.Extractors = extract.Available()
+	hello.Writable = s.Folders.Writable()
 
 	if err := s.conn.Perform(ctx, "hello", hello); err != nil {
 		return false, err
@@ -374,6 +375,8 @@ func (s *session) answer(ctx context.Context, asked *Request) {
 		s.extraction(ctx, asked, false)
 	case verbDerive:
 		s.extraction(ctx, asked, true)
+	case verbWrite:
+		s.write(ctx, asked)
 	default:
 		s.refuse(ctx, asked.Request, fmt.Errorf("the agent does not know the verb %q", asked.Verb))
 	}

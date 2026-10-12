@@ -5,7 +5,7 @@ class JoiningTest < ActionDispatch::IntegrationTest
 
   ATTACH = <<~GQL.freeze
     mutation($key: String!, $settings: JSON) {
-      attachResource(input: { type: "filesystem", key: $key, settings: $settings }) {
+      attachResource(input: { type: "filesystem", key: $key, settings: $settings, via: "disk" }) {
         resource { id key }
         checkError
       }
@@ -32,10 +32,10 @@ class JoiningTest < ActionDispatch::IntegrationTest
 
   setup do
     @permitted = Pathname.new(Dir.mktmpdir("permitted"))
-    ENV["XIXO_FILESYSTEM_ROOTS"] = @permitted.to_s
 
     @tenant = Tenant.create!(subdomain: "join-#{SecureRandom.hex(4)}", name: "Joining")
-    @folder = (@permitted + @tenant.subdomain + "shared").tap(&:mkpath)
+    @folder = (@permitted + "shared").tap(&:mkpath)
+    Tenant.switch(@tenant) { disk_agent(folders: [ @folder ]) }
 
     write("report.txt", "the quarterly report", at: 3.days.ago)
     write("notes.txt", "notes from the meeting", at: 3.days.ago)
@@ -47,7 +47,6 @@ class JoiningTest < ActionDispatch::IntegrationTest
   end
 
   teardown do
-    ENV.delete("XIXO_FILESYSTEM_ROOTS")
     FileUtils.remove_entry(@permitted) if @permitted&.exist?
   end
 
@@ -109,7 +108,7 @@ class JoiningTest < ActionDispatch::IntegrationTest
   private
 
     def attach(key)
-      held = execute(ATTACH, variables: { key: key, settings: { "root" => "shared" } })
+      held = execute(ATTACH, variables: { key: key, settings: { "folder" => @folder.to_s } })
 
       assert_nil held["errors"]
       assert_nil held.dig("data", "attachResource", "checkError")

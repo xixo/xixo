@@ -8,15 +8,11 @@ class UploadsTest < ActionDispatch::IntegrationTest
     @other = Tenant.create!(subdomain: "up-#{SecureRandom.hex(4)}", name: "Elsewhere")
 
     @allowed = Pathname.new(Dir.mktmpdir("permitted"))
-    @root = @allowed + @tenant.subdomain + "drop"
+    @root = @allowed + "drop"
     @root.mkpath
 
-    ENV["XIXO_FILESYSTEM_ROOTS"] = @allowed.to_s
-
     Tenant.switch(@tenant) do
-      @storage = Resource::Filesystem.create!(
-        key: "drop-#{SecureRandom.hex(4)}", name: "Drop", details: { "root" => @root.to_s }
-      )
+      @storage = disk_folder(@root, key: "drop-#{SecureRandom.hex(4)}", name: "Drop")
       @storage.make_default_storage!
     end
 
@@ -25,7 +21,6 @@ class UploadsTest < ActionDispatch::IntegrationTest
   end
 
   teardown do
-    ENV.delete("XIXO_FILESYSTEM_ROOTS")
     FileUtils.remove_entry(@allowed) if @allowed.exist?
   end
 
@@ -212,11 +207,10 @@ class UploadsTest < ActionDispatch::IntegrationTest
 
   test "a file on the uploader's own personal resource is not a twin of a shared upload" do
     Tenant.switch(@tenant) do
-      own = @allowed + @tenant.subdomain + "own"
+      own = @allowed + "own"
       own.mkpath
       feed = Feed.create!(type: Feed::FILE, key: "mine.txt", title: "mine.txt")
-      personal = Resource::Filesystem.create!(key: "own-#{SecureRandom.hex(3)}", name: "Own",
-                                              details: { "root" => own.to_s }, owner_subject: "test")
+      personal = disk_folder(own, key: "own-#{SecureRandom.hex(3)}", name: "Own", owner_subject: "test")
 
       Reference.create!(feed: feed, resource: personal, locator_key: "mine.txt", role: Reference::ORIGINAL,
                         digest: Digest::SHA256.hexdigest("my own bytes"))

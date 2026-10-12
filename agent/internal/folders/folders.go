@@ -1,6 +1,10 @@
 package folders
 
 import (
+	"bytes"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -17,7 +21,7 @@ import (
 
 var Skipped = []string{
 	".git", ".hg", ".svn", "node_modules", "__pycache__", ".venv", ".tox", ".Trash", ".Trashes", ".Spotlight-V100",
-	".fseventsd", ".DS_Store", "._*", "Thumbs.db", "desktop.ini",
+	".fseventsd", ".DS_Store", "._*", "Thumbs.db", "desktop.ini", ".xixo-*.part",
 }
 
 const MostListed = 500
@@ -29,13 +33,54 @@ var (
 	ErrNotFile   = errors.New("that path is not a regular file")
 	ErrMoved     = errors.New("that folder now leads somewhere else, so the agent stopped sharing it until it restarts")
 	ErrUntrusted = errors.New("that folder is reached through a link someone else owns")
+	ErrReadOnly  = errors.New("that folder is shared read-only")
+	ErrExists    = errors.New("a file is already at that path")
+	ErrShort     = errors.New("the bytes written do not match the size asked for")
 )
 
+type Shared struct {
+	Path     string `json:"path"`
+	Writable bool   `json:"writable"`
+}
+
+func (s *Shared) UnmarshalJSON(raw []byte) error {
+	var path string
+	if err := json.Unmarshal(raw, &path); err == nil {
+		*s = Shared{Path: path}
+
+		return nil
+	}
+
+	type plain Shared
+
+	held := plain{}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(&held); err != nil {
+		return fmt.Errorf(`a folder is a path or {"path": ..., "writable": true}: %w`, err)
+	}
+
+	*s = Shared(held)
+
+	return nil
+}
+
+func ReadOnly(paths ...string) []Shared {
+	held := make([]Shared, 0, len(paths))
+	for _, path := range paths {
+		held = append(held, Shared{Path: path})
+	}
+
+	return held
+}
+
 type Folders struct {
-	held   map[string]string
-	name   []string
-	lock   sync.Mutex
-	pinned map[string]string
+	held     map[string]string
+	writable map[string]bool
+	name     []string
+	lock     sync.Mutex
+	pinned   map[string]string
 }
 
 type Entry struct {
@@ -58,11 +103,15 @@ type Query struct {
 	Skip   []string `json:"skip,omitempty"`
 }
 
-func New(configured []string) *Folders {
-	held := &Folders{held: map[string]string{}, pinned: map[string]string{}}
+func New(configured []Shared) *Folders {
+	held := &Folders{held: map[string]string{}, writable: map[string]bool{}, pinned: map[string]string{}}
 
 	for _, folder := range configured {
-		cleaned := filepath.Clean(folder)
+		cleaned := filepath.Clean(folder.Path)
+		if folder.Writable {
+			held.writable[cleaned] = true
+		}
+
 		if _, seen := held.held[cleaned]; seen {
 			continue
 		}
@@ -78,6 +127,27 @@ func New(configured []string) *Folders {
 
 func (f *Folders) Names() []string {
 	return slices.Clone(f.name)
+}
+
+func (f *Folders) Shares(folder string) bool {
+	_, ok := f.held[filepath.Clean(folder)]
+
+	return ok && folder != ""
+}
+
+func (f *Folders) Writes(folder string) bool {
+	return f.Shares(folder) && f.writable[filepath.Clean(folder)]
+}
+
+func (f *Folders) Writable() []string {
+	held := []string{}
+	for _, name := range f.name {
+		if f.writable[name] {
+			held = append(held, name)
+		}
+	}
+
+	return held
 }
 
 func (f *Folders) root(folder string) (*os.Root, error) {
@@ -380,6 +450,169 @@ func straight(root *os.Root, relative string) error {
 		if info.Mode()&fs.ModeSymlink != 0 {
 			return fmt.Errorf("%w: %s is a link", ErrOutside, walked)
 		}
+	}
+
+	return nil
+}
+
+func (f *Folders) Write(folder, name string, body io.Reader, size int64, replace bool) (*Entry, error) {
+	relative, err := confined(name)
+	if err != nil {
+		return nil, err
+	}
+
+	for part := range strings.SplitSeq(relative, "/") {
+		if skipped(part, Skipped) {
+			return nil, ErrSkipped
+		}
+	}
+
+	if f.Shares(folder) && !f.Writes(folder) {
+		return nil, ErrReadOnly
+	}
+
+	root, err := f.root(folder)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+
+	if err := made(root, path.Dir(relative)); err != nil {
+		return nil, err
+	}
+
+	if err := writable(root, relative, replace); err != nil {
+		return nil, err
+	}
+
+	temporary, err := spooled(root, path.Dir(relative), body, size)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Remove(temporary)
+
+	if err := placed(root, temporary, relative, replace); err != nil {
+		return nil, err
+	}
+
+	if held, err := root.Open(path.Dir(relative)); err == nil {
+		held.Sync()
+		held.Close()
+	}
+
+	info, err := root.Lstat(relative)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Entry{Path: relative, Size: info.Size(), ModifiedAt: info.ModTime().UTC()}, nil
+}
+
+func made(root *os.Root, dir string) error {
+	if dir == "." {
+		return nil
+	}
+
+	walked := ""
+
+	for part := range strings.SplitSeq(dir, "/") {
+		if walked == "" {
+			walked = part
+		} else {
+			walked += "/" + part
+		}
+
+		info, err := root.Lstat(walked)
+
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			if err := root.Mkdir(walked, 0o755); err != nil && !errors.Is(err, fs.ErrExist) {
+				return err
+			}
+
+			info, err = root.Lstat(walked)
+			if err != nil {
+				return err
+			}
+		case err != nil:
+			return err
+		}
+
+		if info.Mode()&fs.ModeSymlink != 0 {
+			return fmt.Errorf("%w: %s is a link", ErrOutside, walked)
+		}
+
+		if !info.IsDir() {
+			return fmt.Errorf("%w: %s is not a folder", ErrOutside, walked)
+		}
+	}
+
+	return nil
+}
+
+func writable(root *os.Root, relative string, replace bool) error {
+	info, err := root.Lstat(relative)
+
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return nil
+	case err != nil:
+		return err
+	case info.Mode()&fs.ModeSymlink != 0:
+		return fmt.Errorf("%w: %s is a link", ErrOutside, relative)
+	case !info.Mode().IsRegular():
+		return ErrNotFile
+	case !replace:
+		return ErrExists
+	}
+
+	return nil
+}
+
+func spooled(root *os.Root, dir string, body io.Reader, size int64) (string, error) {
+	random := make([]byte, 8)
+	rand.Read(random)
+
+	temporary := path.Join(dir, ".xixo-"+hex.EncodeToString(random)+".part")
+
+	opened, err := root.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL|noFollow, 0o644)
+	if err != nil {
+		return "", err
+	}
+
+	written, err := io.Copy(opened, io.LimitReader(body, size+1))
+	if err == nil && written != size {
+		err = ErrShort
+	}
+
+	if err == nil {
+		err = opened.Sync()
+	}
+
+	if closed := opened.Close(); err == nil {
+		err = closed
+	}
+
+	if err != nil {
+		root.Remove(temporary)
+
+		return "", err
+	}
+
+	return temporary, nil
+}
+
+func placed(root *os.Root, temporary, relative string, replace bool) error {
+	if replace {
+		return root.Rename(temporary, relative)
+	}
+
+	if err := root.Link(temporary, relative); err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			return ErrExists
+		}
+
+		return err
 	}
 
 	return nil

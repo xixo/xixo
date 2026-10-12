@@ -1,97 +1,121 @@
-require "pathname"
-
 class Resource
   class Filesystem < Resource
-    class Escaped < Resource::Failed; end
-
     PAGE = 500
-    SKIPPED = %w[
-      .git .hg .svn node_modules __pycache__ .venv .tox .Trash .Trashes .Spotlight-V100 .fseventsd
-      .DS_Store ._* Thumbs.db desktop.ini
-    ].freeze
+    LOOKED_AT = 10
+    WRITTEN_WITHIN = 30.seconds
+    WRITTEN_PER_MEGABYTE = 1.second
+    MOST_WRITTEN_WITHIN = 1.hour
+    TENANT = "%{tenant}".freeze
 
     serves :storage
     accepts "*/*"
 
-    def self.attaching
-      return nil if permitted_roots.empty?
+    validate :reached_through_an_agent
+    validate :folder_is_shared, if: -> { new_record? || will_save_change_to_details? || will_save_change_to_via_id? }
 
-      {
-        label: "A directory",
-        blurb: "A directory on the machine running xixo, inside this tenant's own directory under " \
-               "a root the server was started with. A relative path is taken from there.",
-        names: "A name for it",
-        fields: [
-          field("root", "Directory", required: true, placeholder: "photos"),
-          field("prefix", "Prefix", help: "Left off, the whole directory is walked."),
-          field("skip", "Also skip", kind: "list", placeholder: "*.tmp",
-                help: "A name or a pattern such as build or *.tmp on each line. Folders and files with a " \
-                      "matching name are never walked. #{SKIPPED.join(', ')} are always skipped.")
-        ]
-      }
-    end
+    class << self
+      def attaching
+        {
+          label: "A folder",
+          blurb: "A folder on a machine running the xixo agent, the server's own included. The agent reads " \
+                 "nothing outside the folders its config shares, and writes only to the ones it marks writable.",
+          names: "A name for the folder",
+          fields: [
+            field("folder", "Folder", required: true, placeholder: "/data/files",
+                  help: "One of the folders the machine's agent shares."),
+            field("prefix", "Prefix", help: "Left off, the whole folder is walked."),
+            field("skip", "Also skip", kind: "list", placeholder: "*.tmp",
+                  help: "A name or a pattern such as build or *.tmp on each line. Folders and files with a " \
+                        "matching name are never walked.")
+          ]
+        }
+      end
 
-    def self.command_schema
-      {
-        list: { prefix: "string?", limit: "integer?" },
-        get: { key: "string" },
-        keep: { key: "string" },
-        put: { key: "string", body: "bytes" }
-      }
-    end
+      def command_schema
+        {
+          list: { prefix: "string?", limit: "integer?" },
+          get: { key: "string" },
+          keep: { key: "string" },
+          put: { key: "string", body: "bytes" }
+        }
+      end
 
-    def self.permitted_roots
-      ENV.fetch("XIXO_FILESYSTEM_ROOTS", "").split(":").filter_map do |entry|
-        Pathname.new(entry.strip).expand_path if entry.strip.present?
+      def routable?
+        true
+      end
+
+      def addressed_by
+        "folder"
+      end
+
+      def address_on(host, port: nil)
+        host
+      end
+
+      def declared_folder(folder, tenant)
+        folder.to_s.gsub(TENANT, tenant.subdomain)
       end
     end
 
-    def self.spaces_for(tenant)
-      return [] if tenant.nil?
-
-      permitted_roots.map { |permitted| permitted + tenant.subdomain }
+    def agent
+      via if via.is_a?(XixoAgent)
     end
 
-    def spaces
-      self.class.spaces_for(tenant)
+    def folder
+      details.to_h["folder"].to_s
     end
 
-    def root
-      @root ||= begin
-        given = Pathname.new(details.fetch("root").to_s)
-
-        if given.absolute? || spaces.empty?
-          given.expand_path
-        else
-          (spaces.first + given).cleanpath
-        end
-      end
+    def writable?
+      agent.present? && agent.writable_folders.include?(folder)
     end
 
-    def check!
-      permitted_root!
-      raise Resource::Failed, "#{key}: #{root} is not a readable directory" unless root.directory? && root.readable?
+    def served
+      return super unless agent&.heard_from? && !writable?
+
+      super.merge("accepts" => [])
+    end
+
+    def target_host
+      agent && (agent.machine["hostname"].presence || agent.key)
+    end
+
+    def answers!
+      shared!
+      raise Resource::Failed, "#{key}: the agent on #{agent.key} is not connected" unless agent.connected?
 
       true
     end
 
-    def each_page(cursor: nil, prefix: nil, walk: nil)
-      permitted_root!
-      @walk = walk
+    def probes?
+      true
+    end
 
-      walk(prefix, after: cursor.presence).each_slice(PAGE) do |batch|
-        yield batch.map { |path| entry(path) }, batch.last
+    def check!
+      answers!
+      agent.ask("list", { "folder" => folder, "limit" => 1 })
+      true
+    end
+
+    def each_page(cursor: nil, prefix: nil, walk: nil)
+      shared!
+      wanted = within_prefix(prefix, bounded: true)
+      after = cursor.presence
+
+      loop do
+        entries, more = listed(prefix: wanted, cursor: after, limit: PAGE)
+        break if entries.empty?
+
+        after = entries.last.path
+        yield entries, after
+        break unless more
       end
     end
 
     def object_for(name)
       path = scoped(name)
+      found, = listed(prefix: path, limit: LOOKED_AT)
 
-      resolved = confine(path)
-
-      raise Resource::Failed, "#{key}: no file at #{path}" unless resolved == resolve(root) + path && resolved.file?
-
-      entry(path)
+      found.find { |entry| entry.path == path } || raise(Resource::Failed, "#{key}: no file at #{path}")
     end
 
     def locator_for(entry)
@@ -110,41 +134,38 @@ class Resource
     end
 
     def download(locator)
-      permitted_root!
-      File.open(confine(locator.fetch("path")), "rb")
-    rescue Errno::ENOENT
-      raise Resource::Failed, "#{key}: nothing at #{locator['path']}"
-    rescue SystemCallError => e
-      raise Resource::Failed, "#{key}: #{e.message}"
+      shared!
+      agent.read(folder, relative!(locator.to_h["path"]))
+    end
+
+    def digest_of(locator)
+      shared!
+      Fingerprint.reported(agent.ask("hash", { "folder" => folder, "path" => relative!(locator.to_h["path"]) }))
     end
 
     def upload(name, body)
-      permitted_root!
-      target = confine_for_write(name)
-      target.dirname.mkpath
-      confine_for_write(name)
+      shared!
+      raise Resource::Refused, "#{key}: the agent on #{agent.key} shares #{folder} read-only" unless writable?
 
-      File.open(target, File::WRONLY | File::CREAT | File::TRUNC | File::NOFOLLOW, binmode: true) do |file|
-        body.respond_to?(:read) ? IO.copy_stream(body, file) : file.write(body.to_s)
+      path = relative!(name.to_s)
+      staged = agent.upload(body.respond_to?(:read) ? body : StringIO.new(body.to_s))
+
+      begin
+        written = agent.ask("write", staged.merge("folder" => folder, "path" => path, "replace" => ours?(path)),
+                            within: writing_within(staged["size"]))
+      ensure
+        agent.forget(staged["upload"])
       end
 
-      { "path" => relative(target) }
-    rescue Errno::ELOOP
-      escaped!(name)
-    rescue SystemCallError => e
-      raise Resource::Failed, "#{key}: #{e.message}"
+      locator_for(entry_from(written))
     end
 
     def command_list(prefix: nil, limit: nil)
-      permitted_root!
-      count = (limit || 1000).to_i.clamp(1, 5000)
+      shared!
+      count = (limit || 1000).to_i.clamp(1, PAGE)
+      entries, = listed(prefix: within_prefix(prefix, bounded: true), limit: count)
 
-      {
-        "objects" => walk(prefix).first(count).map do |path|
-          found = entry(path)
-          { "key" => found.path, "size" => found.size, "last_modified" => found.modified_at }
-        end
-      }
+      { "objects" => entries.map { |entry| { "key" => entry.path, "size" => entry.size, "last_modified" => entry.modified_at } } }
     end
 
     def command_get(key:)
@@ -152,7 +173,7 @@ class Resource
 
       glimpse(key, file.read(GLIMPSE_BYTES), file.size)
     ensure
-      file&.close
+      file&.close!
     end
 
     def command_keep(key:) = kept(key)
@@ -161,130 +182,78 @@ class Resource
       upload(scoped(key), body)
     end
 
+    Entry = Data.define(:path, :size, :modified_at)
+
     private
 
-      Entry = Data.define(:path, :size, :modified_at)
+      def listed(prefix: nil, cursor: nil, limit: PAGE)
+        asked = { "folder" => folder, "limit" => limit, "prefix" => prefix.presence, "cursor" => cursor,
+                  "skip" => Array(details.to_h["skip"]).presence }.compact
+        held = agent.ask("list", asked).to_h
+
+        entries = Array(held["entries"]).first(limit).map { |entry| entry_from(entry) }
+        [ entries, held["cursor"].present? ]
+      end
+
+      def entry_from(said)
+        raise Resource::Failed, "#{key}: the agent listed something that is not a file" unless said.is_a?(Hash)
+
+        size = said["size"]
+        raise Resource::Failed, "#{key}: the agent listed a file without a size" unless size.is_a?(Integer) && size >= 0
+
+        Entry.new(path: relative!(said["path"]), size: size, modified_at: Time.iso8601(said["modified_at"].to_s))
+      rescue ArgumentError
+        raise Resource::Failed, "#{key}: the agent listed a file without a time"
+      end
+
+      def ours?(path)
+        Reference.exists?(resource_id: id, locator_key: path)
+      end
+
+      def writing_within(size)
+        megabytes = size.to_i.fdiv(1.megabyte).ceil
+
+        [ WRITTEN_WITHIN + (WRITTEN_PER_MEGABYTE * megabytes), MOST_WRITTEN_WITHIN ].min
+      end
 
       def scoped(name)
-        permitted_root!
-        within_prefix(lexical(name).relative_path_from(root.cleanpath).to_s)
+        within_prefix(relative!(name), bounded: true)
       end
 
-      def entry(path)
-        stat = confine(path).lstat
+      def relative!(path)
+        held = path.to_s
+        parts = held.split("/")
 
-        Entry.new(path: path, size: stat.size, modified_at: stat.mtime)
-      end
-
-      def permitted_root!
-        if self.class.permitted_roots.empty?
-          raise Resource::Failed,
-                "#{key}: no filesystem roots are permitted — set XIXO_FILESYSTEM_ROOTS"
+        if held.empty? || held.bytesize > XixoAgent::MOST_PATH || held.start_with?("/") || held.include?("\0") ||
+           !held.valid_encoding? || parts.any? { |part| part.empty? || part.in?(%w[. ..]) }
+          raise Resource::Failed, "#{key}: #{held.first(80).inspect} is not a path inside the folder"
         end
 
-        space = spaces.find { |held| under?(root, held) }
-        raise Escaped, "#{key}: #{root} is outside every permitted filesystem root" if space.nil?
-
-        space.mkpath
-        return true if !root.exist? || under?(resolve(root), resolve(space))
-
-        raise Escaped, "#{key}: #{root} is outside every permitted filesystem root"
+        held
       end
 
-      def confine(path)
-        resolved = resolve(lexical(path))
-        escaped!(path) unless under?(resolved, resolve(root))
+      def shared!
+        raise Resource::Unusable, "#{key} is reached through no agent" if agent.nil?
+        return if !agent.heard_from? || agent.offered_folders.include?(folder)
 
-        resolved
+        raise Resource::Unusable, "#{key}: the agent on #{agent.key} no longer shares #{folder}"
       end
 
-      def confine_for_write(path)
-        candidate = lexical(path)
-        anchor = resolve(nearest_existing(candidate.dirname))
-        escaped!(path) unless under?(anchor, resolve(root))
+      def reached_through_an_agent
+        return if via.is_a?(XixoAgent)
 
-        candidate
+        errors.add(:via, "must be a machine with the xixo agent, which is the only way to reach its folders")
       end
 
-      def lexical(path)
-        candidate = (root + path.to_s).cleanpath
-        escaped!(path) unless under?(candidate, root.cleanpath)
+      def folder_is_shared
+        return unless via.is_a?(XixoAgent)
 
-        candidate
-      end
+        errors.add(:folder, "must be an absolute path") unless folder.start_with?("/")
+        return if !via.heard_from? || via.offered_folders.include?(folder)
 
-      def nearest_existing(path)
-        path = path.parent until path.exist? || path.root?
-        path
-      end
-
-      def escaped!(path)
-        raise Escaped, "#{key}: #{path} resolves outside #{root}"
-      end
-
-      def resolve(path)
-        Pathname.new(File.realpath(path))
-      rescue Errno::ENOENT, Errno::ELOOP, SystemCallError
-        raise Resource::Failed, "#{key}: cannot resolve #{relative(path)}"
-      end
-
-      def under?(path, ancestor)
-        path == ancestor || path.to_s.start_with?("#{ancestor}#{File::SEPARATOR}")
-      end
-
-      def relative(path)
-        Pathname.new(path).relative_path_from(root).to_s
-      rescue ArgumentError
-        path.to_s
-      end
-
-      def after?(path, cursor)
-        (path.to_s.split("/") <=> cursor.to_s.split("/")).to_i.positive?
-      end
-
-
-      def walk(prefix = nil, after: nil)
-        wanted = within_prefix(prefix)
-
-        Enumerator.new do |yielder|
-          descend(root, "", yielder, wanted: wanted, after: after)
-        end.lazy
-      end
-
-      def descend(directory, prefix, yielder, wanted:, after:)
-        directory.children.sort_by(&:basename).each do |child|
-          next if child.symlink? || skipped?(child.basename.to_s)
-
-          name = prefix.empty? ? child.basename.to_s : File.join(prefix, child.basename.to_s)
-
-          if child.directory?
-            next unless toward?(name, wanted) && !before?(name, after)
-
-            descend(child, name, yielder, wanted: wanted, after: after)
-          elsif child.file?
-            yielder.yield(name) if (wanted.nil? || name.start_with?(wanted)) && (after.nil? || after?(name, after))
-          end
-        end
-      rescue SystemCallError
-        @walk&.partial!
-        nil
-      end
-
-      def skipped?(basename)
-        (SKIPPED + Array(details.to_h["skip"])).any? do |pattern|
-          File.fnmatch(pattern.to_s.strip, basename, File::FNM_DOTMATCH) if pattern.present?
-        end
-      end
-
-      def toward?(directory, wanted)
-        wanted.nil? || wanted.start_with?(directory) || directory.start_with?(wanted)
-      end
-
-      def before?(directory, cursor)
-        return false if cursor.nil?
-
-        parts = directory.split("/")
-        (parts <=> cursor.split("/").first(parts.size)).to_i.negative?
+        offered = via.offered_folders
+        errors.add(:folder, "#{folder} is not one the agent on #{via.key} shares. " \
+                            "#{offered.any? ? "It shares #{offered.to_sentence}" : 'It shares nothing yet'}")
       end
   end
 end

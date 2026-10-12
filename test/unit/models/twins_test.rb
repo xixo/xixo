@@ -237,15 +237,14 @@ class TwinsTest < ActiveSupport::TestCase
     end
     def synced_twice
       allowed = Pathname.new(Dir.mktmpdir("permitted"))
-      left = (allowed + @tenant.subdomain + "left").tap(&:mkpath)
-      right = (allowed + @tenant.subdomain + "right").tap(&:mkpath)
+      left = (allowed + "left").tap(&:mkpath)
+      right = (allowed + "right").tap(&:mkpath)
       (left + "report.txt").write("the same bytes")
       (right + "report.txt").write("the same bytes")
-      ENV["XIXO_FILESYSTEM_ROOTS"] = allowed.to_s
 
       Tenant.switch(@tenant) do
-        @one = Resource::Filesystem.create!(key: "left", name: "Left", details: { "root" => left.to_s })
-        @two = Resource::Filesystem.create!(key: "right", name: "Right", details: { "root" => right.to_s })
+        @one = disk_folder(left, key: "left", name: "Left")
+        @two = disk_folder(right, key: "right", name: "Right")
       end
 
       sync_and_analyze(@one)
@@ -255,7 +254,6 @@ class TwinsTest < ActiveSupport::TestCase
 
       yield left, right
     ensure
-      ENV.delete("XIXO_FILESYSTEM_ROOTS")
       FileUtils.remove_entry(allowed) if allowed&.exist?
     end
 

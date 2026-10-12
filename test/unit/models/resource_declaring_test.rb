@@ -3,14 +3,6 @@ require "test_helper"
 class ResourceDeclaringTest < ActiveSupport::TestCase
   setup do
     @tenant = Tenant.create!(subdomain: "decl-#{SecureRandom.hex(4)}", name: "Declared")
-    @root = Pathname.new(Dir.mktmpdir)
-
-    ENV["XIXO_FILESYSTEM_ROOTS"] = @root.to_s
-  end
-
-  teardown do
-    ENV.delete("XIXO_FILESYSTEM_ROOTS")
-    FileUtils.remove_entry(@root) if @root.exist?
   end
 
   def declaring(**overrides)
@@ -19,7 +11,8 @@ class ResourceDeclaringTest < ActiveSupport::TestCase
         "type" => "filesystem",
         "name" => "Files",
         "default_storage" => true,
-        "settings" => { "root" => @root.to_s }
+        "via" => "local",
+        "settings" => { "folder" => "/data/files/%{tenant}" }
       }.merge(overrides)
     }
   end
@@ -34,7 +27,8 @@ class ResourceDeclaringTest < ActiveSupport::TestCase
 
       assert_equal "filesystem", files.class.sti_name
       assert_equal "Files", files.name
-      assert_equal @root.to_s, files.details["root"]
+      assert_equal "/data/files/#{@tenant.subdomain}", files.details["folder"]
+      assert_equal Resource::XixoAgent.local, files.via
       assert files.default_storage?
     end
   end
@@ -78,11 +72,11 @@ class ResourceDeclaringTest < ActiveSupport::TestCase
 
   test "only what the type declares is read, so a stray key never lands" do
     Tenant.switch(@tenant) do
-      Resource.declare!(declaring("settings" => { "root" => @root.to_s, "sudo" => "yes" }))
+      Resource.declare!(declaring("settings" => { "folder" => "/data/files", "sudo" => "yes" }))
 
       files = Resource.find_by!(key: "files")
 
-      assert_equal [ "root" ], files.details.keys
+      assert_equal [ "folder" ], files.details.keys
       assert_empty files.credentials
     end
   end
@@ -111,7 +105,10 @@ class ResourceDeclaringTest < ActiveSupport::TestCase
     [ @tenant, other ].each { |held| Tenant.switch(held) { Resource.declare!(declaring) } }
 
     [ @tenant, other ].each do |held|
-      Tenant.switch(held) { assert_equal [ "files" ], Resource.pluck(:key) }
+      Tenant.switch(held) do
+        assert_equal %w[files local], Resource.order(:key).pluck(:key)
+        assert_equal "/data/files/#{held.subdomain}", Resource.find_by!(key: "files").details["folder"]
+      end
     end
   end
 
@@ -119,6 +116,8 @@ class ResourceDeclaringTest < ActiveSupport::TestCase
     held = YAML.safe_load(ERB.new(Resource::DECLARATIONS.read).result, aliases: true)
 
     assert_equal "filesystem", held.dig("production", "files", "type")
+    assert_equal "local", held.dig("production", "files", "via")
+    assert_equal "/data/files/%{tenant}", held.dig("production", "files", "settings", "folder")
     assert_equal held["production"], held["development"], "one shipped stack, one declaration"
     assert_empty held["test"], "a suite declares what it needs in the test that needs it"
   end

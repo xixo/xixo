@@ -8,6 +8,7 @@ require_relative "support/fake_search_engine"
 require_relative "support/fake_s3"
 require_relative "support/mcp_client"
 require_relative "support/fake_agent"
+require_relative "support/fake_disk"
 
 ENV["XIXO_PUBLIC_ORIGIN"] = nil
 ENV["S3_ENDPOINT"] = FakeS3::ENDPOINT
@@ -24,6 +25,8 @@ Resource::S3.define_method(:client) { FakeS3.for(details["endpoint"]) }
 
 module ActiveSupport
   class TestCase
+    include FakeDisk::Helpers
+
     parallelize(workers: :number_of_processors)
 
     parallelize_setup { |worker| ENV["TEST_ENV_NUMBER"] = worker.to_s }
@@ -31,6 +34,7 @@ module ActiveSupport
     setup do
       Masks::Client.registry.clear!
       FakeAgent.reset!
+      FakeDisk.staged.clear
       FakeS3.reset!
       Resource::Mcp::Sessions.clear!
       ENV["MASKS_ISSUER_TEMPLATE"] = FakeIssuer.template

@@ -12,6 +12,7 @@ class Resource
           "arch" => text(said["arch"]),
           "hostname" => text(said["hostname"]),
           "folders" => folders(said["folders"]),
+          "writable" => folders(said["writable"]) & folders(said["folders"]),
           "services" => services(said["services"]),
           "extractors" => extractors(said["extractors"])
         }

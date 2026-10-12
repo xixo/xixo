@@ -53,7 +53,7 @@ folders it shares.
 
 ## Attach a folder
 
-1. On **Resources**, choose **Attach** and pick **A folder on a machine**.
+1. On **Resources**, choose **Attach** and pick **A folder**.
 2. Under **Reached through**, pick the machine, then pick one of its folders in the list below it.
 3. Choose **Attach it**, then sync it like any other resource.
 
@@ -69,6 +69,10 @@ the new list, or change them on the machine in two places: the `folders` list in
 `/etc/systemd/system/xixo-agent.service`, where each folder is written as `"-/srv/media"`. Then run
 `sudo systemctl daemon-reload` and `sudo systemctl restart xixo-agent`. A folder only in the
 config is missing for the agent.
+
+An install shares every folder read-only, so a machine's folders are read and synced but never
+written. The folder xixo writes uploads to is on the agent beside the server, which the
+[self-hosting guide](/guides/self-hosting/) sets up.
 
 ## Remove a machine
 

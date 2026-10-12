@@ -45,6 +45,7 @@ type Hello struct {
 	Arch       string    `json:"arch"`
 	Hostname   string    `json:"hostname"`
 	Folders    []string  `json:"folders"`
+	Writable   []string  `json:"writable"`
 	Services   []Service `json:"services"`
 	Extractors []string  `json:"extractors"`
 }

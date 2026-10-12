@@ -333,7 +333,7 @@ class InstallerTest < ActiveSupport::TestCase
   test "a machine a folder still reaches through is not unenrolled when it cannot be put away" do
     Tenant.switch(@tenant) do
       agent = machine(details: { "client_id" => "agent-client-0", "machine" => { "folders" => [ "/srv/media" ] } })
-      Resource::AgentFolder.create!(key: "media", name: "Media", via: agent, details: { "folder" => "/srv/media" })
+      Resource::Filesystem.create!(key: "media", name: "Media", via: agent, details: { "folder" => "/srv/media" })
 
       assert_not agent.reload.put_away(revoker: ->(*) { flunk "unenrolled a machine that stays attached" })
       assert_nil agent.reload.archived_at

@@ -22,3 +22,4 @@ services:
       XIXO_AGENT_XIXO: http://demo.xixo.localhost:${XIXO_PORT:-8180}
       XIXO_AGENT_ISSUER: http://demo.masks.localhost:12345
       XIXO_AGENT_HANDOFF: /handoff/demo
+      XIXO_AGENT_WRITABLE: /data/files/demo

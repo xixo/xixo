@@ -177,9 +177,11 @@ services:
       XIXO_AGENT_ISSUER: ${MASKS_ISSUER:-http://masks.localhost:12345}
       XIXO_AGENT_HANDOFF: /handoff/${XIXO_TENANT:-xixo}
       XIXO_AGENT_FOLDERS: /folders
+      XIXO_AGENT_WRITABLE: /data/files/${XIXO_TENANT:-xixo}
     volumes:
       - agent-state:/var/lib/xixo-agent
       - agent-handoff:/handoff
+      - files:/data/files
       - ${XIXO_AGENT_FOLDER:-./tmp/agent-folder}:/folders:ro
     deploy:
       resources:
@@ -245,3 +247,4 @@ volumes:
   docs-modules:
   agent-state:
   agent-handoff:
+  files:

@@ -30,7 +30,6 @@ class AttachingTest < ActionDispatch::IntegrationTest
   end
 
   teardown do
-    ENV.delete("XIXO_FILESYSTEM_ROOTS")
     ENV.delete("XIXO_ALLOW_PRIVATE_FETCH")
   end
 
@@ -55,11 +54,7 @@ class AttachingTest < ActionDispatch::IntegrationTest
     assert_nil password["value"], "a secret is never handed back, not even an empty one"
   end
 
-  test "a directory is only offered where the server was given roots to allow" do
-    refute_includes offered, "filesystem"
-
-    ENV["XIXO_FILESYSTEM_ROOTS"] = Dir.mktmpdir("permitted")
-
+  test "a folder is offered to attach on any server, since an agent reaches it" do
     assert_includes offered, "filesystem"
   end
 

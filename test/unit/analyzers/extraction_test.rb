@@ -11,7 +11,7 @@ class ExtractionTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       @machine.update_columns(details: @machine.details.deep_merge("machine" => { "extractors" => %w[text] }))
-      @folder = Resource::AgentFolder.create!(key: "notes", name: "Notes", via: @machine, details: { "folder" => "/srv/notes" })
+      @folder = Resource::Filesystem.create!(key: "notes", name: "Notes", via: @machine, details: { "folder" => "/srv/notes" })
       @storage = Resource::Database.create!(key: "desk", name: "Desk")
     end
   end
@@ -61,7 +61,7 @@ class ExtractionTest < ActiveSupport::TestCase
   test "the same file on two machines becomes one item by the digests their agents report" do
     other = agent_on(@tenant, key: "attic", folders: [ "/mnt/photos" ])
     first, second = Tenant.switch(@tenant) do
-      copy = Resource::AgentFolder.create!(key: "attic-photos", name: "Attic photos", via: other, details: { "folder" => "/mnt/photos" })
+      copy = Resource::Filesystem.create!(key: "attic-photos", name: "Attic photos", via: other, details: { "folder" => "/mnt/photos" })
       [ on_machine("beach.jpg"), create_feed(resource: copy, locator_key: "beach-copy.jpg",
                                              locator: { "path" => "beach-copy.jpg", "size" => 10, "modified_at" => Time.current.utc.iso8601 }) ]
     end
@@ -165,9 +165,11 @@ class ExtractionTest < ActiveSupport::TestCase
 
     def with_method(klass, name, body)
       original = klass.instance_method(name)
+      original = original.super_method while original && original.owner != klass
+      own = original.present?
       klass.define_method(name, &body)
       yield
     ensure
-      klass.define_method(name, original)
+      own ? klass.define_method(name, original) : klass.remove_method(name)
     end
 end

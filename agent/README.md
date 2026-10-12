@@ -36,15 +36,16 @@ The configuration looks like this:
 {
   "xixo": "https://xixo.example.com",
   "issuer": "https://id.example.com",
-  "folders": ["/srv/media", "/home/sam/Documents"]
+  "folders": ["/srv/media", {"path": "/data/files", "writable": true}]
 }
 ```
 
 Both addresses use https. Plain http is accepted only for a loopback host such
-as `localhost` or a `.localhost` name. Each folder is an absolute path. The
+as `localhost` or a `.localhost` name. Each folder is a clean absolute path,
+given alone for a folder the agent only reads, or as `{"path", "writable"}`. The
 configuration on the machine is the only place the shared folders are named:
-xixo can read inside them and nowhere else, and nothing xixo sends changes the
-list.
+xixo can read inside them and nowhere else, writes only inside the writable
+ones, and nothing xixo sends changes the list.
 
 ## Commands
 
@@ -91,7 +92,7 @@ The agent speaks the Action Cable protocol and subscribes to
 
 | Action | Fields | When |
 | --- | --- | --- |
-| `hello` | `version`, `os`, `arch`, `hostname`, `folders`, `services`, `extractors` | Once the subscription is confirmed. |
+| `hello` | `version`, `os`, `arch`, `hostname`, `folders`, `writable`, `services`, `extractors` | Once the subscription is confirmed. |
 | `health` | `uptime`, `load`, `memory`, `disks` | After `hello`, and every minute. |
 | `reply` | `request`, `ok`, `result` or `error` | When a request is answered. |
 | `chunk` | `request`, `of`, `seq`, `data` | For each part of a file being read or made. |
@@ -103,6 +104,8 @@ address: `{"kind":"ollama","port":11434,"address":"100.64.0.7"}`, and
 
 `extractors` names the extractors whose programs are on the machine, so xixo
 sends each file to an agent that can read it.
+
+`writable` names the shared folders the configuration marks writable.
 
 `health` holds `uptime` in seconds, `load` as the 1, 5, and 15 minute
 averages, `memory` as `{"total","available"}` in bytes, and `disks` as
@@ -122,6 +125,7 @@ xixo sends a request as the `message` of a broadcast on the subscription:
 | `hash` | `folder`, `path` | `{"sha256","size"}` |
 | `extract` | `source`, `size`, `mime`, `filename`, `skip`, `settings` | each made file's `chunk` messages, then the steps and the list of files |
 | `derive` | as `extract` | the thumbnail and preview alone |
+| `write` | `folder`, `path`, `upload`, `size`, `replace` | `{"path","size","modified_at"}` |
 
 `list` walks the folder depth first in name order and returns at most `limit`
 regular files, 500 at most. Paths are relative to the folder and
@@ -132,6 +136,14 @@ that are always skipped.
 
 `read` sends the file as `chunk` messages of at most 256 KiB, base64 encoded,
 numbered from 0, followed by a reply holding the number of bytes sent.
+
+`write` fetches the upload from xixo the way `extract` does, then places it at
+`path` inside a writable folder. It writes a temporary `.xixo-*.part` file
+beside the target, syncs it, and moves it into place, so a reader never sees a
+partial file. It creates the folders on the way inside the shared folder only.
+It refuses a read-only or unshared folder, a link anywhere on the path, a name
+a walk skips, and bytes that do not match `size`. Without `replace` it refuses
+to overwrite an existing file.
 
 `hash` reads the file where it lies and answers with its SHA-256 in hex and its
 size, sending none of its bytes.

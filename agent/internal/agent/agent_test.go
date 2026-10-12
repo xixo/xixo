@@ -53,7 +53,7 @@ func agentFor(t *testing.T, xixo, folder string, expiry time.Time) (*Agent, *mas
 	return &Agent{
 		Xixo:    xixo,
 		Version: "9.9.9",
-		Folders: folders.New([]string{folder}),
+		Folders: folders.New(folders.ReadOnly(folder)),
 		Machine: &machine.Machine{
 			Proc:    t.TempDir(),
 			Probe:   func(_ context.Context, port int) bool { return port == 11434 },

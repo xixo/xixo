@@ -57,7 +57,7 @@ class Extraction
 
     def route
       folder = reference.try(:resource)
-      return on_machine(folder) if folder.is_a?(Resource::AgentFolder)
+      return on_machine(folder) if folder.is_a?(Resource::Filesystem)
 
       local = Resource::XixoAgent.local
       raise Analyzer::Waiting, "no agent beside the server is connected to read #{filename}" unless local&.connected?

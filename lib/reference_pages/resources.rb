@@ -1,8 +1,5 @@
 module ReferencePages
   class Resources < Page
-    ROOTS = "XIXO_FILESYSTEM_ROOTS".freeze
-    EXAMPLE_ROOT = "/data/files".freeze
-
     def slug = "resources"
     def title = "Resource types"
     def description = "Every type of resource, what each serves and accepts, and what it needs to attach."
@@ -17,24 +14,14 @@ module ReferencePages
     end
 
     def body
-      with_roots do
-        [ table([ "Type", "Serves", "Syncs" ], types.map { |klass| summary(klass) }),
-          *types.map { |klass| describe(klass) } ]
-      end
+      [ table([ "Type", "Serves", "Syncs" ], types.map { |klass| summary(klass) }),
+        *types.map { |klass| describe(klass) } ]
     end
 
     private
 
       def types
         ::Resource::TYPES.map { |name| ::Resource.find_sti_class(name) }
-      end
-
-      def with_roots
-        held = ENV[ROOTS]
-        ENV[ROOTS] = EXAMPLE_ROOT
-        yield
-      ensure
-        ENV[ROOTS] = held
       end
 
       def summary(klass)

@@ -26,8 +26,8 @@ RUN apt-get update -qq && \
 
 RUN groupadd --system --gid 1000 agent && \
     useradd agent --uid 1000 --gid 1000 --create-home --shell /usr/sbin/nologin && \
-    mkdir -p /var/lib/xixo-agent /handoff && \
-    chown agent:agent /var/lib/xixo-agent /handoff && \
+    mkdir -p /var/lib/xixo-agent /handoff /data/files && \
+    chown agent:agent /var/lib/xixo-agent /handoff /data/files && \
     chmod 700 /var/lib/xixo-agent
 
 COPY --from=build /out/xixo-agent /usr/local/bin/xixo-agent

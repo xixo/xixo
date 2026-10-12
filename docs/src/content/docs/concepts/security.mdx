@@ -144,9 +144,9 @@ Active Storage's own routes are not drawn. Staged bytes are reached only through
 - `Intake.key_for` cleans every path before anything is stored. Backslashes become slashes,
   control characters are removed, and empty, `.`, and `..` segments are dropped.
 - An upload's type comes from its extension. xixo ignores the content type the client declared.
-- A filesystem resource's root must be inside the tenant's own directory under
-  `XIXO_FILESYSTEM_ROOTS`. xixo checks the real path, so a symlink cannot lead out, and a write never
-  follows one.
+- A filesystem resource is read and written only by the agent on its machine, inside the folders
+  that machine's config shares. The agent refuses a link anywhere on a path and writes only to a
+  folder its config marks writable.
 - A resource reads only what it was attached to. The prefix, folder, repositories, channels,
   mailbox, or Google Drive query given when attaching it bound `get`, `list`, `search`, and a
   caller's `put` as well as `keep` and a sync, even where its credential reaches further.

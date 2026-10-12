@@ -36,7 +36,7 @@ class Resource < ApplicationRecord
 
   TYPES = %w[
     s3 filesystem webdav caldav carddav imap rss web openai-compatible oauth-google database
-    search curl mcp github notion slack microsoft-graph git weather places tailnet feedback xixo-agent agent-folder
+    search curl mcp github notion slack microsoft-graph git weather places tailnet feedback xixo-agent
   ].freeze
 
   validates :key, presence: true,
@@ -261,12 +261,12 @@ class Resource < ApplicationRecord
     end
 
     def settled(resource, klass, spec)
-      details, credentials = klass.declared_only? ? [ {}, {} ] : Settings.for(klass, spec["settings"])
+      details, credentials = klass.declared_only? ? [ {}, {} ] : Settings.for(klass, tenanted(spec["settings"]))
 
       resource.name = spec["name"].presence || key_titled(resource.key)
       resource.details = details
       resource.credentials = credentials
-      resource.via = spec["via"].present? ? Resource.capable_of(:transport).find_by!(key: spec["via"].to_s) : nil
+      resource.via = declared_via(spec["via"])
       resource.sync_interval = spec["sync_interval"] if spec.key?("sync_interval")
       resource.save!
 
@@ -277,13 +277,28 @@ class Resource < ApplicationRecord
       resource
     end
 
+    def tenanted(settings)
+      return settings if Current.tenant.nil?
+
+      settings.to_h.transform_values do |value|
+        value.is_a?(String) ? value.gsub(Filesystem::TENANT, Current.tenant.subdomain) : value
+      end
+    end
+
+    def declared_via(key)
+      return nil if key.blank?
+      return Resource::XixoAgent.local! if key.to_s == Resource::XixoAgent::LOCAL
+
+      Resource.capable_of(:transport).find_by!(key: key.to_s)
+    end
+
     def key_titled(key)
       key.to_s.tr("-_", "  ").humanize
     end
 
     def restate!
       unscoped.in_batches.each_record do |resource|
-        held = resource.class.serving
+        held = resource.served
         next if resource.serving == held
 
         resource.update_columns(serving: held)
@@ -457,6 +472,10 @@ class Resource < ApplicationRecord
 
   def accepts
     self.class.accepts
+  end
+
+  def served
+    self.class.serving
   end
 
   def up_to
@@ -781,7 +800,7 @@ class Resource < ApplicationRecord
     end
 
     def mirror_what_it_serves
-      self.serving = self.class.serving
+      self.serving = served
     end
 
     def newly_inferring?

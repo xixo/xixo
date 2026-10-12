@@ -30,7 +30,7 @@ func TestAFolderReachedThroughSomeoneElsesLinkIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := New([]string{link}).List(Query{Folder: link}); !errors.Is(err, ErrUntrusted) {
+	if _, err := New(ReadOnly(link)).List(Query{Folder: link}); !errors.Is(err, ErrUntrusted) {
 		t.Fatalf("a link someone else owns was followed, got %v", err)
 	}
 }

@@ -63,13 +63,13 @@ no longer asks for is removed along with its value. The form reads back only the
 plain text, plus the names of the encrypted fields that have a value. xixo checks and audits a
 change the same way it checks and audits attaching.
 
-A filesystem resource can be attached only when `XIXO_FILESYSTEM_ROOTS` names directories. Each
-tenant gets its own directory under each root, named for its subdomain and created on first use. A
-resource's root has to be inside one of those directories. The configured root itself is shared by
-every tenant on the server, so no resource can point at it. A relative root is resolved against the
-tenant's directory under the first root. The shipped `files` resource, with root `.`, lives there.
-xixo checks the real path of a root, so it refuses a symlink that leads out of the tenant's
-directory, and a write never follows a symlink.
+A filesystem resource is a folder on a machine that runs the xixo agent, the server's own included.
+It is reached through that machine's `xixo-agent` resource and names one of the folders the agent
+shares. xixo never opens a file itself: the agent lists, reads, hashes, and writes. A folder is
+storage only when the machine's own config marks it writable. A read-only folder accepts no
+uploads, so placement passes it over and it cannot be default storage. The shipped `files` resource
+is `/data/files/<tenant>` on the agent beside the server, which the example compose mounts
+read-write.
 
 A walk never enters version control folders such as `.git`, dependency folders such as
 `node_modules`, or the folders and files an operating system leaves behind, such as `.DS_Store`.
@@ -206,8 +206,8 @@ it. Where xixo resolves a name itself, it connects to the address it checked. An
 checks the address of the peer that answers, since the AWS SDK resolves names on its own.
 
 These types can name a `via`: `webdav`, `caldav`, `carddav`, `s3`, `mcp`, `search`, `curl`, `rss`,
-`imap`, `git`, `openai-compatible`, `xixo-agent`, and `agent-folder`. Every other type refuses one. A
-`xixo-agent` reaches only `agent-folder` resources, and an `agent-folder` is reached only through a
+`imap`, `git`, `openai-compatible`, `xixo-agent`, and `filesystem`. Every other type refuses one. A
+`xixo-agent` reaches only `filesystem` resources, and a `filesystem` is reached only through a
 `xixo-agent`. A `git` resource behind a
 transport takes only an `http` or `https` URL, since the address check does not apply to `ssh`.
 
@@ -318,17 +318,24 @@ questions and 8 GiB received, and exchanges older than an hour are deleted by
 `ForgetAgentExchangesJob`. A question asked inside a database transaction, as analysis asks, is
 written and awaited on a connection of its own, so the channel sees it at once.
 
-An `agent-folder` names one of the folders the agent said it shares. Attaching one the agent does
+A `filesystem` names one of the folders the agent said it shares. Attaching one the agent does
 not share is refused, and a folder the agent stops sharing is unusable. Every path the agent lists
-must be relative and stay inside the folder. The folders are set only by the machine's
-configuration, which xixo writes during an install and never changes over the connection, and the
-agent refuses any path outside them.
+must be relative and stay inside the folder. The folders, and which of them are writable, are set
+only by the machine's configuration, which xixo writes during an install and never changes over the
+connection, and the agent refuses any path outside them.
+
+A write is a `write {folder, path, upload, size, replace}` question. The agent fetches the upload
+the way it fetches one to extract, writes it to a temporary file beside its target, syncs it, and
+moves it into place. It creates folders on the way inside the shared folder only, and refuses a
+read-only folder, a link anywhere on the path, a name a walk skips, and bytes that do not match the
+size. It replaces an existing file only when xixo asks it to, which xixo does only for a path the
+catalog already holds on that resource, so a file someone else put there is never overwritten.
 
 ### The agent beside the server
 
 Every install runs an agent beside the server, as the `xixo-agent` service of the example compose, and
 it reads every file no machine's agent reads where it lies. It has no database and no keys, and sees
-only its own state and the folders mounted into it read-only. It enrolls itself through a directory
+only its own state and the folders mounted into it. It enrolls itself through a directory
 it shares with the worker, named by `XIXO_LOCAL_AGENT`: it leaves a `wanted` file, `EnrollLocalAgentJob`
 leaves it a single-use enrollment token readable by its user alone, and it writes back the client it
 enrolled as, which the job binds to the `local` machine, **This server**. The job reads nothing

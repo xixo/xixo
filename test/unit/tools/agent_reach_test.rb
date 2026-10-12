@@ -5,14 +5,13 @@ class AgentReachTest < ActiveSupport::TestCase
     @tenant = Tenant.create!(subdomain: "reach-#{SecureRandom.hex(4)}", name: "Reach")
 
     @allowed = Pathname(Dir.mktmpdir("reach"))
-    @root = @allowed + @tenant.subdomain + "home"
+    @root = @allowed + "home"
     @root.mkpath
     @root.join("diary.txt").write("the safe code is 4417")
-    ENV["XIXO_FILESYSTEM_ROOTS"] = @allowed.to_s
 
     Tenant.switch(@tenant) do
       Resource::Curl.create!(key: "curl", name: "Curl")
-      Resource::Filesystem.create!(key: "home", name: "Home", details: { "root" => @root.to_s })
+      disk_folder(@root, key: "home", name: "Home")
       @address = Feed.create!(type: Feed::ADDRESS, key: "/news", title: "News")
       @secret = Feed.create!(type: Feed::NOTE, key: "Safe", title: "Safe", note: "the safe code is 4417")
     end
@@ -20,7 +19,6 @@ class AgentReachTest < ActiveSupport::TestCase
 
   teardown do
     Current.reset
-    ENV.delete("XIXO_FILESYSTEM_ROOTS")
     FileUtils.rm_rf(@allowed)
   end
 

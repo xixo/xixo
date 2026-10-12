@@ -1,7 +1,7 @@
 require "test_helper"
 require_relative "../../support/machines"
 
-class AgentFolderTest < ActiveSupport::TestCase
+class FilesystemTest < ActiveSupport::TestCase
   include Machines
 
   setup do
@@ -11,18 +11,18 @@ class AgentFolderTest < ActiveSupport::TestCase
 
   test "a folder is attached only through an agent, and only one the agent shares" do
     Tenant.switch(@tenant) do
-      held = Resource::AgentFolder.new(key: "media", details: { "folder" => "/srv/media" }, via: @agent)
+      held = Resource::Filesystem.new(key: "media", details: { "folder" => "/srv/media" }, via: @agent)
       assert held.valid?, held.errors.full_messages.to_sentence
 
-      elsewhere = Resource::AgentFolder.new(key: "etc", details: { "folder" => "/etc" }, via: @agent)
+      elsewhere = Resource::Filesystem.new(key: "etc", details: { "folder" => "/etc" }, via: @agent)
       assert_not elsewhere.valid?
       assert_match(%r{/etc is not one the agent on box shares. It shares /srv/media and /srv/photos}, elsewhere.errors.full_messages.to_sentence)
 
-      direct = Resource::AgentFolder.new(key: "direct", details: { "folder" => "/srv/media" })
+      direct = Resource::Filesystem.new(key: "direct", details: { "folder" => "/srv/media" })
       assert_not direct.valid?
 
       tailnet = Resource::Tailnet.create!(key: "tailnet")
-      through_tailnet = Resource::AgentFolder.new(key: "far", details: { "folder" => "/srv/media" }, via: tailnet)
+      through_tailnet = Resource::Filesystem.new(key: "far", details: { "folder" => "/srv/media" }, via: tailnet)
       assert_not through_tailnet.valid?
     end
   end
@@ -50,7 +50,7 @@ class AgentFolderTest < ActiveSupport::TestCase
       assert_equal [ [ %w[a.txt b/c.txt], "b/c.txt" ], [ %w[d.txt], "d.txt" ] ], pages
       assert_equal [ nil, "b/c.txt" ], asked.map { |args| args["cursor"] }
       assert_equal [ "/srv/media" ], asked.map { |args| args["folder"] }.uniq
-      first = folder.locator_for(Resource::AgentFolder::Entry.new(path: "a", size: 5, modified_at: Time.utc(2026, 10, 11, 12)))
+      first = folder.locator_for(Resource::Filesystem::Entry.new(path: "a", size: 5, modified_at: Time.utc(2026, 10, 11, 12)))
       assert_equal "2026-10-11T12:00:00Z:5", folder.version_for(first)
     end
   end
@@ -97,14 +97,84 @@ class AgentFolderTest < ActiveSupport::TestCase
 
       assert_equal %w[media photos], offered.map { |node| node["host_name"] }
       assert_equal [ "/srv/media" ], offered.first["services"].map { |service| service["address"] }
-      assert_equal [ "agent-folder" ], offered.first["services"].map { |service| service["type"] }
+      assert_equal [ "filesystem" ], offered.first["services"].map { |service| service["type"] }
+    end
+  end
+
+  test "an upload is written through the agent into a writable folder, and the catalog's own file is replaced" do
+    root = Pathname.new(Dir.mktmpdir("writable"))
+
+    Tenant.switch(@tenant) do
+      folder = disk_folder(root, key: "files", default_storage: true)
+
+      locator = folder.upload("drop/march.txt", StringIO.new("contents of march"))
+      assert_equal "contents of march", (root + "drop/march.txt").read
+      assert_equal "drop/march.txt", locator["path"]
+      assert_equal 17, locator["size"]
+      assert folder.version_for(locator).present?
+
+      error = assert_raises(Resource::Failed) { folder.upload("drop/march.txt", StringIO.new("again")) }
+      assert_match(/a file is already at that path/, error.message)
+
+      Reference.create!(feed: Feed.create!(type: Feed::FILE, key: "march"), resource: folder,
+                        locator_key: "drop/march.txt", locator: locator)
+      folder.upload("drop/march.txt", StringIO.new("replaced"))
+      assert_equal "replaced", (root + "drop/march.txt").read
+      assert_empty FakeDisk.staged
+    end
+  ensure
+    FileUtils.remove_entry(root) if root&.exist?
+  end
+
+  test "a read-only folder takes no upload, accepts nothing, and cannot be default storage" do
+    root = Pathname.new(Dir.mktmpdir("kept"))
+
+    Tenant.switch(@tenant) do
+      folder = disk_folder(root, key: "kept", writable: false)
+
+      assert_not folder.writable?
+      assert_empty folder.serving["accepts"]
+      assert_not Resource.placeable("text/plain").exists?(folder.id)
+      assert_raises(Resource::Refused) { folder.upload("note.txt", StringIO.new("x")) }
+      assert_empty root.children
+
+      writable = disk_folder(Pathname.new(Dir.mktmpdir("open")), key: "open")
+      assert writable.writable?
+      assert_equal [ "*/*" ], writable.serving["accepts"]
+      assert Resource.placeable("text/plain").exists?(writable.id)
+    end
+  ensure
+    FileUtils.remove_entry(root) if root&.exist?
+  end
+
+  test "a folder's storage follows what the agent says about writing when it says hello" do
+    Tenant.switch(@tenant) do
+      folder = attached
+      assert_empty folder.serving["accepts"]
+
+      @agent.greeted!({ "folders" => [ "/srv/media" ], "writable" => [ "/srv/media" ] }, session: "s2")
+      assert_equal [ "*/*" ], folder.reload.serving["accepts"]
+
+      @agent.greeted!({ "folders" => [ "/srv/media" ], "writable" => [] }, session: "s3")
+      assert_empty folder.reload.serving["accepts"]
+    end
+  end
+
+  test "a folder is accepted before its agent has said which folders it shares" do
+    Tenant.switch(@tenant) do
+      quiet = Resource::XixoAgent.create!(key: "quiet", name: "Quiet", details: { "local" => true })
+      folder = Resource::Filesystem.new(key: "files", details: { "folder" => "/data/files/x" }, via: quiet)
+
+      assert folder.valid?, folder.errors.full_messages.to_sentence
+      assert_equal [ "*/*" ], folder.served["accepts"]
+      assert_not Resource::Filesystem.new(key: "rel", details: { "folder" => "files" }, via: quiet).valid?
     end
   end
 
   private
 
     def attached
-      Resource::AgentFolder.create!(key: "media-#{SecureRandom.hex(2)}", details: { "folder" => "/srv/media" }, via: @agent)
+      Resource::Filesystem.create!(key: "media-#{SecureRandom.hex(2)}", details: { "folder" => "/srv/media" }, via: @agent)
     end
 
     def entry(path)

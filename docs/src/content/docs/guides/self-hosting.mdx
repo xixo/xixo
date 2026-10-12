@@ -63,11 +63,9 @@ x-xixo: &xixo
     XIXO_HOST_SUFFIX: xixo.example.com
     XIXO_PUBLIC_ORIGIN: https://%{subdomain}.xixo.example.com
     MASKS_ISSUER_TEMPLATE: https://%{subdomain}.auth.example.com
-    XIXO_FILESYSTEM_ROOTS: /data/files
     XIXO_LOCAL_AGENT: /handoff
   volumes:
     - storage:/rails/storage
-    - files:/data/files
     - agent-handoff:/handoff
 
 services:
@@ -113,9 +111,11 @@ services:
       XIXO_AGENT_XIXO: https://acme.xixo.example.com
       XIXO_AGENT_ISSUER: https://acme.auth.example.com
       XIXO_AGENT_HANDOFF: /handoff/acme
+      XIXO_AGENT_WRITABLE: /data/files/acme
     volumes:
       - agent-state:/var/lib/xixo-agent
       - agent-handoff:/handoff
+      - files:/data/files
     deploy:
       resources:
         limits:
@@ -210,13 +210,15 @@ What the file does:
 - **Memory is capped.** OpenSearch gets three times its heap. The agent gets 6 GB, because each
   program it runs on a file may hold up to 4 GB, and exiftool up to 6. Raise both for a large catalog.
 - **The agent reads every file, and holds nothing else.** It has no database password, no keys, and
-  no access to `storage`. It dials xixo at its public address, so give `XIXO_AGENT_XIXO` the tenant's
+  no access to `storage`. It holds the `files` volume, where uploads land, because it is the only
+  container that writes a tenant's files. It dials xixo at its public address, so give `XIXO_AGENT_XIXO` the tenant's
   origin and `XIXO_AGENT_ISSUER` its masks issuer. On first boot it leaves a request in
   `/handoff/<tenant>`, the worker answers it with a single-use enrollment token, and the agent
   registers its own key with masks. Its state volume holds that key; deleting the volume enrolls it
   again. Run one agent for each tenant, each with its own `XIXO_AGENT_HANDOFF` and state volume.
   To let it read a folder on the host, mount the folder read-only and name it in
-  `XIXO_AGENT_FOLDERS`, separated by colons.
+  `XIXO_AGENT_FOLDERS`, separated by colons. A folder it may also write is named in
+  `XIXO_AGENT_WRITABLE` instead, and is created on boot when it is missing.
 - **Chromium keeps its sandbox.** The image runs as an unprivileged user, and Docker's default seccomp
   profile gives Chromium the namespaces its sandbox needs. Leave `XIXO_CHROME_NO_SANDBOX` unset, and
   never run the worker privileged.
@@ -348,9 +350,11 @@ xixo uses storage in two places.
   variables.
 - **Catalog storage.** Files are kept in [resources](/concepts/resources/) that serve `storage`.
   `config/resources.yml` declares a `filesystem` resource named `files` as every tenant's default
-  storage. It writes inside `<root>/<tenant>/` for the first directory in `XIXO_FILESYSTEM_ROOTS`
-  (colon-separated). Without that variable, the `files` resource cannot write. Attach `s3` or
-  `webdav` resources from the app as well. See [attaching a resource](/guides/attach-a-resource/).
+  storage: the folder `/data/files/<tenant>` on the agent beside the server, reached through the
+  `local` machine. The agent writes it, so that folder must be in the agent's `XIXO_AGENT_WRITABLE`
+  and on a volume mounted into the agent. Until the agent connects, a placed upload waits. Attach
+  `s3` or `webdav` resources from the app as well. See
+  [attaching a resource](/guides/attach-a-resource/).
 
 ## Private networks
 
@@ -405,7 +409,7 @@ production deployment sets at least these:
 | Secrets | `SECRET_KEY_BASE`, `ENCRYPTION_PRIMARY_KEY`, `ENCRYPTION_DETERMINISTIC_KEY`, `ENCRYPTION_KEY_DERIVATION_SALT` |
 | Tenancy | `XIXO_TENANT` or `XIXO_TENANTS`, `XIXO_HOST_SUFFIX`, `XIXO_PUBLIC_ORIGIN` |
 | Sign-in | `MASKS_ISSUER_TEMPLATE` |
-| Storage | `XIXO_FILESYSTEM_ROOTS` |
+| Storage | On the agent: `XIXO_AGENT_WRITABLE` |
 
 ## The worker
 
@@ -502,6 +506,25 @@ database directly and does not boot Rails.
 To go back, restore the backup and start the old version. See
 [restore](/guides/back-up-and-restore/#restore).
 
+### Moving to the agent's folders
+
+From this release, xixo opens no file itself, and the agent beside the server reads and writes the
+`files` resource. A migration turns every `filesystem` resource into a folder on the agent beside
+the server, at the path the server used: `files` becomes `/data/files/<tenant>`, keeping its key,
+its files, and its place as default storage. Before upgrading:
+
+1. Mount the volume or host directory that held `/data/files` into the agent at `/data/files`,
+   read-write, and set `XIXO_AGENT_WRITABLE` to `/data/files/<tenant>` for each tenant's agent.
+2. Remove `XIXO_FILESYSTEM_ROOTS` and the `/data/files` mount from the web and worker containers.
+   Leave the variable set until the upgrade has migrated if its first directory is not
+   `/data/files`, since the migration reads it to find where each tenant's files were.
+3. The agent runs as uid 1000. Make sure it owns the files, or can write the folder:
+   `docker compose run --rm --user root --entrypoint chown agent -R 1000:1000 /data/files`.
+
+A `filesystem` resource whose root was another directory on the server becomes a folder at that
+path on the agent beside the server. Mount it into the agent at the same path, and name it in
+`XIXO_AGENT_FOLDERS` or `XIXO_AGENT_WRITABLE`, or it stays unusable until you do.
+
 To add a tenant, add it to `XIXO_TENANTS` and recreate the web container. It is created on boot with
 the `files` resource, and needs **Connect a sign-in server** once.
 
@@ -520,8 +543,9 @@ the `files` resource, and needs **Connect a sign-in server** once.
 - **Requests answer `403`**: the request's host is outside `XIXO_HOST_SUFFIX`.
 - **Uploads stage but never land**: the worker is not running, or it cannot read the web
   container's `/rails/storage`. Check `docker compose ps` and `docker compose logs worker`.
-- **"no filesystem roots are permitted"**: `XIXO_FILESYSTEM_ROOTS` is unset, so the `files`
-  resource cannot read or write.
+- **"shares /data/files/&lt;tenant&gt; read-only"** or **"no longer shares"**: the agent beside the
+  server does not list the `files` folder in `XIXO_AGENT_WRITABLE`, or the volume holding it is not
+  mounted into the agent.
 - **An `s3` resource on the private network fails its check**: add its origin to
   `XIXO_S3_ORIGINS`.
 

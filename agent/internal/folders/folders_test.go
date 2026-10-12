@@ -66,7 +66,7 @@ func paths(listed *Listing) []string {
 
 func TestListWalksInOrderAndSkips(t *testing.T) {
 	shared, _ := tree(t)
-	held := New([]string{shared})
+	held := New(ReadOnly(shared))
 
 	listed, err := held.List(Query{Folder: shared})
 	if err != nil {
@@ -89,7 +89,7 @@ func TestListWalksInOrderAndSkips(t *testing.T) {
 
 func TestListPagesWithACursor(t *testing.T) {
 	shared, _ := tree(t)
-	held := New([]string{shared})
+	held := New(ReadOnly(shared))
 
 	first, err := held.List(Query{Folder: shared, Limit: 2})
 	if err != nil {
@@ -121,7 +121,7 @@ func TestListPagesWithACursor(t *testing.T) {
 
 func TestListTakesAPrefixAndSkips(t *testing.T) {
 	shared, _ := tree(t)
-	held := New([]string{shared})
+	held := New(ReadOnly(shared))
 
 	cases := []struct {
 		query Query
@@ -150,7 +150,7 @@ func TestListTakesAPrefixAndSkips(t *testing.T) {
 
 func TestListRefusesAnUnsharedFolder(t *testing.T) {
 	shared, outside := tree(t)
-	held := New([]string{shared})
+	held := New(ReadOnly(shared))
 
 	for _, folder := range []string{outside, "", "/", filepath.Dir(shared)} {
 		if _, err := held.List(Query{Folder: folder}); !errors.Is(err, ErrUnshared) {
@@ -171,7 +171,7 @@ func TestAFolderMayBeALink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	held := New([]string{linked})
+	held := New(ReadOnly(linked))
 
 	listed, err := held.List(Query{Folder: linked})
 	if err != nil {
@@ -185,7 +185,7 @@ func TestAFolderMayBeALink(t *testing.T) {
 
 func TestOpenReadsAFile(t *testing.T) {
 	shared, _ := tree(t)
-	held := New([]string{shared})
+	held := New(ReadOnly(shared))
 
 	opened, err := held.Open(shared, "a/b.txt")
 	if err != nil {
@@ -201,7 +201,7 @@ func TestOpenReadsAFile(t *testing.T) {
 
 func TestOpenStaysInsideTheFolder(t *testing.T) {
 	shared, outside := tree(t)
-	held := New([]string{shared})
+	held := New(ReadOnly(shared))
 
 	cases := map[string]error{
 		"../outside/secret.txt": ErrOutside,
@@ -257,7 +257,7 @@ func TestAFolderThatNowLeadsElsewhereIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	shared := New([]string{link})
+	shared := New(ReadOnly(link))
 	shared.Pin()
 
 	if err := os.Remove(link); err != nil {
@@ -286,7 +286,7 @@ func TestANameThatIsNotUTF8IsCountedAndLeftOut(t *testing.T) {
 		}
 	}
 
-	listed, err := New([]string{folder}).List(Query{Folder: folder})
+	listed, err := New(ReadOnly(folder)).List(Query{Folder: folder})
 	if err != nil {
 		t.Fatal(err)
 	}

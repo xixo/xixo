@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	masks "github.com/masksrb/masks/go"
+	"github.com/xixo/xixo/agent/internal/folders"
 )
 
 const (
@@ -20,9 +21,9 @@ const (
 )
 
 type Config struct {
-	Xixo    string   `json:"xixo"`
-	Issuer  string   `json:"issuer"`
-	Folders []string `json:"folders"`
+	Xixo    string           `json:"xixo"`
+	Issuer  string           `json:"issuer"`
+	Folders []folders.Shared `json:"folders"`
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -51,10 +52,18 @@ func (c *Config) check() error {
 		return err
 	}
 
+	seen := map[string]bool{}
+
 	for _, folder := range c.Folders {
-		if !filepath.IsAbs(folder) {
-			return fmt.Errorf("the folder %q is not an absolute path", folder)
+		if !filepath.IsAbs(folder.Path) || filepath.Clean(folder.Path) != folder.Path {
+			return fmt.Errorf("the folder %q is not a clean absolute path", folder.Path)
 		}
+
+		if writable, held := seen[folder.Path]; held && writable != folder.Writable {
+			return fmt.Errorf("the folder %q is listed both writable and read-only", folder.Path)
+		}
+
+		seen[folder.Path] = folder.Writable
 	}
 
 	return nil

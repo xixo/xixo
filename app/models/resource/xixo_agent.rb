@@ -72,7 +72,7 @@ class Resource
       end
 
       def local!
-        local || create!(key: LOCAL, name: "This server", details: { "local" => true })
+        find_by(key: LOCAL) || create!(key: LOCAL, name: "This server", details: { "local" => true })
       end
 
       def binaries
@@ -90,6 +90,14 @@ class Resource
 
     def offered_folders
       Array(machine["folders"])
+    end
+
+    def writable_folders
+      Array(machine["writable"]) & offered_folders
+    end
+
+    def heard_from?
+      machine.key?("folders")
     end
 
     def extractors
@@ -128,7 +136,7 @@ class Resource
     end
 
     def carries?(resource)
-      resource.is_a?(AgentFolder)
+      resource.is_a?(Filesystem)
     end
 
     def reach!(_target)
@@ -153,7 +161,7 @@ class Resource
           "addresses" => [],
           "online" => connected?,
           "last_seen" => seen_at&.utc&.iso8601,
-          "services" => [ { "name" => "folder", "port" => 0, "type" => AgentFolder.sti_name, "address" => path } ]
+          "services" => [ { "name" => "folder", "port" => 0, "type" => Filesystem.sti_name, "address" => path } ]
         }
       end
     end
@@ -201,6 +209,14 @@ class Resource
     def greeted!(said, session:)
       merge_machine!(Hello.from(said).merge("session" => session, "connected" => true, "seen_at" => now_stamp))
       update_columns(offline_host: nil, offline_last_seen_at: nil, checked_at: Time.current, check_error: nil)
+      restate_folders!
+    end
+
+    def restate_folders!
+      Filesystem.where(via_id: id).find_each do |folder|
+        held = folder.served
+        folder.update_columns(serving: held) unless folder.serving == held
+      end
     end
 
     def heard!(said)
