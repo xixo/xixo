@@ -151,6 +151,64 @@ class InstallerTest < ActiveSupport::TestCase
     assert_empty @minted
   end
 
+  test "outside a tailnet, a machine with no host key kept is refused before anything is sent" do
+    shell = FakeShell.new
+
+    Tenant.switch(@tenant) do
+      agent = machine
+      error = assert_raises(Resource::Failed) { installer(agent, shell, tailnet: false).install! }
+
+      assert_match(/reached outside a tailnet, so its host key is needed.*It offered #{Regexp.escape(KEY)}/, error.message)
+      assert_nil agent.reload.details["host_key"]
+    end
+
+    assert_empty shell.ran
+    assert_empty @minted
+
+    Tenant.switch(@tenant) { installer(machine(key: "pinned", details: { "host_key" => KEY }), FakeShell.new, tailnet: false).install! }
+  end
+
+  test "a machine attached with an SSH key needs a host key unless a tailnet reaches it" do
+    Tenant.switch(@tenant) do
+      bare = Resource::XixoAgent.new(key: "bare", details: { "host" => "93.184.216.34", "user" => "jon" },
+                                     credentials: { "private_key" => "key" })
+      assert_not bare.valid?
+      assert_match(/Host key is needed for a machine reached outside a tailnet/, bare.errors.full_messages.to_sentence)
+
+      wrong = Resource::XixoAgent.new(key: "wrong", details: { "host" => "93.184.216.34", "user" => "jon", "host_key" => "ab:cd" })
+      assert_not wrong.valid?
+      assert_match(/must be a SHA256 fingerprint/, wrong.errors.full_messages.to_sentence)
+
+      tailnet = Resource::Tailnet.create!(key: "tailnet")
+      through = Resource::XixoAgent.new(key: "through", via: tailnet, details: { "host" => "100.64.0.9", "user" => "jon" },
+                                        credentials: { "private_key" => "key" })
+      assert through.valid?, through.errors.full_messages.to_sentence
+
+      assert through.on_tailnet?("100.64.0.9")
+      assert through.on_tailnet?("fd7a:115c:a1e0::9")
+      assert_not through.on_tailnet?("93.184.216.34")
+      assert_not through.on_tailnet?("not an address")
+      assert_not bare.on_tailnet?("100.64.0.9")
+    end
+  end
+
+  test "a client enrolled by an install that fails afterward is kept, so putting the machine away unenrolls it" do
+    failed = FakeShell::Ran.new(status: 1, out: "", err: "Failed to restart xixo-agent.service")
+    shell = FakeShell.new(answers: { /systemctl restart/ => failed })
+
+    Tenant.switch(@tenant) do
+      agent = machine
+      assert_raises(Resource::Failed) { installer(agent, shell).install! }
+
+      assert_equal "agent-client-1", agent.reload.client_id
+      assert_nil agent.details["installed"]
+
+      revoked = []
+      assert agent.put_away(revoker: ->(_tenant, client_id) { revoked << client_id })
+      assert_equal [ "agent-client-1" ], revoked
+    end
+  end
+
   test "the first host key seen is kept even when the install fails after it" do
     shell = FakeShell.new(answers: { /\Auname -sm\z/ => "Darwin arm64\n" })
 
@@ -211,7 +269,7 @@ class InstallerTest < ActiveSupport::TestCase
 
   test "the install job drops the private key whether the install worked or not" do
     Tenant.switch(@tenant) do
-      agent = Resource::XixoAgent.create!(key: "box", name: "Box", details: { "host" => "93.184.216.34", "user" => "jon" },
+      agent = Resource::XixoAgent.create!(key: "box", name: "Box", details: { "host" => "93.184.216.34", "user" => "jon", "host_key" => KEY },
                                           credentials: { "private_key" => "-----BEGIN OPENSSH PRIVATE KEY-----" })
       run = Run.where(resource_id: agent.id, kind: "install").sole
 
@@ -246,7 +304,7 @@ class InstallerTest < ActiveSupport::TestCase
       shell = FakeShell.new
 
       Resource::XixoAgent::Installer.new(
-        agent, shell: shell,
+        agent, shell: shell, tailnet: true,
         minter: ->(_tenant, name:) { order << [ :mint, name ] && "minted" },
         revoker: ->(_tenant, client_id) { order << [ :revoke, client_id ] }
       ).install!
@@ -263,7 +321,7 @@ class InstallerTest < ActiveSupport::TestCase
 
       assert_raises(Resource::Failed) do
         Resource::XixoAgent::Installer.new(
-          agent, shell: FakeShell.new,
+          agent, shell: FakeShell.new, tailnet: true,
           minter: ->(*, **) { flunk "minted while the earlier client still signs in" },
           revoker: ->(*) { raise Resource::Failed, "masks could not be reached to unenroll the machine" }
         ).install!
@@ -275,7 +333,7 @@ class InstallerTest < ActiveSupport::TestCase
 
   test "a machine put away before its install runs loses its key and its run closes" do
     Tenant.switch(@tenant) do
-      agent = Resource::XixoAgent.create!(key: "box", name: "Box", details: { "host" => "93.184.216.34", "user" => "jon" },
+      agent = Resource::XixoAgent.create!(key: "box", name: "Box", details: { "host" => "93.184.216.34", "user" => "jon", "host_key" => KEY },
                                           credentials: { "private_key" => "-----BEGIN OPENSSH PRIVATE KEY-----" })
       run = Run.where(resource_id: agent.id, kind: "install").sole
       agent.update_columns(archived_at: Time.current)
@@ -292,7 +350,7 @@ class InstallerTest < ActiveSupport::TestCase
 
   test "putting a machine away drops a key still waiting to be used" do
     Tenant.switch(@tenant) do
-      agent = Resource::XixoAgent.create!(key: "box", name: "Box", details: { "host" => "100.64.0.9", "user" => "jon" },
+      agent = Resource::XixoAgent.create!(key: "box", name: "Box", details: { "host" => "100.64.0.9", "user" => "jon", "host_key" => KEY },
                                           credentials: { "private_key" => "held" })
 
       assert agent.reload.put_away(revoker: ->(*) { flunk "asked masks about a machine that never enrolled" })
@@ -312,7 +370,7 @@ class InstallerTest < ActiveSupport::TestCase
       end
 
       error = assert_raises(Resource::Failed) do
-        Resource::XixoAgent::Installer.new(agent, shell: shell, minter: ->(*, **) { "minted" },
+        Resource::XixoAgent::Installer.new(agent, shell: shell, tailnet: true, minter: ->(*, **) { "minted" },
                                            revoker: ->(_tenant, client_id) { revoked << client_id }).install!
       end
 
@@ -365,7 +423,7 @@ class InstallerTest < ActiveSupport::TestCase
 
   test "a host xixo is not allowed to reach is refused before any connection" do
     Tenant.switch(@tenant) do
-      agent = Resource::XixoAgent.create!(key: "box", details: { "host" => "10.0.0.5", "user" => "jon" },
+      agent = Resource::XixoAgent.create!(key: "box", details: { "host" => "10.0.0.5", "user" => "jon", "host_key" => KEY },
                                           credentials: { "private_key" => "key" })
       run = Run.where(resource_id: agent.id, kind: "install").sole
 
@@ -479,9 +537,9 @@ class InstallerTest < ActiveSupport::TestCase
       )
     end
 
-    def installer(agent, shell, log: ->(*) { })
+    def installer(agent, shell, log: ->(*) { }, tailnet: true)
       minted = @minted
-      Resource::XixoAgent::Installer.new(agent, shell: shell, log: log,
+      Resource::XixoAgent::Installer.new(agent, shell: shell, log: log, tailnet: tailnet,
                                                 minter: ->(_tenant, name:) { minted << name && "minted-for-#{name}" })
     end
 end

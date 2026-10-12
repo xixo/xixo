@@ -261,8 +261,11 @@ resource uses it.
 A `xixo-agent` resource stands for a Linux machine running `xixo-agent`, the program in `agent/`.
 Attaching one with an SSH key starts an `install` run. `InstallAgentJob` connects over SSH to the
 address in `host`, which passes the address check through the machine's own `via`, and holds the
-machine to the host key in `host_key`. With `host_key` empty, the key the machine offers is kept
-there. The run refuses a machine that is not Linux on x86_64 or aarch64 and an account without
+machine to the host key in `host_key`. Only a machine reached through a `tailnet` resource at a
+tailnet address, in `100.64.0.0/10` or `fd7a:115c:a1e0::/48`, may leave `host_key` empty, and then
+the key the machine offers is kept there. Any other install stops before it sends anything. The
+client the agent enrolls as is kept on the resource as soon as `xixo-agent enroll` names it, so a
+run that fails later still leaves it where archiving the machine unenrolls it. The run refuses a machine that is not Linux on x86_64 or aarch64 and an account without
 `sudo -n`. It places the binary for the machine's architecture from `XIXO_AGENT_DIR`, checks its
 SHA-256 on the machine, writes `/etc/xixo-agent/config.json`, and starts the `xixo-agent` systemd
 service as the SSH user. The private key is removed from the resource's credentials when the run

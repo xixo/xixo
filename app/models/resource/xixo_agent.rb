@@ -12,6 +12,7 @@ class Resource
     MOST_DISKS = 32
     MOST_TEXT = 255
     MOST_PATH = 4096
+    TAILNET = [ IPAddr.new("100.64.0.0/10"), IPAddr.new("fd7a:115c:a1e0::/48") ].freeze
     MOST_RESULT = 4.megabytes
     SERVICE_KINDS = %w[ollama lmstudio].freeze
     PUT_AWAY_TRIES = 3
@@ -21,6 +22,8 @@ class Resource
     serves :transport
 
     validate :shared_by_everyone
+    validate :host_key_is_a_fingerprint
+    validate :host_key_given, if: -> { credentials.to_h["private_key"].present? }
 
     after_commit :install_later, on: %i[create update], if: :key_given?
     after_commit :hang_up, on: %i[update destroy], if: -> { put_away_now? || client_replaced? }
@@ -44,8 +47,10 @@ class Resource
                   help: "Used once to install the agent and then dropped, whether the install worked or not. " \
                         "Paste it again to install again."),
             field("host_key", "Host key", placeholder: "SHA256:…",
-                  help: "The SHA256 fingerprint of the machine's SSH host key. Left empty, the key seen on the " \
-                        "first install is kept, and every later install must meet the same one."),
+                  help: "The SHA256 fingerprint that ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub prints on " \
+                        "the machine. Needed unless the machine is reached through a tailnet, which vouches for " \
+                        "its address. Left empty there, the key seen on the first install is kept, and every " \
+                        "later install must meet the same one."),
             field("folders", "Folders it shares", kind: "lines", placeholder: "/srv/media",
                   help: "Absolute paths, one per line. The agent reads nothing outside them, and only an install " \
                         "or the machine's own config changes them."),
@@ -100,6 +105,16 @@ class Resource
 
     def client_id
       details.to_h["client_id"]
+    end
+
+    def host_key
+      details.to_h["host_key"].to_s.strip.presence
+    end
+
+    def on_tailnet?(address)
+      via.is_a?(Tailnet) && TAILNET.any? { |range| range.include?(IPAddr.new(address.to_s)) }
+    rescue IPAddr::Error
+      false
     end
 
     def offered_folders
@@ -275,14 +290,14 @@ class Resource
       save!
     end
 
-    def enrolled!(client_id:, host_key:, version:, arch:, programs: nil, revoker: Enrollment.method(:revoke))
+    def enrolled!(client_id:, host_key:, installed: nil, revoker: Enrollment.method(:revoke))
       put_away = transaction do
         held = XixoAgent.lock.find(id)
         next true if held.archived_at.present?
 
         held.details = held.details.to_h.merge(
-          "client_id" => client_id, "host_key" => host_key,
-          "installed" => { "version" => version, "arch" => arch, "programs" => programs, "at" => now_stamp }.compact
+          { "client_id" => client_id, "host_key" => host_key,
+            "installed" => installed&.merge("at" => now_stamp)&.compact }.compact
         )
         held.save!
         false
@@ -292,6 +307,7 @@ class Resource
       return unless put_away
 
       revoker.call(tenant, client_id)
+      forgotten!(client_id)
       raise Resource::Failed, "#{key} was put away while the agent installed, so masks unenrolled its new client #{client_id}"
     end
 
@@ -335,6 +351,17 @@ class Resource
       false
     end
 
+    def forgotten!(client)
+      transaction do
+        held = XixoAgent.lock.find(id)
+        next unless held.client_id == client
+
+        held.details = held.unenrolled_details
+        held.save!
+      end
+      reload
+    end
+
     def unenrolled_details
       details.to_h.except("client_id").merge("unenrolled" => { "client_id" => client_id, "at" => now_stamp })
     end
@@ -355,6 +382,19 @@ class Resource
 
       def shared_by_everyone
         errors.add(:owner_subject, "cannot be set on a machine, which an administrator attaches for everyone") if personal?
+      end
+
+      def host_key_is_a_fingerprint
+        return if host_key.nil? || host_key.match?(Installer::FINGERPRINT)
+
+        errors.add(:host_key, "must be a SHA256 fingerprint such as ssh-keygen -lf prints, starting SHA256:")
+      end
+
+      def host_key_given
+        return if host_key.present? || via.is_a?(Tailnet)
+
+        errors.add(:host_key, "is needed for a machine reached outside a tailnet. Run ssh-keygen -lf " \
+                              "/etc/ssh/ssh_host_ed25519_key.pub on the machine and paste the SHA256 fingerprint")
       end
 
       def put_away_now?

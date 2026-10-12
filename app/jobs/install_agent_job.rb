@@ -28,10 +28,13 @@ class InstallAgentJob < ApplicationJob
   private
 
     def install(agent, run, key)
-      Resource::XixoAgent::Shell.open(address: address_for(agent), port: port_for(agent), user: agent.details["user"].to_s,
-                                      key: key, pinned: agent.details["host_key"]) do |shell|
+      address = address_for(agent)
+
+      Resource::XixoAgent::Shell.open(address: address, port: port_for(agent), user: agent.details["user"].to_s,
+                                      key: key, pinned: agent.host_key) do |shell|
         run.log_info("connected to #{agent.details['host']} as #{agent.details['user']}")
-        Resource::XixoAgent::Installer.new(agent, shell: shell, log: ->(said) { run.log_done(said) }).install!
+        Resource::XixoAgent::Installer.new(agent, shell: shell, tailnet: agent.on_tailnet?(address),
+                                                  log: ->(said) { run.log_done(said) }).install!
       end
     end
 

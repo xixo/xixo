@@ -14,7 +14,7 @@ class MachinesTest < ActionDispatch::IntegrationTest
   GQL
 
   SETTINGS = {
-    "host" => "100.64.0.9", "user" => "jon", "private_key" => "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n-----END OPENSSH PRIVATE KEY-----",
+    "host" => "100.64.0.9", "user" => "jon", "host_key" => "SHA256:#{'A' * 43}", "private_key" => "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n-----END OPENSSH PRIVATE KEY-----",
     "folders" => "/srv/media\n/srv/My Photos\n"
   }.freeze
 

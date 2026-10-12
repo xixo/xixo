@@ -28,9 +28,10 @@ You need:
 4. Under **Folders it shares**, list the folders the agent may read, one absolute path per line,
    such as `/srv/media`. A path holding a colon, a quotation mark, an apostrophe, a backslash, or
    a control character is refused.
-5. Optionally, fill in **Host key** with the fingerprint `ssh-keygen -lf
-   /etc/ssh/ssh_host_ed25519_key.pub` prints on the machine. Left empty, the key the machine
-   offers on the first install is kept.
+5. Fill in **Host key** with the fingerprint `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`
+   prints on the machine. A machine reached directly needs it. A machine reached through a tailnet
+   at its tailnet address may leave it empty, since the tailnet vouches for the address, and then
+   the key the machine offers on the first install is kept.
 6. Leave **Extract on the machine** on to install the programs that read PDFs, office documents,
    images, audio, and video. They install with apt, so this needs Debian or Ubuntu.
 7. Choose **Attach it**.
@@ -38,7 +39,8 @@ You need:
 Attaching starts an install run. **What it has done** in the machine's menu shows it, with a line
 for each step. The run:
 
-1. Checks the machine's host key against the one kept.
+1. Checks the machine's host key against the one given, and stops before sending anything when
+   they differ or when a machine outside a tailnet has none.
 2. Refuses anything other than Linux on x86_64 or aarch64, and an account without `sudo -n`.
 3. Installs the extraction programs with `apt-get` when **Extract on the machine** is on, the same
    packages as the agent beside the server. On a machine that is not Debian or Ubuntu, or when apt
@@ -53,8 +55,9 @@ for each step. The run:
    directory, and each shared folder is mounted back read-only. A file outside the shared folders
    is missing for the agent even when its account could read it.
 
-xixo drops the private key when the run ends, whether it worked or not. Within a minute the agent
-connects, and the machine's card shows its hostname, the agent's version, its uptime, how many
+xixo drops the private key when the run ends, whether it worked or not. A run that fails after
+the agent enrolls keeps the new client on the machine, so archiving the machine or installing
+again unenrolls it. Within a minute the agent connects, and the machine's card shows its hostname, the agent's version, its uptime, how many
 folders it shares, and the kinds of file it cannot read.
 
 ## Files a machine cannot read
@@ -74,8 +77,15 @@ its item says why. Two settings change that:
 2. Under **Reached through**, pick the machine, then pick one of its folders in the list below it.
 3. Choose **Attach it**, then sync it like any other resource.
 
-A folder the agent does not share is refused. Syncing a folder whose machine is not connected
-leaves it **offline** until the agent is back.
+Only an administrator attaches a folder through a machine, as shared or as only theirs. A folder
+the agent does not share is refused, and so is a folder that is the same as, inside, or around a
+folder another owner holds on the same machine. Syncing a folder whose machine is not connected
+leaves it **offline** until the agent is back. A folder the agent stopped sharing shows as failing
+with the reason.
+
+A full sync that finds nothing in a folder where it found files before marks nothing gone, since an
+unmounted disk looks the same as an emptied folder. The folder's card says when that sync ran, and
+its items stay until a sync finds files again.
 
 ## Change the folders
 

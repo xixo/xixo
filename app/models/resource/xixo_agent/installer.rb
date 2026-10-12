@@ -24,9 +24,11 @@ class Resource
       INSTALLED_WITHIN = 45.minutes
       TOLD_LINES = 5
 
-      def initialize(agent, shell:, minter: Enrollment.method(:mint), revoker: Enrollment.method(:revoke), log: ->(*) { })
+      def initialize(agent, shell:, tailnet: false, minter: Enrollment.method(:mint), revoker: Enrollment.method(:revoke),
+                     log: ->(*) { })
         @agent = agent
         @shell = shell
+        @tailnet = tailnet
         @minter = minter
         @revoker = revoker
         @log = log
@@ -48,6 +50,7 @@ class Resource
         @log.call("wrote #{CONFIG} sharing #{folders.size} #{'folder'.pluralize(folders.size)}")
 
         client_id = enroll!
+        @agent.enrolled!(client_id: client_id, host_key: pinned, revoker: @revoker)
         @log.call("enrolled with masks as #{client_id}")
 
         write!(UNIT, unit_for(user), mode: "0644")
@@ -57,8 +60,8 @@ class Resource
         version = run!("#{BINARY} version").strip.first(MOST_TEXT)
         @log.call("started the xixo-agent service as #{user}, version #{version}")
 
-        @agent.enrolled!(client_id: client_id, host_key: pinned, version: version, arch: arch, programs: programs,
-                         revoker: @revoker)
+        @agent.enrolled!(client_id: client_id, host_key: pinned, revoker: @revoker,
+                         installed: { "version" => version, "arch" => arch, "programs" => programs })
       end
 
       private
@@ -68,6 +71,12 @@ class Resource
           pinned = @agent.details.to_h["host_key"].to_s.strip
 
           raise Resource::Failed, "the machine offered no host key it could be held to" unless seen.match?(FINGERPRINT)
+
+          if pinned.blank? && !@tailnet
+            raise Resource::Failed, "the machine is reached outside a tailnet, so its host key is needed before " \
+                                    "anything is sent to it. It offered #{seen}; check that against " \
+                                    "ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub on the machine"
+          end
 
           if pinned.present? && !ActiveSupport::SecurityUtils.secure_compare(seen, pinned)
             raise Resource::Failed, "the machine offered the host key #{seen}, not #{pinned}, so nothing was sent to it"
