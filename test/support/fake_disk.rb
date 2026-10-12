@@ -40,6 +40,12 @@ module FakeDisk
       FakeDisk.read(self, folder, path)
     end
 
+    def glimpse(folder, path, limit:, within: nil)
+      return super(folder, path, limit: limit, **{ within: within }.compact) unless fake_disk?
+
+      FakeDisk.glimpse(self, folder, path, limit)
+    end
+
     def upload(io)
       return super unless fake_disk?
 
@@ -116,6 +122,13 @@ module FakeDisk
       result = answered.result.merge("sha256" => Digest::SHA256.hexdigest(bytes), "size" => bytes.bytesize)
 
       yield FakeAgent::Answer.new(result, answered.instance_variable_get(:@held))
+    end
+
+    def glimpse(agent, folder, path, limit)
+      target = confined(agent, folder, path)
+      refuse(agent, "no such file") unless target.file?
+
+      [ File.binread(target, limit).to_s, target.size ]
     end
 
     def read(agent, folder, path)
