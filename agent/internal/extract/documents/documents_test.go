@@ -385,3 +385,77 @@ func TestEveryExtractorIsRegisteredByItsRubyName(t *testing.T) {
 		t.Fatal("raw detection is wrong")
 	}
 }
+
+func TestRawThatWillNotDevelopStillHasItsTaggedSize(t *testing.T) {
+	source := filepath.Join(t.TempDir(), "upload")
+	if err := os.WriteFile(source, []byte("not really a raw"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runner := &scriptedRunner{answers: map[string]string{
+		"exiftool": `[{"ImageWidth": 6016, "ImageHeight": 4016}]`,
+	}}
+	in := extract.Input{Path: source, Name: "shot.nef", MIME: "image/x-nikon-nef", Work: t.TempDir(), Run: runner}
+	out, err := Image{}.Extract(context.Background(), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	step := out.Steps["dimensions"]
+	if step.Error != "" || !reflect.DeepEqual(step.Result, map[string]int{"width": 6016, "height": 4016}) {
+		t.Fatalf("dimensions %#v %q", step.Result, step.Error)
+	}
+	if _, ok := out.Steps["location"]; !ok {
+		t.Fatal("an undeveloped raw lost its location step")
+	}
+}
+
+func TestOnePixelHasNoSpread(t *testing.T) {
+	needs(t, "vips", "vipsheader")
+	dir := t.TempDir()
+	pixel := filepath.Join(dir, "pixel.png")
+	if said, err := exec.Command("vips", "black", pixel, "1", "1").CombinedOutput(); err != nil {
+		t.Fatalf("%v %s", err, said)
+	}
+	in := extract.Input{Path: pixel, Name: "pixel.png", MIME: "image/png", Work: t.TempDir(), Run: extract.Limited{}}
+	out, err := Image{}.Extract(context.Background(), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	step := out.Steps["deviation"]
+	if step.Error != "" || step.Result != 0.0 {
+		t.Fatalf("deviation %#v %q", step.Result, step.Error)
+	}
+}
+
+func TestZip64OfficeFilesKeepTheirMetadata(t *testing.T) {
+	needs(t, "exiftool")
+	for name, mime := range map[string]string{"report.docx": Docx, "report.odt": Odt} {
+		in := input(t, name, mime)
+		out := &extract.Output{}
+		if err := extract.Common(context.Background(), in, out); err != nil {
+			t.Fatal(err)
+		}
+		if step := out.Steps["metadata"]; step.Error != "" {
+			t.Errorf("%s metadata %q", name, step.Error)
+		}
+	}
+}
+
+func TestDocReadsAnUploadWithoutAnExtension(t *testing.T) {
+	needs(t, "soffice", "pdfinfo", "pdftotext")
+	original, err := os.ReadFile(filepath.Join("testdata", "report.odt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := filepath.Join(t.TempDir(), "upload")
+	if err := os.WriteFile(source, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	in := extract.Input{Path: source, Name: "report.odt", MIME: Odt, Work: t.TempDir(), Run: extract.Limited{}}
+	out, err := Doc{}.Extract(context.Background(), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info, _ := out.Steps["info"].Result.(map[string]any); info["pages"] != 1 {
+		t.Fatalf("info %#v %q", out.Steps["info"].Result, out.Steps["info"].Error)
+	}
+}

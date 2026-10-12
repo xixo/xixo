@@ -2,7 +2,9 @@ package documents
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -60,18 +62,43 @@ func (s *session) asPdf(source string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	named := filepath.Join(dir, "document"+filepath.Ext(s.in.Name))
-	if err := os.Symlink(source, named); err != nil {
+	named := filepath.Join(dir, "document"+strings.ToLower(filepath.Ext(s.in.Name)))
+	if err := placed(source, named); err != nil {
 		return "", err
 	}
-	profile := "file://" + filepath.Join(dir, "profile")
-	if _, err := s.run(Patience, "soffice", "-env:UserInstallation="+profile, "--headless", "--norestore",
-		"--convert-to", "pdf", "--outdir", dir, named); err != nil {
+	outdir := filepath.Join(dir, "out")
+	if err := os.Mkdir(outdir, 0o700); err != nil {
 		return "", err
 	}
-	made, _ := filepath.Glob(filepath.Join(dir, "*.pdf"))
+	profile := (&url.URL{Scheme: "file", Path: filepath.Join(dir, "profile")}).String()
+	said, err := s.run(Patience, "soffice", "-env:UserInstallation="+profile, "--headless", "--norestore",
+		"--convert-to", "pdf", "--outdir", outdir, named)
+	if err != nil {
+		return "", err
+	}
+	made, _ := filepath.Glob(filepath.Join(outdir, "*.pdf"))
 	if len(made) == 0 {
-		return "", errors.New("libreoffice produced no pdf")
+		return "", fmt.Errorf("libreoffice produced no pdf: %s", strings.TrimSpace(said))
 	}
 	return made[0], nil
+}
+
+func placed(source, named string) error {
+	if err := os.Link(source, named); err == nil {
+		return nil
+	}
+	from, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer from.Close()
+	to, err := os.OpenFile(named, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(to, from); err != nil {
+		to.Close()
+		return err
+	}
+	return to.Close()
 }

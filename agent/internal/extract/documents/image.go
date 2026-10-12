@@ -54,18 +54,28 @@ func (Image) Extract(ctx context.Context, in extract.Input) (*extract.Output, er
 	if IsRaw(in.Name) {
 		developed, err := s.viewableRaw(in.Path)
 		if err != nil {
-			s.keep("dimensions", "", nil, err)
+			if s.wanted("dimensions") {
+				result, tagErr := s.taggedDimensions(in.Path)
+				if tagErr != nil {
+					tagErr = err
+				}
+				s.keep("dimensions", "", result, tagErr)
+			}
+			if s.wanted("location") {
+				result, err := s.location(in.Path)
+				s.keep("location", LocatedBy, result, err)
+			}
 			return s.finish(), ctx.Err()
 		}
 		path = developed
 	}
 
+	measured, measureErr := s.dimensions(path)
 	if s.wanted("dimensions") {
-		result, err := s.dimensions(path)
-		s.keep("dimensions", "", result, err)
+		s.keep("dimensions", "", measured, measureErr)
 	}
 	if s.wanted("deviation") {
-		result, err := s.deviation(path)
+		result, err := s.deviation(path, measured)
 		s.keep("deviation", "", result, err)
 	}
 
@@ -120,7 +130,28 @@ func (s *session) dimensions(path string) (map[string]int, error) {
 	return map[string]int{"width": width, "height": height}, nil
 }
 
-func (s *session) deviation(path string) (float64, error) {
+func (s *session) taggedDimensions(path string) (map[string]int, error) {
+	said, err := s.run(Patience, "exiftool", "-j", "-n", "-ImageWidth", "-ImageHeight", path)
+	if err != nil {
+		return nil, err
+	}
+	var tagged []struct {
+		ImageWidth  int
+		ImageHeight int
+	}
+	if err := json.Unmarshal([]byte(said), &tagged); err != nil {
+		return nil, err
+	}
+	if len(tagged) == 0 || tagged[0].ImageWidth <= 0 || tagged[0].ImageHeight <= 0 {
+		return nil, errors.New("the image names no width and height")
+	}
+	return map[string]int{"width": tagged[0].ImageWidth, "height": tagged[0].ImageHeight}, nil
+}
+
+func (s *session) deviation(path string, measured map[string]int) (float64, error) {
+	if measured != nil && measured["width"]*measured["height"] < 2 {
+		return 0, nil
+	}
 	said, err := s.run(Patience, "vips", "deviate", path)
 	if err != nil {
 		return 0, err
