@@ -127,6 +127,10 @@ Everything else.
 | `text` | printable files only; HTML, XHTML, SVG, XML, or anything starting with `<` has its markup stripped, headings kept as `#` lines |
 | `listing` | zip, tar, and gzipped tar: the first 200 entry names, leaving out pax headers and `._` AppleDouble files |
 
+## media, email, epub, and xlsx
+
+These are in [rich/README.md](rich/README.md).
+
 ## Programs
 
 Every program runs under `Limited`: a deadline, a 4 GiB data limit on Linux,

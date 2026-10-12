@@ -1,0 +1,11 @@
+Date: Mon, 06 Apr 2026 08:00:00 +0000
+From: noreply@example.invalid
+To: ash@example.invalid
+Message-ID: <htmlonly-3390@example.invalid>
+Subject: Your statement is ready
+MIME-Version: 1.0
+Content-Type: text/html;
+ charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+<html><head><style>p{color:red}</style><script>alert(1)</script></head><body><h1>Statement</h1><p>Balance carried forward: &pound;1,240.00</p><p>Needle: EMAILHTMLONLY-3390</p></body></html>

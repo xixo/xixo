@@ -1,0 +1,7 @@
+From: bea@example.invalid
+To: ash@example.invalid
+Subject: Headers only, no body. Needle: EMAILNOBODY-2205
+Date: Fri, 10 Apr 2026 07:00:00 +0000
+Message-ID: <nobody-2205@example.invalid>
+MIME-Version: 1.0
+

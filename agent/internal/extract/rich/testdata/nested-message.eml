@@ -1,0 +1,41 @@
+Date: Wed, 08 Apr 2026 10:00:00 +0000
+From: ash@example.invalid
+To: cyril@example.invalid
+Message-ID: <nested-7704@example.invalid>
+Subject: Fwd: Roof, next steps
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="--==_mimepart_6a9c2eca1ab44_6c86d857dc"
+Content-Transfer-Encoding: 7bit
+
+
+----==_mimepart_6a9c2eca1ab44_6c86d857dc
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+Forwarding Bea's note. Needle: EMAILNESTED-7704
+
+----==_mimepart_6a9c2eca1ab44_6c86d857dc
+Content-Type: message/rfc822
+Content-Transfer-Encoding: 
+Content-Disposition: attachment;
+ filename=forwarded.eml
+
+Date: Sat, 14 Mar 2026 09:30:00 +0000
+From: Bea Okonkwo <bea@example.invalid>
+To: Ash Pemberton <ash@example.invalid>
+Message-ID: <plain-4471@example.invalid>
+Subject: Roof, next steps
+MIME-Version: 1.0
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+Ash,
+
+The felt comes off on the 22nd. Needle: EMAILPLAIN-4471
+
+Bea
+
+----==_mimepart_6a9c2eca1ab44_6c86d857dc--
