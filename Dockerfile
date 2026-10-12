@@ -35,7 +35,7 @@ ENV RAILS_ENV="production" \
 # Node, for the Vite build.
 FROM docker.io/library/node:$NODE_VERSION-slim AS node
 
-FROM docker.io/library/golang:$GO_VERSION AS agent
+FROM --platform=$BUILDPLATFORM docker.io/library/golang:$GO_VERSION AS agent
 WORKDIR /agent
 COPY agent/go.mod agent/go.sum ./
 RUN go mod download
