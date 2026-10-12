@@ -14,12 +14,12 @@ class Resource
     MOST_PATH = 4096
     MOST_RESULT = 4.megabytes
     SERVICE_KINDS = %w[ollama lmstudio].freeze
+    PUT_AWAY_TRIES = 3
 
     serves :transport
 
     validate :shared_by_everyone
 
-    before_save :unenroll, if: :put_away?
     after_commit :install_later, on: %i[create update], if: :key_given?
     after_commit :hang_up, on: %i[update destroy], if: :put_away_now?
 
@@ -194,12 +194,24 @@ class Resource
               SQL
     end
 
-    def enrolled!(client_id:, host_key:, version:, arch:)
-      self.details = details.to_h.merge(
-        "client_id" => client_id, "host_key" => host_key,
-        "installed" => { "version" => version, "arch" => arch, "at" => now_stamp }
-      )
-      save!
+    def enrolled!(client_id:, host_key:, version:, arch:, revoker: Enrollment.method(:revoke))
+      put_away = transaction do
+        held = XixoAgent.lock.find(id)
+        next true if held.archived_at.present?
+
+        held.details = held.details.to_h.merge(
+          "client_id" => client_id, "host_key" => host_key,
+          "installed" => { "version" => version, "arch" => arch, "at" => now_stamp }
+        )
+        held.save!
+        false
+      end
+      reload
+
+      return unless put_away
+
+      revoker.call(tenant, client_id)
+      raise Resource::Failed, "#{key} was put away while the agent installed, so masks unenrolled its new client #{client_id}"
     end
 
     def unenroll!(revoker: Enrollment.method(:revoke))
@@ -208,6 +220,42 @@ class Resource
       revoker.call(tenant, client_id)
       self.details = unenrolled_details
       save!
+    end
+
+    def put_away(revoker: Enrollment.method(:revoke))
+      self.archived_at = Time.current
+      return false unless valid?
+
+      restore_attributes([ :archived_at ])
+
+      PUT_AWAY_TRIES.times do
+        client = XixoAgent.find(id).client_id
+        revoker.call(tenant, client) if client.present?
+
+        done = transaction do
+          held = XixoAgent.lock.find(id)
+          next nil unless held.client_id == client
+
+          held.archived_at = Time.current
+          held.details = held.unenrolled_details if client.present?
+          held.credentials = held.credentials.to_h.except("private_key")
+          held.save
+        end
+        next if done.nil?
+
+        reload
+        return done
+      end
+
+      errors.add(:base, "#{key} enrolled again while it was being put away. Try again")
+      false
+    rescue Resource::Failed => e
+      errors.add(:base, "#{e.message}, so #{key} stays attached and its agent keeps signing in. Try again once masks answers")
+      false
+    end
+
+    def unenrolled_details
+      details.to_h.except("client_id").merge("unenrolled" => { "client_id" => client_id, "at" => now_stamp })
     end
 
     def forget_key!
@@ -228,24 +276,8 @@ class Resource
         errors.add(:owner_subject, "cannot be set on a machine, which an administrator attaches for everyone") if personal?
       end
 
-      def put_away?
-        will_save_change_to_archived_at? && archived_at.present? && client_id.present?
-      end
-
       def put_away_now?
         destroyed? || (saved_change_to_archived_at? && archived_at.present?)
-      end
-
-      def unenroll
-        Enrollment.revoke(tenant, client_id)
-        self.details = unenrolled_details
-      rescue Resource::Failed => e
-        errors.add(:base, "#{e.message}, so #{key} stays attached and its agent keeps signing in. Try again once masks answers")
-        throw :abort
-      end
-
-      def unenrolled_details
-        details.to_h.except("client_id").merge("unenrolled" => { "client_id" => client_id, "at" => now_stamp })
       end
 
       def hang_up

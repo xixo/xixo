@@ -267,6 +267,89 @@ class InstallerTest < ActiveSupport::TestCase
     end
   end
 
+  test "a machine put away before its install runs loses its key and its run closes" do
+    Tenant.switch(@tenant) do
+      agent = Resource::XixoAgent.create!(key: "box", name: "Box", details: { "host" => "93.184.216.34", "user" => "jon" },
+                                          credentials: { "private_key" => "-----BEGIN OPENSSH PRIVATE KEY-----" })
+      run = Run.where(resource_id: agent.id, kind: "install").sole
+      agent.update_columns(archived_at: Time.current)
+
+      swapping(Resource::XixoAgent::Shell, :open, ->(**) { flunk "connected to a machine that was put away" }) do
+        InstallAgentJob.perform_now(agent.id, run.id)
+      end
+
+      assert_nil agent.reload.credentials["private_key"]
+      assert_equal "failed", run.reload.status
+      assert_match(/put away/, run.error)
+    end
+  end
+
+  test "putting a machine away drops a key still waiting to be used" do
+    Tenant.switch(@tenant) do
+      agent = Resource::XixoAgent.create!(key: "box", name: "Box", details: { "host" => "100.64.0.9", "user" => "jon" },
+                                          credentials: { "private_key" => "held" })
+
+      assert agent.reload.put_away(revoker: ->(*) { flunk "asked masks about a machine that never enrolled" })
+      assert_nil agent.reload.credentials["private_key"]
+      assert agent.archived_at
+    end
+  end
+
+  test "a machine put away while it installs has its new client unenrolled at once" do
+    Tenant.switch(@tenant) do
+      agent = machine
+      revoked = []
+      shell = FakeShell.new
+      shell.define_singleton_method(:run) do |command, stdin: nil|
+        Resource::XixoAgent.where(id: agent.id).update_all(archived_at: Time.current) if command.include?("systemctl restart")
+        super(command, stdin: stdin)
+      end
+
+      error = assert_raises(Resource::Failed) do
+        Resource::XixoAgent::Installer.new(agent, shell: shell, minter: ->(*, **) { "minted" },
+                                           revoker: ->(_tenant, client_id) { revoked << client_id }).install!
+      end
+
+      assert_match(/put away while the agent installed/, error.message)
+      assert_equal [ "agent-client-1" ], revoked
+      assert_nil agent.reload.client_id
+    end
+  end
+
+  test "putting away a machine unenrolls the client it holds now, not the one it was loaded with" do
+    Tenant.switch(@tenant) do
+      agent = machine(details: { "client_id" => "agent-client-2" })
+      stale = Resource::XixoAgent.find(agent.id)
+      Resource::XixoAgent.where(id: agent.id).update_all([ "details = details || ?::jsonb", { "client_id" => "agent-client-3" }.to_json ])
+      revoked = []
+
+      assert stale.put_away(revoker: ->(_tenant, client_id) { revoked << client_id })
+      assert_equal [ "agent-client-3" ], revoked
+      assert_nil stale.reload.client_id
+      assert_equal "agent-client-3", stale.details.dig("unenrolled", "client_id")
+    end
+  end
+
+  test "a machine a folder still reaches through is not unenrolled when it cannot be put away" do
+    Tenant.switch(@tenant) do
+      agent = machine(details: { "client_id" => "agent-client-0", "machine" => { "folders" => [ "/srv/media" ] } })
+      Resource::AgentFolder.create!(key: "media", name: "Media", via: agent, details: { "folder" => "/srv/media" })
+
+      assert_not agent.reload.put_away(revoker: ->(*) { flunk "unenrolled a machine that stays attached" })
+      assert_nil agent.reload.archived_at
+      assert_equal "agent-client-0", agent.client_id
+    end
+  end
+
+  test "a machine that ends a command without an exit status fails the install with a reason" do
+    shell = FakeShell.new(answers: { /\Asudo -n true\z/ => FakeShell::Ran.new(status: nil, out: "", err: "") })
+
+    Tenant.switch(@tenant) do
+      error = assert_raises(Resource::Failed) { installer(machine, shell).install! }
+      assert_match(/without an exit status/, error.message)
+    end
+  end
+
   test "masks is asked to unenroll a machine as this tenant's client" do
     assert Resource::XixoAgent::Enrollment.revoke(@tenant, "agent-client-9")
 

@@ -12,9 +12,7 @@ module Mutations
       resource = Resource.attended.reachable_by(context[:grant]).find_by(id: id) || refused("no resource with id #{id}")
       managed!(resource)
 
-      resource.archived_at = archived ? Time.current : nil
-
-      refused(resource.errors.full_messages.to_sentence) unless resource.save
+      refused(resource.errors.full_messages.to_sentence) unless archived ? resource.put_away : resource.bring_back
 
       noted(resource, archived)
 

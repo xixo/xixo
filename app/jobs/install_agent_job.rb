@@ -1,17 +1,19 @@
 class InstallAgentJob < ApplicationJob
   queue_as :sync
 
-  discard_on ActiveRecord::RecordNotFound
-
   def perform(resource_id, run_id)
-    agent = Resource::XixoAgent.active.find(resource_id)
-    run = Run.find(run_id)
-    key = agent.credentials.to_h["private_key"]
-    run.running!
+    run = Run.find_by(id: run_id)
+    agent = Resource::XixoAgent.find_by(id: resource_id)
+    return run&.finished!(error: "the machine is gone, so nothing was installed") if agent.nil?
 
+    key = agent.credentials.to_h["private_key"]
+    agent.forget_key!
+    return if run.nil?
+
+    run.running!
+    return run.finished!(error: "#{agent.key} was put away, so nothing was installed") if agent.archived_at.present?
     return run.finished!(error: "no SSH key was held, so nothing was installed") if key.blank?
 
-    agent.forget_key!
     install(agent, run, key)
     run.finished!
     agent.check

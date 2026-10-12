@@ -657,6 +657,16 @@ class Resource < ApplicationRecord
     sync_started_at.present? && sync_started_at > SYNC_ABANDONED_AFTER.ago
   end
 
+  def put_away
+    self.archived_at = Time.current
+    save
+  end
+
+  def bring_back
+    self.archived_at = nil
+    save
+  end
+
   def sync!
     raise ArgumentError, "#{self.class.sti_name} is not syncable" unless syncable?
     raise ArgumentError, "#{key} is a store xixo keeps for itself" if internal?

@@ -48,7 +48,7 @@ class Resource
         version = run!("#{BINARY} version").strip.first(MOST_TEXT)
         @log.call("started the xixo-agent service as #{user}, version #{version}")
 
-        @agent.enrolled!(client_id: client_id, host_key: pinned, version: version, arch: arch)
+        @agent.enrolled!(client_id: client_id, host_key: pinned, version: version, arch: arch, revoker: @revoker)
       end
 
       private
@@ -83,6 +83,7 @@ class Resource
 
         def sudo!
           ran = @shell.run("sudo -n true")
+          raise Resource::Failed, "the machine ended sudo -n true without an exit status" if ran.status.nil?
           return if ran.status.zero?
 
           raise Resource::Failed, "#{@agent.details['user']} needs sudo without a password to install the agent"
@@ -179,6 +180,7 @@ class Resource
           return ran.out if ran.status&.zero?
 
           said = Redaction.scrub(ran.err.to_s.strip.lines.last.to_s.strip).to_s.first(200)
+          said = "the machine ended it without an exit status" if said.blank? && ran.status.nil?
           raise Resource::Failed, "#{command.split.first(3).join(' ')} failed#{": #{said}" if said.present?}"
         end
     end
