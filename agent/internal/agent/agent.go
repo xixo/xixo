@@ -69,7 +69,15 @@ type Chunk struct {
 type Read struct {
 	Folder string `json:"folder"`
 	Path   string `json:"path"`
+	Limit  int64  `json:"limit,omitempty"`
 }
+
+type Glimpse struct {
+	Size  int64 `json:"size"`
+	Total int64 `json:"total"`
+}
+
+const mostGlimpsed = 1 << 20
 
 type Size struct {
 	Size int64 `json:"size"`
@@ -410,11 +418,22 @@ func (s *session) read(ctx context.Context, request string, wanted Read) {
 	}
 	defer opened.Close()
 
+	if wanted.Limit < 0 || wanted.Limit > mostGlimpsed {
+		s.refuse(ctx, request, fmt.Errorf("a read is limited to at most %d bytes", mostGlimpsed))
+
+		return
+	}
+
+	var source io.Reader = opened
+	if wanted.Limit > 0 {
+		source = io.LimitReader(opened, wanted.Limit)
+	}
+
 	buffer := make([]byte, s.Chunk)
 	sent := int64(0)
 
 	for seq := 0; ; seq++ {
-		count, err := io.ReadFull(opened, buffer)
+		count, err := io.ReadFull(source, buffer)
 
 		if count > 0 {
 			chunk := Chunk{Request: request, Seq: seq, Data: base64.StdEncoding.EncodeToString(buffer[:count])}
@@ -426,7 +445,11 @@ func (s *session) read(ctx context.Context, request string, wanted Read) {
 		}
 
 		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
-			s.reply(ctx, request, Size{Size: sent})
+			if wanted.Limit > 0 {
+				s.reply(ctx, request, Glimpse{Size: sent, Total: opened.Size})
+			} else {
+				s.reply(ctx, request, Size{Size: sent})
+			}
 
 			return
 		}

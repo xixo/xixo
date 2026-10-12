@@ -148,13 +148,15 @@ func TestASessionAnswersXixo(t *testing.T) {
 		socket.Ask(identifier, map[string]any{"request": "r-list", "verb": "list", "args": map[string]any{"folder": folder}})
 		socket.Ask(identifier, map[string]any{"request": "r-read", "verb": "read", "args": map[string]any{"folder": folder, "path": "big.bin"}})
 		socket.Ask(identifier, map[string]any{"request": "r-small", "verb": "read", "args": map[string]any{"folder": folder, "path": "small.txt"}})
+		socket.Ask(identifier, map[string]any{"request": "r-glimpse", "verb": "read", "args": map[string]any{"folder": folder, "path": "big.bin", "limit": 10}})
+		socket.Ask(identifier, map[string]any{"request": "r-greedy", "verb": "read", "args": map[string]any{"folder": folder, "path": "big.bin", "limit": 2 << 20}})
 		socket.Ask(identifier, map[string]any{"request": "r-escape", "verb": "read", "args": map[string]any{"folder": folder, "path": "../etc/passwd"}})
 		socket.Ask(identifier, map[string]any{"request": "r-elsewhere", "verb": "list", "args": map[string]any{"folder": "/etc"}})
 		socket.Ask(identifier, map[string]any{"request": "r-odd", "verb": "delete", "args": map[string]any{}})
 		socket.Ask(identifier, map[string]any{"request": "r-health", "verb": "health", "args": map[string]any{}})
 		socket.Ask(`{"channel":"Other"}`, map[string]any{"request": "r-other", "verb": "health"})
 
-		got := gather(socket, 7)
+		got := gather(socket, 9)
 
 		listed := got.done["r-list"]
 		entries := listed["result"].(map[string]any)["entries"].([]any)
@@ -174,7 +176,18 @@ func TestASessionAnswersXixo(t *testing.T) {
 			t.Errorf("small read %q", got.chunks["r-small"])
 		}
 
-		for _, refused := range []string{"r-escape", "r-elsewhere", "r-odd"} {
+		glimpsed := got.done["r-glimpse"]["result"].(map[string]any)
+		size, _ := glimpsed["size"].(json.Number).Int64()
+		total, _ := glimpsed["total"].(json.Number).Int64()
+		if !bytes.Equal(got.chunks["r-glimpse"], big[:10]) || size != 10 || total != int64(len(big)) {
+			t.Errorf("glimpse %d bytes, reply %v", len(got.chunks["r-glimpse"]), glimpsed)
+		}
+
+		if _, ok := got.chunks["r-greedy"]; ok {
+			t.Errorf("a read past the glimpse limit sent bytes")
+		}
+
+		for _, refused := range []string{"r-escape", "r-elsewhere", "r-odd", "r-greedy"} {
 			if got.done[refused]["ok"] != false || got.done[refused]["error"] == "" {
 				t.Errorf("%s reply %v", refused, got.done[refused])
 			}
