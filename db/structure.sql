@@ -517,6 +517,16 @@ ALTER SEQUENCE public.passages_id_seq OWNED BY public.passages.id;
 
 
 --
+-- Name: proof_marks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.proof_marks (
+    digest character varying NOT NULL,
+    expires_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
 -- Name: resource_blobs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1007,6 +1017,14 @@ ALTER TABLE ONLY public.passages
 
 
 --
+-- Name: proof_marks proof_marks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.proof_marks
+    ADD CONSTRAINT proof_marks_pkey PRIMARY KEY (digest);
+
+
+--
 -- Name: resource_blobs resource_blobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1466,6 +1484,13 @@ CREATE INDEX index_passages_on_tenant_id_and_embedded_at ON public.passages USIN
 --
 
 CREATE UNIQUE INDEX index_passages_on_tenant_id_and_feed_id_and_position ON public.passages USING btree (tenant_id, feed_id, "position");
+
+
+--
+-- Name: index_proof_marks_on_expires_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_proof_marks_on_expires_at ON public.proof_marks USING btree (expires_at);
 
 
 --
@@ -2160,6 +2185,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261012030000'),
 ('20261011200000'),
 ('20261010230000'),
 ('20261010200000'),

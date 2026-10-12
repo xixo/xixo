@@ -42,6 +42,11 @@ shared: &shared
     queue: sync
     schedule: every hour at minute 47
 
+  forget_proof_marks:
+    class: ForgetProofMarksJob
+    queue: sync
+    schedule: every hour at minute 53
+
   forget_gone:
     class: ForgetGoneJob
     queue: sync

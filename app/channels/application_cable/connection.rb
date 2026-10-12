@@ -49,7 +49,7 @@ module ApplicationCable
       end
 
       def resource
-        Masks::Rails.config.resource_server_for(request)
+        ResourceServer.for(request)
       end
   end
 end

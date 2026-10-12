@@ -2,7 +2,7 @@ class Resource
   class XixoAgent
     Caller = Data.define(:agent, :claims) do
       def self.from(request, path:)
-        claims = Masks::Rails.config.resource_server_for(request).authenticate(
+        claims = ResourceServer.for(request).authenticate(
           request.authorization, proof: request.headers["DPoP"], method: request.request_method,
                                  url: "#{Tenant.origin(request)}#{path}"
         )

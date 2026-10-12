@@ -9,6 +9,10 @@ module Granted
 
   private
 
+    def masks_resource
+      @masks_resource ||= ResourceServer.for(request)
+    end
+
     def verified_request?
       request.authorization.present? || super
     end

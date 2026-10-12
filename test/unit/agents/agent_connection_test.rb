@@ -77,6 +77,16 @@ class AgentConnectionTest < ActionCable::Connection::TestCase
     assert_reject_connection { present(token, proof) }
   end
 
+  test "a proof another process already took is refused here too" do
+    token = machine_token(@tenant, client_id: "box-client")
+    proof = dpop_proof(token, url: cable_url)
+    header, claims = proof.split(".").first(2).map { |part| JSON.parse(Base64.urlsafe_decode64(part + ("=" * (-part.size % 4)))) }
+
+    assert ProofMark.first?("#{Masks::Client::Proof.thumbprint(header['jwk'])}:#{claims['jti']}", expires_in: 120)
+
+    assert_reject_connection { present(token, proof) }
+  end
+
   test "a client no machine here was enrolled as is refused, and so is an archived machine" do
     stranger = machine_token(@tenant, client_id: "stranger")
     assert_reject_connection { present(stranger, dpop_proof(stranger, url: cable_url)) }
