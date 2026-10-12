@@ -161,11 +161,10 @@ func (a *Agent) Run(ctx context.Context) error {
 
 type session struct {
 	*Agent
-	conn     *cable.Conn
-	token    *masks.Token
-	working  sync.WaitGroup
-	slots    chan struct{}
-	draining bool
+	conn    *cable.Conn
+	token   *masks.Token
+	working sync.WaitGroup
+	slots   chan struct{}
 }
 
 func (a *Agent) Session(ctx context.Context) error {
@@ -184,32 +183,59 @@ func (a *Agent) Session(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
 
 	if err := conn.Subscribe(ctx, 15*time.Second); err != nil {
+		conn.Close()
+
 		return err
 	}
 
 	a.Log.Info("connected to xixo", "xixo", a.Xixo)
 
+	working, cancel := context.WithCancel(ctx)
 	held := &session{Agent: a, conn: conn, token: token, slots: make(chan struct{}, a.Parallel)}
 
-	return held.serve(ctx, token)
+	rolled, err := held.serve(working, token)
+	if !rolled {
+		cancel()
+		held.close()
+
+		return err
+	}
+
+	go func() {
+		held.finish(time.Until(token.Expiry))
+		cancel()
+		held.close()
+	}()
+
+	return nil
 }
 
-func (s *session) serve(ctx context.Context, token *masks.Token) error {
-	ctx, cancel := context.WithCancel(ctx)
+func (s *session) close() {
+	s.working.Wait()
+	s.conn.Close()
+}
+
+func (a *Agent) rollover(expiry time.Time) time.Duration {
+	left := time.Until(expiry)
+
+	return max(left-min(a.Drain, left/2), time.Second)
+}
+
+func (s *session) serve(ctx context.Context, token *masks.Token) (bool, error) {
+	listening, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	hello := s.Machine.Hello(ctx, s.Version, s.Folders.Names())
 	hello.Extractors = extract.Available()
 
 	if err := s.conn.Perform(ctx, "hello", hello); err != nil {
-		return err
+		return false, err
 	}
 
 	if err := s.conn.Perform(ctx, "health", s.Machine.Health(s.Folders.Names())); err != nil {
-		return err
+		return false, err
 	}
 
 	frames := make(chan *cable.Frame)
@@ -229,7 +255,7 @@ func (s *session) serve(ctx context.Context, token *masks.Token) error {
 
 			select {
 			case frames <- frame:
-			case <-ctx.Done():
+			case <-listening.Done():
 				return
 			}
 		}
@@ -239,10 +265,9 @@ func (s *session) serve(ctx context.Context, token *masks.Token) error {
 	defer ticker.Stop()
 
 	var expiring <-chan time.Time
-	drained := make(chan struct{})
 
 	if !token.Expiry.IsZero() {
-		timer := time.NewTimer(max(time.Until(token.Expiry)-20*time.Second, time.Second))
+		timer := time.NewTimer(s.rollover(token.Expiry))
 		defer timer.Stop()
 		expiring = timer.C
 	}
@@ -250,26 +275,17 @@ func (s *session) serve(ctx context.Context, token *masks.Token) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return false, ctx.Err()
 		case err := <-failed:
 			cancel()
-			s.finish()
 
-			return err
+			return false, err
 		case <-ticker.C:
 			if err := s.conn.Perform(ctx, "health", s.Machine.Health(s.Folders.Names())); err != nil {
-				return err
+				return false, err
 			}
 		case <-expiring:
-			s.draining = true
-			expiring = nil
-
-			go func() {
-				s.finish()
-				close(drained)
-			}()
-		case <-drained:
-			return nil
+			return true, nil
 		case frame := <-frames:
 			if frame.Identifier != s.conn.Identifier() || len(frame.Message) == 0 {
 				continue
@@ -285,7 +301,7 @@ func (s *session) serve(ctx context.Context, token *masks.Token) error {
 	}
 }
 
-func (s *session) finish() {
+func (s *session) finish(within time.Duration) {
 	done := make(chan struct{})
 
 	go func() {
@@ -295,17 +311,11 @@ func (s *session) finish() {
 
 	select {
 	case <-done:
-	case <-time.After(s.Drain):
+	case <-time.After(max(within, 0)):
 	}
 }
 
 func (s *session) take(ctx context.Context, asked *Request) {
-	if s.draining {
-		s.refuse(ctx, asked.Request, errors.New("the agent is reconnecting"))
-
-		return
-	}
-
 	s.working.Add(1)
 
 	go func() {

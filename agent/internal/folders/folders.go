@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 var Skipped = []string{
@@ -21,15 +23,19 @@ var Skipped = []string{
 const MostListed = 500
 
 var (
-	ErrUnshared = errors.New("that folder is not shared by this machine")
-	ErrOutside  = errors.New("that path is outside the folder")
-	ErrSkipped  = errors.New("that path is never shared")
-	ErrNotFile  = errors.New("that path is not a regular file")
+	ErrUnshared  = errors.New("that folder is not shared by this machine")
+	ErrOutside   = errors.New("that path is outside the folder")
+	ErrSkipped   = errors.New("that path is never shared")
+	ErrNotFile   = errors.New("that path is not a regular file")
+	ErrMoved     = errors.New("that folder now leads somewhere else, so the agent stopped sharing it until it restarts")
+	ErrUntrusted = errors.New("that folder is reached through a link someone else owns")
 )
 
 type Folders struct {
-	held map[string]string
-	name []string
+	held   map[string]string
+	name   []string
+	lock   sync.Mutex
+	pinned map[string]string
 }
 
 type Entry struct {
@@ -39,8 +45,9 @@ type Entry struct {
 }
 
 type Listing struct {
-	Entries []Entry `json:"entries"`
-	Cursor  string  `json:"cursor,omitempty"`
+	Entries      []Entry `json:"entries"`
+	Cursor       string  `json:"cursor,omitempty"`
+	SkippedNames int     `json:"skipped_names,omitempty"`
 }
 
 type Query struct {
@@ -52,7 +59,7 @@ type Query struct {
 }
 
 func New(configured []string) *Folders {
-	held := &Folders{held: map[string]string{}}
+	held := &Folders{held: map[string]string{}, pinned: map[string]string{}}
 
 	for _, folder := range configured {
 		cleaned := filepath.Clean(folder)
@@ -79,12 +86,68 @@ func (f *Folders) root(folder string) (*os.Root, error) {
 		return nil, ErrUnshared
 	}
 
-	real, err := filepath.EvalSymlinks(configured)
+	real, err := f.resolve(configured)
 	if err != nil {
 		return nil, err
 	}
 
 	return os.OpenRoot(real)
+}
+
+func (f *Folders) Pin() {
+	for _, folder := range f.name {
+		_, _ = f.resolve(folder)
+	}
+}
+
+func (f *Folders) resolve(configured string) (string, error) {
+	if err := trusted(configured); err != nil {
+		return "", err
+	}
+
+	real, err := filepath.EvalSymlinks(configured)
+	if err != nil {
+		return "", err
+	}
+
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	pinned, ok := f.pinned[configured]
+	if !ok {
+		f.pinned[configured] = real
+
+		return real, nil
+	}
+
+	if pinned != real {
+		return "", ErrMoved
+	}
+
+	return real, nil
+}
+
+func trusted(configured string) error {
+	walked := string(filepath.Separator)
+
+	for _, part := range strings.Split(strings.TrimPrefix(configured, walked), string(filepath.Separator)) {
+		if part == "" {
+			continue
+		}
+
+		walked = filepath.Join(walked, part)
+
+		info, err := os.Lstat(walked)
+		if err != nil {
+			return err
+		}
+
+		if info.Mode()&fs.ModeSymlink != 0 && !ownedByUs(info) {
+			return ErrUntrusted
+		}
+	}
+
+	return nil
 }
 
 func (f *Folders) List(query Query) (*Listing, error) {
@@ -151,6 +214,12 @@ func (w *walker) descend(dir string) error {
 	slices.SortFunc(children, func(a, b fs.DirEntry) int { return strings.Compare(a.Name(), b.Name()) })
 
 	for _, child := range children {
+		if !utf8.ValidString(child.Name()) {
+			w.listed.SkippedNames++
+
+			continue
+		}
+
 		if skipped(child.Name(), w.skip) {
 			continue
 		}

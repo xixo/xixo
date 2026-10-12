@@ -14,6 +14,7 @@ import (
 	"time"
 
 	masks "github.com/masksrb/masks/go"
+	"github.com/xixo/xixo/agent/internal/extract"
 	"github.com/xixo/xixo/agent/internal/fake"
 	"github.com/xixo/xixo/agent/internal/folders"
 	"github.com/xixo/xixo/agent/internal/machine"
@@ -267,7 +268,7 @@ func TestASessionEndsCleanlyBeforeItsTokenExpires(t *testing.T) {
 	})
 	defer close(release)
 
-	held, dpop := agentFor(t, cable.URL, folder, time.Now().Add(21*time.Second))
+	held, dpop := agentFor(t, cable.URL, folder, time.Now().Add(4*time.Second))
 	cable.Thumbprint = dpop.Thumbprint()
 	held.Quiet = time.Minute
 
@@ -282,6 +283,75 @@ func TestASessionEndsCleanlyBeforeItsTokenExpires(t *testing.T) {
 
 	if time.Since(started) > 5*time.Second {
 		t.Fatalf("the session lasted %v", time.Since(started))
+	}
+}
+
+func TestAnExpiringSessionHandsOverBeforeItsWorkIsCut(t *testing.T) {
+	folder, _ := shared(t)
+	var connections atomic.Int32
+	second := make(chan struct{})
+	release := make(chan struct{})
+	answered := make(chan map[string]any, 1)
+
+	cable := fake.NewCable(t, "agent-token", "", func(socket *fake.Socket) {
+		socket.Subscribe(identifier)
+		socket.Next()
+		socket.Next()
+
+		if connections.Add(1) == 2 {
+			close(second)
+
+			return
+		}
+
+		socket.Ask(identifier, map[string]any{"request": "slow", "verb": "extract", "args": map[string]any{
+			"source": map[string]any{"folder": folder, "path": "small.txt"}, "mime": "text/plain",
+		}})
+
+		for {
+			command, data := socket.Next()
+			if command.Command == "message" && data["action"] == "reply" {
+				answered <- data
+
+				return
+			}
+		}
+	})
+
+	held, dpop := agentFor(t, cable.URL, folder, time.Now().Add(6*time.Second))
+	cable.Thumbprint = dpop.Thumbprint()
+	held.Quiet = time.Minute
+	held.Work = t.TempDir()
+	held.Extract = func(ctx context.Context, _ extract.Input) (*extract.Output, error) {
+		select {
+		case <-release:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+
+		return &extract.Output{Extractor: "text"}, nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	go held.Run(ctx)
+
+	select {
+	case <-second:
+	case <-ctx.Done():
+		t.Fatal("the agent did not open its next connection before the token expired")
+	}
+
+	close(release)
+
+	select {
+	case reply := <-answered:
+		if reply["request"] != "slow" || reply["ok"] != true {
+			t.Fatalf("the work in flight was answered with %v", reply)
+		}
+	case <-ctx.Done():
+		t.Fatal("the work in flight was cut off by the handover")
 	}
 }
 

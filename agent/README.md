@@ -74,11 +74,14 @@ for `GET <xixo>/cable` in the `DPoP` header, and xixo's origin in `Origin`.
 When xixo answers with a `DPoP-Nonce`, the agent dials once more with a proof
 naming that nonce.
 
-Each connection uses a fresh token. Twenty seconds before the token expires,
-the agent finishes the requests it is answering, refuses new ones, and
-reconnects with a new token, so a client withdrawn in masks loses its
-connection within one token lifetime. A failed connection is retried after a
-jittered pause that doubles from one second up to one minute.
+Each connection uses a fresh token. Two minutes before the token expires, or
+halfway through its remaining life when that is sooner, the agent opens a new
+connection with a new token. The old connection stops taking requests and
+finishes the ones it is answering until the token expires, which is when xixo
+closes it. A request still running at that moment fails. A client withdrawn
+in masks loses its connection within one token lifetime. A failed connection
+is retried after a jittered pause that doubles from one second up to one
+minute.
 
 ## The conversation with xixo
 

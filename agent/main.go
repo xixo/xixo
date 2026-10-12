@@ -118,10 +118,13 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 			return err
 		}
 
+		shared := folders.New(config.Folders)
+		shared.Pin()
+
 		running := &agent.Agent{
 			Xixo:    config.Xixo,
 			Version: version,
-			Folders: folders.New(config.Folders),
+			Folders: shared,
 			Machine: machine.New(),
 			Tokens:  agent.Tokens(client, config),
 			DPoP:    dpop,

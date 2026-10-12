@@ -236,3 +236,66 @@ func TestOpenStaysInsideTheFolder(t *testing.T) {
 		t.Errorf("opening in an unshared folder gave %v", err)
 	}
 }
+
+func TestAFolderThatNowLeadsElsewhereIsRefused(t *testing.T) {
+	base := t.TempDir()
+	first := filepath.Join(base, "first")
+	second := filepath.Join(base, "second")
+	link := filepath.Join(base, "media")
+
+	for _, dir := range []string{first, second} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := os.WriteFile(filepath.Join(second, "private.txt"), []byte("private"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Symlink(first, link); err != nil {
+		t.Fatal(err)
+	}
+
+	shared := New([]string{link})
+	shared.Pin()
+
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Symlink(second, link); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := shared.List(Query{Folder: link}); !errors.Is(err, ErrMoved) {
+		t.Fatalf("a folder swapped for another was listed, got %v", err)
+	}
+
+	if _, err := shared.Open(link, "private.txt"); !errors.Is(err, ErrMoved) {
+		t.Fatalf("a folder swapped for another was read, got %v", err)
+	}
+}
+
+func TestANameThatIsNotUTF8IsCountedAndLeftOut(t *testing.T) {
+	folder := t.TempDir()
+
+	for _, name := range []string{"good.txt", "bad\xff.txt", "worse\xfe.txt"} {
+		if err := os.WriteFile(filepath.Join(folder, name), []byte("x"), 0o644); err != nil {
+			t.Skipf("this filesystem refuses the name %q: %v", name, err)
+		}
+	}
+
+	listed, err := New([]string{folder}).List(Query{Folder: folder})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(listed.Entries) != 1 || listed.Entries[0].Path != "good.txt" {
+		t.Fatalf("listed %+v", listed.Entries)
+	}
+
+	if listed.SkippedNames != 2 {
+		t.Fatalf("counted %d names left out", listed.SkippedNames)
+	}
+}
