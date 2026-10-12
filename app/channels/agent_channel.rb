@@ -36,7 +36,8 @@ class AgentChannel < ApplicationCable::Channel
     within do |agent|
       exchange = AgentExchange.receiving(agent, data["request"], of: data["of"])
       seq = data["seq"]
-      next if exchange.nil? || !seq.is_a?(Integer) || seq.negative?
+      next if exchange.nil?
+      next exchange.refuse!("a chunk's place was not a number it could keep") unless seq.is_a?(Integer) && seq.between?(0, AgentExchange::MOST_SEQ)
 
       bytes = Base64.strict_decode64(data["data"].to_s)
       exchange.refuse!("a chunk could not be kept") unless exchange.receive!(seq, bytes)
@@ -46,7 +47,9 @@ class AgentChannel < ApplicationCable::Channel
   end
 
   def unsubscribed
-    within { |agent| agent.parted!(session: @session) } if machine && @session
+    return unless machine && @session
+
+    Tenant.switch(tenant) { Resource::XixoAgent.find_by(id: machine.id)&.parted!(session: @session) }
   end
 
   private

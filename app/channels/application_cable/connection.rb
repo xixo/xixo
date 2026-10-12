@@ -35,23 +35,11 @@ module ApplicationCable
       end
 
       def enrolled
-        claims = resource.authenticate(request.authorization, proof: request.headers["DPoP"],
-                                                              method: "GET", url: "#{Tenant.origin(request)}/cable")
-        return nil unless machine_claims?(claims)
+        held = Resource::XixoAgent::Caller.from(request, path: "/cable")
+        return nil if held.nil?
 
-        Grant.new(tenant: tenant, claims: claims)
-        @expires_at = claims.expires_at
-        Resource::XixoAgent.enrolled(claims.client_id)
-      rescue Masks::Client::Error, Grant::Denied, Tenant::Unconfigured => e
-        logger.info "an agent was not let in: #{e.message}"
-        nil
-      end
-
-      def machine_claims?(claims)
-        claims["cnf"].is_a?(Hash) && claims["cnf"]["jkt"].present? &&
-          claims.scopes.include?(Grant::MACHINE) &&
-          claims.client_id.present? &&
-          claims.subject == claims.client_id
+        @expires_at = held.expires_at
+        held.agent
       end
 
       def masks_session

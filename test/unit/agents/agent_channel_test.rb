@@ -157,34 +157,107 @@ class AgentChannelTest < ActionCable::Channel::TestCase
     assert_raises(Resource::Failed) { Tenant.switch(@tenant) { agent.read("/srv/media", "big.bin") } }
   end
 
-  test "an upload streams its bytes as puts in order and ends when the agent says it kept them all" do
+  test "an upload is held for the machine to fetch and never goes out on the stream" do
     connected
     perform :hello, HELLO
     body = SecureRandom.random_bytes(Resource::XixoAgent::MOST_CHUNKED + 10)
     stream = AgentChannel.broadcasting_for(@agent)
 
-    agent = asking(fresh) do |asked|
-      assert_equal({ "done" => true, "size" => body.bytesize }, asked["args"])
-      perform :reply, "request" => asked["request"], "ok" => true, "result" => { "size" => body.bytesize }
+    staged = Tenant.switch(@tenant) { fresh.upload(StringIO.new(body)) }
+
+    assert_equal body.bytesize, staged["size"]
+    assert_empty ActionCable.server.pubsub.broadcasts(stream)
+
+    Tenant.switch(@tenant) do
+      exchange = AgentExchange.taken!(fresh, staged["upload"])
+      sent = +""
+      AgentExchange::Sending.new(exchange).each { |part| sent << part }
+
+      assert_equal body, sent
+      assert_equal 0, AgentChunk.count
+      assert_nil AgentExchange.taken!(fresh, staged["upload"]), "an upload is served once"
+
+      fresh.forget(staged["upload"])
+      assert_equal 0, AgentExchange.count
     end
-
-    id = Tenant.switch(@tenant) { agent.upload(StringIO.new(body)) }
-
-    puts = ActionCable.server.pubsub.broadcasts(stream).map { |held| JSON.parse(held) }
-    assert_equal [ id ], puts.map { |held| held["request"] }.uniq
-    assert_equal %w[put], puts.map { |held| held["verb"] }.uniq
-    assert_equal [ 0, 1, nil ], puts.map { |held| held.dig("args", "seq") }
-    assert_equal body, puts.first(2).map { |held| Base64.strict_decode64(held.dig("args", "data")) }.join
-    assert_equal 0, Tenant.switch(@tenant) { AgentExchange.count }
   end
 
-  test "an upload the agent kept short of fails" do
+  test "a machine cannot add chunks to an upload xixo staged" do
     connected
     perform :hello, HELLO
 
-    agent = asking(fresh) { |asked| perform :reply, "request" => asked["request"], "ok" => true, "result" => { "size" => 1 } }
+    staged = Tenant.switch(@tenant) { fresh.upload(StringIO.new("twelve bytes")) }
+    perform :chunk, "request" => staged["upload"], "seq" => 1, "data" => Base64.strict_encode64("planted")
 
-    assert_raises(Resource::Failed) { Tenant.switch(@tenant) { agent.upload(StringIO.new("twelve bytes")) } }
+    assert_equal 1, Tenant.switch(@tenant) { AgentChunk.count }
+  end
+
+  test "a file's chunks are kept when they arrive after the reply, in any order" do
+    connected
+    perform :hello, HELLO
+    thumbnail = SecureRandom.random_bytes(400)
+    file_id = SecureRandom.uuid
+
+    agent = asking(fresh) do |asked|
+      perform :reply, "request" => asked["request"], "ok" => true, "result" => {
+        "files" => [ { "role" => "thumbnail", "name" => "t.jpg", "size" => 400, "request_file" => file_id } ]
+      }
+      perform :chunk, "request" => file_id, "of" => asked["request"], "seq" => 1, "data" => Base64.strict_encode64(thumbnail[300..])
+      perform :chunk, "request" => file_id, "of" => asked["request"], "seq" => 0, "data" => Base64.strict_encode64(thumbnail[0, 300])
+    end
+
+    kept = Tenant.switch(@tenant) do
+      agent.exchanged("extract", {}) { |answer| answer.file(answer.files.first).then { |file| file.read.tap { file.close! } } }
+    end
+
+    assert_equal thumbnail, kept
+  end
+
+  test "a file named twice is one file" do
+    connected
+    perform :hello, HELLO
+
+    Tenant.switch(@tenant) do
+      parent = AgentExchange.create!(resource: @agent, request: SecureRandom.uuid, verb: "extract")
+      file_id = SecureRandom.uuid
+
+      first = AgentExchange.receiving(@agent, file_id, of: parent.request)
+      again = AgentExchange.receiving(@agent, file_id, of: parent.request)
+
+      assert_equal first, again
+      assert_equal 1, parent.files.count
+    end
+  end
+
+  test "a chunk numbered past what can be kept refuses the read" do
+    connected
+    perform :hello, HELLO
+
+    exchange = Tenant.switch(@tenant) { AgentExchange.create!(resource: @agent, request: SecureRandom.uuid, verb: "read") }
+    perform :chunk, "request" => exchange.request, "seq" => 2**31, "data" => Base64.strict_encode64("x")
+
+    assert_equal "refused", Tenant.switch(@tenant) { exchange.reload.status }
+  end
+
+  test "a machine with too many questions open is not asked another" do
+    connected
+    perform :hello, HELLO
+
+    Tenant.switch(@tenant) do
+      AgentExchange::MOST_OPEN.times { AgentExchange.create!(resource: @agent, request: SecureRandom.uuid, verb: "list") }
+
+      assert_raises(Resource::Failed) { fresh.ask("health") }
+    end
+  end
+
+  test "hanging up after the machine is put away takes it offline" do
+    connected
+    perform :hello, HELLO
+
+    Tenant.switch(@tenant) { fresh.update_columns(archived_at: Time.current) }
+    unsubscribe
+
+    Tenant.switch(@tenant) { assert_not fresh.connected? }
   end
 
   test "an answer names files the agent streamed back under their own ids" do

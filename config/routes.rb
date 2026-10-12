@@ -12,6 +12,7 @@ Rails.application.routes.draw do
 
   get "/references/:id/content", to: "content#show", as: :reference_content
 
+  get "/agent/uploads/:request", to: "agent_uploads#show", as: :agent_upload
   get "/resources/:id/connect", to: "resource_connections#show", as: :resource_connect
   get "/connect/callback", to: "resource_connections#callback", as: :resource_connect_callback
 

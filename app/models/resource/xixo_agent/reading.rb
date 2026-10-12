@@ -19,12 +19,14 @@ class Resource
 
         held = Tempfile.new("xixo-agent", binmode: true)
 
-        until done?
-          taken = take(held)
-          next if taken.positive?
+        AgentExchange.apart do
+          until done?
+            taken = take(held)
+            next if taken.positive?
 
-          stalled! if Time.current - @moved_at > READ_STALLS_AFTER
-          @agent.waiting
+            stalled! if Time.current - @moved_at > READ_STALLS_AFTER
+            @agent.waiting
+          end
         end
 
         held.flush
@@ -66,7 +68,7 @@ class Resource
           return @written == @size if exchange.nil?
 
           held = AgentExchange.uncached { AgentExchange.find(exchange.id) }
-          raise Resource::Failed, "#{@agent.key}: the agent said #{held.error}" if held.refused?
+          raise Refusal, "#{@agent.key}: the agent said #{held.error}" if held.refused?
 
           @written == @size
         end

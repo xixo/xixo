@@ -1,5 +1,7 @@
 class Resource
   class XixoAgent < Resource
+    class Refusal < Resource::Failed; end
+
     MOST_CHUNKED = 256.kilobytes
     QUIET_AFTER = 3.minutes
     ANSWERED_WITHIN = 30.seconds
@@ -80,6 +82,7 @@ class Resource
       Array(machine["folders"])
     end
 
+
     def seen_at
       Time.iso8601(machine["seen_at"].to_s)
     rescue ArgumentError
@@ -150,7 +153,7 @@ class Resource
 
       yield Answer.new(self, exchange, awaited(exchange, verb, within))
     ensure
-      AgentExchange.where(id: exchange.id).delete_all if exchange
+      AgentExchange.apart { AgentExchange.where(id: exchange.id).delete_all } if exchange
     end
 
     def read(folder, path, within: ANSWERED_WITHIN)
@@ -159,26 +162,14 @@ class Resource
       end
     end
 
-    def upload(io, within: ANSWERED_WITHIN)
-      exchange = asked(nil, nil)
-      size = 0
-      seq = 0
+    def upload(io)
+      raise Resource::Offline, "#{key}: the agent is not connected" unless connected?
 
-      while (part = io.read(MOST_CHUNKED))
-        size += part.bytesize
-        raise Resource::Failed, "#{key}: an upload is larger than #{AgentExchange::MOST_RECEIVED} bytes" if size > AgentExchange::MOST_RECEIVED
+      AgentExchange.apart { staged(io) }
+    end
 
-        put(exchange, "seq" => seq, "data" => Base64.strict_encode64(part))
-        seq += 1
-      end
-
-      put(exchange, "done" => true, "size" => size)
-      held = awaited(exchange, "put", within).to_h["size"]
-      raise Resource::Failed, "#{key}: the agent kept #{held.inspect} bytes of #{size}" unless held == size
-
-      exchange.request
-    ensure
-      AgentExchange.where(id: exchange.id).delete_all if exchange
+    def forget(request)
+      AgentExchange.apart { AgentExchange.where(resource_id: id, request: request.to_s).delete_all }
     end
 
     def waiting
@@ -268,22 +259,49 @@ class Resource
       def asked(verb, args)
         raise Resource::Offline, "#{key}: the agent is not connected" unless connected?
 
-        AgentExchange.create!(resource: self, request: SecureRandom.uuid, verb: verb || "put").tap do |exchange|
-          AgentChannel.broadcast_to(self, { "request" => exchange.request, "verb" => verb, "args" => args.presence || {} }) if verb
+        exchange = AgentExchange.apart do
+          raise Resource::Failed, "#{key}: the agent already has #{AgentExchange::MOST_OPEN} questions open" if AgentExchange.crowded?(self)
+
+          AgentExchange.create!(resource_id: id, request: SecureRandom.uuid, verb: verb)
         end
+        AgentChannel.broadcast_to(self, { "request" => exchange.request, "verb" => verb, "args" => args.presence || {} })
+        exchange
       end
 
-      def put(exchange, args)
-        AgentChannel.broadcast_to(self, { "request" => exchange.request, "verb" => "put", "args" => args })
+      def staged(io)
+        raise Resource::Failed, "#{key}: the agent already has #{AgentExchange::MOST_OPEN} questions open" if AgentExchange.crowded?(self)
+
+        exchange = AgentExchange.create!(resource_id: id, request: SecureRandom.uuid, verb: AgentExchange::UPLOAD)
+        size = 0
+
+        (0..).each do |seq|
+          part = io.read(MOST_CHUNKED)
+          break if part.nil?
+
+          size += part.bytesize
+          raise Resource::Failed, "#{key}: an upload is larger than #{AgentExchange::MOST_RECEIVED} bytes" if size > AgentExchange::MOST_RECEIVED
+
+          exchange.chunks.create!(seq: seq, bytes: part)
+        end
+
+        exchange.update_columns(received: size)
+        { "upload" => exchange.request, "size" => size }
+      rescue StandardError
+        AgentExchange.where(id: exchange.id).delete_all if exchange
+        raise
       end
 
       def awaited(exchange, verb, within)
+        AgentExchange.apart { waited(exchange, verb, within) }
+      end
+
+      def waited(exchange, verb, within)
         deadline = within.from_now
 
         loop do
           held = AgentExchange.uncached { AgentExchange.find(exchange.id) }
           return held.result if held.answered?
-          raise Resource::Failed, "#{key}: the agent said #{held.error}" if held.refused?
+          raise Refusal, "#{key}: the agent said #{held.error}" if held.refused?
 
           if Time.current > deadline
             held.refuse!("no answer in #{within.inspect}")
