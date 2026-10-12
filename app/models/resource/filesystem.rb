@@ -237,7 +237,9 @@ class Resource
         raise Resource::Unusable, "#{key} is reached through no agent" if agent.nil?
         return if !agent.heard_from? || agent.offered_folders.include?(folder)
 
-        raise Resource::Unusable, "#{key}: the agent on #{agent.key} no longer shares #{folder}"
+        said = "#{key}: the agent on #{agent.key} no longer shares #{folder}"
+        record_check(said) if persisted?
+        raise Resource::Unusable, said
       end
 
       def reached_through_an_agent

@@ -68,6 +68,7 @@ interface Resource {
   offline: boolean
   offlineHost?: string | null
   offlineLastSeenAt?: string | null
+  emptiedAt?: string | null
   syncing: boolean
   syncable: boolean
   defaultStorage: boolean
@@ -669,6 +670,13 @@ function ResourceCard({
 
       {resource.checkError && (
         <div className="rcard-error">{resource.checkError}</div>
+      )}
+
+      {resource.emptiedAt && (
+        <div className="rcard-error">
+          The sync {ago(resource.emptiedAt)} found nothing here, so its items
+          stay until a sync finds files again
+        </div>
       )}
 
       <footer className="rcard-foot">

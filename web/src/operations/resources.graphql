@@ -21,6 +21,7 @@ query Resources($archived: Boolean) {
     offline
     offlineHost
     offlineLastSeenAt
+    emptiedAt
     archivedAt
     settings
     heldCredentials

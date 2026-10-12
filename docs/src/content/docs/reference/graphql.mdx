@@ -543,6 +543,7 @@ Resolves only for a token carrying `xixo:resources:read`.
 | `defaultInference` | `Boolean!` |  |
 | `defaultStorage` | `Boolean!` |  |
 | `delegated` | `Boolean!` | Whether it reaches somebody's account elsewhere through masks. |
+| `emptiedAt` | `ISO8601DateTime` | When its last full sync found nothing where an earlier one found files. That sync marks nothing gone, so a folder whose disk was missing keeps its items. Empty once a full sync finds files again. |
 | `healthy` | `Boolean!` |  |
 | `heldCredentials` | `[String!]!` | The names of the encrypted fields that hold something, so a form can say one is set without saying what it is. |
 | `id` | `ID!` |  |

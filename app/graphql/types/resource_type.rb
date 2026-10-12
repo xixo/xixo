@@ -30,6 +30,10 @@ module Types
           description: "The name of the machine that is offline."
     field :offline_last_seen_at, GraphQL::Types::ISO8601DateTime,
           description: "When the transport last saw the machine that is offline. Empty for one it has never seen."
+    field :emptied_at, GraphQL::Types::ISO8601DateTime,
+          description: "When its last full sync found nothing where an earlier one found files. That sync marks " \
+                       "nothing gone, so a folder whose disk was missing keeps its items. Empty once a full sync " \
+                       "finds files again."
     field :checking, Boolean, null: false, method: :checking?,
           description: "Whether a check that asked more than whether it answers is still running. " \
                        "Its last finished check stays in checkedAt and checkError until this one ends."

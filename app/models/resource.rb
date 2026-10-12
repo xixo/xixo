@@ -647,6 +647,12 @@ class Resource < ApplicationRecord
     places
   end
 
+  def emptied_at
+    Time.iso8601(sync_state.to_h.dig(Walk::EMPTIED, "at").to_s)
+  rescue ArgumentError
+    nil
+  end
+
   def personal?
     owner_subject.present?
   end

@@ -151,6 +151,7 @@ class FilesystemTest < ActiveSupport::TestCase
 
       error = assert_raises(Resource::Unusable) { folder.each_page { |*| nil } }
       assert_match(%r{no longer shares /srv/media}, error.message)
+      assert_match(%r{no longer shares /srv/media}, Resource.find(folder.id).check_error)
       assert_raises(Resource::Unusable) { folder.download({ "path" => "a.txt" }) }
       assert_empty asked
     end

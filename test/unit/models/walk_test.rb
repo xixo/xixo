@@ -63,6 +63,8 @@ class WalkTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       feed = Feed.create!(type: Feed::FILE, key: "a.txt", title: "a.txt")
       reference = Reference.create!(feed: feed, resource: @git, locator_key: "a.txt", seen_at: 1.hour.ago)
+      seen = Feed.create!(type: Feed::FILE, key: "b.txt", title: "b.txt")
+      Reference.create!(feed: seen, resource: @git, locator_key: "b.txt", seen_at: Time.current)
       @git.update_columns(sync_state: { "checkpoint" => { "commit" => "old" } }, walked_at: 1.hour.ago)
 
       assert_equal 0, Resource::Walk.begin!(@git).finish!(1.minute.ago)
@@ -70,6 +72,29 @@ class WalkTest < ActiveSupport::TestCase
 
       assert_equal 1, Resource::Walk.new(@git.reload).tap(&:start_over!).finish!(1.minute.ago)
       assert_predicate reference.reload.gone_at, :present?
+    end
+  end
+
+  test "a full walk that finds nothing where it found files calls nothing gone and says it came back empty" do
+    Tenant.switch(@tenant) do
+      feed = Feed.create!(type: Feed::FILE, key: "a.txt", title: "a.txt")
+      reference = Reference.create!(feed: feed, resource: @bucket, locator_key: "a.txt", seen_at: 1.hour.ago)
+
+      assert_equal 0, Resource::Walk.begin!(@bucket).finish!(1.minute.ago)
+      assert_nil reference.reload.gone_at
+      assert_equal 1, @bucket.reload.sync_state.dig("emptied", "held")
+      assert_in_delta Time.current, @bucket.emptied_at, 5
+
+      reference.update_columns(seen_at: Time.current)
+      assert_equal 0, Resource::Walk.begin!(@bucket.reload).finish!(1.minute.ago)
+      assert_nil @bucket.reload.emptied_at
+    end
+  end
+
+  test "a full walk of a place that held nothing is not called empty" do
+    Tenant.switch(@tenant) do
+      assert_equal 0, Resource::Walk.begin!(@bucket).finish!(1.minute.ago)
+      assert_nil @bucket.reload.emptied_at
     end
   end
 end

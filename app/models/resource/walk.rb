@@ -3,6 +3,7 @@ class Resource
     FULL = "full".freeze
     CHANGES = "changes".freeze
     FULL_EVERY = 1.day
+    EMPTIED = "emptied".freeze
 
     attr_reader :resource
     attr_accessor :run
@@ -80,8 +81,8 @@ class Resource
     end
 
     def finish!(started)
-      gone = full? && !partial? && started ? unseen_since(started) : 0
       settled = resource.sync_state.to_h.except("walk")
+      gone = full? && !partial? && started ? unseen_since(started, settled) : 0
       settled["checkpoint"] = state["reached"] if state.key?("reached")
 
       resource.update_columns(sync_state: settled, walked_at: full? && !partial? ? Time.current : resource.walked_at)
@@ -111,10 +112,16 @@ class Resource
         Reference.originals.where(resource_id: resource.id, gone_at: nil)
       end
 
-      def unseen_since(started)
+      def unseen_since(started, settled)
         return 0 unless resource.class.notices_what_is_gone?
 
-        originals.where.not(seen_at: nil).where(seen_at: ...started).update_all(gone_at: Time.current)
+        settled.delete(EMPTIED)
+        unseen = originals.where.not(seen_at: nil).where(seen_at: ...started)
+        return unseen.update_all(gone_at: Time.current) if originals.exists?(seen_at: started..)
+
+        held = unseen.count
+        settled[EMPTIED] = { "at" => Time.current.utc.iso8601, "held" => held } if held.positive?
+        0
       end
   end
 end

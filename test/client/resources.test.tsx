@@ -25,6 +25,7 @@ const resource = (overrides: Record<string, unknown>) => ({
   offline: false,
   offlineHost: null,
   offlineLastSeenAt: null,
+  emptiedAt: null,
   archivedAt: null,
   settings: {},
   heldCredentials: [],
@@ -81,6 +82,25 @@ describe('Resources', () => {
       await screen.findByRole('menuitem', { name: 'Put away' }),
     ).toBeTruthy()
     expect(screen.queryByRole('menuitem', { name: 'Take drops' })).toBeNull()
+  })
+
+  test('a folder whose last sync came back empty says its items stay', async () => {
+    const emptied = resource({
+      id: '3',
+      type: 'filesystem',
+      key: 'media',
+      emptiedAt: new Date().toISOString(),
+    })
+    const { client } = fakeClient({
+      Resources: () => ({ administrator: true, resources: [emptied] }),
+      Runs: () => ({ runs: { nodes: [], hasMore: false, nextCursor: null } }),
+    })
+
+    show(<Resources />, client, '/settings/resources')
+
+    expect(
+      await screen.findByText(/found nothing here, so its items stay/),
+    ).toBeTruthy()
   })
 
   test('an administrator sees no such notice', async () => {
