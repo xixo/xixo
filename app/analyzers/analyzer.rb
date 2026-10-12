@@ -5,6 +5,14 @@ module Analyzer
 
   class Waiting < StandardError
     prepend Redaction::Message
+
+    attr_reader :kind, :machine
+
+    def initialize(message = nil, kind: nil, machine: nil)
+      super(message)
+      @kind = kind
+      @machine = machine
+    end
   end
 
   PROMPTS_CHANGED_AT = Time.utc(2026, 9, 7).freeze

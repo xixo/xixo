@@ -13,6 +13,9 @@ module Types
     field :logs, String,
           description: "Everything the pass has logged so far, newest last."
     field :error, String
+    field :waiting, String,
+          description: "What a parked pass waits for: the machine its file lives on, or any machine that can read " \
+                       "it. It starts again on its own when one links up."
     field :started_at, GraphQL::Types::ISO8601DateTime
     field :finished_at, GraphQL::Types::ISO8601DateTime
     field :created_at, GraphQL::Types::ISO8601DateTime, null: false

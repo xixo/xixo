@@ -45,23 +45,28 @@ class ExtractionTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { assert_equal sha("later.txt"), feed.reference.reload.digest }
   end
 
-  test "a file its machine cannot read stays on the machine and fails with the reason" do
+  test "a file its machine cannot read, on a machine that lends none, stays there and waits for that machine" do
     feed = Tenant.switch(@tenant) { on_machine("budget.pdf") }
     asked = []
 
-    answering(asked, { "text" => "never" }) { analyze(feed) }
+    assert_no_enqueued_jobs(only: AnalyzeFeedJob) do
+      answering(asked, { "text" => "never" }) { analyze(feed) }
+    end
 
     assert_not asked.any? { |verb, _| %w[read extract].include?(verb) }
     assert_empty FakeLink.asked
     Tenant.switch(@tenant) do
-      message = feed.reload.analysis.step("extracted").dig("error", "message")
-      assert_match(/box has no pdf extractor/, message)
-      assert_match(/Send files this machine can't read to the server/, message)
+      analysis = feed.reload.analyses.last
+      assert_equal "parked", analysis.status
+      assert_equal "pdf", analysis.waits_for
+      assert_equal @machine.id, analysis.waits_on_id
+      assert_match(/box lacks the pdf extractor and lends none of its files/, analysis.step("extracted").dig("error", "message"))
+      assert_equal "Waiting for box to be able to read PDFs, since it lends none of its files.", analysis.waiting
     end
   end
 
-  test "a machine that lends sends a file it cannot read to xixo link beside the server" do
-    Tenant.switch(@tenant) { @machine.update!(details: @machine.details.merge("lend" => true)) }
+  test "a machine that lends sends a file it cannot read to a machine that reads for others" do
+    lend!(@machine)
     feed = Tenant.switch(@tenant) { on_machine("budget.pdf") }
     asked = []
 
@@ -100,29 +105,140 @@ class ExtractionTest < ActiveSupport::TestCase
     end
   end
 
-  test "with no machine connected, analysis waits and is tried again" do
+  test "with no machine that reads for others connected, analysis is parked rather than tried again and again" do
     FakeLink.standing = false
     feed = Tenant.switch(@tenant) { stored("notes.txt", "remember the milk") }
     analysis = Tenant.switch(@tenant) { Analysis.open!(feed: feed, cause: "manual") }
 
-    assert_enqueued_with(job: AnalyzeFeedJob) do
+    assert_no_enqueued_jobs(only: AnalyzeFeedJob) do
       Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, feed.id, analysis.id) }
     end
 
     Tenant.switch(@tenant) do
-      assert analysis.reload.open?
-      assert_match(/link beside the server is not connected/, analysis.step("extracted").dig("error", "message"))
+      analysis.reload
+      assert analysis.parked?
+      assert_nil analysis.waits_on_id
+      assert_equal "text", analysis.waits_for
+      assert_nil analysis.deadline
+      assert_equal "Waiting for a machine that can read text.", analysis.waiting
+      assert_match(/no connected machine that reads for others/, analysis.step("extracted").dig("error", "message"))
     end
   end
 
-  test "xixo link beside the server without the extractor fails the file with the reason" do
+  test "a file no machine in the pool has the program for waits for one that does" do
     FakeLink.local.extractors = %w[text]
     feed = Tenant.switch(@tenant) { stored("plan.pdf", "%PDF") }
 
     analyze(feed)
 
     Tenant.switch(@tenant) do
-      assert_match(/has no pdf extractor/, feed.reload.analysis.step("extracted").dig("error", "message"))
+      assert_equal [ "parked", "pdf" ], feed.reload.analyses.last.then { |held| [ held.status, held.waits_for ] }
+    end
+  end
+
+  test "a machine whose file it is, offline, holds the file until it is back" do
+    Tenant.switch(@tenant) { @machine.update_columns(details: @machine.details.deep_merge("machine" => { "connected" => false })) }
+    feed = Tenant.switch(@tenant) { on_machine("plan.txt") }
+
+    answering([], {}) { analyze(feed) }
+
+    Tenant.switch(@tenant) do
+      analysis = feed.reload.analyses.last
+      assert analysis.parked?
+      assert_equal @machine.id, analysis.waits_on_id
+      assert_equal "Waiting for box, where it lives, to come back.", analysis.waiting
+    end
+  end
+
+  test "an upload goes to the local machine first, while it has the program, and to the least busy one when it does not" do
+    local = pooled(machine_on(@tenant, key: "local", folders: []), %w[text pdf])
+    Tenant.switch(@tenant) { local.update_columns(details: local.details.merge("local" => true)) }
+    attic = pooled(machine_on(@tenant, key: "attic", folders: []), %w[text pdf media])
+    cellar = pooled(machine_on(@tenant, key: "cellar", folders: []), %w[text media])
+    Tenant.switch(@tenant) do
+      2.times { LinkExchange.create!(resource_id: attic.id, request: SecureRandom.uuid, verb: "extract") }
+    end
+    paper, song = Tenant.switch(@tenant) { [ stored("plan.pdf", "%PDF"), stored("song.mp3", "ID3") ] }
+    asked = []
+
+    staged = ->(io) { { "upload" => SecureRandom.uuid, "size" => io.read.to_s.bytesize } }
+    with_method(Resource::Machine, :upload, staged) do
+      with_method(Resource::Machine, :forget, ->(_request) { nil }) do
+        answering(asked, { "text" => "read" }) do
+          analyze(paper)
+          analyze(song)
+        end
+      end
+    end
+
+    extracted = asked.filter_map { |verb, _args, key| key if verb == "extract" }
+    assert_equal [ "local", "cellar" ], extracted
+    assert_empty FakeLink.asked
+  end
+
+  test "a machine that does not read for others is left out of the pool" do
+    FakeLink.standing = false
+    attic = machine_on(@tenant, key: "attic", folders: [])
+    Tenant.switch(@tenant) { attic.update_columns(details: attic.details.deep_merge("machine" => { "extractors" => %w[text], "extracts_for_others" => false })) }
+    feed = Tenant.switch(@tenant) { stored("notes.txt", "milk") }
+
+    analyze(feed)
+
+    Tenant.switch(@tenant) { assert feed.reload.analyses.last.parked? }
+  end
+
+  test "a machine saying hello resumes the parked files it can read, and leaves the rest parked" do
+    FakeLink.standing = false
+    text, video = Tenant.switch(@tenant) { [ stored("notes.txt", "milk"), stored("clip.mp4", "ftyp") ] }
+    analyze(text)
+    analyze(video)
+    attic = machine_on(@tenant, key: "attic", folders: [])
+
+    Tenant.switch(@tenant) do
+      assert_enqueued_with(job: ResumeParkedJob, args: [ attic.id ]) do
+        attic.greeted!({ "folders" => [], "extractors" => %w[text pdf], "extracts_for_others" => true }, session: "s2")
+      end
+
+      assert_enqueued_with(job: AnalyzeFeedJob) { ResumeParkedJob.perform_now(attic.id) }
+      assert_equal "queued", text.reload.analyses.last.status
+      assert_equal "parked", video.reload.analyses.last.status
+    end
+  end
+
+  test "parked files on a machine resume when it comes back, and the sweep finds what a hello missed" do
+    Tenant.switch(@tenant) { @machine.update_columns(details: @machine.details.deep_merge("machine" => { "connected" => false })) }
+    feed = Tenant.switch(@tenant) { on_machine("plan.txt") }
+    answering([], {}) { analyze(feed) }
+    Tenant.switch(@tenant) { @machine.update_columns(details: @machine.details.deep_merge("machine" => { "connected" => true })) }
+
+    assert_enqueued_with(job: ResumeParkedJob) { SweepParkedJob.perform_now }
+    Tenant.switch(@tenant) do
+      ResumeParkedJob.perform_now
+      assert_equal "queued", feed.reload.analyses.last.status
+    end
+  end
+
+  test "files parked on a machine that was put away are let go to route again" do
+    feed = Tenant.switch(@tenant) { on_machine("budget.pdf") }
+    answering([], {}) { analyze(feed) }
+    Tenant.switch(@tenant) do
+      @machine.update_columns(archived_at: Time.current)
+
+      ResumeParkedJob.perform_now
+      assert_equal "queued", feed.reload.analyses.last.status
+    end
+  end
+
+  test "analyzing a parked file again starts afresh" do
+    FakeLink.standing = false
+    feed = Tenant.switch(@tenant) { stored("notes.txt", "milk") }
+    analyze(feed)
+
+    Tenant.switch(@tenant) do
+      parked = feed.reload.analyses.last
+      feed.analyze!
+
+      assert_equal "cancelled", parked.reload.status
     end
   end
 
@@ -157,6 +273,17 @@ class ExtractionTest < ActiveSupport::TestCase
       Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, feed.id) }
     end
 
+    def lend!(machine)
+      Tenant.switch(@tenant) { machine.update_columns(details: machine.details.deep_merge("machine" => { "lend" => true })) }
+    end
+
+    def pooled(machine, extractors)
+      Tenant.switch(@tenant) do
+        machine.update_columns(details: machine.details.deep_merge("machine" => { "extractors" => extractors, "extracts_for_others" => true }))
+        machine.reload
+      end
+    end
+
     def sha(name)
       Digest::SHA256.hexdigest("bytes of #{name}")
     end
@@ -164,7 +291,7 @@ class ExtractionTest < ActiveSupport::TestCase
     def answering(asked, steps, digests: {}, &)
       sha = method(:sha)
       exchanged = lambda do |verb, args = {}, within: nil, &block|
-        asked << [ verb, args ]
+        asked << [ verb, args, key ]
         next block.call(FakeLink::Answer.new({ "size" => 0 }, {})) if verb == "read"
 
         if verb == "hash"

@@ -81,10 +81,6 @@ class Resource
         offered_tools.include?(tool.to_s)
       end
 
-      def lends_bytes?
-        machine["lend"] == true
-      end
-
       def model_kinds
         Array(machine["services"]).filter_map { |service| service["kind"] if service.is_a?(Hash) }.uniq
       end
@@ -153,7 +149,7 @@ class Resource
         relative = relative!(path)
 
         return drawn_out(root, relative, AWAY) unless connected?
-        return drawn_out(root, relative, STAYS) unless lends_bytes?
+        return drawn_out(root, relative, STAYS) unless lends?
         return drawn_out(root, relative, UNLISTED) unless operated_by?(Current.grant)
 
         held = ask("peek", { "folder" => root, "path" => relative, "limit" => MOST_READ }).to_h

@@ -1,6 +1,7 @@
 class Analysis < ApplicationRecord
   CAUSES = %w[upload sync keep schedule manual ask].freeze
-  STATUSES = %w[queued running done failed cancelled gated].freeze
+  STATUSES = %w[queued running parked done failed cancelled gated].freeze
+  PARKED = "parked".freeze
   OPEN = %w[queued running].freeze
   SETTLED = %w[done failed].freeze
   BOOKKEEPING = %w[placement derived answer drew_on].freeze
@@ -19,6 +20,7 @@ class Analysis < ApplicationRecord
   belongs_to :feed
   belongs_to :reference, optional: true
   belongs_to :about, class_name: "Feed", optional: true
+  belongs_to :waits_on, class_name: "Resource", optional: true
 
   validates :cause, inclusion: { in: CAUSES }
   validates :status, inclusion: { in: STATUSES }
@@ -26,12 +28,14 @@ class Analysis < ApplicationRecord
   before_create :remember_who_asked
 
   scope :open, -> { where(status: OPEN) }
+  scope :parked, -> { where(status: PARKED) }
   scope :readable_by, ->(grant) { where(feed_id: Feed.readable_by(grant).select(:id)) }
   scope :settled, -> { where(status: SETTLED) }
   scope :newest_first, -> { reorder(id: :desc) }
   scope :past_deadline, -> { open.where(deadline: ...Time.current) }
 
   def self.open!(feed:, cause:, reference: nil, deadline: nil)
+    parked.where(feed: feed).update_all(status: "cancelled", finished_at: Time.current, updated_at: Time.current)
     create!(feed: feed, cause: cause, reference: reference,
             deadline: deadline || default_deadline,
             steps: feed.analysis&.steps || {})
@@ -44,6 +48,7 @@ class Analysis < ApplicationRecord
   end
 
   def open? = OPEN.include?(status)
+  def parked? = status == PARKED
 
   def grant(scopes: Feed::AGENT_SCOPES)
     feed.grant(scopes: scopes, speaking_for: requested_by)
@@ -117,6 +122,38 @@ class Analysis < ApplicationRecord
     true
   end
 
+  def parked!(kind:, machine: nil)
+    moved = Analysis.where(id: id, status: OPEN).update_all(
+      status: PARKED, waits_for: kind, waits_on_id: machine&.id, started_at: nil, deadline: nil, updated_at: Time.current
+    )
+    return false if moved.zero?
+
+    reload
+    publish!
+    true
+  end
+
+  def unparked!
+    moved = Analysis.where(id: id, status: PARKED).update_all(
+      status: "queued", waits_for: nil, waits_on_id: nil, deadline: self.class.default_deadline, updated_at: Time.current
+    )
+    return false if moved.zero?
+
+    reload
+    publish!
+    true
+  end
+
+  def waiting
+    return nil unless parked?
+
+    reads = Resource::Machine::READ_AS.fetch(waits_for.to_s, "it")
+    return "Waiting for a machine that can read #{reads}." if waits_on.nil?
+    return "Waiting for #{waits_on.name}, where it lives, to come back." unless waits_on.connected?
+
+    "Waiting for #{waits_on.name} to be able to read #{reads}, since it lends none of its files."
+  end
+
   def gated!
     return false unless open?
 
@@ -126,7 +163,7 @@ class Analysis < ApplicationRecord
   end
 
   def cancel!
-    moved = Analysis.where(id: id, status: OPEN).update_all(status: "cancelled", finished_at: Time.current)
+    moved = Analysis.where(id: id, status: [ *OPEN, PARKED ]).update_all(status: "cancelled", finished_at: Time.current)
     reload
     return false if moved.zero?
 

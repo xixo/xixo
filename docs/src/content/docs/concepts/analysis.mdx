@@ -96,14 +96,28 @@ the first analyzer that claims the mime type:
 The analyzer's name is the extractor it asks for. The analysis job sends the `extract` request before
 it opens a transaction:
 
-- A file in a folder a machine shares is read only by xixo link on that machine, where it lies. Only what
-  xixo link extracted and its SHA-256 reach xixo. When xixo link's hello does not list the extractor,
-  the file fails with the reason, and its bytes stay on the machine.
-- An upload, or a file a cloud resource holds, is sent to xixo link beside the server, which fetches
-  it once over HTTPS.
-- With xixo link that should read the file not connected, the analysis waits and tries again every
-  five minutes, for a day. xixo link beside the server that lacks the extractor fails the file with the
-  reason.
+- A file in a folder a machine shares is read by xixo link on that machine, where it lies, when its
+  hello lists the extractor. Only what xixo link extracted and its SHA-256 reach xixo.
+- When it does not, and the machine's config sets `lend`, the file goes to the pool. When the
+  machine does not lend, its bytes stay on it and the file waits until that machine lists the
+  extractor.
+- An upload, a mail attachment, a file a cloud resource holds, and anything else with no machine of
+  its own goes to the pool.
+
+The pool is every connected machine in the tenant whose hello sets `extracts_for_others` and lists
+the extractor. xixo link beside the server comes first when it is in the pool, since the bytes are
+already on the server; otherwise the machine with the fewest questions open is asked. The chosen
+machine fetches the bytes once over HTTPS.
+
+When no machine can read the file now, because the machine it lives on is offline, or because no
+machine that could read it is connected, the analysis is parked rather than tried again and again.
+A parked analysis keeps the kind of file it waits for and, when only one machine can read it, that
+machine. Its pass shows **waiting** with the reason, and the machine's card on the **Resources**
+page counts the files waiting for it; files any machine in the pool could read are counted above the
+cards. When a machine says hello, `ResumeParkedJob` queues the parked analyses it can now serve, at
+most 50 queued at a time, and comes back for the rest a minute later. `SweepParkedJob` does the same
+for every connected machine every ten minutes, and lets go of analyses waiting on a machine that was
+put away, so they find another way. Analyzing a file again cancels its parked analysis.
 
 The reply holds each step's result or error, what was cut, and the files xixo link made. The server
 keeps only the steps it knows, cuts `text` and `ocr` to 200,000 characters itself, and records the
@@ -257,8 +271,7 @@ saved, and the title and the conversation's summary follow it. `ExpireOverdueJob
 
 Analysis jobs run on the `analysis` queue, with at most `ANALYSIS_PER_TENANT` (2 by default) running
 per tenant. A `Resource::Failed` error is retried five times with increasing waits, and the analysis
-fails if the last retry fails too. An analysis waiting for a machine is tried again every five minutes
-for a day. An `Analyzer::Failed` error, or a file with nowhere to go, is
+fails if the last retry fails too. An analysis waiting for a machine is parked, as above. An `Analyzer::Failed` error, or a file with nowhere to go, is
 discarded and fails the analysis. Any other error fails the analysis and is raised again.
 
 One question is still open. Connecting two feeds does not analyze the feed on the other side again.

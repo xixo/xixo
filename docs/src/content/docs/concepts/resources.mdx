@@ -332,7 +332,7 @@ fully, such as a shared folder it may not read; xixo keeps at most 16, each up t
 and shows them on the machine's card. When the connection closes, the machine goes offline with when it was last
 seen, unless a newer connection has taken its place. A machine not heard from for three minutes is
 not connected either way. What xixo keeps is trimmed and checked first: folders must be clean
-absolute paths, and services are only ollama and LM Studio. When `hello` carries `extracts_for_others`, xixo keeps that too, and the machine's card says it reads for other machines.
+absolute paths, and services are only ollama and LM Studio. When `hello` carries `extracts_for_others`, xixo keeps that too, and the machine's card says it reads for other machines. Those two settings decide who reads what: a machine that lends lets another read the files it cannot, and a machine that reads for others joins the pool that reads uploads, cloud files, and lent files. See [extraction](/concepts/analysis/#extraction). A hello also resumes the analyses parked for want of a machine that the machine can now serve.
 
 ### Asking a machine
 
@@ -421,8 +421,9 @@ tool takes a command line, a program, or an address.
 
 ### xixo link beside the server
 
-Every install runs xixo link beside the server, as the `xixo-link` service of the example compose, and
-it reads every file no machine reads where it lies. It has no database and no keys, and sees
+Every install runs xixo link beside the server, as the `xixo-link` service of the example compose. It
+lends and reads for others by default, so it is in the pool, and it is asked first while it has the
+extractor, since the bytes are already on the server. It has no database and no keys, and sees
 only its own state and the folders mounted into it. It enrolls itself through a directory
 it shares with the worker, named by `XIXO_LOCAL_LINK`: it leaves a `wanted` file, `EnrollLocalLinkJob`
 leaves it a single-use enrollment token readable by its user alone, and it writes back the client it

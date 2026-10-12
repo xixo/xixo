@@ -107,6 +107,12 @@ module Types
       scope.includes(:via).order(:type, :key)
     end
 
+    field :waiting_for_machines, [ Types::WaitingFilesType ], null: false, grants: "xixo:resources:read",
+          description: "Files from no machine in particular, or from one that lends them, whose reading waits " \
+                       "for a connected machine that reads for others and has their program, by kind."
+
+    def waiting_for_machines = Types::WaitingFilesType.on(context, nil)
+
     field :discovered, [ Types::DiscoveredNodeType ], null: false, grants: "xixo:resources:read",
           extras: [ :lookahead ],
           description: "What a transport reaches, offered as resources to attach. Asking for services " \

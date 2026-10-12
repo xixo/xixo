@@ -33,7 +33,7 @@ class Extraction
     self
   rescue Resource::Offline => e
     close!
-    raise Analyzer::Waiting, e.message
+    raise waiting(e.message, machine: source.is_a?(Hash) && source["folder"] ? machine : nil)
   rescue Resource::Machine::Refusal => e
     close!
     raise Analyzer::Failed, e.message
@@ -59,30 +59,40 @@ class Extraction
       folder = reference.try(:resource)
       return on_machine(folder) if folder.is_a?(Resource::Filesystem)
 
-      beside_the_server
-    end
-
-    def beside_the_server
-      local = Resource::Machine.local
-      raise Analyzer::Waiting, "xixo link beside the server is not connected to read #{filename}" unless local&.connected?
-      unless reads?(local)
-        raise Analyzer::Failed, "xixo link beside the server has no #{kind} extractor, so it cannot read #{filename}"
-      end
-
-      [ local, nil ]
+      pooled
     end
 
     def on_machine(folder)
       machine = folder.machine
-      raise Analyzer::Waiting, "the machine that shares #{filename} is not connected" unless machine&.connected?
+      raise Analyzer::Failed, "#{folder.key} is reached through no machine, so nothing can read #{filename}" if machine.nil?
+      raise waiting("#{machine.key}, where #{filename} lives, is not connected", machine: machine) unless machine.connected?
       raise Analyzer::Failed, "#{machine.key} no longer shares #{folder.folder}" unless machine.offered_folders.include?(folder.folder)
       return [ machine, { "folder" => folder.folder, "path" => reference.locator.to_h["path"].to_s } ] if reads?(machine)
-      return beside_the_server if machine.lends? && !machine.local?
-      raise Analyzer::Failed, "xixo link beside the server has no #{kind} extractor, so it cannot read #{filename}" if machine.local?
+      return pooled if machine.lends?
 
-      raise Analyzer::Failed,
-            "#{machine.key} has no #{kind} extractor, and a file on a machine is read only by its own xixo link " \
-            "unless the machine's \"Send files this machine can't read to the server\" setting is on"
+      raise waiting("#{machine.key} lacks #{wanted} and lends none of its files, so only it can read #{filename}",
+                    machine: machine)
+    end
+
+    def pooled
+      pool = Resource::Machine.pool.select { |machine| reads?(machine) }
+      raise waiting("no connected machine that reads for others has #{wanted} to read #{filename}") if pool.empty?
+
+      [ chosen(pool), nil ]
+    end
+
+    def chosen(pool)
+      busy = LinkExchange.busy(pool.filter_map(&:id))
+
+      pool.min_by { |machine| [ machine.local? ? 0 : 1, busy.fetch(machine.id, 0), machine.id.to_i ] }
+    end
+
+    def waiting(message, machine: nil)
+      Analyzer::Waiting.new(message, kind: verb == "derive" ? nil : kind, machine: machine)
+    end
+
+    def wanted
+      verb == "derive" ? "an extractor" : "the #{kind} extractor"
     end
 
     def reads?(machine)

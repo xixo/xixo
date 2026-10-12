@@ -258,7 +258,9 @@ class Resource
         def config
           listed = folders.map { |path, writable| writable ? { "path" => path, "writable" => true } : path }
 
-          { "xixo" => @machine.tenant.origin, "issuer" => @machine.tenant.issuer, "folders" => listed }
+          asked = MACHINE_SETTINGS.select { |name| @machine.details.to_h[name] == true }.index_with(true)
+
+          { "xixo" => @machine.tenant.origin, "issuer" => @machine.tenant.issuer, "folders" => listed }.merge(asked)
         end
 
         def kept_settings

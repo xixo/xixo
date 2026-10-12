@@ -42,6 +42,11 @@ shared: &shared
     queue: sync
     schedule: every minute
 
+  sweep_parked:
+    class: SweepParkedJob
+    queue: sync
+    schedule: every 10 minutes
+
   forget_link_exchanges:
     class: ForgetLinkExchangesJob
     queue: sync

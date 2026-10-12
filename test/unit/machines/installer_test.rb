@@ -175,6 +175,16 @@ class InstallerTest < ActiveSupport::TestCase
     assert_equal %w[folders issuer xixo], config.keys.sort
   end
 
+  test "a machine attached to lend its files and read for others is installed saying so" do
+    shell = FakeShell.new(answers: { %r{\Asudo -n cat /etc/xixo-link/config.json\z} => Resource::Machine::Shell::Ran.new(status: 1, out: "", err: "No such file") })
+
+    Tenant.switch(@tenant) { installer(machine(details: { "lend" => true, "extracts_for_others" => true }), shell).install! }
+
+    config = JSON.parse(shell.written["/etc/xixo-link/config.json.new"])
+    assert_equal true, config["lend"]
+    assert_equal true, config["extracts_for_others"]
+  end
+
   test "a machine that shares no folders binds none" do
     shell = FakeShell.new
 

@@ -220,8 +220,10 @@ What the file does:
   `XIXO_LINK_FOLDERS`, separated by colons. A folder it may also write is named in
   `XIXO_LINK_WRITABLE` instead, and is created on boot when it is missing.
   `XIXO_LINK_LEND` and `XIXO_LINK_EXTRACTS_FOR_OTHERS` both default to `true` here: xixo link
-  hands xixo the bytes of a file for downloads and previews, and reads uploads and files from
-  other places. Set either to `false` to refuse it. `XIXO_LINK_TOOLS` names the
+  hands xixo the bytes of a file for downloads and previews, and reads uploads, files from other
+  places, and files other machines lend, ahead of any other machine while it has the extractor.
+  Set either to `false` to refuse it. With `XIXO_LINK_EXTRACTS_FOR_OTHERS` false and no other
+  machine reading for others, uploads wait, parked, until one links up. `XIXO_LINK_TOOLS` names the
   [tools](/concepts/resources/#tools-a-machine-offers) it offers MCP clients, separated by commas,
   and defaults to `browse,search,read,extract` here, since its folders are the server's own. A
   folder that holds a file kept to one person stays out of reach of everyone else's token. Add

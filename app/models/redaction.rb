@@ -7,8 +7,8 @@ module Redaction
   /xi
 
   module Message
-    def initialize(message = nil)
-      super(message.is_a?(String) ? Redaction.scrub(message) : message)
+    def initialize(message = nil, **)
+      super(message.is_a?(String) ? Redaction.scrub(message) : message, **)
     end
   end
 

@@ -157,8 +157,9 @@ The setting lives in a drop-in file, so installing again keeps it.
 
 Within a minute of starting, xixo link connects, and the machine gets its own card on
 **Resources**, with **online** beside its name. One line says how many folders it shares, what
-kinds of file it reads, whether it reads for other machines or lends files it cannot read, the
-tools it offers MCP clients, and any model server it found that is not attached yet. An offline
+kinds of file it reads, whether it reads for other machines or lends its files, the
+tools it offers MCP clients, how many files wait for it, and any model server it found that is not
+attached yet. An offline
 machine says **offline** and when it was last seen, and the rows under it stay quiet. The card
 lists the folders and model servers attached on it, or reached at its tailnet address. **Details**
 shows its hostname, system, xixo link version, folders, the kinds of file it cannot read, the model
@@ -167,14 +168,17 @@ servers it found, and its uptime, memory, and disks.
 ## Files a machine cannot read
 
 A file on a machine is read by that machine's own xixo link, so only its text leaves the machine. A
-file whose program the machine lacks, such as a PDF on a machine without poppler, is not read, and
-its item says why. Two settings change that:
+file whose program the machine lacks, such as a PDF on a machine without poppler, waits, and its
+item says what for. The machine's card counts the files waiting for it. Two things start them:
 
 - Install the programs on the machine, or run an SSH install again with **Extract on the machine**
-  on.
-- Turn on **Send files this machine can't read to the server** in the machine's settings. Each such
-  file is then copied to xixo link beside the server, which reads it there. The copy is deleted once
-  it is read.
+  on. Once xixo link restarts and says hello listing the new extractor, the waiting files are read.
+- Let the machine lend its files: `lend` in its config, **Let xixo fetch whole files from it** when
+  linking up, or **Lend its files** for an SSH install. Each such file is then copied to a connected
+  machine that reads for others and has the program, xixo link beside the server first, which
+  reads it there. The copy is deleted once it is read.
+
+A file on a machine that is offline waits for the machine to come back.
 
 ## Attach a folder
 

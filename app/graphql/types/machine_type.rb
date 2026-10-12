@@ -22,9 +22,11 @@ module Types
           description: "The kinds of file xixo link can read, by the programs installed on the machine."
     field :unread, [ String ], null: false,
           description: "The kinds of file xixo link cannot read, because the machine lacks their programs. " \
-                       "Such a file on this machine is not read unless the machine lends it to the server."
+                       "Such a file on this machine is read by a machine that reads for others when this one lends " \
+                       "its files, and otherwise waits until this one can read it."
     field :lends, Boolean, null: false,
-          description: "Whether a file this machine cannot read goes to xixo link beside the server."
+          description: "Whether xixo link on it lets the bytes of its files leave the machine: to be opened or " \
+                       "downloaded, and to be read by another machine when it lacks the program itself."
     field :warnings, [ String ], null: false,
           description: "What xixo link last said is keeping it from working fully, such as a shared folder it " \
                        "may not read, each as a sentence to show a person."
@@ -32,8 +34,12 @@ module Types
           description: "The tools the machine offers to MCP clients through xixo, as its config names them: " \
                        "browse, search, read, write, extract, and models."
     field :extracts_for_others, Boolean,
-          description: "Whether the machine's own config lets it read files from other places for xixo. " \
-                       "Empty when xixo link on it does not say."
+          description: "Whether the machine's own config lets it read files from other places for xixo: uploads, " \
+                       "mail attachments, cloud files, web pages, and files other machines lend. Empty when xixo " \
+                       "link on it does not say."
+    field :waiting, [ Types::WaitingFilesType ], null: false,
+          description: "Files on this machine whose reading waits for it, by kind: it is offline, or it lacks " \
+                       "their program and lends none of its files."
     field :linked, Boolean, null: false,
           description: "Whether xixo link is enrolled as this machine, whether or not it is connected now."
     field :self_linked, Boolean, null: false,
@@ -68,6 +74,7 @@ module Types
     def tools = object.offered_tools
     def warnings = object.warnings
     def extracts_for_others = object.extracts_for_others
+    def waiting = Types::WaitingFilesType.on(context, object.id)
     def linked = object.client_id.present?
     def self_linked = object.self_linked?
     def linking_until = object.link_expires_at

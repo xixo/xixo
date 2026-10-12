@@ -69,7 +69,7 @@ class LinkChannelTest < ActionCable::Channel::TestCase
     assert_equal 500, held.warnings.second.size
     assert_equal 16, held.warnings.size
     assert_equal %w[browse read], held.offered_tools
-    assert held.lends_bytes?
+    assert held.lends?
 
     perform :health, HEALTH.merge("warnings" => [ "the shared folder /srv/photos does not exist" ])
     assert_equal [ "the shared folder /srv/photos does not exist" ], fresh.warnings

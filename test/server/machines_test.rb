@@ -65,10 +65,10 @@ class MachinesTest < ActionDispatch::IntegrationTest
                  body.dig("data", "discovered")
   end
 
-  test "a machine says which kinds of file it reads, which it cannot, whether it lends them to the server, and which tools it offers" do
+  test "a machine says which kinds of file it reads, which it cannot, whether it lends its files, and which tools it offers" do
     machine = machine_on(@tenant, folders: [ "/srv/media" ])
     Tenant.switch(@tenant) do
-      machine.update_columns(details: machine.details.merge("lend" => true).deep_merge("machine" => { "extractors" => %w[text pdf], "tools" => %w[read shell browse] }))
+      machine.update_columns(details: machine.details.deep_merge("machine" => { "extractors" => %w[text pdf], "tools" => %w[read shell browse], "lend" => true }))
     end
 
     body = graphql(Grant::SCOPES, "{ resources { key machine { extractors unread lends tools } } }")
@@ -80,7 +80,21 @@ class MachinesTest < ActionDispatch::IntegrationTest
     assert_equal %w[browse read], held["tools"]
   end
 
-  test "an admin turns lending on for a machine without touching what it learned at install" do
+  test "files whose reading waits are counted on the machine they wait for, and apart when any machine will do" do
+    machine = machine_on(@tenant, folders: [ "/srv/media" ])
+    Tenant.switch(@tenant) do
+      2.times { |n| Analysis.open!(feed: create_feed(key: "clip-#{n}"), cause: "sync").parked!(kind: "media", machine: machine) }
+      Analysis.open!(feed: create_feed(key: "plan"), cause: "sync").parked!(kind: "pdf")
+    end
+
+    body = graphql(Grant::SCOPES, "{ waitingForMachines { kind count } resources { key machine { waiting { kind count } } } }")
+
+    assert_equal [ { "kind" => "pdf", "count" => 1 } ], body.dig("data", "waitingForMachines")
+    held = body.dig("data", "resources").find { |listed| listed["key"] == "box" }["machine"]
+    assert_equal [ { "kind" => "media", "count" => 2 } ], held["waiting"]
+  end
+
+  test "an admin turns lending on for a machine's next install without touching what it learned at install" do
     machine = machine_on(@tenant, folders: [ "/srv/media" ])
 
     body = graphql(Grant::SCOPES, <<~GQL)
@@ -90,7 +104,8 @@ class MachinesTest < ActionDispatch::IntegrationTest
     assert_nil body["errors"]
     Tenant.switch(@tenant) do
       held = machine.reload
-      assert held.lends?
+      assert_equal true, held.details["lend"]
+      assert_not held.lends?
       assert_equal [ "/srv/media" ], held.details["folders"]
       assert held.client_id.present?
     end

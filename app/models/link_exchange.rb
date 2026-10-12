@@ -47,6 +47,12 @@ class LinkExchange < ApplicationRecord
       find_by(resource_id: machine.id, request: request.to_s)
     end
 
+    def busy(ids)
+      return {} if ids.empty?
+
+      where(resource_id: ids, parent_id: nil).open.group(:resource_id).count
+    end
+
     def crowded?(machine)
       where(resource_id: machine.id, parent_id: nil).open.count >= MOST_OPEN
     end

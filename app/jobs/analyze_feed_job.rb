@@ -14,9 +14,7 @@ class AnalyzeFeedJob < ApplicationJob
   retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5 do |job, error|
     job.fail_analysis(error)
   end
-  retry_on Analyzer::Waiting, wait: 5.minutes, attempts: 288 do |job, error|
-    job.fail_analysis(error)
-  end
+  discard_on(Analyzer::Waiting) { |job, error| job.park(error) }
 
   WHOLE = "whole"
   READING = "reading"
@@ -48,6 +46,13 @@ class AnalyzeFeedJob < ApplicationJob
     return hand_off(feed) if phase == READING && agent_files?(feed)
 
     file(feed)
+  end
+
+  def park(waiting)
+    return if analysis.nil?
+
+    analysis.log_skip("parked", waiting.message)
+    analysis.parked!(kind: waiting.kind, machine: waiting.machine)
   end
 
   def fail_analysis(error)

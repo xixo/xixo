@@ -145,7 +145,9 @@ CREATE TABLE public.analyses (
     updated_at timestamp(6) without time zone NOT NULL,
     question text,
     requested_by character varying,
-    about_id bigint
+    about_id bigint,
+    waits_for character varying,
+    waits_on_id bigint
 );
 
 ALTER TABLE ONLY public.analyses FORCE ROW LEVEL SECURITY;
@@ -1187,6 +1189,13 @@ CREATE INDEX index_analyses_on_tenant_id_and_status ON public.analyses USING btr
 
 
 --
+-- Name: index_analyses_parked; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_analyses_parked ON public.analyses USING btree (tenant_id, waits_on_id) WHERE ((status)::text = 'parked'::text);
+
+
+--
 -- Name: index_audit_events_on_analysis_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1887,6 +1896,14 @@ ALTER TABLE ONLY public.schedules
 
 
 --
+-- Name: analyses fk_rails_cb98e2d7d6; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.analyses
+    ADD CONSTRAINT fk_rails_cb98e2d7d6 FOREIGN KEY (waits_on_id) REFERENCES public.resources(id) ON DELETE SET NULL;
+
+
+--
 -- Name: analyses fk_rails_cca65eba28; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2186,6 +2203,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261012210000'),
 ('20261012200000'),
 ('20261012190000'),
 ('20261012140000'),

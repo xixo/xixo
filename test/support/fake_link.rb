@@ -37,8 +37,11 @@ module FakeLink
       @extractors = Resource::Machine::EXTRACTORS
     end
 
+    def id = nil
     def key = "local"
     def name = "This server"
+    def local? = true
+    def reads_for_others? = true
     def connected? = true
     def offered_folders = []
     def extracts?(kind) = extractors.include?(kind.to_s)
@@ -57,8 +60,8 @@ module FakeLink
   end
 
   module Standing
-    def local
-      super || (FakeLink.standing ? FakeLink.local : nil)
+    def pool
+      super.presence || (FakeLink.standing ? [ FakeLink.local ] : [])
     end
   end
 

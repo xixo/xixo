@@ -19,6 +19,11 @@ class Resource
     SERVICE_KINDS = %w[ollama lmstudio].freeze
     PUT_AWAY_TRIES = 3
     EXTRACTORS = %w[pdf image media doc epub xlsx calendar pkpass email contact data text fallback].freeze
+    READ_AS = {
+      "pdf" => "PDFs", "image" => "photos", "media" => "audio and video", "doc" => "office documents",
+      "epub" => "books", "xlsx" => "spreadsheets", "calendar" => "calendars", "pkpass" => "passes", "email" => "email",
+      "contact" => "contacts", "data" => "data files", "text" => "text", "fallback" => "files of unknown kinds"
+    }.freeze
     LOCAL = "local".freeze
     MINTED = "minted_at".freeze
 
@@ -66,9 +71,14 @@ class Resource
                   help: "Installs the programs that read PDFs, office documents, images, audio, and video with " \
                         "apt on Debian or Ubuntu, so only text leaves the machine. Left off, the machine reads " \
                         "only plain text, data, calendars, contacts, email, books, and spreadsheets."),
-            field("lend", "Send files this machine can't read to the server", kind: "boolean", value: "false",
-                  help: "A file this machine has no program for goes to xixo link beside the server. Left off, " \
-                        "such a file is not read, and nothing on this machine leaves it but text."),
+            field("lend", "Lend its files", kind: "boolean", value: "false",
+                  help: "Lets the bytes of its files leave the machine: to be opened or downloaded through xixo, " \
+                        "and to be read by another machine that reads for others when this one lacks the " \
+                        "program. Left off, nothing on this machine leaves it but text, and a file it cannot " \
+                        "read waits until it can."),
+            field("extracts_for_others", "Read files for other machines", kind: "boolean", value: "false",
+                  help: "Lets this machine read files that live elsewhere: uploads, mail attachments, cloud " \
+                        "files, web pages, and files other machines lend."),
             field("keep_tools", "Keep write and models on a reinstall", kind: "boolean", value: "false",
                   help: "A reinstall keeps browse, search, read, and extract from the config already on the " \
                         "machine. Turned on, it keeps write and models too, which let xixo write into the " \
@@ -109,6 +119,10 @@ class Resource
 
       def local
         active.find_by("resources.details ->> 'local' = 'true'")
+      end
+
+      def pool
+        active.where("resources.details -> 'machine' ->> 'extracts_for_others' = 'true'").order(:id).select(&:connected?)
       end
 
       def holding(resources)
@@ -204,7 +218,7 @@ class Resource
     end
 
     def lends?
-      details.to_h["lend"] == true
+      machine["lend"] == true
     end
 
     def keeps_tools?
@@ -236,6 +250,10 @@ class Resource
     def extracts_for_others
       held = machine["extracts_for_others"]
       held if [ true, false ].include?(held)
+    end
+
+    def reads_for_others?
+      extracts_for_others == true
     end
 
     def announce!
@@ -349,6 +367,7 @@ class Resource
       merge_machine!(Hello.from(said).merge("session" => session, "connected" => true, "seen_at" => now_stamp))
       update_columns(offline_host: nil, offline_last_seen_at: nil, checked_at: Time.current, check_error: nil)
       restate_folders!
+      ResumeParkedJob.perform_later(id) if Analysis.parked.exists?
       announce!
     end
 
