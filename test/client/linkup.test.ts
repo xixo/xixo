@@ -13,7 +13,6 @@ import {
 const plan = {
   xixo: 'https://xixo.example.com',
   issuer: 'https://id.example.com',
-  code: 'enroll-abc_123',
   name: "jon's studio",
   build: {
     os: 'linux',
@@ -31,19 +30,22 @@ const plan = {
 }
 
 describe('linking up a machine', () => {
-  test('the code reaches curl and xixo link on standard input, never as an argument', () => {
+  test('the code is read from the terminal and reaches curl and xixo link on standard input, never as an argument', () => {
     const all = steps(plan)
       .map((step) => step.command)
       .join('\n')
 
-    expect(all).toContain("code='enroll-abc_123'")
-    expect(all.match(/enroll-abc_123/g)).toHaveLength(1)
+    expect(all).toContain('read -rs code')
+    expect(all).not.toContain('code=')
     expect(all).toContain(
       `printf 'Authorization: Bearer %s\\n' "$code" | curl -fsS -H @-`,
     )
     expect(all).toContain(
-      `printf %s "$code" | xixo-link enroll --token - --name 'jon'\\''s studio'`,
+      `printf %s "$code" | xixo-link enroll --token - --name 'jon'\\''s studio' > /dev/null &&`,
     )
+    expect(all).toContain(`printf %s "$code" | xixo-link link --code - &&`)
+    expect(all).not.toContain('client_id')
+    expect(all.trimEnd().endsWith('unset code')).toBe(true)
     for (const line of all.split('\n').filter((held) => held.includes('$code')))
       expect(line).not.toMatch(/ -L|--location/)
   })

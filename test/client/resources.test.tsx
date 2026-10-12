@@ -260,7 +260,7 @@ describe('Resources', () => {
     expect(within(card as HTMLElement).getByText(/^Last seen /)).toBeTruthy()
   })
 
-  test('linking up a machine names it, then shows commands carrying the code', async () => {
+  test('linking up a machine names it, then shows the code beside commands that ask for it', async () => {
     const { client, asked } = fakeClient({
       Resources: () => ({
         administrator: true,
@@ -304,7 +304,9 @@ describe('Resources', () => {
     )
 
     expect(await within(dialog).findByText('Get xixo link')).toBeTruthy()
-    expect(within(dialog).getByText(/code='enroll-secret'/)).toBeTruthy()
+    expect(within(dialog).getByText('enroll-secret')).toBeTruthy()
+    expect(within(dialog).queryByText(/enroll-secret'/)).toBeNull()
+    expect(within(dialog).getAllByText(/read -rs code/)).toHaveLength(1)
     expect(
       within(dialog).getByText(/Waiting for studio to link up/),
     ).toBeTruthy()

@@ -279,7 +279,7 @@ function Commands({
   const [lend, setLend] = useState(false)
   const left = useCountdown(code.expiresAt)
   const { data } = useSubscription(MachineChangedDocument, { id: code.id })
-  const heard = data?.machineChanged?.resource.machine
+  const heard = data?.machineChanged.resource.machine
 
   useEffect(() => {
     if (heard) onChanged()
@@ -330,7 +330,6 @@ function Commands({
   const shown = steps({
     xixo: info.xixo,
     issuer: info.issuer,
-    code: code.code,
     name: code.key,
     build,
     macReader: info.macReader ?? null,
@@ -348,9 +347,26 @@ function Commands({
       <div className="linkup-code" data-spent={left === 0}>
         <span>
           {left > 0
-            ? `The code in these commands works once, for the next ${minutes}:${seconds}.`
-            : 'The code has run out. Get a fresh one and copy the commands again.'}
+            ? `The first step asks for this code, which works once, for the next ${minutes}:${seconds}.`
+            : 'The code has run out. Get a fresh one and run the steps again.'}
         </span>
+        {left > 0 && (
+          <span className="linkup-code-held">
+            <Code>{code.code}</Code>
+            <CopyButton value={code.code}>
+              {({ copied, copy }) => (
+                <Button
+                  size="compact-sm"
+                  radius="xl"
+                  variant="default"
+                  onClick={copy}
+                >
+                  {copied ? 'Copied' : 'Copy the code'}
+                </Button>
+              )}
+            </CopyButton>
+          </span>
+        )}
         <Button
           size="compact-sm"
           radius="xl"

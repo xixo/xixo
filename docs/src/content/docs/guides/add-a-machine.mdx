@@ -44,8 +44,9 @@ one that owns the folders.
    machine files from elsewhere to read, and **Let xixo fetch whole files from it** for downloads,
    previews, and reading elsewhere. Both are off unless you turn them on, and both land in the
    machine's config as `extracts_for_others` and `lend`.
-7. Run the three steps in one terminal on the machine, in order. They share the code through the
-   `code` variable.
+7. Run the three steps in one terminal on the machine, in order. The first asks for the code,
+   which **Copy the code** puts on the clipboard, and reads it without showing it or leaving it in
+   your shell's history. The steps share it through the `code` variable, and the last unsets it.
 
 The steps on Linux:
 
@@ -56,8 +57,8 @@ The steps on Linux:
    `/etc/systemd/system/xixo-link.service`. The service mounts each folder read-only, or
    read-write for a `:rw` folder.
 3. **Link up and start** creates `/var/lib/xixo-link`, runs `xixo-link enroll` with the code on
-   standard input, sends the client it prints back to xixo with the same code, and starts the
-   service.
+   standard input, then `xixo-link link`, which tells xixo which machine it is with the same code
+   and a token held to the machine's own key, and starts the service.
 
 The steps on macOS use no `sudo`:
 
@@ -71,7 +72,7 @@ The steps on macOS use no `sudo`:
 2. **Say what it shares** writes `~/Library/Application Support/xixo-link/config.json` with mode
    0600, and fetches the launch agent from xixo into
    `~/Library/LaunchAgents/network.xixo.link.plist`.
-3. **Link up and start** enrolls the Mac, sends its client back to xixo, and starts the launch
+3. **Link up and start** enrolls the Mac, links it up with `xixo-link link`, and starts the launch
    agent with `launchctl bootstrap`.
 
 macOS guards `~/Documents`, `~/Desktop`, `~/Downloads`, iCloud Drive, and removable and network
@@ -82,7 +83,8 @@ then the machine's card shows xixo link's warning that it may not read the folde
 [xixo link on macOS](https://github.com/xixo/xixo/tree/main/link#macos) for more.
 
 The code reaches `curl` and xixo link on standard input, never as an argument, so it does not show
-in the process list. The dialog waits while you work. Once the client is sent it says the machine
+in the process list. xixo links a machine up only for the code together with the new machine's own
+token, so a code read off the screen links up nothing by itself. The dialog waits while you work. Once the client is sent it says the machine
 is linked, and when xixo link says hello it says the machine is linked up.
 
 When the code runs out first, choose **Get a fresh code** and copy the commands again. The old code
@@ -207,14 +209,22 @@ add a `tools` list to `/etc/xixo-link/config.json`, such as `"tools": ["browse",
 `write`, `extract`, and `models`. The machine's card lists the ones it offers once xixo link
 connects again, and a client sees them when it describes the machine through the `resource` tool.
 [Tools a machine offers](/concepts/resources/#tools-a-machine-offers) says what each does and what
-else it needs. Installing again over SSH keeps the list.
+else it needs. Installing again over SSH keeps `browse`, `search`, `read`, and `extract` from the
+list, and keeps `write` and `models` only when the machine's **Keep write and models on a
+reinstall** setting is on. It never keeps `extract_unsandboxed`.
+
+A client reaches a machine's files only with a token for one of the machine's operators, or an
+administrator's. The administrator who links or attaches the machine is its first operator, and
+**Who operates it** in the machine's settings lists the masks subjects of the rest, one per line.
 
 ## Remove a machine
 
 Archive and delete the folders attached through it, then the machine. Archiving the machine
 unenrolls it in masks, which archives its client and revokes every token it holds, and closes xixo
-link's connection at once. xixo link then exits with status 78 the next time it asks masks for a
-token, and systemd leaves it stopped. When masks cannot be reached, the machine stays attached
+link's connection at once. When xixo link connects again, xixo says it has no machine enrolled as
+its client, or masks refuses it a token, and xixo link exits with status 78 and systemd leaves it
+stopped. xixo turning a token away for any other reason, or masks being out of reach, only makes
+xixo link try again. When masks cannot be reached, the machine stays attached
 and the error says so, since a machine left enrolled could still sign in. Try again once masks
 answers.
 

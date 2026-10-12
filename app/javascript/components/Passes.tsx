@@ -68,7 +68,7 @@ export function Passes({
 }) {
   const [open, setOpen] = useState<string | null>(null)
   const { data } = useSubscription(AnalysisProgressedDocument, {})
-  const streamed = data?.analysisProgressed?.analysis
+  const streamed = data?.analysisProgressed.analysis
   const answered = useRef<string | null>(null)
 
   useEffect(() => {

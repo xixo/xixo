@@ -1,9 +1,20 @@
 import { createConsumer } from '@rails/actioncable'
 import { type Exchange, subscriptionExchange } from '@urql/core'
+import type { GraphQLFormattedError } from 'graphql'
 
 interface SubscriptionPayload {
-  result: Record<string, unknown>
+  result?: {
+    data?: Record<string, unknown> | null
+    errors?: GraphQLFormattedError[]
+  }
   more: boolean
+}
+
+function answered(result: SubscriptionPayload['result']) {
+  if (!result) return false
+  if (result.errors?.length) return true
+
+  return Object.keys(result.data ?? {}).length > 0
 }
 
 export interface ActionCableOptions {
@@ -44,9 +55,10 @@ export function actionCableExchange(
                 told(false)
               },
               received(payload: SubscriptionPayload) {
-                if (payload.result) {
+                if (answered(payload.result)) {
                   sink.next({
-                    data: payload.result.data as Record<string, unknown>,
+                    data: payload.result?.data ?? undefined,
+                    errors: payload.result?.errors,
                   })
                 }
                 if (!payload.more) {

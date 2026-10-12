@@ -3269,6 +3269,18 @@ a.tag:hover {
   font-size: var(--t-small);
 }
 
+.linkup-code-held {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+.linkup-code-held code {
+  overflow-wrap: anywhere;
+}
+
 .linkup-code[data-spent="true"] {
   background: color-mix(in srgb, var(--bad) 14%, var(--lifted));
   color: var(--text);

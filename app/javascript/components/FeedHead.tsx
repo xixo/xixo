@@ -298,7 +298,7 @@ function glimpse(turns: Turn[], logs?: string | null) {
 export function Progress({ pass }: { pass: Pass }) {
   const [turns, setTurns] = useState<Turn[]>(agentTurns(pass.turns))
   const { data } = useSubscription(AnalysisProgressedDocument, { id: pass.id })
-  const streamed = data?.analysisProgressed?.analysis
+  const streamed = data?.analysisProgressed.analysis
   const status = streamed?.status ?? pass.status
 
   useEffect(() => {

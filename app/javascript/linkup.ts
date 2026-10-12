@@ -13,7 +13,6 @@ export interface Shared {
 export interface Plan {
   xixo: string
   issuer: string
-  code: string
   name: string
   build: Build
   macReader?: string | null
@@ -136,6 +135,8 @@ function bearer() {
   return `printf 'Authorization: Bearer %s\\n' "$code" | curl -fsS -H @-`
 }
 
+const ASKED = ["printf 'Paste the code xixo shows: '", 'read -rs code', 'echo']
+
 export function config(plan: Plan) {
   return JSON.stringify(
     {
@@ -157,8 +158,8 @@ export function config(plan: Plan) {
 
 function linked(plan: Plan, program: string) {
   return [
-    `client=$(printf %s "$code" | ${program} enroll --token - --name ${quoted(plan.name)}) &&`,
-    `${bearer()} --data-urlencode "client_id=$client" ${quoted(`${plan.xixo}/link`)} &&`,
+    `printf %s "$code" | ${program} enroll --token - --name ${quoted(plan.name)} > /dev/null &&`,
+    `printf %s "$code" | ${program} link --code - &&`,
   ]
 }
 
@@ -186,9 +187,9 @@ function mac(plan: Plan): Step[] {
     {
       title: 'Get xixo link',
       detail:
-        "Downloads xixo link from this xixo with the code, checks that it arrived whole, and puts it in your Library. Beside it goes the mac reader from this version's GitHub release, checked against the SHA-256 published with it, which reads PDFs, images, audio, and video with what macOS ships.",
+        "Asks for the code, which stays out of your shell's history, then downloads xixo link from this xixo with it, checks that it arrived whole, and puts it in your Library. Beside it goes the mac reader from this version's GitHub release, checked against the SHA-256 published with it, which reads PDFs, images, audio, and video with what macOS ships.",
       command: [
-        `code=${quoted(plan.code)}`,
+        ...ASKED,
         'dir="$HOME/Library/Application Support/xixo-link"',
         'mkdir -p "$dir/bin"',
         `${bearer()} -o xixo-link ${quoted(download)}`,
@@ -214,10 +215,11 @@ function mac(plan: Plan): Step[] {
     {
       title: 'Link up and start',
       detail:
-        'Enrolls the Mac with its own keys, tells xixo which machine it is, and starts xixo link as you. A folder in Documents, Desktop, Downloads, or iCloud Drive also needs Full Disk Access for xixo-link in System Settings.',
+        'Enrolls the Mac with its own keys, has xixo link tell xixo which machine it is with the code and its own token, and starts xixo link as you. A folder in Documents, Desktop, Downloads, or iCloud Drive also needs Full Disk Access for xixo-link in System Settings.',
       command: [
         ...linked(plan, '"$dir/bin/xixo-link"'),
         `launchctl bootstrap "gui/$(id -u)" ${plist}`,
+        'unset code',
       ].join('\n'),
     },
   ]
@@ -239,9 +241,9 @@ export function steps(plan: Plan): Step[] {
     {
       title: 'Get xixo link',
       detail:
-        'Downloads xixo link from this xixo with the code, checks that it arrived whole, and puts it in /usr/local/bin.',
+        "Asks for the code, which stays out of your shell's history, then downloads xixo link from this xixo with it, checks that it arrived whole, and puts it in /usr/local/bin.",
       command: [
-        `code=${quoted(plan.code)}`,
+        ...ASKED,
         `${bearer()} -o xixo-link ${quoted(download)}`,
         `echo ${quoted(`${plan.build.sha256}  xixo-link`)} | sha256sum -c -`,
         'sudo install -m 0755 xixo-link /usr/local/bin/xixo-link',
@@ -263,11 +265,12 @@ export function steps(plan: Plan): Step[] {
     {
       title: 'Link up and start',
       detail:
-        'Enrolls the machine with its own keys, tells xixo which machine it is, and starts xixo link as you, the account that owns the folders.',
+        'Enrolls the machine with its own keys, has xixo link tell xixo which machine it is with the code and its own token, and starts xixo link as you, the account that owns the folders.',
       command: [
         'sudo install -d -m 0700 -o "$(id -un)" -g "$(id -gn)" /var/lib/xixo-link',
         ...linked(plan, 'xixo-link'),
         'sudo systemctl daemon-reload && sudo systemctl enable --now xixo-link',
+        'unset code',
       ].join('\n'),
     },
   ]
