@@ -55,7 +55,13 @@ module Types
     def memory_total = health.dig("memory", "total")
     def memory_available = health.dig("memory", "available")
     def disks = Array(health["disks"])
-    def services = Array(object.machine["services"])
+    def services
+      Array(object.machine["services"]).map do |service|
+        url = object.reached_at(service)
+
+        service.merge("url" => url, "via" => (tailnet if url))
+      end
+    end
     def extractors = object.extractors
     def unread = Resource::Machine::EXTRACTORS - object.extractors
     def lends = object.lends?
@@ -67,6 +73,13 @@ module Types
     def linking_until = object.link_expires_at
 
     private
+
+      def tailnet
+        return object.via.key if object.via_id && object.via.is_a?(Resource::Tailnet)
+
+        context[:tailnet] = Resource::Tailnet.visible_to(context[:grant]).order(:key).pick(:key).to_s unless context.key?(:tailnet)
+        context[:tailnet].presence
+      end
 
       def health
         object.machine["health"].to_h

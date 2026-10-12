@@ -21,7 +21,40 @@ class QueryCountTest < ActiveSupport::TestCase
     assert_equal few, many
   end
 
+  test "the resources page costs the same queries however many resources each machine holds" do
+    page = "{ resources { id key machineId itemsCount via machine { services { url via } } } }"
+    few = resources_counted(1) { page }
+    many = resources_counted(6) { page }
+
+    assert_equal few, many
+  end
+
   private
+
+    def resources_counted(rows)
+      tenant = Tenant.create!(subdomain: "counted-#{SecureRandom.hex(4)}", name: "Counted")
+      grant = Grant.new(tenant: tenant, claims: Masks::Client::Claims.new("sub" => "ada", "scope" => Grant::SCOPES.join(" ")))
+
+      Tenant.switch(tenant) do
+        tailnet = Resource::Tailnet.create!(key: "home")
+        Resource::Machine.local!
+        rows.times do |index|
+          Resource::OpenaiCompatible.create!(key: "ollama-#{index}", via: tailnet, details: { "base_url" => "http://100.64.0.#{index + 2}:11434/v1" })
+        end
+      end
+
+      count = 0
+      counter = ->(*, payload) { count += 1 unless payload[:name] == "SCHEMA" || payload[:sql].match?(/\A(SET|RESET|SELECT set_config)/) }
+
+      Tenant.switch(tenant) do
+        ActiveSupport::Notifications.subscribed(counter, "sql.active_record") do
+          result = XixoSchema.execute(yield, context: { tenant: tenant, tenant_id: tenant.id, grant: grant })
+          assert_nil result["errors"]
+        end
+      end
+
+      count
+    end
 
     def counted(rows, tagged: false)
       tenant = Tenant.create!(subdomain: "counted-#{SecureRandom.hex(4)}", name: "Counted")

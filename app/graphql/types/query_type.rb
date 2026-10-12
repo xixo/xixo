@@ -104,7 +104,7 @@ module Types
     def resources(archived: false)
       scope = archived ? Resource.attended.reachable_by(context[:grant]).where.not(archived_at: nil) : Resource.visible_to(context[:grant])
 
-      scope.order(:type, :key)
+      scope.includes(:via).order(:type, :key)
     end
 
     field :discovered, [ Types::DiscoveredNodeType ], null: false, grants: "xixo:resources:read",

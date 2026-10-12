@@ -45,6 +45,7 @@ query Resources($archived: Boolean) {
     connectUrl
     via
     routable
+    machineId
     machine {
       hostname
       version
@@ -66,6 +67,9 @@ query Resources($archived: Boolean) {
       services {
         kind
         port
+        address
+        url
+        via
       }
       memoryTotal
       memoryAvailable

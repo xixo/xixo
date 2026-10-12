@@ -62,6 +62,11 @@ module Types
     field :machine, Types::MachineType,
           description: "What xixo link on the machine last said, for a machine running xixo link. Empty for " \
                        "every other type."
+    field :machine_id, ID,
+          description: "The machine it lives on or is reached through. A folder names the machine running xixo " \
+                       "link that shares it. One reached over a tailnet names the linked machine at the address it " \
+                       "dials, when one is. Everything else names this server, the machine xixo runs on. Empty for " \
+                       "a machine, and for anything when this server has no machine yet."
     field :held_credentials, [ String ], null: false,
           description: "The names of the encrypted fields that hold something, so a form can say " \
                        "one is set without saying what it is."
@@ -98,6 +103,10 @@ module Types
 
     def held_credentials
       declared(:credentials).map { |field| field[:name] }.select { |name| object.credentials.to_h[name].present? }
+    end
+
+    def machine_id
+      dataloader.with(Sources::MachineOf).load(object)
     end
 
     def items_count

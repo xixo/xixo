@@ -111,6 +111,21 @@ class Resource
         active.find_by("resources.details ->> 'local' = 'true'")
       end
 
+      def holding(resources)
+        machines = active.to_a
+        by_id = machines.index_by(&:id)
+        local = machines.find(&:local?)
+        reached = machines.reject(&:local?).each_with_object({}) do |machine, held|
+          machine.answers_at.each { |address| held[address] ||= machine }
+        end
+
+        resources.to_h do |resource|
+          next [ resource.id, nil ] if resource.is_a?(Machine)
+
+          [ resource.id, by_id[resource.via_id] || reached[resource.target_host] || local ]
+        end
+      end
+
       def local!
         find_by(key: LOCAL) || create!(key: LOCAL, name: "This server", details: { "local" => true })
       end
@@ -144,6 +159,16 @@ class Resource
       via.is_a?(Tailnet) && TAILNET.any? { |range| range.include?(IPAddr.new(address.to_s)) }
     rescue IPAddr::Error
       false
+    end
+
+    def answers_at
+      [ target_host, *Array(machine["services"]).map { |service| service["address"] } ].compact_blank.uniq
+    end
+
+    def reached_at(service)
+      return if service["address"].blank?
+
+      OpenaiCompatible.address_on(service["address"], port: service["port"])
     end
 
     def offered_folders

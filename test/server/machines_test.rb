@@ -113,6 +113,27 @@ class MachinesTest < ActionDispatch::IntegrationTest
     assert_equal({ "key" => "media", "via" => "box" }, attached.dig("data", "attachResource", "resource"))
   end
 
+  test "each resource names the machine it lives on or is reached through, and this server holds the rest" do
+    box = machine_on(@tenant, folders: [ "/srv/media" ])
+    held = Tenant.switch(@tenant) do
+      box.update_columns(details: box.details.deep_merge("machine" => { "services" => [ { "kind" => "ollama", "port" => 11434, "address" => "100.64.0.9" } ] }))
+      local = Resource::Machine.local!
+      tailnet = Resource::Tailnet.create!(key: "home", name: "home")
+      Resource::Filesystem.create!(key: "media", via: box, details: { "folder" => "/srv/media" })
+      Resource::OpenaiCompatible.create!(key: "ollama-box", via: tailnet, details: { "base_url" => "http://100.64.0.9:11434/v1" })
+      Resource::OpenaiCompatible.create!(key: "elsewhere", via: tailnet, details: { "base_url" => "http://100.64.0.77:11434/v1" })
+      { box: box.id.to_s, local: local.id.to_s }
+    end
+
+    body = graphql(Grant::SCOPES, "{ resources { key machineId machine { services { kind port url via } } } }")
+    on = body.dig("data", "resources").to_h { |resource| [ resource["key"], resource["machineId"] ] }
+
+    assert_equal({ "box" => nil, "local" => nil, "media" => held[:box], "ollama-box" => held[:box],
+                   "elsewhere" => held[:local], "home" => held[:local] }, on.slice("box", "local", "media", "ollama-box", "elsewhere", "home"))
+    assert_equal [ { "kind" => "ollama", "port" => 11434, "url" => "http://100.64.0.9:11434/v1", "via" => "home" } ],
+                 body.dig("data", "resources").find { |resource| resource["key"] == "box" }.dig("machine", "services")
+  end
+
   test "only an administrator reaches a folder through a machine, even as only theirs" do
     machine_on(@tenant, folders: [ "/srv/media", "/home/jon" ])
     attach = <<~GQL

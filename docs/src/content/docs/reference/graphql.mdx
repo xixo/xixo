@@ -524,6 +524,8 @@ Resolves only for a token carrying `xixo:resources:read`.
 | `address` | `String` | The machine's tailnet address, when it is on one. |
 | `kind` | `String!` | ollama or lmstudio. |
 | `port` | `Int!` |  |
+| `url` | `String` | The base URL xixo reaches the model server at, over the machine's tailnet address. Empty for a machine on no tailnet. |
+| `via` | `String` | The key of the tailnet xixo reaches the model server through. Empty when it has none to offer. |
 
 ### NoteFeedPayload
 
@@ -600,6 +602,7 @@ Resolves only for a token carrying `xixo:resources:read`.
 | `itemsCount` | `Int!` |  |
 | `key` | `String!` |  |
 | `machine` | [`Machine`](#machine) | What xixo link on the machine last said, for a machine running xixo link. Empty for every other type. |
+| `machineId` | `ID` | The machine it lives on or is reached through. A folder names the machine running xixo link that shares it. One reached over a tailnet names the linked machine at the address it dials, when one is. Everything else names this server, the machine xixo runs on. Empty for a machine, and for anything when this server has no machine yet. |
 | `manageable` | `Boolean!` | Whether this token changes it, puts it away, or deletes it. A person manages their own personal resources, and an administrator also manages every shared one. |
 | `name` | `String` |  |
 | `needsConnect` | `Boolean!` | Whether somebody has to connect it through masks, or connect it again, before it answers. |
