@@ -14,13 +14,17 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
+	"github.com/xixo/xixo/agent/internal/dial"
 	"github.com/xixo/xixo/agent/internal/extract"
 )
 
 const (
 	MostUpload  = 4 << 30
+	MostWork    = 12 << 30
 	MostFiles   = 256
+	fetchedPace = 256 << 10
 	verbExtract = "extract"
 	verbDerive  = "derive"
 )
@@ -29,7 +33,7 @@ var (
 	ErrNoUpload   = errors.New("an upload is named by a uuid")
 	ErrUploadSize = errors.New("the upload's size does not match what arrived")
 	ErrTooLarge   = errors.New("the upload is larger than the agent keeps")
-	uploadClient  = &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	uploadClient  = dial.Fetcher()
 	uploadName    = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 )
 
@@ -70,25 +74,31 @@ type Extracted struct {
 	Files     []Sent                  `json:"files"`
 }
 
-func (s *session) extraction(ctx context.Context, asked *Request, deriving bool) {
+func (a *Agent) extraction(ctx context.Context, asked *Request, deriving bool) {
 	wanted := Extraction{}
 	if err := decode(asked.Args, &wanted); err != nil {
-		s.refuse(ctx, asked.Request, err)
+		a.refuse(ctx, asked.Request, err)
 
 		return
 	}
 
-	work, err := os.MkdirTemp(s.Work, "extract-*")
+	if wanted.Source.Upload != "" && !a.ExtractsForOthers {
+		a.refuse(ctx, asked.Request, ErrOthers)
+
+		return
+	}
+
+	work, err := os.MkdirTemp(a.Work, "extract-*")
 	if err != nil {
-		s.refuse(ctx, asked.Request, err)
+		a.refuse(ctx, asked.Request, err)
 
 		return
 	}
 	defer os.RemoveAll(work)
 
-	path, digest, err := s.source(ctx, wanted, work)
+	path, digest, err := a.source(ctx, wanted, work)
 	if err != nil {
-		s.refuse(ctx, asked.Request, err)
+		a.refuse(ctx, asked.Request, err)
 
 		return
 	}
@@ -105,7 +115,7 @@ func (s *session) extraction(ctx context.Context, asked *Request, deriving bool)
 		Size: digest.Size,
 		Skip: map[string]bool{},
 		Work: work,
-		Run:  s.Runner,
+		Run:  extract.Within(a.Runner, work, MostWork),
 		Set:  wanted.Settings,
 	}
 
@@ -113,15 +123,15 @@ func (s *session) extraction(ctx context.Context, asked *Request, deriving bool)
 		in.Skip[step] = true
 	}
 
-	out, err := s.extracted(ctx, in, deriving)
+	out, err := a.extracted(ctx, in, deriving)
 	if err != nil {
-		s.refuse(ctx, asked.Request, err)
+		a.refuse(ctx, asked.Request, err)
 
 		return
 	}
 
 	if len(out.Files) > MostFiles {
-		s.refuse(ctx, asked.Request, fmt.Errorf("the extraction made more than %d files", MostFiles))
+		a.refuse(ctx, asked.Request, fmt.Errorf("the extraction made more than %d files", MostFiles))
 
 		return
 	}
@@ -129,9 +139,9 @@ func (s *session) extraction(ctx context.Context, asked *Request, deriving bool)
 	sent := []Sent{}
 
 	for _, file := range out.Files {
-		held, err := s.sendFile(ctx, asked.Request, file)
+		held, err := a.sendFile(ctx, asked.Request, file)
 		if err != nil {
-			s.refuse(ctx, asked.Request, err)
+			a.refuse(ctx, asked.Request, err)
 
 			return
 		}
@@ -144,12 +154,12 @@ func (s *session) extraction(ctx context.Context, asked *Request, deriving bool)
 		steps = map[string]extract.Step{}
 	}
 
-	s.reply(ctx, asked.Request, Extracted{Digest: digest, Extractor: out.Extractor, Steps: steps, Dropped: out.Dropped, Files: sent})
+	a.reply(ctx, asked.Request, Extracted{Digest: digest, Extractor: out.Extractor, Steps: steps, Dropped: out.Dropped, Files: sent})
 }
 
-func (s *session) extracted(ctx context.Context, in extract.Input, deriving bool) (*extract.Output, error) {
+func (a *Agent) extracted(ctx context.Context, in extract.Input, deriving bool) (*extract.Output, error) {
 	if !deriving {
-		return s.Extract(ctx, in)
+		return a.Extract(ctx, in)
 	}
 
 	out := &extract.Output{Extractor: "derive"}
@@ -172,12 +182,12 @@ func (s *session) extracted(ctx context.Context, in extract.Input, deriving bool
 	return out, nil
 }
 
-func (s *session) source(ctx context.Context, wanted Extraction, work string) (string, Digest, error) {
+func (a *Agent) source(ctx context.Context, wanted Extraction, work string) (string, Digest, error) {
 	if wanted.Source.Upload != "" {
-		return s.fetch(ctx, wanted, work)
+		return a.fetch(ctx, wanted, work)
 	}
 
-	opened, err := s.Folders.Open(wanted.Source.Folder, wanted.Source.Path)
+	opened, err := a.Folders.Open(wanted.Source.Folder, wanted.Source.Path)
 	if err != nil {
 		return "", Digest{}, err
 	}
@@ -232,7 +242,7 @@ func digested(from io.Reader) (Digest, error) {
 	return Digest{SHA256: hex.EncodeToString(hashed.Sum(nil)), Size: written}, nil
 }
 
-func (s *session) fetch(ctx context.Context, wanted Extraction, work string) (string, Digest, error) {
+func (a *Agent) fetch(ctx context.Context, wanted Extraction, work string) (string, Digest, error) {
 	if !uploadName.MatchString(wanted.Source.Upload) {
 		return "", Digest{}, ErrNoUpload
 	}
@@ -241,12 +251,15 @@ func (s *session) fetch(ctx context.Context, wanted Extraction, work string) (st
 		return "", Digest{}, ErrTooLarge
 	}
 
-	target := strings.TrimSuffix(s.Xixo, "/") + "/agent/uploads/" + wanted.Source.Upload
+	target := strings.TrimSuffix(a.Xixo, "/") + "/agent/uploads/" + wanted.Source.Upload
 	kept := filepath.Join(work, "source"+safeExtension(wanted.Filename))
 	nonce := ""
 
+	ctx, cancel := context.WithTimeout(ctx, fetchedWithin(wanted.Size))
+	defer cancel()
+
 	for attempt := 0; ; attempt++ {
-		response, err := s.fetched(ctx, target, nonce)
+		response, err := a.fetched(ctx, target, nonce)
 		if err != nil {
 			return "", Digest{}, err
 		}
@@ -266,8 +279,13 @@ func (s *session) fetch(ctx context.Context, wanted Extraction, work string) (st
 	}
 }
 
-func (s *session) fetched(ctx context.Context, target, nonce string) (*http.Response, error) {
-	proof, err := s.DPoP.Proof(http.MethodGet, target, s.token.AccessToken, nonce)
+func (a *Agent) fetched(ctx context.Context, target, nonce string) (*http.Response, error) {
+	_, token, err := a.link.current(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	proof, err := a.DPoP.Proof(http.MethodGet, target, token.AccessToken, nonce)
 	if err != nil {
 		return nil, err
 	}
@@ -277,10 +295,14 @@ func (s *session) fetched(ctx context.Context, target, nonce string) (*http.Resp
 		return nil, err
 	}
 
-	request.Header.Set("Authorization", "DPoP "+s.token.AccessToken)
+	request.Header.Set("Authorization", "DPoP "+token.AccessToken)
 	request.Header.Set("DPoP", proof)
 
 	return uploadClient.Do(request)
+}
+
+func fetchedWithin(size int64) time.Duration {
+	return 2*time.Minute + time.Duration(size/fetchedPace)*time.Second
 }
 
 func keep(response *http.Response, kept string, size int64) (Digest, error) {
@@ -319,7 +341,7 @@ func safeExtension(name string) string {
 	return extension
 }
 
-func (s *session) sendFile(ctx context.Context, of string, file extract.File) (Sent, error) {
+func (a *Agent) sendFile(ctx context.Context, of string, file extract.File) (Sent, error) {
 	opened, err := os.Open(file.Path)
 	if err != nil {
 		return Sent{}, err
@@ -327,7 +349,7 @@ func (s *session) sendFile(ctx context.Context, of string, file extract.File) (S
 	defer opened.Close()
 
 	id := uuid()
-	buffer := make([]byte, s.Chunk)
+	buffer := make([]byte, a.Chunk)
 	size := int64(0)
 
 	for seq := 0; ; seq++ {
@@ -335,7 +357,7 @@ func (s *session) sendFile(ctx context.Context, of string, file extract.File) (S
 
 		if count > 0 {
 			chunk := Chunk{Request: id, Of: of, Seq: seq, Data: base64.StdEncoding.EncodeToString(buffer[:count])}
-			if err := s.conn.Perform(ctx, "chunk", chunk); err != nil {
+			if err := a.link.perform(ctx, "chunk", chunk); err != nil {
 				return Sent{}, err
 			}
 

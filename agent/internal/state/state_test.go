@@ -1,9 +1,13 @@
 package state
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	masks "github.com/masksrb/masks/go"
 )
 
 func TestConfigRefusesPlainHTTPAwayFromLoopback(t *testing.T) {
@@ -11,6 +15,8 @@ func TestConfigRefusesPlainHTTPAwayFromLoopback(t *testing.T) {
 		`{"xixo":"https://xixo.example/","issuer":"https://id.example","folders":["/srv"]}`: true,
 		`{"xixo":"http://xixo.localhost:8180","issuer":"http://masks.localhost:12345"}`:     true,
 		`{"xixo":"http://100.64.0.2","issuer":"https://id.example"}`:                        false,
+		`{"xixo":"http://127.0.0.1:8180","issuer":"http://[::1]:12345"}`:                    true,
+		`{"xixo":"http://localhost.example","issuer":"https://id.example"}`:                 false,
 		`{"xixo":"https://xixo.example","issuer":"http://id.example"}`:                      false,
 		`{"xixo":"https://xixo.example","issuer":"https://id.example","folders":["srv"]}`:   false,
 		`{"xixo":"","issuer":"https://id.example"}`:                                         false,
@@ -34,12 +40,16 @@ func TestConfigRefusesPlainHTTPAwayFromLoopback(t *testing.T) {
 func TestKeysAreMadeOnceAndKeptPrivate(t *testing.T) {
 	held := State{Dir: filepath.Join(t.TempDir(), "state")}
 
-	key, dpop, err := held.Keys()
+	if _, _, err := held.Keys(); !errors.Is(err, ErrNoKeys) {
+		t.Fatalf("running without keys gave %v", err)
+	}
+
+	key, dpop, err := held.MakeKeys()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	again, dpopAgain, err := held.Keys()
+	again, dpopAgain, err := held.MakeKeys()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,5 +88,59 @@ func TestFoldersArePathsOrWritableObjects(t *testing.T) {
 		if fine && len(held.Folders) > 1 && (held.Folders[0].Writable || !held.Folders[1].Writable) {
 			t.Errorf("%s read as %+v", body, held.Folders)
 		}
+	}
+}
+
+func TestNestedFoldersAreRefused(t *testing.T) {
+	cases := map[string]bool{
+		`["/srv/media","/srv/media2"]`:                             true,
+		`["/srv/media","/srv/media"]`:                              true,
+		`["/srv",{"path":"/srv/media","writable":true}]`:           false,
+		`[{"path":"/data","writable":true},"/data/files/private"]`: false,
+		`["/","/srv"]`: false,
+	}
+
+	for folders, fine := range cases {
+		path := filepath.Join(t.TempDir(), "config.json")
+		os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example","folders":`+folders+`}`), 0o600)
+
+		_, err := LoadConfig(path)
+		if (err == nil) != fine {
+			t.Errorf("%s gave %v", folders, err)
+		}
+	}
+}
+
+func TestLendAndExtractingForOthersDefaultOff(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example"}`), 0o600)
+
+	held, err := LoadConfig(path)
+	if err != nil || held.Lend || held.ExtractsForOthers {
+		t.Fatalf("%+v %v", held, err)
+	}
+
+	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example","lend":true,"extracts_for_others":true}`), 0o600)
+
+	held, err = LoadConfig(path)
+	if err != nil || !held.Lend || !held.ExtractsForOthers {
+		t.Fatalf("%+v %v", held, err)
+	}
+}
+
+func TestRegistrationKeepsNoRegistrationAccessToken(t *testing.T) {
+	held := State{Dir: t.TempDir()}
+
+	if err := held.Keep(&masks.Registration{ClientID: "c-1", RegistrationAccessToken: "rat", RegistrationClientURI: "https://id.example/register/c-1"}); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, _ := os.ReadFile(filepath.Join(held.Dir, "registration.json"))
+	if strings.Contains(string(raw), "rat") || strings.Contains(string(raw), "register") {
+		t.Fatalf("registration.json holds %s", raw)
+	}
+
+	if _, err := os.Stat(filepath.Join(held.Dir, "registration.json.tmp")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("the temporary file stayed: %v", err)
 	}
 }

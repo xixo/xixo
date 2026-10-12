@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -126,24 +125,34 @@ func (s *session) recognized(pdf string, pages int) (string, error) {
 	}
 	defer os.RemoveAll(dir)
 
-	if _, err := s.run(Patience, "pdftoppm", "-r", OcrDPI, "-gray", "-png", "-f", "1", "-l", strconv.Itoa(last), pdf, filepath.Join(dir, "page")); err != nil {
-		return "", err
-	}
-	rendered, _ := filepath.Glob(filepath.Join(dir, "page*.png"))
-	sort.Strings(rendered)
-
 	var read []string
-	for _, page := range rendered {
+	var failed error
+	rendered := 0
+	for page := 1; page <= last; page++ {
 		if err := s.ctx.Err(); err != nil {
 			return "", err
 		}
-		said, err := s.run(Patience, "tesseract", page, "stdout")
+		prefix := filepath.Join(dir, "page")
+		number := strconv.Itoa(page)
+		if _, err := s.run(Patience, "pdftoppm", "-r", OcrDPI, "-gray", "-png", "-f", number, "-l", number, "-singlefile", pdf, prefix); err != nil {
+			failed = err
+			if pages == 0 && rendered > 0 {
+				break
+			}
+			continue
+		}
+		rendered++
+		said, err := s.run(Patience, "tesseract", prefix+".png", "stdout")
+		os.Remove(prefix + ".png")
 		if err != nil {
 			continue
 		}
 		if text := strings.TrimSpace(said); text != "" {
 			read = append(read, text)
 		}
+	}
+	if rendered == 0 && failed != nil {
+		return "", failed
 	}
 	return strings.Join(read, "\n\n"), nil
 }

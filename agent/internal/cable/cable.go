@@ -12,6 +12,7 @@ import (
 
 	"github.com/coder/websocket"
 	masks "github.com/masksrb/masks/go"
+	"github.com/xixo/xixo/agent/internal/dial"
 )
 
 const (
@@ -36,12 +37,23 @@ type command struct {
 }
 
 type Disconnected struct {
-	Reason string
+	Reason    string
+	Reconnect bool
 }
 
 func (d *Disconnected) Error() string {
+	if !d.Reconnect {
+		return "xixo closed the connection for good: " + d.Reason
+	}
+
 	return "xixo closed the connection: " + d.Reason
 }
+
+func (d *Disconnected) Unauthorized() bool {
+	return d.Reason == "unauthorized" && !d.Reconnect
+}
+
+const Handshake = 30 * time.Second
 
 type Conn struct {
 	ws         *websocket.Conn
@@ -89,6 +101,7 @@ func Dial(ctx context.Context, xixo string, token *masks.Token, dpop *masks.Key,
 		header.Set("Origin", origin)
 
 		ws, response, err := websocket.Dial(ctx, socket, &websocket.DialOptions{
+			HTTPClient:   dial.Client(Handshake),
 			HTTPHeader:   header,
 			Subprotocols: []string{Protocol},
 		})
@@ -133,7 +146,7 @@ func (c *Conn) Receive(ctx context.Context) (*Frame, error) {
 	}
 
 	if held.Type == "disconnect" {
-		return nil, &Disconnected{Reason: held.Reason}
+		return nil, &Disconnected{Reason: held.Reason, Reconnect: held.Reconnect == nil || *held.Reconnect}
 	}
 
 	return held, nil

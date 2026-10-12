@@ -132,3 +132,20 @@ func TestOnlyWritableFoldersAreNamedWritable(t *testing.T) {
 		t.Fatalf("names %v", held.Names())
 	}
 }
+
+func TestAFolderOverlappingAnotherIsNeverWritten(t *testing.T) {
+	base := t.TempDir()
+	outer := filepath.Join(base, "outer")
+	inner := filepath.Join(outer, "inner")
+	os.MkdirAll(inner, 0o755)
+
+	held := New([]Shared{{Path: outer, Writable: true}, {Path: inner}})
+
+	if _, err := held.Write(outer, "inner/x.txt", strings.NewReader("x"), 1, false); !errors.Is(err, ErrOverlaps) {
+		t.Fatalf("writing over a read-only folder gave %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(inner, "x.txt")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("the read-only folder was written")
+	}
+}

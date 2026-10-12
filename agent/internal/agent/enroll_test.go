@@ -180,8 +180,13 @@ func TestEnrollRegistersThisMachinesKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if second.ClientID != "client-2" || len(masks.deleted) != 1 || masks.deleted[0] != "client-1" {
-		t.Fatalf("re-enrolling left %v deleted", masks.deleted)
+	if second.ClientID != "client-2" || len(masks.deleted) != 0 {
+		t.Fatalf("re-enrolling deleted %v, which xixo unenrolls itself", masks.deleted)
+	}
+
+	kept, err := os.ReadFile(filepath.Join(held.Dir, "registration.json"))
+	if err != nil || strings.Contains(string(kept), "rat-") || strings.Contains(string(kept), "registration_") || !strings.Contains(string(kept), "client-2") {
+		t.Fatalf("registration.json holds %s %v", kept, err)
 	}
 
 	if masks.keys["client-2"].Keys[0].KeyID != key.Thumbprint() {

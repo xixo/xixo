@@ -9,6 +9,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -59,8 +60,10 @@ func agentFor(t *testing.T, xixo, folder string, expiry time.Time) (*Agent, *mas
 			Probe:   func(_ context.Context, port int) bool { return port == 11434 },
 			Tailnet: func(context.Context) string { return "100.64.0.7" },
 		},
-		Tokens: masks.TokenSourceFunc(func(context.Context) (*masks.Token, error) { return token, nil }),
-		DPoP:   dpop,
+		Tokens:            masks.TokenSourceFunc(func(context.Context) (*masks.Token, error) { return token, nil }),
+		DPoP:              dpop,
+		Lend:              true,
+		ExtractsForOthers: true,
 	}, dpop
 }
 
@@ -299,7 +302,7 @@ func TestASessionEndsCleanlyBeforeItsTokenExpires(t *testing.T) {
 	}
 }
 
-func TestAnExpiringSessionHandsOverBeforeItsWorkIsCut(t *testing.T) {
+func TestWorkInFlightOutlivesItsConnectionAndAnswersOnTheNext(t *testing.T) {
 	folder, _ := shared(t)
 	var connections atomic.Int32
 	second := make(chan struct{})
@@ -311,15 +314,22 @@ func TestAnExpiringSessionHandsOverBeforeItsWorkIsCut(t *testing.T) {
 		socket.Next()
 		socket.Next()
 
-		if connections.Add(1) == 2 {
-			close(second)
+		if connections.Add(1) == 1 {
+			socket.Ask(identifier, map[string]any{"request": "slow", "verb": "extract", "args": map[string]any{
+				"source": map[string]any{"folder": folder, "path": "small.txt"}, "mime": "text/plain",
+			}})
+			socket.Ask(identifier, map[string]any{"request": "slow", "verb": "extract", "args": map[string]any{
+				"source": map[string]any{"folder": folder, "path": "small.txt"}, "mime": "text/plain",
+			}})
 
-			return
+			for {
+				if _, err := socket.Read(); err != nil {
+					return
+				}
+			}
 		}
 
-		socket.Ask(identifier, map[string]any{"request": "slow", "verb": "extract", "args": map[string]any{
-			"source": map[string]any{"folder": folder, "path": "small.txt"}, "mime": "text/plain",
-		}})
+		close(second)
 
 		for {
 			command, data := socket.Next()
@@ -331,11 +341,16 @@ func TestAnExpiringSessionHandsOverBeforeItsWorkIsCut(t *testing.T) {
 		}
 	})
 
-	held, dpop := agentFor(t, cable.URL, folder, time.Now().Add(6*time.Second))
+	held, dpop := agentFor(t, cable.URL, folder, time.Now().Add(4*time.Second))
 	cable.Thumbprint = dpop.Thumbprint()
 	held.Quiet = time.Minute
 	held.Work = t.TempDir()
+
+	var ran atomic.Int32
+
 	held.Extract = func(ctx context.Context, _ extract.Input) (*extract.Output, error) {
+		ran.Add(1)
+
 		select {
 		case <-release:
 		case <-ctx.Done():
@@ -366,6 +381,105 @@ func TestAnExpiringSessionHandsOverBeforeItsWorkIsCut(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatal("the work in flight was cut off by the handover")
 	}
+
+	if ran.Load() != 1 {
+		t.Fatalf("a request asked twice ran %d times", ran.Load())
+	}
+}
+
+func TestEachConnectionAsksMasksForAFreshToken(t *testing.T) {
+	folder, _ := shared(t)
+	var connections atomic.Int32
+	third := make(chan struct{})
+
+	cable := fake.NewCable(t, "agent-token", "", func(socket *fake.Socket) {
+		socket.Subscribe(identifier)
+		socket.Next()
+		socket.Next()
+
+		if connections.Add(1) == 3 {
+			close(third)
+		}
+
+		for {
+			if _, err := socket.Read(); err != nil {
+				return
+			}
+		}
+	})
+
+	held, dpop := agentFor(t, cable.URL, folder, time.Now())
+	cable.Thumbprint = dpop.Thumbprint()
+	held.Quiet = time.Minute
+
+	var asked atomic.Int32
+
+	held.Tokens = masks.TokenSourceFunc(func(context.Context) (*masks.Token, error) {
+		asked.Add(1)
+
+		return &masks.Token{AccessToken: "agent-token", TokenType: "DPoP", Expiry: time.Now().Add(2 * time.Second)}, nil
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	go held.Run(ctx)
+
+	select {
+	case <-third:
+	case <-ctx.Done():
+		t.Fatal("the agent did not keep rolling over")
+	}
+
+	if asked.Load() < 3 {
+		t.Fatalf("three connections asked masks for %d tokens", asked.Load())
+	}
+}
+
+func TestAFullQueueAnswersBusy(t *testing.T) {
+	folder, _ := shared(t)
+	release := make(chan struct{})
+	finished := make(chan struct{})
+
+	cable := fake.NewCable(t, "agent-token", "", func(socket *fake.Socket) {
+		defer close(finished)
+
+		socket.Subscribe(identifier)
+		socket.Next()
+		socket.Next()
+
+		for _, id := range []string{"one", "two", "three"} {
+			socket.Ask(identifier, map[string]any{"request": id, "verb": "extract", "args": map[string]any{
+				"source": map[string]any{"folder": folder, "path": "small.txt"}, "mime": "text/plain",
+			}})
+		}
+
+		command, data := socket.Next()
+		if command.Command != "message" || data["request"] != "three" || data["ok"] != false || !strings.Contains(data["error"].(string), "busy") {
+			t.Errorf("the request past the queue was answered %v", data)
+		}
+
+		close(release)
+		gather(socket, 2)
+		socket.Close()
+	})
+
+	held, dpop := agentFor(t, cable.URL, folder, time.Now().Add(time.Hour))
+	cable.Thumbprint = dpop.Thumbprint()
+	held.Parallel = 1
+	held.Queue = 1
+	held.Work = t.TempDir()
+	held.Extract = func(ctx context.Context, _ extract.Input) (*extract.Output, error) {
+		<-release
+
+		return &extract.Output{Extractor: "text"}, nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	held.Session(ctx)
+	<-finished
 }
 
 func TestRunReconnects(t *testing.T) {
@@ -406,7 +520,7 @@ func TestAnUnenrolledMachineStopsForGood(t *testing.T) {
 	agent.Tokens = masks.TokenSourceFunc(func(context.Context) (*masks.Token, error) {
 		asked++
 
-		return nil, &masks.Error{Code: "invalid_client", Description: "this client is archived"}
+		return nil, &masks.Error{Code: "invalid_client", Description: "no client is registered with that client_id"}
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -434,4 +548,133 @@ func TestAnotherRefusalKeepsTrying(t *testing.T) {
 	if err := agent.Run(ctx); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("got %v, want the agent still retrying when its context ended", err)
 	}
+}
+
+func TestARefusedAssertionKeepsTrying(t *testing.T) {
+	agent, _ := agentFor(t, "http://127.0.0.1:1", t.TempDir(), time.Now().Add(time.Hour))
+	var asked atomic.Int32
+	agent.Tokens = masks.TokenSourceFunc(func(context.Context) (*masks.Token, error) {
+		asked.Add(1)
+
+		return nil, &masks.Error{Code: "invalid_client", Description: "token has invalid claims: token used before issued"}
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2500*time.Millisecond)
+	defer cancel()
+
+	if err := agent.Run(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("got %v, want the agent still retrying when its context ended", err)
+	}
+
+	if asked.Load() < 2 {
+		t.Fatalf("asked masks %d times", asked.Load())
+	}
+}
+
+func TestXixoClosingForGoodStopsTheAgent(t *testing.T) {
+	folder, _ := shared(t)
+
+	cable := fake.NewCable(t, "agent-token", "", func(socket *fake.Socket) {
+		socket.Subscribe(identifier)
+		socket.Next()
+		socket.Next()
+		socket.Send(map[string]any{"type": "disconnect", "reason": "unauthorized", "reconnect": false})
+		socket.Read()
+	})
+
+	held, dpop := agentFor(t, cable.URL, folder, time.Now().Add(time.Hour))
+	cable.Thumbprint = dpop.Thumbprint()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := held.Run(ctx); !errors.Is(err, ErrRevoked) {
+		t.Fatalf("got %v, want ErrRevoked", err)
+	}
+}
+
+func TestXixoClosingAtExpiryIsRetried(t *testing.T) {
+	folder, _ := shared(t)
+	var connections atomic.Int32
+	again := make(chan struct{})
+
+	cable := fake.NewCable(t, "agent-token", "", func(socket *fake.Socket) {
+		socket.Subscribe(identifier)
+		socket.Next()
+		socket.Next()
+
+		if connections.Add(1) == 2 {
+			close(again)
+		}
+
+		socket.Send(map[string]any{"type": "disconnect", "reason": "unauthorized", "reconnect": true})
+		socket.Read()
+	})
+
+	held, dpop := agentFor(t, cable.URL, folder, time.Now().Add(time.Hour))
+	cable.Thumbprint = dpop.Thumbprint()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	go held.Run(ctx)
+
+	select {
+	case <-again:
+	case <-ctx.Done():
+		t.Fatal("the agent did not reconnect")
+	}
+}
+
+func TestAMachineThatDoesNotLendRefusesReads(t *testing.T) {
+	folder, _ := shared(t)
+	finished := make(chan struct{})
+
+	cable := fake.NewCable(t, "agent-token", "", func(socket *fake.Socket) {
+		defer close(finished)
+
+		socket.Subscribe(identifier)
+
+		_, hello := socket.Next()
+		if hello["lend"] != false || hello["extracts_for_others"] != false {
+			t.Errorf("hello %v", hello)
+		}
+
+		socket.Next()
+		socket.Ask(identifier, map[string]any{"request": "r-read", "verb": "read", "args": map[string]any{"folder": folder, "path": "small.txt"}})
+		socket.Ask(identifier, map[string]any{"request": "r-glimpse", "verb": "read", "args": map[string]any{"folder": folder, "path": "small.txt", "limit": 1}})
+		socket.Ask(identifier, map[string]any{"request": "r-hash", "verb": "hash", "args": map[string]any{"folder": folder, "path": "small.txt"}})
+		socket.Ask(identifier, map[string]any{"request": "r-list", "verb": "list", "args": map[string]any{"folder": folder}})
+
+		got := gather(socket, 4)
+
+		for _, refused := range []string{"r-read", "r-glimpse"} {
+			if got.done[refused]["ok"] != false || !strings.Contains(got.done[refused]["error"].(string), "lend") {
+				t.Errorf("%s reply %v", refused, got.done[refused])
+			}
+
+			if _, ok := got.chunks[refused]; ok {
+				t.Errorf("%s sent bytes", refused)
+			}
+		}
+
+		for _, answered := range []string{"r-hash", "r-list"} {
+			if got.done[answered]["ok"] != true {
+				t.Errorf("%s reply %v", answered, got.done[answered])
+			}
+		}
+
+		socket.Close()
+	})
+
+	held, dpop := agentFor(t, cable.URL, folder, time.Now().Add(time.Hour))
+	cable.Thumbprint = dpop.Thumbprint()
+	held.Lend = false
+	held.ExtractsForOthers = false
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	held.Session(ctx)
+	<-finished
 }

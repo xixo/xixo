@@ -40,14 +40,16 @@ type Service struct {
 }
 
 type Hello struct {
-	Version    string    `json:"version"`
-	OS         string    `json:"os"`
-	Arch       string    `json:"arch"`
-	Hostname   string    `json:"hostname"`
-	Folders    []string  `json:"folders"`
-	Writable   []string  `json:"writable"`
-	Services   []Service `json:"services"`
-	Extractors []string  `json:"extractors"`
+	Version           string    `json:"version"`
+	OS                string    `json:"os"`
+	Arch              string    `json:"arch"`
+	Hostname          string    `json:"hostname"`
+	Folders           []string  `json:"folders"`
+	Writable          []string  `json:"writable"`
+	Services          []Service `json:"services"`
+	Extractors        []string  `json:"extractors"`
+	Lend              bool      `json:"lend"`
+	ExtractsForOthers bool      `json:"extracts_for_others"`
 }
 
 var Known = []Service{

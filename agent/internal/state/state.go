@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	masks "github.com/masksrb/masks/go"
+	"github.com/xixo/xixo/agent/internal/dial"
 	"github.com/xixo/xixo/agent/internal/folders"
 )
 
@@ -21,9 +22,11 @@ const (
 )
 
 type Config struct {
-	Xixo    string           `json:"xixo"`
-	Issuer  string           `json:"issuer"`
-	Folders []folders.Shared `json:"folders"`
+	Xixo              string           `json:"xixo"`
+	Issuer            string           `json:"issuer"`
+	Folders           []folders.Shared `json:"folders"`
+	Lend              bool             `json:"lend"`
+	ExtractsForOthers bool             `json:"extracts_for_others"`
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -66,7 +69,19 @@ func (c *Config) check() error {
 		seen[folder.Path] = folder.Writable
 	}
 
+	for outer := range seen {
+		for inner := range seen {
+			if outer != inner && within(inner, outer) {
+				return fmt.Errorf("the folder %q lies inside the folder %q: share one or the other", inner, outer)
+			}
+		}
+	}
+
 	return nil
+}
+
+func within(inner, outer string) bool {
+	return outer == string(filepath.Separator) || strings.HasPrefix(inner, outer+string(filepath.Separator))
 }
 
 func (c *Config) Resource() string {
@@ -79,15 +94,11 @@ func secure(named, raw string) error {
 		return fmt.Errorf("the %s address %q is not a URL", named, raw)
 	}
 
-	if parsed.Scheme == "https" || (parsed.Scheme == "http" && loopback(parsed.Hostname())) {
+	if parsed.Scheme == "https" || (parsed.Scheme == "http" && dial.Local(parsed.Hostname())) {
 		return nil
 	}
 
 	return fmt.Errorf("the %s address %q must use https", named, raw)
-}
-
-func loopback(host string) bool {
-	return host == "localhost" || strings.HasSuffix(host, ".localhost") || host == "127.0.0.1" || host == "::1"
 }
 
 type State struct {
@@ -98,11 +109,9 @@ func (s State) path(name string) string {
 	return filepath.Join(s.Dir, name)
 }
 
-func (s State) Keys() (*masks.Key, *masks.Key, error) {
-	if err := os.MkdirAll(s.Dir, 0o700); err != nil {
-		return nil, nil, err
-	}
+var ErrNoKeys = errors.New("this machine holds no keys: run xixo-agent enroll first")
 
+func (s State) Keys() (*masks.Key, *masks.Key, error) {
 	key, err := s.key("key.json")
 	if err != nil {
 		return nil, nil, err
@@ -116,14 +125,41 @@ func (s State) Keys() (*masks.Key, *masks.Key, error) {
 	return key, dpop, nil
 }
 
+func (s State) MakeKeys() (*masks.Key, *masks.Key, error) {
+	if err := os.MkdirAll(s.Dir, 0o700); err != nil {
+		return nil, nil, err
+	}
+
+	key, err := s.made("key.json")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	dpop, err := s.made("dpop.json")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return key, dpop, nil
+}
+
 func (s State) key(name string) (*masks.Key, error) {
 	raw, err := os.ReadFile(s.path(name))
 
 	switch {
-	case err == nil:
-		return masks.ParseKey(raw)
-	case !errors.Is(err, fs.ErrNotExist):
+	case errors.Is(err, fs.ErrNotExist) || (err == nil && len(raw) == 0):
+		return nil, fmt.Errorf("%w: %s is missing", ErrNoKeys, name)
+	case err != nil:
 		return nil, err
+	}
+
+	return masks.ParseKey(raw)
+}
+
+func (s State) made(name string) (*masks.Key, error) {
+	held, err := s.key(name)
+	if !errors.Is(err, ErrNoKeys) {
+		return held, err
 	}
 
 	made, err := masks.GenerateKey()
@@ -151,7 +187,11 @@ func (s State) Registration() (*masks.Registration, error) {
 }
 
 func (s State) Keep(held *masks.Registration) error {
-	encoded, err := json.MarshalIndent(held, "", "  ")
+	kept := *held
+	kept.RegistrationAccessToken = ""
+	kept.RegistrationClientURI = ""
+
+	encoded, err := json.MarshalIndent(&kept, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -162,9 +202,35 @@ func (s State) Keep(held *masks.Registration) error {
 func write(path string, data []byte) error {
 	temporary := path + ".tmp"
 
-	if err := os.WriteFile(temporary, data, 0o600); err != nil {
+	opened, err := os.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
 		return err
 	}
 
-	return os.Rename(temporary, path)
+	_, err = opened.Write(data)
+	if err == nil {
+		err = opened.Sync()
+	}
+
+	if closed := opened.Close(); err == nil {
+		err = closed
+	}
+
+	if err != nil {
+		os.Remove(temporary)
+
+		return err
+	}
+
+	if err := os.Rename(temporary, path); err != nil {
+		return err
+	}
+
+	dir, err := os.Open(filepath.Dir(path))
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+
+	return dir.Sync()
 }

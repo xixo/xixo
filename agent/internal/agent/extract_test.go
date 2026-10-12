@@ -258,3 +258,56 @@ func TestHashAnswersWithTheDigestAndSendsNoBytes(t *testing.T) {
 	held.Session(ctx)
 	<-finished
 }
+
+func TestAMachineThatExtractsOnlyItsOwnFilesRefusesUploads(t *testing.T) {
+	folder, _ := shared(t)
+	body := []byte("a note from elsewhere")
+	finished := make(chan struct{})
+
+	var cable *fake.Cable
+
+	cable = fake.NewCable(t, "agent-token", "", func(socket *fake.Socket) {
+		defer close(finished)
+
+		socket.Subscribe(identifier)
+		socket.Next()
+		socket.Next()
+
+		cable.Stage(uploadID, body)
+
+		socket.Ask(identifier, map[string]any{"request": extractID, "verb": "extract", "args": map[string]any{
+			"source": map[string]any{"upload": uploadID}, "size": len(body), "mime": "text/plain", "filename": "note.txt",
+		}})
+		socket.Ask(identifier, map[string]any{"request": fileID, "verb": "derive", "args": map[string]any{
+			"source": map[string]any{"upload": uploadID}, "size": len(body), "mime": "image/png", "filename": "note.png",
+		}})
+		socket.Ask(identifier, map[string]any{"request": folderID, "verb": "extract", "args": map[string]any{
+			"source": map[string]any{"folder": folder, "path": "small.txt"}, "mime": "text/plain",
+		}})
+
+		got := gather(socket, 3)
+
+		for _, refused := range []string{extractID, fileID} {
+			if got.done[refused]["ok"] != false || !bytes.Contains([]byte(fmt.Sprint(got.done[refused]["error"])), []byte("extracts_for_others")) {
+				t.Errorf("%s reply %v", refused, got.done[refused])
+			}
+		}
+
+		if got.done[folderID]["ok"] != true {
+			t.Errorf("its own file was refused: %v", got.done[folderID])
+		}
+
+		socket.Close()
+	})
+
+	held, dpop := agentFor(t, cable.URL, folder, time.Now().Add(time.Hour))
+	held.Work = t.TempDir()
+	held.ExtractsForOthers = false
+	cable.Thumbprint = dpop.Thumbprint()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	held.Session(ctx)
+	<-finished
+}

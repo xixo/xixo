@@ -6,9 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"syscall"
 	"time"
@@ -16,24 +19,97 @@ import (
 
 const (
 	MostMemory  = 4 << 30
+	MostFile    = 4 << 30
 	MostOutput  = 64 << 20
 	DefaultTime = 10 * time.Minute
+	measured    = 500 * time.Millisecond
 )
 
 var ProgramMemory = map[string]uint64{
 	"exiftool": 6 << 30,
 }
 
-var ErrStopped = errors.New("the program ran past its deadline and was stopped")
+var (
+	ErrStopped = errors.New("the program ran past its deadline and was stopped")
+	ErrBudget  = errors.New("the extraction wrote more than its work folder holds, so the program was stopped")
+)
 
-const cappedScript = `want=$1; shift; hard=$(ulimit -H -d); if [ "$hard" != unlimited ] && [ "$hard" -lt "$want" ]; then want=$hard; fi; ulimit -d "$want" || exit 125; exec "$@"`
+const cappedScript = `want=$1; files=$2; shift 2; ` +
+	`hard=$(ulimit -H -d); if [ "$hard" != unlimited ] && [ "$hard" -lt "$want" ]; then want=$hard; fi; ulimit -d "$want" || exit 125; ` +
+	`hard=$(ulimit -H -f); if [ "$hard" != unlimited ] && [ "$hard" -lt "$files" ]; then files=$hard; fi; ulimit -f "$files" || exit 125; ` +
+	`exec "$@"`
 
-const uncappedScript = `shift; exec "$@"`
+const uncappedScript = `shift 2; exec "$@"`
 
 type Limited struct {
 	Memory uint64
+	File   int64
 	Dir    string
 	Env    []string
+	Watch  string
+	Budget int64
+}
+
+func Within(run Runner, dir string, budget int64) Runner {
+	held, ok := run.(Limited)
+	if !ok {
+		return run
+	}
+
+	held.Watch = dir
+	held.Budget = budget
+
+	if held.Dir == "" {
+		held.Dir = dir
+	}
+
+	return held
+}
+
+func (l Limited) environment() []string {
+	held := l.Env
+	if held == nil {
+		held = os.Environ()
+	}
+
+	held = append(slices.Clone(held), "VIPS_BLOCK_UNTRUSTED=1")
+
+	if l.Watch != "" {
+		held = append(held, "TMPDIR="+l.Watch)
+	}
+
+	return held
+}
+
+func (l Limited) blocks() string {
+	most := l.File
+	if most <= 0 {
+		most = MostFile
+	}
+
+	return strconv.FormatInt(max(most/512, 1), 10)
+}
+
+func (l Limited) over() bool {
+	if l.Watch == "" || l.Budget <= 0 {
+		return false
+	}
+
+	used := int64(0)
+
+	filepath.WalkDir(l.Watch, func(_ string, entry fs.DirEntry, err error) error {
+		if err != nil || !entry.Type().IsRegular() {
+			return nil
+		}
+
+		if info, err := entry.Info(); err == nil {
+			used += info.Size()
+		}
+
+		return nil
+	})
+
+	return used > l.Budget
 }
 
 func (l Limited) memoryFor(program string) uint64 {
@@ -73,9 +149,9 @@ func (l Limited) RunTo(ctx context.Context, limit time.Duration, stdout io.Write
 	ctx, cancel := context.WithTimeout(ctx, limit)
 	defer cancel()
 
-	command := exec.Command("/bin/sh", append([]string{"-c", limitScript(), "xixo-agent-limit", kilobytes, program}, args...)...)
+	command := exec.Command("/bin/sh", append([]string{"-c", limitScript(), "xixo-agent-limit", kilobytes, l.blocks(), program}, args...)...)
 	command.Dir = l.Dir
-	command.Env = l.Env
+	command.Env = l.environment()
 	command.Stdout = stdout
 	stderr := &capped{most: 16 << 10}
 	command.Stderr = stderr
@@ -88,18 +164,30 @@ func (l Limited) RunTo(ctx context.Context, limit time.Duration, stdout io.Write
 	done := make(chan error, 1)
 	go func() { done <- command.Wait() }()
 
-	select {
-	case err := <-done:
-		if err != nil {
-			return fmt.Errorf("%s failed: %w: %s", program, err, bytes.TrimSpace(stderr.Bytes()))
+	ticker := time.NewTicker(measured)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case err := <-done:
+			if err != nil {
+				return fmt.Errorf("%s failed: %w: %s", program, err, bytes.TrimSpace(stderr.Bytes()))
+			}
+
+			return nil
+		case <-ticker.C:
+			if l.over() {
+				_ = syscall.Kill(-command.Process.Pid, syscall.SIGKILL)
+				<-done
+
+				return fmt.Errorf("%s: %w", program, ErrBudget)
+			}
+		case <-ctx.Done():
+			_ = syscall.Kill(-command.Process.Pid, syscall.SIGKILL)
+			<-done
+
+			return fmt.Errorf("%s: %w", program, ErrStopped)
 		}
-
-		return nil
-	case <-ctx.Done():
-		_ = syscall.Kill(-command.Process.Pid, syscall.SIGKILL)
-		<-done
-
-		return fmt.Errorf("%s: %w", program, ErrStopped)
 	}
 }
 

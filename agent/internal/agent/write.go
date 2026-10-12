@@ -18,40 +18,40 @@ type Writing struct {
 	Replace bool   `json:"replace"`
 }
 
-func (s *session) write(ctx context.Context, asked *Request) {
+func (a *Agent) write(ctx context.Context, asked *Request) {
 	wanted := Writing{}
 	if err := decode(asked.Args, &wanted); err != nil {
-		s.refuse(ctx, asked.Request, err)
+		a.refuse(ctx, asked.Request, err)
 
 		return
 	}
 
-	written, err := s.written(ctx, wanted)
+	written, err := a.written(ctx, wanted)
 	if err != nil {
-		s.refuse(ctx, asked.Request, err)
+		a.refuse(ctx, asked.Request, err)
 
 		return
 	}
 
-	s.reply(ctx, asked.Request, written)
+	a.reply(ctx, asked.Request, written)
 }
 
-func (s *session) written(ctx context.Context, wanted Writing) (any, error) {
-	if !s.Folders.Shares(wanted.Folder) {
+func (a *Agent) written(ctx context.Context, wanted Writing) (any, error) {
+	if !a.Folders.Shares(wanted.Folder) {
 		return nil, folders.ErrUnshared
 	}
 
-	if !s.Folders.Writes(wanted.Folder) {
+	if !a.Folders.Writes(wanted.Folder) {
 		return nil, folders.ErrReadOnly
 	}
 
-	work, err := os.MkdirTemp(s.Work, "write-*")
+	work, err := os.MkdirTemp(a.Work, "write-*")
 	if err != nil {
 		return nil, err
 	}
 	defer os.RemoveAll(work)
 
-	fetched, _, err := s.fetch(ctx, Extraction{
+	fetched, _, err := a.fetch(ctx, Extraction{
 		Source:   Source{Upload: wanted.Upload},
 		Filename: filepath.Base(wanted.Path),
 		Size:     wanted.Size,
@@ -66,5 +66,5 @@ func (s *session) written(ctx context.Context, wanted Writing) (any, error) {
 	}
 	defer opened.Close()
 
-	return s.Folders.Write(wanted.Folder, wanted.Path, opened, wanted.Size, wanted.Replace)
+	return a.Folders.Write(wanted.Folder, wanted.Path, opened, wanted.Size, wanted.Replace)
 }

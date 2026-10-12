@@ -2,7 +2,6 @@ package plain
 
 import (
 	"archive/tar"
-	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -48,7 +47,7 @@ type Format struct {
 	Printable bool   `json:"printable"`
 }
 
-func (Fallback) Extract(_ context.Context, in extract.Input) (*extract.Output, error) {
+func (Fallback) Extract(ctx context.Context, in extract.Input) (*extract.Output, error) {
 	out := &extract.Output{}
 
 	info, err := os.Stat(in.Path)
@@ -81,7 +80,7 @@ func (Fallback) Extract(_ context.Context, in extract.Input) (*extract.Output, e
 	}
 
 	if archived(observed, head) {
-		listed, err := entries(in.Path, observed)
+		listed, err := entries(ctx, in.Path, observed)
 		if err != nil {
 			out.Fail("listing", fmt.Errorf("unreadable archive: %s", extract.Truncate(err.Error(), 200)))
 		} else {
@@ -184,24 +183,9 @@ func inflated(head []byte) []byte {
 	return held[:count]
 }
 
-func entries(name, observed string) ([]string, error) {
+func entries(ctx context.Context, name, observed string) ([]string, error) {
 	if observed == "zip" {
-		archive, err := zip.OpenReader(name)
-		if err != nil {
-			return nil, err
-		}
-		defer archive.Close()
-
-		listed := []string{}
-		for _, entry := range archive.File {
-			if len(listed) >= MostListed {
-				break
-			}
-
-			listed = append(listed, entry.Name)
-		}
-
-		return listed, nil
+		return zipped(ctx, name)
 	}
 
 	opened, err := os.Open(name)
@@ -210,16 +194,16 @@ func entries(name, observed string) ([]string, error) {
 	}
 	defer opened.Close()
 
-	var source io.Reader = opened
+	var source io.Reader = &bounded{ctx: ctx, from: opened, left: MostInflated}
 
 	if observed == "gzip" {
-		unzipped, err := gzip.NewReader(opened)
+		unzipped, err := gzip.NewReader(source)
 		if err != nil {
 			return nil, err
 		}
 		defer unzipped.Close()
 
-		source = unzipped
+		source = &bounded{ctx: ctx, from: unzipped, left: MostInflated}
 	}
 
 	reader := tar.NewReader(source)
@@ -228,6 +212,10 @@ func entries(name, observed string) ([]string, error) {
 	for len(listed) < MostListed {
 		header, err := reader.Next()
 		if errors.Is(err, io.EOF) {
+			break
+		}
+
+		if errors.Is(err, errInflated) && len(listed) > 0 {
 			break
 		}
 

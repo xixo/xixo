@@ -3,6 +3,8 @@ package extract
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -90,5 +92,46 @@ func TestLimitedReportsAMissingProgram(t *testing.T) {
 	_, err := Limited{}.Run(context.Background(), 5*time.Second, "xixo-no-such-program")
 	if err == nil {
 		t.Fatal("a missing program ran")
+	}
+}
+
+func TestLimitedBlocksUntrustedVipsLoaders(t *testing.T) {
+	out, err := Limited{Env: []string{"PATH=/usr/bin:/bin"}}.Run(context.Background(), 5*time.Second, "sh", "-c", "echo $VIPS_BLOCK_UNTRUSTED")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.TrimSpace(string(out)) != "1" {
+		t.Fatalf("VIPS_BLOCK_UNTRUSTED is %q", out)
+	}
+}
+
+func TestLimitedCapsTheFilesAProgramWrites(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("only Linux runs the limit script")
+	}
+
+	out, err := Limited{File: 1 << 20}.Run(context.Background(), 5*time.Second, "sh", "-c", "ulimit -f")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.TrimSpace(string(out)) != "2048" {
+		t.Fatalf("the file limit is %q", out)
+	}
+}
+
+func TestWithinStopsAProgramPastTheWorkBudget(t *testing.T) {
+	dir := t.TempDir()
+	run := Within(Limited{}, dir, 1<<20)
+
+	_, err := run.Run(context.Background(), 20*time.Second, "sh", "-c", "head -c 3000000 /dev/zero > big; echo $TMPDIR > tmpdir; sleep 15")
+	if !errors.Is(err, ErrBudget) {
+		t.Fatalf("got %v", err)
+	}
+
+	said, _ := os.ReadFile(filepath.Join(dir, "tmpdir"))
+	if strings.TrimSpace(string(said)) != dir {
+		t.Fatalf("TMPDIR was %q", said)
 	}
 }

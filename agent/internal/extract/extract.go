@@ -29,6 +29,13 @@ type Settings struct {
 	Transcribe int `json:"transcribe,omitempty"`
 }
 
+const (
+	MostThumbnail  = 1024
+	MostPreview    = 4096
+	MostFrames     = 32
+	MostTranscribe = 4 * 3600
+)
+
 func (s Settings) Settled() Settings {
 	if s.Thumbnail <= 0 {
 		s.Thumbnail = 320
@@ -42,6 +49,10 @@ func (s Settings) Settled() Settings {
 		s.Frames = 4
 	}
 
+	s.Thumbnail = min(s.Thumbnail, MostThumbnail)
+	s.Preview = min(s.Preview, MostPreview)
+	s.Frames = min(s.Frames, MostFrames)
+
 	if s.Share <= 0 || s.Share > 100 {
 		s.Share = 100
 	}
@@ -49,6 +60,8 @@ func (s Settings) Settled() Settings {
 	if s.Transcribe <= 0 {
 		s.Transcribe = 3600
 	}
+
+	s.Transcribe = min(s.Transcribe, MostTranscribe)
 
 	return s
 }

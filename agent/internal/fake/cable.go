@@ -253,6 +253,12 @@ func (s *Socket) Next() (*Command, map[string]any) {
 	return held, data
 }
 
+func (s *Socket) Read() ([]byte, error) {
+	_, raw, err := s.ws.Read(context.Background())
+
+	return raw, err
+}
+
 func (s *Socket) fail(format string, args ...any) {
 	s.T.Helper()
 	s.T.Errorf(format, args...)

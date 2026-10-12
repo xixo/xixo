@@ -36,6 +36,7 @@ var (
 	ErrReadOnly  = errors.New("that folder is shared read-only")
 	ErrExists    = errors.New("a file is already at that path")
 	ErrShort     = errors.New("the bytes written do not match the size asked for")
+	ErrOverlaps  = errors.New("that folder holds or lies inside another shared folder, so the agent writes nothing in it")
 )
 
 type Shared struct {
@@ -398,7 +399,7 @@ func (f *Folders) Open(folder, name string) (*Opened, error) {
 		return nil, err
 	}
 
-	opened, err := root.OpenFile(relative, os.O_RDONLY|noFollow, 0)
+	opened, err := root.OpenFile(relative, os.O_RDONLY|noFollow|nonBlock, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -414,6 +415,12 @@ func (f *Folders) Open(folder, name string) (*Opened, error) {
 		opened.Close()
 
 		return nil, ErrNotFile
+	}
+
+	if err := blocking(opened); err != nil {
+		opened.Close()
+
+		return nil, err
 	}
 
 	return &Opened{ReadCloser: opened, Size: info.Size()}, nil
@@ -471,6 +478,10 @@ func (f *Folders) Write(folder, name string, body io.Reader, size int64, replace
 		return nil, ErrReadOnly
 	}
 
+	if f.overlaps(folder) {
+		return nil, ErrOverlaps
+	}
+
 	root, err := f.root(folder)
 	if err != nil {
 		return nil, err
@@ -506,6 +517,24 @@ func (f *Folders) Write(folder, name string, body io.Reader, size int64, replace
 	}
 
 	return &Entry{Path: relative, Size: info.Size(), ModifiedAt: info.ModTime().UTC()}, nil
+}
+
+func (f *Folders) overlaps(folder string) bool {
+	cleaned := filepath.Clean(folder)
+	separator := string(filepath.Separator)
+
+	for _, other := range f.name {
+		if other == cleaned {
+			continue
+		}
+
+		if other == separator || cleaned == separator ||
+			strings.HasPrefix(cleaned, other+separator) || strings.HasPrefix(other, cleaned+separator) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func made(root *os.Root, dir string) error {

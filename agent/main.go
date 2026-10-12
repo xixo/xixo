@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -122,13 +123,16 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 		shared.Pin()
 
 		running := &agent.Agent{
-			Xixo:    config.Xixo,
-			Version: version,
-			Folders: shared,
-			Machine: machine.New(),
-			Tokens:  agent.Tokens(client, config),
-			DPoP:    dpop,
-			Log:     slog.New(slog.NewTextHandler(os.Stderr, nil)),
+			Xixo:              config.Xixo,
+			Version:           version,
+			Folders:           shared,
+			Machine:           machine.New(),
+			Tokens:            agent.Tokens(client, config),
+			DPoP:              dpop,
+			Log:               slog.New(slog.NewTextHandler(os.Stderr, nil)),
+			Work:              workDir(),
+			Lend:              config.Lend,
+			ExtractsForOthers: config.ExtractsForOthers,
 		}
 
 		err = running.Run(ctx)
@@ -142,4 +146,20 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 
 		return fmt.Errorf("%q is not a command", args[0])
 	}
+}
+
+func workDir() string {
+	cache, _, _ := strings.Cut(os.Getenv("CACHE_DIRECTORY"), ":")
+	if cache == "" {
+		return os.TempDir()
+	}
+
+	work := filepath.Join(cache, "work")
+	os.RemoveAll(work)
+
+	if err := os.MkdirAll(work, 0o700); err != nil {
+		return os.TempDir()
+	}
+
+	return work
 }

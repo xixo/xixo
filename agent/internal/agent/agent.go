@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,7 +27,14 @@ const (
 	ChunkSize = 256 << 10
 )
 
-var ErrRevoked = errors.New("masks no longer knows this machine, so xixo unenrolled it")
+var (
+	ErrRevoked = errors.New("this machine was unenrolled, so the agent stops")
+	ErrBusy    = errors.New("the agent is busy with as much work as it queues; ask again later")
+	ErrNotLent = errors.New("this machine does not lend its files' bytes: its config sets lend to false")
+	ErrOthers  = errors.New("this machine extracts only its own files: its config sets extracts_for_others to false")
+)
+
+const unknownClient = "no client is registered with that client_id"
 
 type Agent struct {
 	Xixo     string
@@ -40,10 +48,21 @@ type Agent struct {
 	Quiet    time.Duration
 	Drain    time.Duration
 	Parallel int
+	Queue    int
 	Chunk    int
 	Work     string
 	Runner   extract.Runner
 	Extract  func(context.Context, extract.Input) (*extract.Output, error)
+
+	Lend              bool
+	ExtractsForOthers bool
+
+	once    sync.Once
+	link    link
+	recent  recent
+	work    sync.WaitGroup
+	slots   chan struct{}
+	pending chan struct{}
 }
 
 type Request struct {
@@ -123,25 +142,67 @@ func (a *Agent) settle() {
 	if a.Extract == nil {
 		a.Extract = extract.Run
 	}
+
+	if a.Queue == 0 {
+		a.Queue = 64
+	}
+
+	a.once.Do(func() {
+		a.slots = make(chan struct{}, a.Parallel)
+		a.pending = make(chan struct{}, a.Parallel+a.Queue)
+	})
 }
 
 func (a *Agent) Run(ctx context.Context) error {
 	a.settle()
+	defer a.work.Wait()
+
+	var held *session
+
+	defer func() {
+		if held != nil {
+			held.end()
+		}
+
+		a.link.swap(nil, nil)
+	}()
 
 	wait := time.Second
 
 	for {
 		started := time.Now()
-		err := a.Session(ctx)
+		next, err := a.open(ctx)
+
+		if err == nil {
+			a.link.swap(next.conn, next.token)
+
+			if held != nil {
+				held.end()
+			}
+
+			held = next
+			held.listen(ctx)
+
+			var rolled bool
+			rolled, err = held.serve(ctx)
+
+			if rolled {
+				wait = time.Second
+
+				continue
+			}
+
+			held.end()
+			held = nil
+			a.link.swap(nil, nil)
+		} else if held != nil && held.ended() {
+			held.end()
+			held = nil
+			a.link.swap(nil, nil)
+		}
 
 		if ctx.Err() != nil {
 			return ctx.Err()
-		}
-
-		if err == nil {
-			wait = time.Second
-
-			continue
 		}
 
 		if errors.Is(err, ErrRevoked) {
@@ -167,135 +228,108 @@ func (a *Agent) Run(ctx context.Context) error {
 	}
 }
 
-type session struct {
-	*Agent
-	conn    *cable.Conn
-	token   *masks.Token
-	working sync.WaitGroup
-	slots   chan struct{}
-}
-
 func (a *Agent) Session(ctx context.Context) error {
 	a.settle()
 
-	token, err := a.Tokens.Token(ctx)
-	if masks.HasCode(err, "invalid_client") {
+	held, err := a.open(ctx)
+	if err != nil {
+		return err
+	}
+
+	a.link.swap(held.conn, held.token)
+	held.listen(ctx)
+
+	_, err = held.serve(ctx)
+
+	held.end()
+	a.work.Wait()
+	a.link.swap(nil, nil)
+
+	return err
+}
+
+func refused(err error) error {
+	held := &masks.Error{}
+
+	if errors.As(err, &held) && held.Code == "invalid_client" && strings.Contains(held.Description, unknownClient) {
 		return fmt.Errorf("%w: %w", ErrRevoked, err)
 	}
 
+	if masks.HasCode(err, "invalid_client") {
+		return fmt.Errorf("masks refused this machine's client assertion, which a wrong clock also causes: %w", err)
+	}
+
+	return fmt.Errorf("masks gave no token: %w", err)
+}
+
+type session struct {
+	*Agent
+	conn      *cable.Conn
+	token     *masks.Token
+	listening context.Context
+	stop      context.CancelFunc
+	failed    chan error
+}
+
+func (a *Agent) open(ctx context.Context) (*session, error) {
+	token, err := a.Tokens.Token(ctx)
 	if err != nil {
-		return fmt.Errorf("masks gave no token: %w", err)
+		return nil, refused(err)
 	}
 
 	conn, err := cable.Dial(ctx, a.Xixo, token, a.DPoP, Channel)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := conn.Subscribe(ctx, 15*time.Second); err != nil {
 		conn.Close()
 
-		return err
+		return nil, err
+	}
+
+	held := &session{Agent: a, conn: conn, token: token, failed: make(chan error, 1)}
+
+	if err := held.greet(ctx); err != nil {
+		conn.Close()
+
+		return nil, err
 	}
 
 	a.Log.Info("connected to xixo", "xixo", a.Xixo)
 
-	working, cancel := context.WithCancel(ctx)
-	held := &session{Agent: a, conn: conn, token: token, slots: make(chan struct{}, a.Parallel)}
-
-	rolled, err := held.serve(working, token)
-	if !rolled {
-		cancel()
-		held.close()
-
-		return err
-	}
-
-	go func() {
-		held.finish(time.Until(token.Expiry))
-		cancel()
-		held.close()
-	}()
-
-	return nil
+	return held, nil
 }
 
-func (s *session) close() {
-	s.working.Wait()
-	s.conn.Close()
-}
-
-func (a *Agent) rollover(expiry time.Time) time.Duration {
-	left := time.Until(expiry)
-
-	return max(left-min(a.Drain, left/2), time.Second)
-}
-
-func (s *session) serve(ctx context.Context, token *masks.Token) (bool, error) {
-	listening, cancel := context.WithCancel(ctx)
-	defer cancel()
-
+func (s *session) greet(ctx context.Context) error {
 	hello := s.Machine.Hello(ctx, s.Version, s.Folders.Names())
 	hello.Extractors = extract.Available()
 	hello.Writable = s.Folders.Writable()
+	hello.Lend = s.Lend
+	hello.ExtractsForOthers = s.ExtractsForOthers
 
 	if err := s.conn.Perform(ctx, "hello", hello); err != nil {
-		return false, err
+		return err
 	}
 
-	if err := s.conn.Perform(ctx, "health", s.Machine.Health(s.Folders.Names())); err != nil {
-		return false, err
-	}
+	return s.conn.Perform(ctx, "health", s.Machine.Health(s.Folders.Names()))
+}
 
-	frames := make(chan *cable.Frame)
-	failed := make(chan error, 1)
+func (s *session) listen(ctx context.Context) {
+	s.listening, s.stop = context.WithCancel(ctx)
 
 	go func() {
 		for {
-			read, stop := context.WithTimeout(ctx, s.Quiet)
+			read, stop := context.WithTimeout(s.listening, s.Quiet)
 			frame, err := s.conn.Receive(read)
 			stop()
 
 			if err != nil {
-				failed <- err
+				s.failed <- final(err)
 
 				return
 			}
 
-			select {
-			case frames <- frame:
-			case <-listening.Done():
-				return
-			}
-		}
-	}()
-
-	ticker := time.NewTicker(s.Every)
-	defer ticker.Stop()
-
-	var expiring <-chan time.Time
-
-	if !token.Expiry.IsZero() {
-		timer := time.NewTimer(s.rollover(token.Expiry))
-		defer timer.Stop()
-		expiring = timer.C
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			return false, ctx.Err()
-		case err := <-failed:
-			cancel()
-
-			return false, err
-		case <-ticker.C:
-			if err := s.conn.Perform(ctx, "health", s.Machine.Health(s.Folders.Names())); err != nil {
-				return false, err
-			}
-		case <-expiring:
-			return true, nil
-		case frame := <-frames:
 			if frame.Identifier != s.conn.Identifier() || len(frame.Message) == 0 {
 				continue
 			}
@@ -307,93 +341,159 @@ func (s *session) serve(ctx context.Context, token *masks.Token) (bool, error) {
 
 			s.take(ctx, asked)
 		}
+	}()
+}
+
+func final(err error) error {
+	disconnected := &cable.Disconnected{}
+
+	if errors.As(err, &disconnected) && disconnected.Unauthorized() {
+		return fmt.Errorf("%w: %w", ErrRevoked, err)
+	}
+
+	return err
+}
+
+func (s *session) ended() bool {
+	select {
+	case err := <-s.failed:
+		s.failed <- err
+
+		return true
+	default:
+		return false
 	}
 }
 
-func (s *session) finish(within time.Duration) {
-	done := make(chan struct{})
+func (s *session) end() {
+	if s.stop != nil {
+		s.stop()
+	}
 
-	go func() {
-		s.working.Wait()
-		close(done)
-	}()
+	s.conn.Close()
+}
+
+func (a *Agent) rollover(expiry time.Time) time.Duration {
+	left := time.Until(expiry)
+
+	return max(left-min(a.Drain, left/2), time.Second)
+}
+
+func (s *session) serve(ctx context.Context) (bool, error) {
+	ticker := time.NewTicker(s.Every)
+	defer ticker.Stop()
+
+	var expiring <-chan time.Time
+
+	if !s.token.Expiry.IsZero() {
+		timer := time.NewTimer(s.rollover(s.token.Expiry))
+		defer timer.Stop()
+		expiring = timer.C
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		case err := <-s.failed:
+			s.failed <- err
+
+			return false, err
+		case <-ticker.C:
+			if err := s.conn.Perform(ctx, "health", s.Machine.Health(s.Folders.Names())); err != nil {
+				return false, err
+			}
+		case <-expiring:
+			return true, nil
+		}
+	}
+}
+
+func (a *Agent) take(ctx context.Context, asked *Request) {
+	if !a.recent.fresh(asked.Request) {
+		return
+	}
 
 	select {
-	case <-done:
-	case <-time.After(max(within, 0)):
-	}
-}
+	case a.pending <- struct{}{}:
+	default:
+		busy, cancel := context.WithTimeout(ctx, 5*time.Second)
+		a.refuse(busy, asked.Request, ErrBusy)
+		cancel()
 
-func (s *session) take(ctx context.Context, asked *Request) {
-	s.working.Add(1)
+		return
+	}
+
+	a.work.Add(1)
 
 	go func() {
-		defer s.working.Done()
+		defer a.work.Done()
+		defer func() { <-a.pending }()
 
 		select {
-		case s.slots <- struct{}{}:
+		case a.slots <- struct{}{}:
 		case <-ctx.Done():
 			return
 		}
-		defer func() { <-s.slots }()
+		defer func() { <-a.slots }()
 
-		s.answer(ctx, asked)
+		a.answer(ctx, asked)
 	}()
 }
 
-func (s *session) answer(ctx context.Context, asked *Request) {
+func (a *Agent) answer(ctx context.Context, asked *Request) {
 	switch asked.Verb {
 	case "health":
-		s.reply(ctx, asked.Request, s.Machine.Health(s.Folders.Names()))
+		a.reply(ctx, asked.Request, a.Machine.Health(a.Folders.Names()))
 	case "list":
 		query := folders.Query{}
 		if err := decode(asked.Args, &query); err != nil {
-			s.refuse(ctx, asked.Request, err)
+			a.refuse(ctx, asked.Request, err)
 
 			return
 		}
 
-		listed, err := s.Folders.List(query)
+		listed, err := a.Folders.List(query)
 		if err != nil {
-			s.refuse(ctx, asked.Request, err)
+			a.refuse(ctx, asked.Request, err)
 
 			return
 		}
 
-		s.reply(ctx, asked.Request, listed)
+		a.reply(ctx, asked.Request, listed)
 	case "read":
 		wanted := Read{}
 		if err := decode(asked.Args, &wanted); err != nil {
-			s.refuse(ctx, asked.Request, err)
+			a.refuse(ctx, asked.Request, err)
 
 			return
 		}
 
-		s.read(ctx, asked.Request, wanted)
+		a.read(ctx, asked.Request, wanted)
 	case "hash":
 		wanted := Read{}
 		if err := decode(asked.Args, &wanted); err != nil {
-			s.refuse(ctx, asked.Request, err)
+			a.refuse(ctx, asked.Request, err)
 
 			return
 		}
 
-		s.hash(ctx, asked.Request, wanted)
+		a.hash(ctx, asked.Request, wanted)
 	case verbExtract:
-		s.extraction(ctx, asked, false)
+		a.extraction(ctx, asked, false)
 	case verbDerive:
-		s.extraction(ctx, asked, true)
+		a.extraction(ctx, asked, true)
 	case verbWrite:
-		s.write(ctx, asked)
+		a.write(ctx, asked)
 	default:
-		s.refuse(ctx, asked.Request, fmt.Errorf("the agent does not know the verb %q", asked.Verb))
+		a.refuse(ctx, asked.Request, fmt.Errorf("the agent does not know the verb %q", asked.Verb))
 	}
 }
 
-func (s *session) hash(ctx context.Context, request string, wanted Read) {
-	opened, err := s.Folders.Open(wanted.Folder, wanted.Path)
+func (a *Agent) hash(ctx context.Context, request string, wanted Read) {
+	opened, err := a.Folders.Open(wanted.Folder, wanted.Path)
 	if err != nil {
-		s.refuse(ctx, request, err)
+		a.refuse(ctx, request, err)
 
 		return
 	}
@@ -401,25 +501,31 @@ func (s *session) hash(ctx context.Context, request string, wanted Read) {
 
 	digest, err := digested(opened)
 	if err != nil {
-		s.refuse(ctx, request, err)
+		a.refuse(ctx, request, err)
 
 		return
 	}
 
-	s.reply(ctx, request, digest)
+	a.reply(ctx, request, digest)
 }
 
-func (s *session) read(ctx context.Context, request string, wanted Read) {
-	opened, err := s.Folders.Open(wanted.Folder, wanted.Path)
+func (a *Agent) read(ctx context.Context, request string, wanted Read) {
+	if !a.Lend {
+		a.refuse(ctx, request, ErrNotLent)
+
+		return
+	}
+
+	opened, err := a.Folders.Open(wanted.Folder, wanted.Path)
 	if err != nil {
-		s.refuse(ctx, request, err)
+		a.refuse(ctx, request, err)
 
 		return
 	}
 	defer opened.Close()
 
 	if wanted.Limit < 0 || wanted.Limit > mostGlimpsed {
-		s.refuse(ctx, request, fmt.Errorf("a read is limited to at most %d bytes", mostGlimpsed))
+		a.refuse(ctx, request, fmt.Errorf("a read is limited to at most %d bytes", mostGlimpsed))
 
 		return
 	}
@@ -429,7 +535,7 @@ func (s *session) read(ctx context.Context, request string, wanted Read) {
 		source = io.LimitReader(opened, wanted.Limit)
 	}
 
-	buffer := make([]byte, s.Chunk)
+	buffer := make([]byte, a.Chunk)
 	sent := int64(0)
 
 	for seq := 0; ; seq++ {
@@ -437,7 +543,7 @@ func (s *session) read(ctx context.Context, request string, wanted Read) {
 
 		if count > 0 {
 			chunk := Chunk{Request: request, Seq: seq, Data: base64.StdEncoding.EncodeToString(buffer[:count])}
-			if s.conn.Perform(ctx, "chunk", chunk) != nil {
+			if a.link.perform(ctx, "chunk", chunk) != nil {
 				return
 			}
 
@@ -446,31 +552,31 @@ func (s *session) read(ctx context.Context, request string, wanted Read) {
 
 		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 			if wanted.Limit > 0 {
-				s.reply(ctx, request, Glimpse{Size: sent, Total: opened.Size})
+				a.reply(ctx, request, Glimpse{Size: sent, Total: opened.Size})
 			} else {
-				s.reply(ctx, request, Size{Size: sent})
+				a.reply(ctx, request, Size{Size: sent})
 			}
 
 			return
 		}
 
 		if err != nil {
-			s.refuse(ctx, request, err)
+			a.refuse(ctx, request, err)
 
 			return
 		}
 	}
 }
 
-func (s *session) reply(ctx context.Context, request string, result any) {
-	if err := s.conn.Perform(ctx, "reply", Reply{Request: request, OK: true, Result: result}); err != nil {
-		s.Log.Warn("a reply did not reach xixo", "request", request, "error", err)
+func (a *Agent) reply(ctx context.Context, request string, result any) {
+	if err := a.link.perform(ctx, "reply", Reply{Request: request, OK: true, Result: result}); err != nil {
+		a.Log.Warn("a reply did not reach xixo", "request", request, "error", err)
 	}
 }
 
-func (s *session) refuse(ctx context.Context, request string, err error) {
-	if err := s.conn.Perform(ctx, "reply", Reply{Request: request, Error: describe(err)}); err != nil {
-		s.Log.Warn("a refusal did not reach xixo", "request", request, "error", err)
+func (a *Agent) refuse(ctx context.Context, request string, err error) {
+	if err := a.link.perform(ctx, "reply", Reply{Request: request, Error: describe(err)}); err != nil {
+		a.Log.Warn("a refusal did not reach xixo", "request", request, "error", err)
 	}
 }
 
@@ -488,7 +594,7 @@ func decode(raw json.RawMessage, into any) error {
 
 func describe(err error) string {
 	switch {
-	case errors.Is(err, folders.ErrUnshared), errors.Is(err, folders.ErrOutside),
+	case errors.Is(err, folders.ErrUnshared), errors.Is(err, folders.ErrOutside), errors.Is(err, folders.ErrOverlaps),
 		errors.Is(err, folders.ErrSkipped), errors.Is(err, folders.ErrNotFile):
 		return err.Error()
 	case errors.Is(err, fs.ErrNotExist):

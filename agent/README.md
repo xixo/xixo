@@ -36,7 +36,9 @@ The configuration looks like this:
 {
   "xixo": "https://xixo.example.com",
   "issuer": "https://id.example.com",
-  "folders": ["/srv/media", {"path": "/data/files", "writable": true}]
+  "folders": ["/srv/media", {"path": "/data/files", "writable": true}],
+  "lend": false,
+  "extracts_for_others": false
 }
 ```
 
@@ -46,6 +48,12 @@ given alone for a folder the agent only reads, or as `{"path", "writable"}`. The
 configuration on the machine is the only place the shared folders are named:
 xixo can read inside them and nowhere else, writes only inside the writable
 ones, and nothing xixo sends changes the list.
+
+`lend` lets xixo read the bytes of a shared file, for a download, a preview, or
+an extraction on another agent. Left false, a file's bytes stay on the machine:
+the agent still lists, hashes, and extracts its own files, and sends xixo only
+what extraction makes. `extracts_for_others` lets the agent read uploads and
+files from other places that xixo sends it to extract. Both default to false.
 
 ## Commands
 

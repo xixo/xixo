@@ -219,6 +219,9 @@ What the file does:
   To let it read a folder on the host, mount the folder read-only and name it in
   `XIXO_AGENT_FOLDERS`, separated by colons. A folder it may also write is named in
   `XIXO_AGENT_WRITABLE` instead, and is created on boot when it is missing.
+  `XIXO_AGENT_LEND` and `XIXO_AGENT_EXTRACTS_FOR_OTHERS` both default to `true` here: the agent
+  hands xixo the bytes of a file for downloads and previews, and reads uploads and files from
+  other places. Set either to `false` to refuse it.
 - **Chromium keeps its sandbox.** The image runs as an unprivileged user, and Docker's default seccomp
   profile gives Chromium the namespaces its sandbox needs. Leave `XIXO_CHROME_NO_SANDBOX` unset, and
   never run the worker privileged.
