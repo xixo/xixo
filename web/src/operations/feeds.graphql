@@ -116,6 +116,7 @@ subscription AnalysisProgressed($id: ID) {
       id
       status
       error
+      waiting
       turns
       steps
       lines

@@ -1,5 +1,9 @@
 query Resources($archived: Boolean) {
   administrator
+  waitingForMachines {
+    kind
+    count
+  }
   linkUp {
     xixo
     issuer
@@ -62,6 +66,10 @@ query Resources($archived: Boolean) {
       os
       arch
       extractsForOthers
+      waiting {
+        kind
+        count
+      }
       linked
       selfLinked
       linkingUntil

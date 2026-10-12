@@ -66,6 +66,7 @@ const machineSaid = (overrides: Record<string, unknown>) => ({
   os: 'linux',
   arch: 'arm64',
   extractsForOthers: false,
+  waiting: [],
   linked: true,
   selfLinked: false,
   linkingUntil: null,
@@ -405,6 +406,53 @@ describe('Resources', () => {
     expect(card.getAttribute('data-away')).toBe('true')
     expect(card.querySelector('.rrow-error')).toBeNull()
     expect(within(card).getByText('offline · last seen 3h ago')).toBeTruthy()
+  })
+
+  test('files waiting to be read are counted on the machine they wait for, and above the cards when any machine that reads for others will do', async () => {
+    const away = resource({
+      ...studio,
+      machine: {
+        ...studio.machine,
+        connected: false,
+        waiting: [{ kind: 'pdf', count: 2 }],
+      },
+    })
+    const short = resource({
+      ...local,
+      machine: {
+        ...local.machine,
+        lends: true,
+        waiting: [
+          { kind: 'media', count: 9 },
+          { kind: 'pdf', count: 3 },
+        ],
+      },
+    })
+    const { client } = fakeClient({
+      Resources: () => ({
+        administrator: true,
+        waitingForMachines: [{ kind: 'media', count: 12 }],
+        resources: [short, away],
+      }),
+    })
+
+    show(<Resources />, client, '/settings/resources')
+
+    expect(
+      await screen.findByText(
+        '12 files wait for a machine that reads audio and video',
+      ),
+    ).toBeTruthy()
+    const studioCard = screen.getByRole('region', { name: 'Studio' })
+    expect(
+      within(studioCard).getByText(/2 files wait for it to come back/),
+    ).toBeTruthy()
+    const server = screen.getByRole('region', { name: 'This server' })
+    expect(
+      within(server).getByText(
+        /Also reads for other machines and lends its files · 12 files wait for it to read PDFs or audio and video/,
+      ),
+    ).toBeTruthy()
   })
 
   test('linking up a machine names it, then shows the code beside commands that ask for it', async () => {

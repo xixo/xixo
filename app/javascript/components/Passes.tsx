@@ -112,7 +112,7 @@ export function Passes({
                 className="tag"
                 style={toned(RUN_TONES[status] ?? 'var(--edge)')}
               >
-                {status}
+                {status === 'parked' ? 'waiting' : status}
               </span>
               <span className="pass-cause">
                 {CAUSES[pass.cause] ?? pass.cause}
@@ -125,6 +125,12 @@ export function Passes({
                   : ''}
               </span>
             </button>
+
+            {status === 'parked' && (live?.waiting ?? pass.waiting) && (
+              <div className="pass-waiting">
+                {live?.waiting ?? pass.waiting}
+              </div>
+            )}
 
             {(live?.error ?? pass.error) && (
               <div className="pass-error">{live?.error ?? pass.error}</div>

@@ -1,6 +1,7 @@
 export const RUN_TONES: Record<string, string> = {
   queued: 'var(--edge)',
   running: 'var(--busy)',
+  parked: 'var(--away)',
   done: 'var(--ok)',
   failed: 'var(--bad)',
   cancelled: 'var(--edge)',

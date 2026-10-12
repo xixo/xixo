@@ -70,6 +70,7 @@ fragment Pass on Analysis {
   }
   status
   error
+  waiting
   said
   steps
   lines

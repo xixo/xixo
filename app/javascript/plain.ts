@@ -117,6 +117,46 @@ export function cannotRead(unread: string[]) {
     .join(', ')
 }
 
+export interface Waiting {
+  kind?: string | null
+  count: number
+}
+
+function files(count: number) {
+  return `${count.toLocaleString()} ${count === 1 ? 'file waits' : 'files wait'}`
+}
+
+function kindsOf(waiting: Waiting[]) {
+  const named = KINDS.filter(([kind]) =>
+    waiting.some((held) => held.kind === kind),
+  ).map(([, plain]) => plain)
+
+  if (named.length < 2) return named.join('')
+
+  return `${named.slice(0, -1).join(', ')} or ${named[named.length - 1]}`
+}
+
+export function waitingOn(waiting: Waiting[], connected: boolean) {
+  const count = waiting.reduce((sum, held) => sum + held.count, 0)
+
+  if (count === 0) return null
+  if (!connected) return `${files(count)} for it to come back`
+
+  const kinds = kindsOf(waiting)
+
+  return kinds ? `${files(count)} for it to read ${kinds}` : files(count)
+}
+
+export function waitingForAny(waiting: Waiting[]) {
+  const count = waiting.reduce((sum, held) => sum + held.count, 0)
+
+  if (count === 0) return null
+
+  const kinds = kindsOf(waiting)
+
+  return `${files(count)} for a machine that reads ${kinds || 'them'}`
+}
+
 function bytes(value?: number | string | null) {
   const held = Number(value)
   return Number.isFinite(held) && held > 0 ? held : null

@@ -58,6 +58,9 @@ import {
   memory,
   reads,
   upFor,
+  type Waiting,
+  waitingForAny,
+  waitingOn,
   warning,
 } from '../plain'
 import { unraised } from '../shared'
@@ -125,6 +128,7 @@ interface Resource {
     os?: string | null
     arch?: string | null
     extractsForOthers?: boolean | null
+    waiting: Waiting[]
     linked: boolean
     selfLinked: boolean
     linkingUntil?: string | null
@@ -265,7 +269,7 @@ function facts(machine: NonNullable<Resource['machine']>, place: Place) {
   const shared = place.folders.length
   const helps = [
     machine.extractsForOthers && 'reads for other machines',
-    machine.lends && 'lends files it cannot read',
+    machine.lends && 'lends its files',
   ].filter(Boolean)
 
   return [
@@ -275,6 +279,7 @@ function facts(machine: NonNullable<Resource['machine']>, place: Place) {
     reads(machine.extractors, machine.unread),
     helps.length > 0 ? `Also ${helps.join(' and ')}` : null,
     machine.tools.length > 0 ? `Tools: ${machine.tools.join(', ')}` : null,
+    waitingOn(machine.waiting, machine.connected),
   ].filter((line): line is string => Boolean(line))
 }
 
@@ -462,6 +467,9 @@ export function Resources() {
     .filter((resource) => resource.capabilities.includes('transport'))
     .map((resource) => resource.key)
   const groups = shelved ? [] : grouped(resources)
+  const pooled = shelved
+    ? null
+    : waitingForAny((data?.waitingForMachines ?? []) as Waiting[])
   const places = groups.map((group) => group.place)
   const placeNamed = (id?: string | null) =>
     groups.find((group) => group.rows.some((row) => row.id === id))?.place
@@ -738,6 +746,8 @@ export function Resources() {
           onAttached={refetch}
         />
       )}
+
+      {pooled && <p className="machine-waiting">{pooled}</p>}
 
       {groups.map((group) => (
         <MachineCard
