@@ -19,7 +19,7 @@ class EnrollLocalAgentJob < ApplicationJob
 
     Tenant.find_each do |tenant|
       dir = root.join(tenant.subdomain)
-      next unless plain_directory?(dir)
+      next unless tenant.connected? && plain_directory?(dir)
 
       Tenant.switch(tenant) { tend(tenant, dir) }
     end

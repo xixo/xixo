@@ -10,7 +10,10 @@ class Resource
 
         Grant.new(tenant: Current.tenant, claims: claims)
         agent = XixoAgent.enrolled(claims.client_id)
-        agent && new(agent: agent, claims: claims)
+        return new(agent: agent, claims: claims) if agent
+
+        EnrollLocalAgentJob.perform_later if EnrollLocalAgentJob.handoff
+        nil
       rescue Masks::Client::Error, Grant::Denied, Tenant::Unconfigured => e
         Rails.logger.info "an agent was not let in: #{e.message}"
         nil

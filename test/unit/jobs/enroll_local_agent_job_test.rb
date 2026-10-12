@@ -4,9 +4,19 @@ class EnrollLocalAgentJobTest < ActiveSupport::TestCase
   setup do
     FakeAgent.standing = false
     @tenant = Tenant.create!(subdomain: "local-#{SecureRandom.hex(4)}", name: "Local")
+    connect!(@tenant)
     @root = Pathname.new(Dir.mktmpdir)
     @dir = @root.join(@tenant.subdomain).tap(&:mkpath)
     ENV["XIXO_LOCAL_AGENT"] = @root.to_s
+  end
+
+  test "a tenant not yet connected to masks is passed over without minting" do
+    @tenant.disconnect!
+    @dir.join("wanted").write("")
+
+    EnrollLocalAgentJob.perform_now
+
+    assert_not @dir.join("token").exist?
   end
 
   teardown do
