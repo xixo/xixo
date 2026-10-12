@@ -14,10 +14,11 @@ class Resource
       CLIENT_ID = /\A[A-Za-z0-9._:-]{1,200}\z/
       FINGERPRINT = %r{\ASHA256:[A-Za-z0-9+/]{43}\z}
 
-      def initialize(agent, shell:, minter: Enrollment.method(:mint), log: ->(*) { })
+      def initialize(agent, shell:, minter: Enrollment.method(:mint), revoker: Enrollment.method(:revoke), log: ->(*) { })
         @agent = agent
         @shell = shell
         @minter = minter
+        @revoker = revoker
         @log = log
       end
 
@@ -97,6 +98,11 @@ class Resource
         end
 
         def enroll!
+          if (earlier = @agent.client_id).present?
+            @agent.unenroll!(revoker: @revoker)
+            @log.call("unenrolled the earlier client #{earlier} from masks")
+          end
+
           token = @minter.call(@agent.tenant, name: @agent.name.presence || @agent.key)
           command = [ BINARY, "enroll", "--token", "-", "--name", @agent.name.presence || @agent.key,
                       "--config", CONFIG, "--state", STATE ].shelljoin

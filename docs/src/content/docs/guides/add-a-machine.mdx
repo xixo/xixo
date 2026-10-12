@@ -65,7 +65,13 @@ the new list, or edit `/etc/xixo-agent/config.json` on the machine and run
 
 ## Remove a machine
 
-Archive and delete the folders attached through it, then the machine. The agent's connection
-closes within fifteen seconds of the machine being archived. On the machine,
-`sudo systemctl disable --now xixo-agent` stops the agent, and the client masks registered for it
-stays listed in masks until it is archived there.
+Archive and delete the folders attached through it, then the machine. Archiving the machine
+unenrolls it in masks, which archives its client and revokes every token it holds, and closes the
+agent's connection at once. The agent then exits with status 78 the next time it asks masks for a
+token, and systemd leaves it stopped. When masks cannot be reached, the machine stays attached
+and the error says so, since an agent left enrolled could still sign in. Try again once masks
+answers.
+
+Installing again over a machine that is already enrolled unenrolls the earlier client before the
+new one enrolls. `sudo systemctl disable xixo-agent` on the machine keeps the stopped agent from
+starting at the next boot.

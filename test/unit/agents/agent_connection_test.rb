@@ -8,6 +8,7 @@ class AgentConnectionTest < ActionCable::Connection::TestCase
 
   setup do
     @tenant = Tenant.create!(subdomain: "machines-#{SecureRandom.hex(4)}", name: "Machines")
+    connect!(@tenant)
     @agent = agent_on(@tenant, client_id: "box-client")
   end
 

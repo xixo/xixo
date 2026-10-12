@@ -82,7 +82,77 @@ class MachinesTest < ActionDispatch::IntegrationTest
     assert_equal({ "key" => "media", "via" => "box" }, attached.dig("data", "attachResource", "resource"))
   end
 
+  ARCHIVE = <<~GQL.freeze
+    mutation($id: ID!) { archiveResource(input: { id: $id, archived: true }) { resource { key archivedAt } } }
+  GQL
+
+  test "putting a machine away unenrolls it in masks and hangs up its agent at once" do
+    agent = agent_on(@tenant, client_id: "agent-gone")
+    hung_up = []
+
+    swapping(ActionCable.server, :remote_connections, -> { Hanging.new(hung_up) }) do
+      archived = graphql(Grant::SCOPES, ARCHIVE, id: agent.id)
+
+      assert archived.dig("data", "archiveResource", "resource", "archivedAt")
+    end
+
+    assert_equal [ { "subdomain" => @tenant.subdomain, "client_id" => "items-test-client", "machine" => "agent-gone" } ],
+                 issuer.unenrollments.select { |held| held["subdomain"] == @tenant.subdomain }
+    assert_equal [ [ { tenant: @tenant, grant: nil, machine: agent }, false ] ], hung_up
+
+    Tenant.switch(@tenant) do
+      held = agent.reload
+      assert_nil held.client_id
+      assert_equal "agent-gone", held.details.dig("unenrolled", "client_id")
+      assert_nil Resource::XixoAgent.enrolled("agent-gone")
+    end
+  end
+
+  test "a machine stays attached while masks cannot be reached to unenroll it" do
+    agent = agent_on(@tenant, client_id: "agent-kept")
+
+    swapping(Resource::XixoAgent::Enrollment, :revoke, ->(*) { raise Resource::Failed, "masks could not be reached to unenroll the machine" }) do
+      refused = graphql(Grant::SCOPES, ARCHIVE, id: agent.id)
+
+      assert_match(/could not be reached.*stays attached/, refused.dig("errors", 0, "message"))
+    end
+
+    Tenant.switch(@tenant) do
+      held = agent.reload
+      assert_nil held.archived_at
+      assert_equal "agent-kept", held.client_id
+    end
+  end
+
+  test "a machine that never enrolled is put away without asking masks" do
+    agent = agent_on(@tenant, client_id: nil)
+
+    archived = graphql(Grant::SCOPES, ARCHIVE, id: agent.id)
+
+    assert archived.dig("data", "archiveResource", "resource", "archivedAt")
+    assert_empty(issuer.unenrollments.select { |held| held["subdomain"] == @tenant.subdomain })
+  end
+
   private
+
+    Hanging = Struct.new(:held) do
+      def where(**identifiers)
+        @identifiers = identifiers
+        self
+      end
+
+      def disconnect(reconnect: true)
+        held << [ @identifiers, reconnect ]
+      end
+    end
+
+    def swapping(holder, name, replacement)
+      original = holder.method(name)
+      holder.define_singleton_method(name) { |*args, **options, &block| replacement.call(*args, **options, &block) }
+      yield
+    ensure
+      holder.define_singleton_method(name, original)
+    end
 
     def graphql(scopes, query, **variables)
       token = issuer.mint(subdomain: @tenant.subdomain, subject: "bob", scopes: scopes,

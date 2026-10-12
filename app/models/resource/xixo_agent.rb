@@ -17,7 +17,9 @@ class Resource
 
     validate :shared_by_everyone
 
+    before_save :unenroll, if: :put_away?
     after_commit :install_later, on: %i[create update], if: :key_given?
+    after_commit :hang_up, on: %i[update destroy], if: :put_away_now?
 
     class << self
       def attaching
@@ -209,6 +211,14 @@ class Resource
       save!
     end
 
+    def unenroll!(revoker: Enrollment.method(:revoke))
+      return if client_id.blank?
+
+      revoker.call(tenant, client_id)
+      self.details = unenrolled_details
+      save!
+    end
+
     def forget_key!
       return if credentials.to_h["private_key"].blank?
 
@@ -225,6 +235,30 @@ class Resource
 
       def shared_by_everyone
         errors.add(:owner_subject, "cannot be set on a machine, which an administrator attaches for everyone") if personal?
+      end
+
+      def put_away?
+        will_save_change_to_archived_at? && archived_at.present? && client_id.present?
+      end
+
+      def put_away_now?
+        destroyed? || (saved_change_to_archived_at? && archived_at.present?)
+      end
+
+      def unenroll
+        Enrollment.revoke(tenant, client_id)
+        self.details = unenrolled_details
+      rescue Resource::Failed => e
+        errors.add(:base, "#{e.message}, so #{key} stays attached and its agent keeps signing in. Try again once masks answers")
+        throw :abort
+      end
+
+      def unenrolled_details
+        details.to_h.except("client_id").merge("unenrolled" => { "client_id" => client_id, "at" => now_stamp })
+      end
+
+      def hang_up
+        ActionCable.server.remote_connections.where(tenant: tenant, grant: nil, machine: self).disconnect(reconnect: false)
       end
 
       def key_given?

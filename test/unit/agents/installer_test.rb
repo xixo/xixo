@@ -195,6 +195,47 @@ class InstallerTest < ActiveSupport::TestCase
     end
   end
 
+  test "installing again unenrolls the earlier client before a new one is enrolled" do
+    Tenant.switch(@tenant) do
+      agent = machine(details: { "client_id" => "agent-client-0" })
+      order = []
+      shell = FakeShell.new
+
+      Resource::XixoAgent::Installer.new(
+        agent, shell: shell,
+        minter: ->(_tenant, name:) { order << [ :mint, name ] && "minted" },
+        revoker: ->(_tenant, client_id) { order << [ :revoke, client_id ] }
+      ).install!
+
+      assert_equal [ [ :revoke, "agent-client-0" ], [ :mint, "Box" ] ], order
+      assert_equal "agent-client-1", agent.reload.client_id
+      assert_equal "agent-client-0", agent.details.dig("unenrolled", "client_id")
+    end
+  end
+
+  test "an install stops before enrolling again when the earlier client cannot be unenrolled" do
+    Tenant.switch(@tenant) do
+      agent = machine(details: { "client_id" => "agent-client-0" })
+
+      assert_raises(Resource::Failed) do
+        Resource::XixoAgent::Installer.new(
+          agent, shell: FakeShell.new,
+          minter: ->(*, **) { flunk "minted while the earlier client still signs in" },
+          revoker: ->(*) { raise Resource::Failed, "masks could not be reached to unenroll the machine" }
+        ).install!
+      end
+
+      assert_equal "agent-client-0", agent.reload.client_id
+    end
+  end
+
+  test "masks is asked to unenroll a machine as this tenant's client" do
+    assert Resource::XixoAgent::Enrollment.revoke(@tenant, "agent-client-9")
+
+    assert_equal [ { "subdomain" => @tenant.subdomain, "client_id" => "items-test-client", "machine" => "agent-client-9" } ],
+                 issuer.unenrollments.select { |held| held["subdomain"] == @tenant.subdomain }
+  end
+
   test "a host xixo is not allowed to reach is refused before any connection" do
     Tenant.switch(@tenant) do
       agent = Resource::XixoAgent.create!(key: "box", details: { "host" => "10.0.0.5", "user" => "jon" },

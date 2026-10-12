@@ -13,13 +13,14 @@ class FakeIssuer
     end
   end
 
-  attr_reader :port, :enrollments
+  attr_reader :port, :enrollments, :unenrollments
 
   def initialize
     @keys = {}
     @codes = {}
     @approvals = {}
     @enrollments = []
+    @unenrollments = []
     @lock = Mutex.new
     @server = TCPServer.new("127.0.0.1", 0)
     @port = @server.addr[1]
@@ -108,6 +109,8 @@ class FakeIssuer
 
       found = if method == "POST" && path.to_s =~ %r{\A/([^/]+)/enrollments\z}
         enrolled($1, payload, basic)
+      elsif method == "DELETE" && path.to_s =~ %r{\A/([^/]+)/enrollments/([^/]+)\z}
+        unenrolled($1, $2, basic)
       else
         method == "POST" ? post_for(path.to_s, payload, bearer) : body_for(path.to_s)
       end
@@ -205,6 +208,15 @@ class FakeIssuer
       @lock.synchronize { @enrollments << form.merge("subdomain" => subdomain, "client_id" => client_id) }
 
       { "initial_access_token" => "enroll-#{SecureRandom.hex(8)}", "expires_in" => form["expires_in"].to_i, "scope" => form["scope"] }
+    end
+
+    def unenrolled(subdomain, machine, basic)
+      client_id, secret = Base64.decode64(basic.to_s).split(":", 2).map { |part| URI.decode_www_form_component(part) }
+      return { "error" => "invalid_client" } if client_id.blank? || secret.blank?
+
+      @lock.synchronize { @unenrollments << { "subdomain" => subdomain, "client_id" => client_id, "machine" => machine } }
+
+      {}
     end
 
     def discovery(subdomain)
