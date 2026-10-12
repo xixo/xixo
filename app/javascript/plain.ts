@@ -47,7 +47,7 @@ const DOES: Record<string, string> = {
 }
 
 export function does(resource: Plain) {
-  if (resource.type === 'xixo-agent')
+  if (resource.type === 'machine')
     return resource.key === 'local'
       ? 'The machine xixo runs on'
       : 'A machine linked to xixo'
@@ -70,17 +70,17 @@ export function does(resource: Plain) {
 
 const PLAIN_ERRORS: [RegExp, string][] = [
   [
-    /agent beside the server has not enrolled yet/,
-    "The agent on this server hasn't connected yet",
+    /link beside the server has not enrolled yet/,
+    "xixo link on this server hasn't connected yet",
   ],
   [/waiting for the machine to link up/, 'Waiting for the machine to link up'],
   [
     /has not linked up yet/,
     "The machine hasn't linked up. Get a fresh code to try again",
   ],
-  [/agent is not installed yet/, "The agent isn't installed yet"],
-  [/agent has never connected/, "The machine's agent hasn't connected yet"],
-  [/agent was last heard from/, "The machine's agent isn't connected"],
+  [/link is not installed yet/, "xixo link isn't installed yet"],
+  [/link has never connected/, "The machine hasn't connected yet"],
+  [/link was last heard from/, "The machine isn't connected"],
   [/not connected to masks/, "This xixo isn't connected to masks"],
 ]
 

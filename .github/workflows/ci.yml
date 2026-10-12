@@ -46,12 +46,12 @@ jobs:
       - name: Lint the workflows
         uses: raven-actions/actionlint@v2
 
-  agent:
+  link:
     runs-on: ubuntu-latest
 
     defaults:
       run:
-        working-directory: agent
+        working-directory: link
 
     steps:
       - name: Checkout code
@@ -60,8 +60,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: agent/go.mod
-          cache-dependency-path: agent/go.sum
+          go-version-file: link/go.mod
+          cache-dependency-path: link/go.sum
 
       - name: Format
         run: test -z "$(gofmt -l .)"
@@ -75,7 +75,7 @@ jobs:
       - name: Build for Linux
         run: |
           for arch in amd64 arm64; do
-            CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath -o "/tmp/xixo-agent-linux-$arch" .
+            CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath -o "/tmp/xixo-link-linux-$arch" .
           done
 
   mac_reader:
@@ -83,7 +83,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: agent
+        working-directory: link
 
     steps:
       - name: Checkout code
@@ -92,8 +92,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: agent/go.mod
-          cache-dependency-path: agent/go.sum
+          go-version-file: link/go.mod
+          cache-dependency-path: link/go.sum
 
       - name: Build the mac reader for Apple silicon and Intel
         run: |
@@ -106,7 +106,7 @@ jobs:
       - name: Build for macOS
         run: |
           for arch in amd64 arm64; do
-            CGO_ENABLED=0 GOOS=darwin GOARCH="$arch" go build -trimpath -o "/tmp/xixo-agent-darwin-$arch" .
+            CGO_ENABLED=0 GOOS=darwin GOARCH="$arch" go build -trimpath -o "/tmp/xixo-link-darwin-$arch" .
           done
 
   boot:
@@ -263,7 +263,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Set up QEMU, for the agent's arm64 image
+      - name: Set up QEMU, for the link's arm64 image
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
@@ -298,24 +298,24 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Derive the agent image tags
-        id: agent
+      - name: Derive the link image tags
+        id: link
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/${{ github.repository }}-agent
+          images: ghcr.io/${{ github.repository }}-link
           tags: |
             type=ref,event=branch
             type=sha,format=long
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build the agent image
+      - name: Build the link image
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: Dockerfile.agent
+          file: Dockerfile.link
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name == 'push' }}
-          tags: ${{ steps.agent.outputs.tags }}
-          labels: ${{ steps.agent.outputs.labels }}
-          cache-from: type=gha,scope=agent
-          cache-to: type=gha,mode=max,scope=agent
+          tags: ${{ steps.link.outputs.tags }}
+          labels: ${{ steps.link.outputs.labels }}
+          cache-from: type=gha,scope=link
+          cache-to: type=gha,mode=max,scope=link

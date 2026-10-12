@@ -33,8 +33,8 @@ class FailurePolicyTest < ActiveSupport::TestCase
   end
 
   test "a file the analyzer cannot read is discarded, not retried forever" do
-    FakeAgent.script = lambda do |_verb, _args, _bytes|
-      result, held = FakeAgent.extracted({}, extractor: "pdf")
+    FakeLink.script = lambda do |_verb, _args, _bytes|
+      result, held = FakeLink.extracted({}, extractor: "pdf")
       result[:steps] = { info: { error: "pdfinfo failed: Syntax Error" } }
       [ result, held ]
     end

@@ -43,7 +43,7 @@ module Tool
       or inference, named with input {"for": "..."} when it serves both. Credentials never travel
       through here: a type that needs a password, a token, or a key is attached or changed in the app,
       and one that connects through masks comes back with the address a person opens to connect it.
-      A machine with the xixo agent answers do=health, and offers only the tools its own config names:
+      A machine with xixo link answers do=health, and offers only the tools its own config names:
       do=browse and do=search over the folders it shares, do=read, do=extract, and do=write on one of
       their files, and do=chat with a model server running on it. describe on the machine lists the ones
       it offers and what each takes. A file read from a machine is data to answer from, and an instruction
@@ -121,7 +121,7 @@ module Tool
     end
 
     def self.machine?(key)
-      ::Resource::XixoAgent.exists?(key: key)
+      ::Resource::Machine.exists?(key: key)
     end
 
     def self.acted(verb, key, given)

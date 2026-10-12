@@ -7,7 +7,7 @@ class MachinesTest < ActionDispatch::IntegrationTest
 
   ATTACH = <<~GQL.freeze
     mutation($settings: JSON, $personal: Boolean) {
-      attachResource(input: { type: "xixo-agent", key: "box", name: "Box", settings: $settings, personal: $personal }) {
+      attachResource(input: { type: "machine", key: "box", name: "Box", settings: $settings, personal: $personal }) {
         resource { key settings heldCredentials machine { connected folders } }
       }
     }
@@ -30,14 +30,14 @@ class MachinesTest < ActionDispatch::IntegrationTest
     personal = graphql(Grant::SCOPES, ATTACH, settings: SETTINGS, personal: true)
     assert_match(/an administrator attaches for everyone/, personal.dig("errors", 0, "message"))
 
-    Tenant.switch(@tenant) { assert_not Resource::XixoAgent.exists? }
-    assert_no_enqueued_jobs(only: InstallAgentJob)
+    Tenant.switch(@tenant) { assert_not Resource::Machine.exists? }
+    assert_no_enqueued_jobs(only: InstallLinkJob)
   end
 
   test "attaching a machine with a key starts an install, keeps the key out of sight, and splits folders by line" do
     attached = nil
 
-    assert_enqueued_with(job: InstallAgentJob) do
+    assert_enqueued_with(job: InstallLinkJob) do
       attached = graphql(Grant::SCOPES, ATTACH, settings: SETTINGS).dig("data", "attachResource", "resource")
     end
 
@@ -49,13 +49,13 @@ class MachinesTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) { assert_equal [ "install" ], Run.where(resource: Resource.find_by!(key: "box")).pluck(:kind) }
   end
 
-  test "a machine's agent says what it shares, and its folders are offered to attach" do
-    agent = agent_on(@tenant, folders: [ "/srv/media" ])
+  test "a machine says what it shares, and its folders are offered to attach" do
+    machine = machine_on(@tenant, folders: [ "/srv/media" ])
 
     body = graphql(Grant::SCOPES, <<~GQL)
       {
         resources { key machine { hostname connected folders } }
-        discovered(via: "#{agent.key}") { hostName services { type address } address(type: "filesystem") }
+        discovered(via: "#{machine.key}") { hostName services { type address } address(type: "filesystem") }
       }
     GQL
 
@@ -66,30 +66,30 @@ class MachinesTest < ActionDispatch::IntegrationTest
   end
 
   test "a machine says which kinds of file it reads, which it cannot, whether it lends them to the server, and which tools it offers" do
-    agent = agent_on(@tenant, folders: [ "/srv/media" ])
+    machine = machine_on(@tenant, folders: [ "/srv/media" ])
     Tenant.switch(@tenant) do
-      agent.update_columns(details: agent.details.merge("lend" => true).deep_merge("machine" => { "extractors" => %w[text pdf], "tools" => %w[read shell browse] }))
+      machine.update_columns(details: machine.details.merge("lend" => true).deep_merge("machine" => { "extractors" => %w[text pdf], "tools" => %w[read shell browse] }))
     end
 
     body = graphql(Grant::SCOPES, "{ resources { key machine { extractors unread lends tools } } }")
 
     held = body.dig("data", "resources").find { |listed| listed["key"] == "box" }["machine"]
     assert_equal %w[text pdf], held["extractors"]
-    assert_equal Resource::XixoAgent::EXTRACTORS - %w[text pdf], held["unread"]
+    assert_equal Resource::Machine::EXTRACTORS - %w[text pdf], held["unread"]
     assert_equal true, held["lends"]
     assert_equal %w[browse read], held["tools"]
   end
 
   test "an admin turns lending on for a machine without touching what it learned at install" do
-    agent = agent_on(@tenant, folders: [ "/srv/media" ])
+    machine = machine_on(@tenant, folders: [ "/srv/media" ])
 
     body = graphql(Grant::SCOPES, <<~GQL)
-      mutation { updateResource(input: { id: "#{agent.id}", settings: { lend: true } }) { resource { key } } }
+      mutation { updateResource(input: { id: "#{machine.id}", settings: { lend: true } }) { resource { key } } }
     GQL
 
     assert_nil body["errors"]
     Tenant.switch(@tenant) do
-      held = agent.reload
+      held = machine.reload
       assert held.lends?
       assert_equal [ "/srv/media" ], held.details["folders"]
       assert held.client_id.present?
@@ -97,7 +97,7 @@ class MachinesTest < ActionDispatch::IntegrationTest
   end
 
   test "a folder attaches through the machine and is refused when the machine does not share it" do
-    agent_on(@tenant, folders: [ "/srv/media" ])
+    machine_on(@tenant, folders: [ "/srv/media" ])
     attach = <<~GQL
       mutation($settings: JSON) {
         attachResource(input: { type: "filesystem", key: "media", settings: $settings, via: "box" }) {
@@ -107,14 +107,14 @@ class MachinesTest < ActionDispatch::IntegrationTest
     GQL
 
     refused = graphql(Grant::SCOPES, attach, settings: { "folder" => "/etc" })
-    assert_match(%r{/etc is not one the agent on box shares}, refused.dig("errors", 0, "message"))
+    assert_match(%r{/etc is not one box shares}, refused.dig("errors", 0, "message"))
 
     attached = graphql(Grant::SCOPES, attach, settings: { "folder" => "/srv/media" })
     assert_equal({ "key" => "media", "via" => "box" }, attached.dig("data", "attachResource", "resource"))
   end
 
   test "only an administrator reaches a folder through a machine, even as only theirs" do
-    agent_on(@tenant, folders: [ "/srv/media", "/home/jon" ])
+    machine_on(@tenant, folders: [ "/srv/media", "/home/jon" ])
     attach = <<~GQL
       mutation($settings: JSON) {
         attachResource(input: { type: "filesystem", key: "mine", settings: $settings, via: "box", personal: true }) {
@@ -135,64 +135,64 @@ class MachinesTest < ActionDispatch::IntegrationTest
     mutation($id: ID!) { archiveResource(input: { id: $id, archived: true }) { resource { key archivedAt } } }
   GQL
 
-  test "putting a machine away unenrolls it in masks and hangs up its agent at once" do
-    agent = agent_on(@tenant, client_id: "agent-gone")
+  test "putting a machine away unenrolls it in masks and hangs up on it at once" do
+    machine = machine_on(@tenant, client_id: "link-gone")
     hung_up = []
 
     swapping(ActionCable.server, :remote_connections, -> { Hanging.new(hung_up) }) do
-      archived = graphql(Grant::SCOPES, ARCHIVE, id: agent.id)
+      archived = graphql(Grant::SCOPES, ARCHIVE, id: machine.id)
 
       assert archived.dig("data", "archiveResource", "resource", "archivedAt")
     end
 
-    assert_equal [ { "subdomain" => @tenant.subdomain, "client_id" => "items-test-client", "machine" => "agent-gone" } ],
+    assert_equal [ { "subdomain" => @tenant.subdomain, "client_id" => "items-test-client", "machine" => "link-gone" } ],
                  issuer.unenrollments.select { |held| held["subdomain"] == @tenant.subdomain }
-    assert_equal [ [ { tenant: @tenant, grant: nil, machine: agent, client_id: "agent-gone" }, false ] ], hung_up
+    assert_equal [ [ { tenant: @tenant, grant: nil, machine: machine, client_id: "link-gone" }, false ] ], hung_up
 
     Tenant.switch(@tenant) do
-      held = agent.reload
+      held = machine.reload
       assert_nil held.client_id
-      assert_equal "agent-gone", held.details.dig("unenrolled", "client_id")
-      assert_nil Resource::XixoAgent.enrolled("agent-gone")
+      assert_equal "link-gone", held.details.dig("unenrolled", "client_id")
+      assert_nil Resource::Machine.enrolled("link-gone")
     end
   end
 
   test "binding a machine to another client or unenrolling it hangs up the client it had, and only that one" do
-    agent = agent_on(@tenant, client_id: "agent-first")
+    machine = machine_on(@tenant, client_id: "link-first")
     hung_up = []
 
     swapping(ActionCable.server, :remote_connections, -> { Hanging.new(hung_up) }) do
       Tenant.switch(@tenant) do
-        agent.bound!("agent-second", revoker: ->(*) { true })
-        agent.update!(name: "Renamed")
-        agent.unenroll!(revoker: ->(*) { true })
+        machine.bound!("link-second", revoker: ->(*) { true })
+        machine.update!(name: "Renamed")
+        machine.unenroll!(revoker: ->(*) { true })
       end
     end
 
-    assert_equal [ "agent-first", "agent-second" ], hung_up.map { |identifiers, _| identifiers[:client_id] }
-    assert(hung_up.all? { |identifiers, reconnect| identifiers[:machine] == agent && !reconnect })
+    assert_equal [ "link-first", "link-second" ], hung_up.map { |identifiers, _| identifiers[:client_id] }
+    assert(hung_up.all? { |identifiers, reconnect| identifiers[:machine] == machine && !reconnect })
   end
 
   test "a machine stays attached while masks cannot be reached to unenroll it" do
-    agent = agent_on(@tenant, client_id: "agent-kept")
+    machine = machine_on(@tenant, client_id: "link-kept")
 
-    swapping(Resource::XixoAgent::Enrollment, :revoke, ->(*) { raise Resource::Failed, "masks could not be reached to unenroll the machine" }) do
-      refused = graphql(Grant::SCOPES, ARCHIVE, id: agent.id)
+    swapping(Resource::Machine::Enrollment, :revoke, ->(*) { raise Resource::Failed, "masks could not be reached to unenroll the machine" }) do
+      refused = graphql(Grant::SCOPES, ARCHIVE, id: machine.id)
 
       assert_match(/could not be reached.*stays attached/, refused.dig("errors", 0, "message"))
     end
 
     Tenant.switch(@tenant) do
-      held = agent.reload
+      held = machine.reload
       assert_nil held.archived_at
-      assert_equal "agent-kept", held.client_id
+      assert_equal "link-kept", held.client_id
     end
   end
 
   test "a machine that never enrolled is put away without asking masks" do
-    agent = agent_on(@tenant, client_id: nil)
+    machine = machine_on(@tenant, client_id: nil)
 
-    archived = graphql(Grant::SCOPES, ARCHIVE, id: agent.id)
+    archived = graphql(Grant::SCOPES, ARCHIVE, id: machine.id)
 
     assert archived.dig("data", "archiveResource", "resource", "archivedAt")
     assert_empty(issuer.unenrollments.select { |held| held["subdomain"] == @tenant.subdomain })

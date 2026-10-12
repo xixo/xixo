@@ -63,8 +63,8 @@ class DerivedImagesTest < ActiveSupport::TestCase
       Setting.write!("thumbnail_size", "160", subject: nil)
       pass(feed.reload)
 
-      assert_equal 2, FakeAgent.asked.size
-      assert_equal({ "thumbnail" => 160, "preview" => 1024 }, FakeAgent.asked.last.args["settings"].slice("thumbnail", "preview"))
+      assert_equal 2, FakeLink.asked.size
+      assert_equal({ "thumbnail" => 160, "preview" => 1024 }, FakeLink.asked.last.args["settings"].slice("thumbnail", "preview"))
       assert_equal 1, feed.references.in_role(Reference::PREVIEW).count
     end
   end
@@ -72,13 +72,13 @@ class DerivedImagesTest < ActiveSupport::TestCase
   test "an animation's frames are kept in order, and a pass with fewer leaves none behind" do
     Tenant.switch(@tenant) do
       feed = staged("animated.gif")
-      FakeAgent.script = ->(*) { FakeAgent.extracted({ "frames" => 3 }, files: framed(3), extractor: "image") }
+      FakeLink.script = ->(*) { FakeLink.extracted({ "frames" => 3 }, files: framed(3), extractor: "image") }
       pass(feed)
 
       assert_equal [ 0.0, 0.5, 1.0 ], feed.references.in_role(Reference::FRAME).map { |held| held.locator["at"] }.sort
 
       Setting.write!("animation_frames", "2", subject: nil)
-      FakeAgent.script = ->(*) { FakeAgent.extracted({ "frames" => 3 }, files: framed(2), extractor: "image") }
+      FakeLink.script = ->(*) { FakeLink.extracted({ "frames" => 3 }, files: framed(2), extractor: "image") }
       pass(feed.reload)
 
       assert_equal 2, feed.references.in_role(Reference::FRAME).count

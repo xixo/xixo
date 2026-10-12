@@ -11,8 +11,8 @@ class EmailThreadTest < ActiveSupport::TestCase
 
   test "an email's quoted history stays out of its summary, which reads only the new text" do
     text = "From: ash@example.invalid\n\nThursday works.\n\n## Earlier in the thread\n\nOn Tue, Mar 17, 2026, Bea wrote:\n> Can you do Thursday?"
-    FakeAgent.script = lambda do |*|
-      FakeAgent.extracted({ "headers" => { "from" => "ash@example.invalid", "subject" => "Roof" }, "text" => text,
+    FakeLink.script = lambda do |*|
+      FakeLink.extracted({ "headers" => { "from" => "ash@example.invalid", "subject" => "Roof" }, "text" => text,
                             "outline" => [ { "name" => "Message from ash@example.invalid", "from" => 0 },
                                            { "name" => "Earlier in the thread", "from" => text.index("## Earlier") } ],
                             "thread" => { "ids" => %w[r2@example.invalid r1@example.invalid] } }, extractor: "email")

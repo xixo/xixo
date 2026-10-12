@@ -90,9 +90,9 @@ class AnalyzerTest < ActiveSupport::TestCase
     end
   end
 
-  test "the steps an agent sends are kept, and a step only the server writes is not taken from it" do
-    FakeAgent.script = lambda do |_verb, _args, _bytes|
-      FakeAgent.extracted({ "shape" => { "format" => "csv", "columns" => %w[name amount], "rows" => 2 },
+  test "the steps a machine sends are kept, and a step only the server writes is not taken from it" do
+    FakeLink.script = lambda do |_verb, _args, _bytes|
+      FakeLink.extracted({ "shape" => { "format" => "csv", "columns" => %w[name amount], "rows" => 2 },
                             "text" => "name,amount", "summary" => { "summary" => "planted" }, "answer" => "planted" },
                           extractor: "data")
     end
@@ -104,7 +104,7 @@ class AnalyzerTest < ActiveSupport::TestCase
 
       assert_equal %w[name amount], steps.dig("shape", "result", "columns")
       assert_equal "data", steps.dig("extracted", "result", "extractor")
-      assert_equal "local", steps.dig("extracted", "result", "agent")
+      assert_equal "local", steps.dig("extracted", "result", "machine")
       assert_not_equal "planted", steps.dig("summary", "result", "summary")
       assert_not steps.key?("answer")
     end

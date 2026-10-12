@@ -20,7 +20,7 @@ class Resource
 
       resource.details, resource.credentials = Settings.for(klass, settings || {})
       resource.via = Resource.transport!(via, @grant) if via.present?
-      Resource::XixoAgent.carried_for!(resource, @grant)
+      Resource::Machine.carried_for!(resource, @grant)
 
       raise Refused, resource.errors.full_messages.to_sentence unless resource.save
 

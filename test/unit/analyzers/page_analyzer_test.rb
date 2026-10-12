@@ -55,10 +55,10 @@ class PageAnalyzerTest < ActiveSupport::TestCase
     end
   end
 
-  test "a page's images are derived from its capture, which the agent is sent as a png" do
+  test "a page's images are derived from its capture, which the machine is sent as a png" do
     Tenant.switch(@tenant) do
       steps = analyzed.steps
-      asked = FakeAgent.asked.last
+      asked = FakeLink.asked.last
 
       assert_equal "derive", asked.verb
       assert_equal MimeType::PAGE, asked.args["mime"]

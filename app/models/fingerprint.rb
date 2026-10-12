@@ -20,7 +20,7 @@ module Fingerprint
 
   def self.reported(said)
     found = said.to_h["sha256"].to_s
-    raise ArgumentError, "the agent reported #{found.first(80).inspect} as a SHA-256" unless found.match?(/\A\h{64}\z/)
+    raise ArgumentError, "the machine reported #{found.first(80).inspect} as a SHA-256" unless found.match?(/\A\h{64}\z/)
 
     found.downcase
   end

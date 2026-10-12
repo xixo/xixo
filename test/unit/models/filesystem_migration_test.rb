@@ -1,5 +1,5 @@
 require "test_helper"
-require Rails.root.join("db/migrate/20261012140000_move_filesystems_behind_the_local_agent").to_s
+require Rails.root.join("db/migrate/20261012140000_move_filesystems_behind_the_local_machine").to_s
 
 class FilesystemMigrationTest < ActiveSupport::TestCase
   setup do
@@ -13,9 +13,9 @@ class FilesystemMigrationTest < ActiveSupport::TestCase
     ENV.delete("XIXO_FILESYSTEM_ROOTS")
   end
 
-  test "a directory on the server becomes a folder the agent beside it shares, keeping its files and its default" do
+  test "a directory on the server becomes a folder the local machine shares, keeping its files and its default" do
     ids = Tenant.switch(@tenant) do
-      box = Resource::XixoAgent.create!(key: "box", name: "Box", details: { "machine" => { "folders" => [ "/srv/media" ] } })
+      box = Resource::Machine.create!(key: "box", name: "Box", details: { "machine" => { "folders" => [ "/srv/media" ] } })
       files = old("filesystem", "files", { "root" => "." }, default_storage: true)
       held = {
         files: files,
@@ -34,11 +34,11 @@ class FilesystemMigrationTest < ActiveSupport::TestCase
     end
 
     ENV["XIXO_FILESYSTEM_ROOTS"] = "/data/files"
-    2.times { MoveFilesystemsBehindTheLocalAgent.new.up }
+    2.times { MoveFilesystemsBehindTheLocalMachine.new.up }
 
     Tenant.switch(@tenant) do
-      local = Resource::XixoAgent.local
-      assert_equal 1, Resource::XixoAgent.where(key: "local").count
+      local = Resource::Machine.local
+      assert_equal 1, Resource::Machine.where(key: "local").count
       assert_equal "This server", local.name
       assert local.local?
 
@@ -65,7 +65,7 @@ class FilesystemMigrationTest < ActiveSupport::TestCase
   test "the old root defaults to the path the self-hosting guide used" do
     id = Tenant.switch(@tenant) { old("filesystem", "files", { "root" => "." }) }
 
-    MoveFilesystemsBehindTheLocalAgent.new.up
+    MoveFilesystemsBehindTheLocalMachine.new.up
 
     Tenant.switch(@tenant) do
       assert_equal "/data/files/#{@tenant.subdomain}", Resource.find(id).details["folder"]

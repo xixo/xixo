@@ -54,7 +54,7 @@ class AttachingTest < ActionDispatch::IntegrationTest
     assert_nil password["value"], "a secret is never handed back, not even an empty one"
   end
 
-  test "a folder is offered to attach on any server, since an agent reaches it" do
+  test "a folder is offered to attach on any server, since a machine reaches it" do
     assert_includes offered, "filesystem"
   end
 

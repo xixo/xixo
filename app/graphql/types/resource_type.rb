@@ -60,7 +60,7 @@ module Types
     field :routable, Boolean, null: false,
           description: "Whether it can be reached through a transport, such as a tailnet."
     field :machine, Types::MachineType,
-          description: "What the agent on the machine last said, for a machine with the xixo agent. Empty for " \
+          description: "What xixo link on the machine last said, for a machine running xixo link. Empty for " \
                        "every other type."
     field :held_credentials, [ String ], null: false,
           description: "The names of the encrypted fields that hold something, so a form can say " \
@@ -85,7 +85,7 @@ module Types
     end
 
     def machine
-      object if object.is_a?(Resource::XixoAgent)
+      object if object.is_a?(Resource::Machine)
     end
 
     def manageable

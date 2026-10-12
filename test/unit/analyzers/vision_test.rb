@@ -120,7 +120,7 @@ class VisionTest < ActiveSupport::TestCase
 
     analyze "animated.gif"
 
-    settings = FakeAgent.asked.last.args["settings"]
+    settings = FakeLink.asked.last.args["settings"]
     assert_equal 50, settings["share"]
     assert_equal 1, settings["frames"]
     assert_includes @server.prompts.last, "An animation of 3 frames."

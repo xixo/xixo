@@ -144,8 +144,8 @@ Active Storage's own routes are not drawn. Staged bytes are reached only through
 - `Intake.key_for` cleans every path before anything is stored. Backslashes become slashes,
   control characters are removed, and empty, `.`, and `..` segments are dropped.
 - An upload's type comes from its extension. xixo ignores the content type the client declared.
-- A filesystem resource is read and written only by the agent on its machine, inside the folders
-  that machine's config shares. The agent refuses a link anywhere on a path and writes only to a
+- A filesystem resource is read and written only by xixo link on its machine, inside the folders
+  that machine's config shares. xixo link refuses a link anywhere on a path and writes only to a
   folder its config marks writable.
 - A resource reads only what it was attached to. The prefix, folder, repositories, channels,
   mailbox, or Google Drive query given when attaching it bound `get`, `list`, `search`, and a
@@ -197,13 +197,13 @@ See [the agent](/concepts/agents/#the-agent) and [asking](/concepts/agents/#aski
 | `XIXO_RUN_BUDGET` | Subject, per clock hour, for analyses, syncs, and exports | 20 |
 | `XIXO_RUN_DEADLINE_HOURS` | A queued analysis, before it is cancelled | 6 |
 
-The server never parses a file's bytes. A [xixo agent](/concepts/analysis/#extraction) does, in a
+The server never parses a file's bytes. [xixo link](/concepts/analysis/#extraction) does, in a
 container or a systemd sandbox with no database, no keys, and read-only access to the folders it
-shares, so a file built to exploit a parser reaches nothing of the catalog. Every program the agent
+shares, so a file built to exploit a parser reaches nothing of the catalog. Every program xixo link
 runs on a file, such as `soffice`, `ffmpeg`, `tesseract`, `pdftoppm`, and `exiftool`, runs in a
 process group of its own with at most 4 GiB of data memory, 6 for `exiftool`, and is killed with
-everything it started when it runs past its time. The server keeps only the steps it knows from the
-agent's answer, and cuts long text itself. `git` still runs on the server through `Command`, with
+everything it started when it runs past its time. The server keeps only the steps it knows from xixo
+link's answer, and cuts long text itself. `git` still runs on the server through `Command`, with
 the same memory limit and 5 minutes.
 
 A gate stops a kind of job for a tenant or a single record, and `XIXO_ITERATORS_DISABLED` stops

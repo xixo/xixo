@@ -12,11 +12,11 @@ Rails.application.routes.draw do
 
   get "/references/:id/content", to: "content#show", as: :reference_content
 
-  get "/agent/uploads/:request", to: "agent_uploads#show", as: :agent_upload
-  get "/agent/download/xixo-agent.service", to: "agent_links#unit", as: :agent_unit
-  get "/agent/download/xixo-agent.plist", to: "agent_links#plist", as: :agent_plist
-  get "/agent/download/:file", to: "agent_links#download", as: :agent_download, constraints: { file: /xixo-agent-[a-z0-9]+-[a-z0-9]+/ }
-  post "/agent/link", to: "agent_links#create", as: :agent_link
+  get "/link/uploads/:request", to: "link_uploads#show", as: :link_upload
+  get "/link/download/xixo-link.service", to: "links#unit", as: :link_unit
+  get "/link/download/xixo-link.plist", to: "links#plist", as: :link_plist
+  get "/link/download/:file", to: "links#download", as: :link_download, constraints: { file: /xixo-link-[a-z0-9]+-[a-z0-9]+/ }
+  post "/link", to: "links#create", as: :link_up
   get "/resources/:id/connect", to: "resource_connections#show", as: :resource_connect
   get "/connect/callback", to: "resource_connections#callback", as: :resource_connect_callback
 

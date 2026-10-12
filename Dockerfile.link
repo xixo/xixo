@@ -1,0 +1,40 @@
+# syntax=docker/dockerfile:1
+# check=error=true
+
+ARG GO_VERSION=1.26
+ARG DEBIAN_VERSION=trixie
+
+FROM --platform=$BUILDPLATFORM docker.io/library/golang:$GO_VERSION AS build
+ARG TARGETOS
+ARG TARGETARCH
+WORKDIR /link
+COPY link/go.mod link/go.sum ./
+RUN go mod download
+COPY link/ ./
+COPY .release-please-manifest.json /link/
+RUN version=$(sed -n 's/.*"\.": *"\([^"]*\)".*/\1/p' .release-please-manifest.json) && \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
+      -ldflags "-s -w -X main.version=${version:-dev}" -o /out/xixo-link .
+
+FROM docker.io/library/debian:$DEBIAN_VERSION-slim
+
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y \
+      ca-certificates libvips-tools libraw-bin libimage-exiftool-perl libarchive-zip-perl poppler-utils \
+      tesseract-ocr ffmpeg libreoffice-writer libreoffice-calc fonts-liberation && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
+RUN groupadd --system --gid 1000 link && \
+    useradd link --uid 1000 --gid 1000 --create-home --shell /usr/sbin/nologin && \
+    mkdir -p /var/lib/xixo-link /handoff /data/files && \
+    chown link:link /var/lib/xixo-link /handoff /data/files && \
+    chmod 700 /var/lib/xixo-link
+
+COPY --from=build /out/xixo-link /usr/local/bin/xixo-link
+COPY bin/link-entrypoint /usr/local/bin/link-entrypoint
+
+USER 1000:1000
+ENV HOME=/home/link
+
+ENTRYPOINT ["/usr/local/bin/link-entrypoint"]
+CMD ["xixo-link", "run", "--config", "/var/lib/xixo-link/config.json", "--state", "/var/lib/xixo-link"]

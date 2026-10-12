@@ -1,0 +1,110 @@
+#!/bin/sh
+set -eu
+
+state=/var/lib/xixo-link
+config="$state/config.json"
+handoff="${XIXO_LINK_HANDOFF:?names the directory the server leaves this machine its enrollment token in}"
+xixo="${XIXO_LINK_XIXO:?names the xixo address xixo link dials}"
+issuer="${XIXO_LINK_ISSUER:?names the masks issuer xixo link enrolls with}"
+
+refuse() {
+  echo "link-entrypoint: $1" >&2
+  exit 1
+}
+
+quoted() {
+  case "$1" in
+    *[\"\\]* | *"
+"*) refuse "$2 cannot hold a quote, a backslash, or a line break: $1" ;;
+  esac
+  printf '"%s"' "$1"
+}
+
+folders=""
+
+shared() {
+  case "$1" in
+    /*) ;;
+    *) refuse "a shared folder must be an absolute path: $1" ;;
+  esac
+  folders="${folders:+$folders, }{\"path\": $(quoted "$1" "a shared folder"), \"writable\": $2}"
+}
+
+old_ifs=$IFS
+IFS=:
+for folder in ${XIXO_LINK_FOLDERS:-}; do
+  [ -n "$folder" ] || continue
+  shared "$folder" false
+done
+for folder in ${XIXO_LINK_WRITABLE:-}; do
+  [ -n "$folder" ] || continue
+  shared "$folder" true
+  mkdir -p "$folder" 2>/dev/null || true
+done
+IFS=$old_ifs
+
+flag() {
+  case "$1" in
+    true | false) printf '%s' "$1" ;;
+    *) refuse "$2 is true or false: $1" ;;
+  esac
+}
+
+lend="$(flag "${XIXO_LINK_LEND:-true}" "XIXO_LINK_LEND")"
+others="$(flag "${XIXO_LINK_EXTRACTS_FOR_OTHERS:-true}" "XIXO_LINK_EXTRACTS_FOR_OTHERS")"
+
+tools=""
+IFS=,
+for tool in ${XIXO_LINK_TOOLS-browse,search,read,extract}; do
+  case "$tool" in
+    "") continue ;;
+    browse | search | read | write | extract | models) ;;
+    *) refuse "XIXO_LINK_TOOLS names browse, search, read, write, extract, or models: $tool" ;;
+  esac
+  tools="${tools:+$tools, }\"$tool\""
+done
+IFS=$old_ifs
+
+umask 077
+mkdir -p "$state" "$handoff"
+printf '{"xixo": %s, "issuer": %s, "folders": [%s], "lend": %s, "extracts_for_others": %s, "tools": [%s]}\n' \
+  "$(quoted "$xixo" "XIXO_LINK_XIXO")" "$(quoted "$issuer" "XIXO_LINK_ISSUER")" "$folders" \
+  "$lend" "$others" "$tools" >"$config"
+
+registered() {
+  sed -n 's/.*"client_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$state/registration.json" 2>/dev/null | head -n 1
+}
+
+while :; do
+  until [ -n "$(registered)" ]; do
+    : >"$handoff/wanted"
+
+    if [ -s "$handoff/token" ]; then
+      if xixo-link enroll --token - --name "${XIXO_LINK_NAME:-the machine beside the server}" \
+        --config "$config" --state "$state" <"$handoff/token" >/dev/null; then
+        rm -f "$handoff/wanted"
+      else
+        echo "link-entrypoint: the enrollment token was refused; waiting for another" >&2
+      fi
+      rm -f "$handoff/token"
+    else
+      echo "link-entrypoint: waiting for the server to leave an enrollment token in $handoff" >&2
+      sleep 10
+    fi
+  done
+
+  printf '%s\n' "$(registered)" >"$handoff/.client_id.$$"
+  mv -f "$handoff/.client_id.$$" "$handoff/client_id"
+
+  "$@" &
+  child=$!
+  trap 'kill -TERM "$child" 2>/dev/null; wait "$child"; exit 143' TERM INT
+  status=0
+  wait "$child" || status=$?
+  trap - TERM INT
+
+  [ "$status" -eq 78 ] || exit "$status"
+
+  echo "link-entrypoint: masks no longer knows this machine; enrolling again" >&2
+  rm -f "$state/registration.json" "$handoff/client_id"
+done

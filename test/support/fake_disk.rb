@@ -19,7 +19,7 @@ module FakeDisk
     end
 
     def extractors
-      fake_disk? ? Resource::XixoAgent::EXTRACTORS : super
+      fake_disk? ? Resource::Machine::EXTRACTORS : super
     end
 
     def exchanged(verb, args = {}, within: nil, &block)
@@ -60,10 +60,10 @@ module FakeDisk
   end
 
   module Helpers
-    def disk_agent(folders:, writable: folders, key: "disk")
+    def disk_machine(folders:, writable: folders, key: "disk")
       folders = folders.map(&:to_s)
       writable = writable.map(&:to_s)
-      held = Resource::XixoAgent.find_by(key: key)
+      held = Resource::Machine.find_by(key: key)
       machine = { "hostname" => key, "connected" => true, "session" => "disk", "seen_at" => Time.current.utc.iso8601 }
 
       if held
@@ -74,7 +74,7 @@ module FakeDisk
         return held
       end
 
-      Resource::XixoAgent.create!(
+      Resource::Machine.create!(
         key: key, name: key.titleize,
         details: { MARK => true, "client_id" => "disk-#{SecureRandom.hex(4)}",
                    "machine" => machine.merge("folders" => folders.sort, "writable" => writable.sort) }
@@ -83,9 +83,9 @@ module FakeDisk
 
     def disk_folder(path, key:, name: nil, writable: true, **attributes)
       path = Pathname.new(path).expand_path.to_s
-      agent = disk_agent(folders: [ path ], writable: writable ? [ path ] : [])
+      machine = disk_machine(folders: [ path ], writable: writable ? [ path ] : [])
 
-      Resource::Filesystem.create!(key: key, name: name || key.titleize, via: agent,
+      Resource::Filesystem.create!(key: key, name: name || key.titleize, via: machine,
                                    details: { "folder" => path }.merge(attributes.delete(:details).to_h), **attributes)
     end
   end
@@ -102,38 +102,38 @@ module FakeDisk
       { "upload" => id, "size" => staged[id].bytesize }
     end
 
-    def answer(agent, verb, args)
+    def answer(machine, verb, args)
       case verb
-      when "list" then listed(agent, args)
-      when "write" then written(agent, args)
-      when "hash" then hashed(agent, args)
+      when "list" then listed(machine, args)
+      when "write" then written(machine, args)
+      when "hash" then hashed(machine, args)
       when "health" then {}
-      else refuse(agent, "the agent does not know the verb #{verb.inspect}")
+      else refuse(machine, "xixo link does not know the verb #{verb.inspect}")
       end
     end
 
-    def exchanged(agent, verb, args)
+    def exchanged(machine, verb, args)
       source = args["source"].to_h
-      return yield(FakeAgent::Answer.new(answer(agent, verb, args), {})) if source["folder"].blank?
+      return yield(FakeLink::Answer.new(answer(machine, verb, args), {})) if source["folder"].blank?
 
-      bytes = confined(agent, source["folder"], source["path"]).binread
-      staged = FakeAgent.upload(StringIO.new(bytes))
-      answered = FakeAgent.answer(verb, args.merge("source" => { "upload" => staged["upload"] }))
+      bytes = confined(machine, source["folder"], source["path"]).binread
+      staged = FakeLink.upload(StringIO.new(bytes))
+      answered = FakeLink.answer(verb, args.merge("source" => { "upload" => staged["upload"] }))
       result = answered.result.merge("sha256" => Digest::SHA256.hexdigest(bytes), "size" => bytes.bytesize)
 
-      yield FakeAgent::Answer.new(result, answered.instance_variable_get(:@held))
+      yield FakeLink::Answer.new(result, answered.instance_variable_get(:@held))
     end
 
-    def glimpse(agent, folder, path, limit)
-      target = confined(agent, folder, path)
-      refuse(agent, "no such file") unless target.file?
+    def glimpse(machine, folder, path, limit)
+      target = confined(machine, folder, path)
+      refuse(machine, "no such file") unless target.file?
 
       [ File.binread(target, limit).to_s, target.size ]
     end
 
-    def read(agent, folder, path)
-      target = confined(agent, folder, path)
-      refuse(agent, "no such file") unless target.file?
+    def read(machine, folder, path)
+      target = confined(machine, folder, path)
+      refuse(machine, "no such file") unless target.file?
 
       Tempfile.new("fake-disk", binmode: true).tap do |file|
         file.write(target.binread)
@@ -143,8 +143,8 @@ module FakeDisk
 
     private
 
-      def listed(agent, args)
-        root = shared(agent, args["folder"])
+      def listed(machine, args)
+        root = shared(machine, args["folder"])
         skip = SKIPPED + Array(args["skip"])
         prefix = args["prefix"].to_s
         after = args["cursor"].presence
@@ -177,21 +177,21 @@ module FakeDisk
         end
       end
 
-      def hashed(agent, args)
-        bytes = confined(agent, args["folder"], args["path"]).binread
+      def hashed(machine, args)
+        bytes = confined(machine, args["folder"], args["path"]).binread
 
         { "sha256" => Digest::SHA256.hexdigest(bytes), "size" => bytes.bytesize }
       end
 
-      def written(agent, args)
+      def written(machine, args)
         folder = args["folder"].to_s
-        shared(agent, folder)
-        refuse(agent, "that folder is shared read-only") unless agent.writable_folders.include?(folder)
+        shared(machine, folder)
+        refuse(machine, "that folder is shared read-only") unless machine.writable_folders.include?(folder)
 
-        target = confined(agent, folder, args["path"], creating: true)
-        bytes = staged.fetch(args["upload"].to_s) { refuse(agent, "xixo answered the upload with 404 Not Found") }
-        refuse(agent, "the upload's size does not match what arrived") unless bytes.bytesize == args["size"].to_i
-        refuse(agent, "a file is already at that path") if target.exist? && !args["replace"]
+        target = confined(machine, folder, args["path"], creating: true)
+        bytes = staged.fetch(args["upload"].to_s) { refuse(machine, "xixo answered the upload with 404 Not Found") }
+        refuse(machine, "the upload's size does not match what arrived") unless bytes.bytesize == args["size"].to_i
+        refuse(machine, "a file is already at that path") if target.exist? && !args["replace"]
 
         target.dirname.mkpath
         target.binwrite(bytes)
@@ -200,37 +200,37 @@ module FakeDisk
         { "path" => args["path"], "size" => stat.size, "modified_at" => stat.mtime.utc.iso8601 }
       end
 
-      def shared(agent, folder)
-        refuse(agent, "that folder is not shared by this machine") unless agent.offered_folders.include?(folder.to_s)
+      def shared(machine, folder)
+        refuse(machine, "that folder is not shared by this machine") unless machine.offered_folders.include?(folder.to_s)
 
         Pathname.new(folder.to_s)
       end
 
-      def confined(agent, folder, path, creating: false)
-        root = shared(agent, folder)
+      def confined(machine, folder, path, creating: false)
+        root = shared(machine, folder)
         held = path.to_s
         parts = held.split("/")
 
         if held.empty? || held.start_with?("/") || parts.any? { |part| part.empty? || part.in?(%w[. ..]) }
-          refuse(agent, "that path is outside the folder")
+          refuse(machine, "that path is outside the folder")
         end
 
-        refuse(agent, "that path is never shared") if parts.any? { |part| SKIPPED.any? { |pattern| File.fnmatch(pattern, part, File::FNM_DOTMATCH) } }
+        refuse(machine, "that path is never shared") if parts.any? { |part| SKIPPED.any? { |pattern| File.fnmatch(pattern, part, File::FNM_DOTMATCH) } }
 
         walked = root
         parts.each do |part|
           walked += part
-          refuse(agent, "that path is outside the folder: #{part} is a link") if walked.symlink?
+          refuse(machine, "that path is outside the folder: #{part} is a link") if walked.symlink?
         end
 
-        refuse(agent, "no such file") unless creating || walked.exist?
+        refuse(machine, "no such file") unless creating || walked.exist?
         walked
       end
 
-      def refuse(agent, said)
-        raise Resource::XixoAgent::Refusal, "#{agent.key}: the agent said #{said}"
+      def refuse(machine, said)
+        raise Resource::Machine::Refusal, "#{machine.key}: xixo link said #{said}"
       end
   end
 end
 
-Resource::XixoAgent.prepend(FakeDisk::Broker)
+Resource::Machine.prepend(FakeDisk::Broker)

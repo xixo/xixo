@@ -35,7 +35,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | [`places`](#places) | `places` |  |
 | [`tailnet`](#tailnet) | `transport` |  |
 | [`feedback`](#feedback) | `feedback` |  |
-| [`xixo-agent`](#xixo-agent) | `transport` |  |
+| [`machine`](#machine) | `transport` |  |
 
 ## s3
 
@@ -73,7 +73,7 @@ Object storage. One bucket over the S3 API. AWS, R2, B2, Wasabi, MinIO and Garag
 
 ## filesystem
 
-A folder. A folder on a machine running the xixo agent, the server's own included. The agent reads nothing outside the folders its config shares, and writes only to the ones it marks writable.
+A folder. A folder on a machine running xixo link, the server's own included. xixo link reads nothing outside the folders its config shares, and writes only to the ones it marks writable.
 
 |  |  |
 | --- | --- |
@@ -89,7 +89,7 @@ A folder. A folder on a machine running the xixo agent, the server's own include
 
 | Field | Label | Kind | Required | Held | Asked when | Help |
 | --- | --- | --- | --- | --- | --- | --- |
-| `folder` | Folder | string | yes |  |  | One of the folders the machine's agent shares. |
+| `folder` | Folder | string | yes |  |  | One of the folders xixo link on the machine shares. |
 | `prefix` | Prefix | string |  |  |  | Left off, the whole folder is walked. |
 | `skip` | Also skip | list |  |  |  | A name or a pattern such as build or *.tmp on each line. Folders and files with a matching name are never walked. |
 
@@ -703,9 +703,9 @@ None.
 | --- | --- |
 | `ask` | `question: string` `context: string?` `wanted: string?` |
 
-## xixo-agent
+## machine
 
-A Linux machine xixo sets up. xixo signs in to the machine once over SSH, installs the agent, and links it up. The key is used for that one install and then dropped. From then on the machine's agent dials xixo, shares the folders listed here, and reads the files in them on the machine.
+A Linux machine xixo sets up. xixo signs in to the machine once over SSH, installs xixo link, and links it up. The key is used for that one install and then dropped. From then on xixo link on the machine dials xixo, shares the folders listed here, and reads the files in them on the machine.
 
 |  |  |
 | --- | --- |
@@ -723,18 +723,18 @@ A Linux machine xixo sets up. xixo signs in to the machine once over SSH, instal
 | --- | --- | --- | --- | --- | --- | --- |
 | `host` | Address | string | yes |  |  | Where xixo reaches its SSH server. Through a tailnet, its address on the tailnet. |
 | `port` | SSH port | integer |  |  |  |  |
-| `user` | SSH user | string | yes |  |  | The agent runs as this user and reads only what it can read. The user needs sudo without a password to install it. |
-| `private_key` | SSH private key | text |  | encrypted |  | Used once to install the agent and then dropped, whether the install worked or not. Paste it again to install again. |
+| `user` | SSH user | string | yes |  |  | xixo link runs as this user and reads only what it can read. The user needs sudo without a password to install it. |
+| `private_key` | SSH private key | text |  | encrypted |  | Used once to install xixo link and then dropped, whether the install worked or not. Paste it again to install again. |
 | `host_key` | Host key | string |  |  |  | The SHA256 fingerprint that ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub prints on the machine. Needed unless the machine is reached through a tailnet, which vouches for its address. Left empty there, the key seen on the first install is kept, and every later install must meet the same one. |
-| `folders` | Folders it shares | lines |  |  |  | Absolute paths, one per line. End a line with :rw for a folder xixo may also write into. The agent reads nothing outside them, and only an install or the machine's own config changes them. |
+| `folders` | Folders it shares | lines |  |  |  | Absolute paths, one per line. End a line with :rw for a folder xixo may also write into. xixo link reads nothing outside them, and only an install or the machine's own config changes them. |
 | `programs` | Extract on the machine | boolean |  |  |  | Installs the programs that read PDFs, office documents, images, audio, and video with apt on Debian or Ubuntu, so only text leaves the machine. Left off, the machine reads only plain text, data, calendars, contacts, email, books, and spreadsheets. |
-| `lend` | Send files this machine can't read to the server | boolean |  |  |  | A file this machine has no program for goes to the agent beside the server. Left off, such a file is not read, and nothing on this machine leaves it but text. |
+| `lend` | Send files this machine can't read to the server | boolean |  |  |  | A file this machine has no program for goes to xixo link beside the server. Left off, such a file is not read, and nothing on this machine leaves it but text. |
 
 ### Commands
 
 | Command | Arguments | Does |
 | --- | --- | --- |
-| `health` | — | Reads the machine's uptime, load, memory, and disks from its agent. |
+| `health` | — | Reads the machine's uptime, load, memory, and disks from xixo link on it. |
 | `discover` | — | Lists the folders the machine shares, each with the type and address to attach it as a folder. |
 | `browse` | `folder: string?` `prefix: string?` `cursor: string?` `limit: integer?` | Lists the files in a folder the machine shares, depth first in name order, at most 200 at a time. Left without a folder, it lists the shared folders. A cursor in the answer is passed back to read on. Needs the machine to offer browse. |
 | `search` | `query: string` `folder: string?` `limit: integer?` | Finds files on the machine for a query, at most 100 of each kind. It searches xixo's index of the machine's folders, which matches titles, paths, and text drawn out by analysis, and walks the folders on the machine for paths that hold the query, ignoring case, stopping after 20,000 files or ten seconds. Needs the machine to offer search. |

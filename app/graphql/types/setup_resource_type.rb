@@ -33,11 +33,11 @@ module Types
     private
 
       def folder
-        agent = object.agent
-        return "a folder" if agent.nil?
-        return "a folder on this server" if agent.local?
+        machine = object.machine
+        return "a folder" if machine.nil?
+        return "a folder on this server" if machine.local?
 
-        "a folder on #{agent.machine['hostname'].presence || agent.name.presence || agent.key}"
+        "a folder on #{machine.machine['hostname'].presence || machine.name.presence || machine.key}"
       end
 
       def label

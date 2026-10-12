@@ -101,14 +101,14 @@ jobs:
 
       - name: Build the mac reader for Apple silicon and Intel
         run: |
-          make -C agent/macos
-          lipo -verify_arch arm64 x86_64 agent/macos/build/xixo-mac-reader
+          make -C link/macos
+          lipo -verify_arch arm64 x86_64 link/macos/build/xixo-mac-reader
 
       - name: Attach it to the release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.release-please.outputs.server_tag }}
-        run: gh release upload "$TAG" agent/macos/build/xixo-mac-reader --clobber
+        run: gh release upload "$TAG" link/macos/build/xixo-mac-reader --clobber
 
   server:
     needs: release-please
@@ -123,7 +123,7 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.server_tag }}
 
-      - name: Set up QEMU, for the agent's arm64 image
+      - name: Set up QEMU, for the link's arm64 image
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
@@ -155,22 +155,22 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
 
-      - name: Derive the agent's version tags
-        id: agent
+      - name: Derive the link's version tags
+        id: link
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/${{ github.repository }}-agent
+          images: ghcr.io/${{ github.repository }}-link
           tags: |
             type=semver,pattern={{version}},value=${{ needs.release-please.outputs.server_version }}
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.release-please.outputs.server_version }}
 
-      - name: Build and push the agent's release image
+      - name: Build and push the link's release image
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: Dockerfile.agent
+          file: Dockerfile.link
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.agent.outputs.tags }}
-          labels: ${{ steps.agent.outputs.labels }}
-          cache-from: type=gha,scope=agent
+          tags: ${{ steps.link.outputs.tags }}
+          labels: ${{ steps.link.outputs.labels }}
+          cache-from: type=gha,scope=link

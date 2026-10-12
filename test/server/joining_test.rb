@@ -35,7 +35,7 @@ class JoiningTest < ActionDispatch::IntegrationTest
 
     @tenant = Tenant.create!(subdomain: "join-#{SecureRandom.hex(4)}", name: "Joining")
     @folder = (@permitted + "shared").tap(&:mkpath)
-    Tenant.switch(@tenant) { disk_agent(folders: [ @folder ]) }
+    Tenant.switch(@tenant) { disk_machine(folders: [ @folder ]) }
 
     write("report.txt", "the quarterly report", at: 3.days.ago)
     write("notes.txt", "notes from the meeting", at: 3.days.ago)

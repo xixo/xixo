@@ -91,30 +91,30 @@ export function config(plan: Plan) {
   )
 }
 
-function linked(plan: Plan, agent: string) {
+function linked(plan: Plan, program: string) {
   return [
-    `client=$(printf %s "$code" | ${agent} enroll --token - --name ${quoted(plan.name)}) &&`,
-    `${bearer()} --data-urlencode "client_id=$client" ${quoted(`${plan.xixo}/agent/link`)} &&`,
+    `client=$(printf %s "$code" | ${program} enroll --token - --name ${quoted(plan.name)}) &&`,
+    `${bearer()} --data-urlencode "client_id=$client" ${quoted(`${plan.xixo}/link`)} &&`,
   ]
 }
 
 function mac(plan: Plan): Step[] {
-  const download = `${plan.xixo}/agent/download/${plan.build.file}`
-  const plist = '"$HOME/Library/LaunchAgents/network.xixo.agent.plist"'
+  const download = `${plan.xixo}/link/download/${plan.build.file}`
+  const plist = '"$HOME/Library/LaunchAgents/network.xixo.link.plist"'
 
   return [
     {
-      title: 'Get the agent',
+      title: 'Get xixo link',
       detail:
-        'Downloads the agent from this xixo with the code, checks that it arrived whole, and puts it in your Library.',
+        'Downloads xixo link from this xixo with the code, checks that it arrived whole, and puts it in your Library.',
       command: [
         `code=${quoted(plan.code)}`,
-        'dir="$HOME/Library/Application Support/xixo-agent"',
+        'dir="$HOME/Library/Application Support/xixo-link"',
         'mkdir -p "$dir/bin"',
-        `${bearer()} -o xixo-agent ${quoted(download)}`,
-        `echo ${quoted(`${plan.build.sha256}  xixo-agent`)} | shasum -a 256 -c -`,
-        'install -m 0755 xixo-agent "$dir/bin/xixo-agent"',
-        'rm xixo-agent',
+        `${bearer()} -o xixo-link ${quoted(download)}`,
+        `echo ${quoted(`${plan.build.sha256}  xixo-link`)} | shasum -a 256 -c -`,
+        'install -m 0755 xixo-link "$dir/bin/xixo-link"',
+        'rm xixo-link',
       ].join('\n'),
     },
     {
@@ -127,15 +127,15 @@ function mac(plan: Plan): Step[] {
         'EOF',
         'chmod 600 "$dir/config.json"',
         'mkdir -p "$HOME/Library/LaunchAgents"',
-        `${bearer()} ${quoted(`${plan.xixo}/agent/download/xixo-agent.plist`)} | sed "s|@HOME@|$HOME|g" > ${plist}`,
+        `${bearer()} ${quoted(`${plan.xixo}/link/download/xixo-link.plist`)} | sed "s|@HOME@|$HOME|g" > ${plist}`,
       ].join('\n'),
     },
     {
       title: 'Link up and start',
       detail:
-        'Enrolls the Mac with its own keys, tells xixo which machine it is, and starts the agent as you. A folder in Documents, Desktop, Downloads, or iCloud Drive also needs Full Disk Access for xixo-agent in System Settings.',
+        'Enrolls the Mac with its own keys, tells xixo which machine it is, and starts xixo link as you. A folder in Documents, Desktop, Downloads, or iCloud Drive also needs Full Disk Access for xixo-link in System Settings.',
       command: [
-        ...linked(plan, '"$dir/bin/xixo-agent"'),
+        ...linked(plan, '"$dir/bin/xixo-link"'),
         `launchctl bootstrap "gui/$(id -u)" ${plist}`,
       ].join('\n'),
     },
@@ -145,23 +145,23 @@ function mac(plan: Plan): Step[] {
 export function steps(plan: Plan): Step[] {
   if (plan.build.os === 'darwin') return mac(plan)
 
-  const download = `${plan.xixo}/agent/download/${plan.build.file}`
+  const download = `${plan.xixo}/link/download/${plan.build.file}`
   const unit = [
-    `${plan.xixo}/agent/download/xixo-agent.service?user=$(id -un)`,
+    `${plan.xixo}/link/download/xixo-link.service?user=$(id -un)`,
     ...plan.folders.map((folder) => `folders%5B%5D=${escaped(folder)}`),
   ].join('&')
 
   return [
     {
-      title: 'Get the agent',
+      title: 'Get xixo link',
       detail:
-        'Downloads the agent from this xixo with the code, checks that it arrived whole, and puts it in /usr/local/bin.',
+        'Downloads xixo link from this xixo with the code, checks that it arrived whole, and puts it in /usr/local/bin.',
       command: [
         `code=${quoted(plan.code)}`,
-        `${bearer()} -o xixo-agent ${quoted(download)}`,
-        `echo ${quoted(`${plan.build.sha256}  xixo-agent`)} | sha256sum -c -`,
-        'sudo install -m 0755 xixo-agent /usr/local/bin/xixo-agent',
-        'rm xixo-agent',
+        `${bearer()} -o xixo-link ${quoted(download)}`,
+        `echo ${quoted(`${plan.build.sha256}  xixo-link`)} | sha256sum -c -`,
+        'sudo install -m 0755 xixo-link /usr/local/bin/xixo-link',
+        'rm xixo-link',
       ].join('\n'),
     },
     {
@@ -169,21 +169,21 @@ export function steps(plan: Plan): Step[] {
       detail:
         'Writes the config and the service. The config on the machine is the only place its folders are named, and the service mounts each one read-only. Change both on the machine to change them later.',
       command: [
-        'sudo install -d -m 0755 /etc/xixo-agent',
-        "sudo tee /etc/xixo-agent/config.json > /dev/null <<'EOF'",
+        'sudo install -d -m 0755 /etc/xixo-link',
+        "sudo tee /etc/xixo-link/config.json > /dev/null <<'EOF'",
         config(plan),
         'EOF',
-        `${bearer()} "${unit}" | sudo tee /etc/systemd/system/xixo-agent.service > /dev/null`,
+        `${bearer()} "${unit}" | sudo tee /etc/systemd/system/xixo-link.service > /dev/null`,
       ].join('\n'),
     },
     {
       title: 'Link up and start',
       detail:
-        'Enrolls the machine with its own keys, tells xixo which machine it is, and starts the agent as you, the account that owns the folders.',
+        'Enrolls the machine with its own keys, tells xixo which machine it is, and starts xixo link as you, the account that owns the folders.',
       command: [
-        'sudo install -d -m 0700 -o "$(id -un)" -g "$(id -gn)" /var/lib/xixo-agent',
-        ...linked(plan, 'xixo-agent'),
-        'sudo systemctl daemon-reload && sudo systemctl enable --now xixo-agent',
+        'sudo install -d -m 0700 -o "$(id -un)" -g "$(id -gn)" /var/lib/xixo-link',
+        ...linked(plan, 'xixo-link'),
+        'sudo systemctl daemon-reload && sudo systemctl enable --now xixo-link',
       ].join('\n'),
     },
   ]

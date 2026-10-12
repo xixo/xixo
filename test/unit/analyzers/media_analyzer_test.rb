@@ -210,21 +210,21 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
     end
   end
 
-  test "a transcript wanted after the recording was read asks the agent for its sound again" do
+  test "a transcript wanted after the recording was read asks the machine for its sound again" do
     analyze_feed_at "standup.m4a"
-    first = FakeAgent.asked.size
+    first = FakeLink.asked.size
 
-    Tenant.switch(@tenant) { assert_equal [ "transcript" ], FakeAgent.asked.last.args["skip"] }
+    Tenant.switch(@tenant) { assert_equal [ "transcript" ], FakeLink.asked.last.args["skip"] }
 
     listening!.transcribes([ 0.4, "Morning, everyone." ])
     analyze_feed_at "standup.m4a"
 
-    assert_equal first + 1, FakeAgent.asked.size
-    assert_nil FakeAgent.asked.last.args["skip"]
+    assert_equal first + 1, FakeLink.asked.size
+    assert_nil FakeLink.asked.last.args["skip"]
     Tenant.switch(@tenant) { assert_equal "[00:00:00] Morning, everyone.", steps_at("standup.m4a").dig("transcript", "result") }
 
     analyze_feed_at "standup.m4a"
-    assert_equal first + 1, FakeAgent.asked.size, "a transcript already held needs no second read"
+    assert_equal first + 1, FakeLink.asked.size, "a transcript already held needs no second read"
   end
 
   test "a file with no sound in it is not measured" do

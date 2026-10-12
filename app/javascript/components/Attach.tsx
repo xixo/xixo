@@ -72,7 +72,7 @@ export interface Editing {
 
 const DIRECT = ' directly'
 
-const LINKED = 'xixo-agent'
+const LINKED = 'machine'
 
 type Glyph = typeof IconPuzzle
 
@@ -99,7 +99,7 @@ const GLYPHS: Record<string, Glyph> = {
   slack: IconBrandSlack,
   git: IconGitBranch,
   tailnet: IconNetwork,
-  'xixo-agent': IconDeviceDesktop,
+  machine: IconDeviceDesktop,
 }
 
 const GROUPS: {
@@ -434,7 +434,7 @@ export function Attach({
               <span className="attach-linkup-text">
                 <span className="attach-linkup-name">Link up a machine</span>
                 <span className="attach-linkup-says">
-                  Put the xixo agent on another computer. Its folders become
+                  Put xixo link on another computer. Its folders become
                   searchable, it helps read files, and its models can answer.
                 </span>
               </span>

@@ -95,7 +95,7 @@ module Analyzer
         raise Analyzer::Failed, "#{reference.filename} carries no audio" unless audio?
 
         wav = received("audio").first
-        raise Analyzer::Failed, "the agent sent no audio of #{reference.filename} to transcribe" if wav.nil?
+        raise Analyzer::Failed, "the machine sent no audio of #{reference.filename} to transcribe" if wav.nil?
 
         wav.file.rewind
         capped(listening.transcribe(wav.file.read))

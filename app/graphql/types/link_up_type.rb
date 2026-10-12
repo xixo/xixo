@@ -4,11 +4,11 @@ module Types
   class LinkUpType < Types::BaseObject
     grants "xixo:resources:read"
 
-    description "What a machine needs to install the xixo agent itself and link up."
+    description "What a machine needs to install xixo link itself and link up."
 
-    field :xixo, String, null: false, description: "The address the agent dials."
-    field :issuer, String, null: false, description: "The masks issuer the agent enrolls with."
-    field :builds, [ Types::AgentBuildType ], null: false,
-          description: "The agent builds this server hands out, by system and architecture."
+    field :xixo, String, null: false, description: "The address xixo link dials."
+    field :issuer, String, null: false, description: "The masks issuer xixo link enrolls with."
+    field :builds, [ Types::LinkBuildType ], null: false,
+          description: "The xixo link builds this server hands out, by system and architecture."
   end
 end

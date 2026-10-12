@@ -36,7 +36,7 @@ class Resource < ApplicationRecord
 
   TYPES = %w[
     s3 filesystem webdav caldav carddav imap rss web openai-compatible oauth-google database
-    search curl mcp github notion slack microsoft-graph git weather places tailnet feedback xixo-agent
+    search curl mcp github notion slack microsoft-graph git weather places tailnet feedback machine
   ].freeze
 
   validates :key, presence: true,
@@ -295,7 +295,7 @@ class Resource < ApplicationRecord
 
     def declared_via(key)
       return nil if key.blank?
-      return Resource::XixoAgent.local! if key.to_s == Resource::XixoAgent::LOCAL
+      return Resource::Machine.local! if key.to_s == Resource::Machine::LOCAL
 
       Resource.capable_of(:transport).find_by!(key: key.to_s)
     end

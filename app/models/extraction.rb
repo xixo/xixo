@@ -4,7 +4,7 @@ class Extraction
 
   Received = Data.define(:role, :name, :mime, :at, :file)
 
-  attr_reader :reference, :kind, :verb, :agent, :extractor, :steps, :dropped, :files
+  attr_reader :reference, :kind, :verb, :machine, :extractor, :steps, :dropped, :files
 
   def self.settings
     {
@@ -26,22 +26,22 @@ class Extraction
   end
 
   def call
-    @agent, source = route
+    @machine, source = route
     source ||= uploaded
 
-    agent.exchanged(verb, asked(source), within: WITHIN) { |answer| received(answer) }
+    machine.exchanged(verb, asked(source), within: WITHIN) { |answer| received(answer) }
     self
   rescue Resource::Offline => e
     close!
     raise Analyzer::Waiting, e.message
-  rescue Resource::XixoAgent::Refusal => e
+  rescue Resource::Machine::Refusal => e
     close!
     raise Analyzer::Failed, e.message
   rescue StandardError
     close!
     raise
   ensure
-    agent.forget(source["upload"]) if agent && source.is_a?(Hash) && source["upload"]
+    machine.forget(source["upload"]) if machine && source.is_a?(Hash) && source["upload"]
   end
 
   def close!
@@ -63,35 +63,35 @@ class Extraction
     end
 
     def beside_the_server
-      local = Resource::XixoAgent.local
-      raise Analyzer::Waiting, "no agent beside the server is connected to read #{filename}" unless local&.connected?
+      local = Resource::Machine.local
+      raise Analyzer::Waiting, "xixo link beside the server is not connected to read #{filename}" unless local&.connected?
       unless reads?(local)
-        raise Analyzer::Failed, "the agent beside the server has no #{kind} extractor, so it cannot read #{filename}"
+        raise Analyzer::Failed, "xixo link beside the server has no #{kind} extractor, so it cannot read #{filename}"
       end
 
       [ local, nil ]
     end
 
     def on_machine(folder)
-      agent = folder.agent
-      raise Analyzer::Waiting, "the agent that shares #{filename} is not connected" unless agent&.connected?
-      raise Analyzer::Failed, "#{agent.key} no longer shares #{folder.folder}" unless agent.offered_folders.include?(folder.folder)
-      return [ agent, { "folder" => folder.folder, "path" => reference.locator.to_h["path"].to_s } ] if reads?(agent)
-      return beside_the_server if agent.lends? && !agent.local?
-      raise Analyzer::Failed, "the agent beside the server has no #{kind} extractor, so it cannot read #{filename}" if agent.local?
+      machine = folder.machine
+      raise Analyzer::Waiting, "the machine that shares #{filename} is not connected" unless machine&.connected?
+      raise Analyzer::Failed, "#{machine.key} no longer shares #{folder.folder}" unless machine.offered_folders.include?(folder.folder)
+      return [ machine, { "folder" => folder.folder, "path" => reference.locator.to_h["path"].to_s } ] if reads?(machine)
+      return beside_the_server if machine.lends? && !machine.local?
+      raise Analyzer::Failed, "xixo link beside the server has no #{kind} extractor, so it cannot read #{filename}" if machine.local?
 
       raise Analyzer::Failed,
-            "#{agent.key} has no #{kind} extractor, and a file on a machine is read only by its own agent " \
+            "#{machine.key} has no #{kind} extractor, and a file on a machine is read only by its own xixo link " \
             "unless the machine's \"Send files this machine can't read to the server\" setting is on"
     end
 
-    def reads?(agent)
-      verb == "derive" ? agent.extractors.any? : agent.extracts?(kind)
+    def reads?(machine)
+      verb == "derive" ? machine.extractors.any? : machine.extracts?(kind)
     end
 
     def uploaded
       io = reference.download
-      agent.upload(io)
+      machine.upload(io)
     ensure
       io.respond_to?(:close!) ? io.close! : io&.close
     end
@@ -109,7 +109,7 @@ class Extraction
 
     def received(answer)
       result = answer.result
-      raise Analyzer::Failed, "#{agent.key} answered #{verb} with something that is not an extraction" unless result.is_a?(Hash)
+      raise Analyzer::Failed, "#{machine.key} answered #{verb} with something that is not an extraction" unless result.is_a?(Hash)
 
       @extractor = result["extractor"].to_s.first(40).presence
       noted(result)

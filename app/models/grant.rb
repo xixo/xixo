@@ -16,7 +16,7 @@ class Grant
 
   NAMESPACE = "xixo:".freeze
 
-  MACHINE = "xixo:agent".freeze
+  MACHINE = "xixo:link".freeze
 
   SCOPES = DESCRIBED.keys.freeze
 

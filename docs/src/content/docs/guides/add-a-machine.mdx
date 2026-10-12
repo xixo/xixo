@@ -1,14 +1,14 @@
 ---
 title: Add a machine
-description: Link up a machine by installing the xixo agent on it yourself, or let xixo install it over SSH, and attach the folders it shares.
+description: Link up a machine by installing xixo link on it yourself, or let xixo install it over SSH, and attach the folders it shares.
 ---
 
 This guide links up a machine, such as a home server or a desktop, and attaches the folders it
-shares. The machine runs the xixo agent, which dials xixo, reports the machine's health, and lists
+shares. The machine runs xixo link, which dials xixo, reports the machine's health, and lists
 and reads files in its folders when xixo asks. The machine opens no port. See
-[machines and their agent](/concepts/resources/#machines-and-their-agent) for how it works.
+[machines and xixo link](/concepts/resources/#machines-and-xixo-link) for how it works.
 
-There are two ways to put the agent on a machine:
+There are two ways to put xixo link on a machine:
 
 - **Install it yourself**: copy the commands xixo shows into a terminal on the machine.
 - **Let xixo install it**: xixo signs in to a Linux machine once over SSH and installs it.
@@ -16,13 +16,13 @@ There are two ways to put the agent on a machine:
 Either way you need:
 
 - An administrator's sign-in. Only an administrator links a machine.
-- A route from the machine to xixo and to masks. The agent dials out, so xixo never needs to reach
+- A route from the machine to xixo and to masks. xixo link dials out, so xixo never needs to reach
   the machine when you install it yourself.
 
 ## Install it yourself
 
 This works on Linux on x86_64 or aarch64 with systemd, `curl`, `sha256sum`, and `sudo`, and on
-macOS on Apple silicon or Intel. The agent runs as the account that runs the commands, so use the
+macOS on Apple silicon or Intel. xixo link runs as the account that runs the commands, so use the
 one that owns the folders.
 
 1. On **Resources**, choose **Link up** under **Machines**. **Attach** offers the same at the top
@@ -31,7 +31,7 @@ one that owns the folders.
    asks masks for a code and puts it in the commands. The code works once, for ten minutes.
 3. Pick the machine's system. On Linux, `uname -m` prints `x86_64` for Intel or AMD and `aarch64`
    for ARM. On a Mac, **About This Mac** names an Apple M chip for Apple silicon.
-4. Under **Folders it shares**, list the folders the agent may read, one absolute path per line.
+4. Under **Folders it shares**, list the folders xixo link may read, one absolute path per line.
    These fill in the commands. The config on the machine decides what is shared, and xixo reads
    nothing outside it. A path holding a colon, a quotation mark, an apostrophe, a backslash, or a
    control character is refused.
@@ -44,36 +44,36 @@ one that owns the folders.
 
 The steps on Linux:
 
-1. **Get the agent** downloads the agent for the machine from xixo with the code, checks its
-   SHA-256, and installs it at `/usr/local/bin/xixo-agent`.
-2. **Say what it shares** writes `/etc/xixo-agent/config.json` and fetches the systemd service from
+1. **Get xixo link** downloads xixo link for the machine from xixo with the code, checks its
+   SHA-256, and installs it at `/usr/local/bin/xixo-link`.
+2. **Say what it shares** writes `/etc/xixo-link/config.json` and fetches the systemd service from
    xixo, filled in with the account and the folders, into
-   `/etc/systemd/system/xixo-agent.service`. The service mounts each folder read-only.
-3. **Link up and start** creates `/var/lib/xixo-agent`, runs `xixo-agent enroll` with the code on
+   `/etc/systemd/system/xixo-link.service`. The service mounts each folder read-only.
+3. **Link up and start** creates `/var/lib/xixo-link`, runs `xixo-link enroll` with the code on
    standard input, sends the client it prints back to xixo with the same code, and starts the
    service.
 
 The steps on macOS use no `sudo`:
 
-1. **Get the agent** downloads the agent from xixo with the code, checks its SHA-256 with
-   `shasum`, and installs it at `~/Library/Application Support/xixo-agent/bin/xixo-agent`. `curl`
+1. **Get xixo link** downloads xixo link from xixo with the code, checks its SHA-256 with
+   `shasum`, and installs it at `~/Library/Application Support/xixo-link/bin/xixo-link`. `curl`
    sets no quarantine mark, so macOS runs it without a prompt.
-2. **Say what it shares** writes `~/Library/Application Support/xixo-agent/config.json` with mode
+2. **Say what it shares** writes `~/Library/Application Support/xixo-link/config.json` with mode
    0600, and fetches the launch agent from xixo into
-   `~/Library/LaunchAgents/network.xixo.agent.plist`.
+   `~/Library/LaunchAgents/network.xixo.link.plist`.
 3. **Link up and start** enrolls the Mac, sends its client back to xixo, and starts the launch
    agent with `launchctl bootstrap`.
 
 macOS guards `~/Documents`, `~/Desktop`, `~/Downloads`, iCloud Drive, and removable and network
 volumes. To share a folder there, add
-`~/Library/Application Support/xixo-agent/bin/xixo-agent` under **Full Disk Access** in
-**Privacy & Security**, then run `launchctl kickstart -k gui/$(id -u)/network.xixo.agent`. Until
-then the machine's card shows the agent's warning that it may not read the folder. See
-[the agent on macOS](https://github.com/xixo/xixo/tree/main/agent#macos) for more.
+`~/Library/Application Support/xixo-link/bin/xixo-link` under **Full Disk Access** in
+**Privacy & Security**, then run `launchctl kickstart -k gui/$(id -u)/network.xixo.link`. Until
+then the machine's card shows xixo link's warning that it may not read the folder. See
+[xixo link on macOS](https://github.com/xixo/xixo/tree/main/link#macos) for more.
 
-The code reaches `curl` and the agent on standard input, never as an argument, so it does not show
+The code reaches `curl` and xixo link on standard input, never as an argument, so it does not show
 in the process list. The dialog waits while you work. Once the client is sent it says the machine
-is linked, and when the agent says hello it says the machine is linked up.
+is linked, and when xixo link says hello it says the machine is linked up.
 
 When the code runs out first, choose **Get a fresh code** and copy the commands again. The old code
 stops working. A machine whose code ran out before it linked up shows **Get a fresh code** on its
@@ -84,14 +84,14 @@ card.
 This works on Linux on x86_64 or aarch64 with systemd. It needs an account on the machine with an SSH key and `sudo` without a password, and a route from
 xixo to the machine's SSH port. Through a tailnet, follow [reach a tailnet](/guides/tailnet/) first.
 Directly, the machine needs a public address. `XIXO_PUBLIC_ORIGIN` must be set on the server, since
-the agent is told where xixo is from it.
+xixo link is told where xixo is from it.
 
 1. On **Resources**, choose **Link up**, pick **Let xixo install it**, and choose
    **Set it up over SSH**. This opens **A Linux machine xixo sets up**.
 2. Under **Reached through**, pick the tailnet, and under **On tailnet**, pick the machine. This
    fills in **Address**.
 3. Fill in **SSH user** and paste the account's private key into **SSH private key**.
-4. Under **Folders it shares**, list the folders the agent may read, one absolute path per line,
+4. Under **Folders it shares**, list the folders xixo link may read, one absolute path per line,
    such as `/srv/media`. End a line with `:rw`, such as `/srv/inbox:rw`, for a folder xixo may
    also write into. The same characters are refused as above.
 5. Fill in **Host key** with the fingerprint `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`
@@ -109,31 +109,31 @@ for each step. The run:
    they differ or when a machine outside a tailnet has none.
 2. Refuses anything other than Linux on x86_64 or aarch64, and an account without `sudo -n`.
 3. Installs the extraction programs with `apt-get` when **Extract on the machine** is on, the same
-   packages as the agent beside the server. apt runs without prompts, keeps any configuration file
+   packages as xixo link beside the server. apt runs without prompts, keeps any configuration file
    already changed on the machine, and leaves running services alone. On Ubuntu several of the
    packages, such as `ffmpeg` and `libraw-bin`, come from the `universe` component. When one
    package cannot be found, the others still install, and the run names the missing one. On a
-   machine that is not Debian or Ubuntu, or when apt fails, the run says so and goes on, and the
-   agent reads only what needs no program: plain text, data, calendars, contacts, email, books, and
+   machine that is not Debian or Ubuntu, or when apt fails, the run says so and goes on, and xixo
+   link reads only what needs no program: plain text, data, calendars, contacts, email, books, and
    spreadsheets.
-4. Places the agent at `/usr/local/bin/xixo-agent` and checks its SHA-256 on the machine.
-5. Writes `/etc/xixo-agent/config.json` with xixo's address, masks' address, and the folders. On a
+4. Places xixo link at `/usr/local/bin/xixo-link` and checks its SHA-256 on the machine.
+5. Writes `/etc/xixo-link/config.json` with xixo's address, masks' address, and the folders. On a
    machine installed before, it keeps `tools`, `lend`, `extracts_for_others`, and
    `extract_unsandboxed` from the configuration already there.
-6. Asks masks for an enrollment token and runs `xixo-agent enroll`, which makes the agent's keys on
+6. Asks masks for an enrollment token and runs `xixo-link enroll`, which makes xixo link's keys on
    the machine and registers it with masks as a client of its own.
-7. Installs and starts the `xixo-agent` systemd service as the account. The service sees `/home`,
+7. Installs and starts the `xixo-link` systemd service as the account. The service sees `/home`,
    `/root`, `/srv`, `/mnt`, `/media`, `/opt`, and `/var/lib` as empty, apart from its own state
    directory. Each shared folder is mounted back, read-only or, for a `:rw` folder, read-write. A
-   file outside the shared folders is missing for the agent even when its account could read it.
-   The service may use 2 GB of memory, and extraction works in `/var/cache/xixo-agent`, on disk.
+   file outside the shared folders is missing for xixo link even when its account could read it.
+   The service may use 2 GB of memory, and extraction works in `/var/cache/xixo-link`, on disk.
 
 xixo drops the private key when the run ends, whether it worked or not. A run that fails after
-the agent enrolls keeps the new client on the machine, so archiving the machine or installing
+xixo link enrolls keeps the new client on the machine, so archiving the machine or installing
 again unenrolls it.
 
-To give the agent more memory than 2 GB, for large office documents or video, run
-`sudo systemctl edit xixo-agent` on the machine and add:
+To give xixo link more memory than 2 GB, for large office documents or video, run
+`sudo systemctl edit xixo-link` on the machine and add:
 
 ```ini
 [Service]
@@ -144,22 +144,22 @@ The setting lives in a drop-in file, so installing again keeps it.
 
 ## What a machine's card shows
 
-Within a minute of starting, the agent connects. The machine's card under **Machines** says how
+Within a minute of starting, xixo link connects. The machine's card under **Machines** says how
 many folders it shares, what kinds of file it reads, whether it reads for other machines, and the
 model servers it found. An offline machine says when it was last seen. **Details** shows its
-hostname, system, agent version, folders, the kinds of file it cannot read, and its uptime, memory,
+hostname, system, xixo link version, folders, the kinds of file it cannot read, and its uptime, memory,
 and disks.
 
 ## Files a machine cannot read
 
-A file on a machine is read by that machine's own agent, so only its text leaves the machine. A
+A file on a machine is read by that machine's own xixo link, so only its text leaves the machine. A
 file whose program the machine lacks, such as a PDF on a machine without poppler, is not read, and
 its item says why. Two settings change that:
 
 - Install the programs on the machine, or run an SSH install again with **Extract on the machine**
   on.
 - Turn on **Send files this machine can't read to the server** in the machine's settings. Each such
-  file is then copied to the agent beside the server, which reads it there. The copy is deleted once
+  file is then copied to xixo link beside the server, which reads it there. The copy is deleted once
   it is read.
 
 ## Attach a folder
@@ -169,9 +169,9 @@ its item says why. Two settings change that:
 3. Choose **Attach it**, then sync it like any other resource.
 
 Only an administrator attaches a folder through a machine, as shared or as only theirs. A folder
-the agent does not share is refused, and so is a folder that is the same as, inside, or around a
+xixo link does not share is refused, and so is a folder that is the same as, inside, or around a
 folder another owner holds on the same machine. Syncing a folder whose machine is not connected
-leaves it **offline** until the agent is back. A folder the agent stopped sharing shows as failing
+leaves it **offline** until xixo link is back. A folder xixo link stopped sharing shows as failing
 with the reason.
 
 A full sync that finds nothing in a folder where it found files before marks nothing gone, since an
@@ -183,18 +183,18 @@ its items stay until a sync finds files again.
 The folders live in the machine's own configuration, so xixo cannot widen them. For a machine xixo
 installed over SSH, change **Folders it shares**, paste the private key again, and save, which runs
 the install again with the new list. On any machine, change them in two places: the `folders` list in
-`/etc/xixo-agent/config.json`, and the `BindReadOnlyPaths=` line in
-`/etc/systemd/system/xixo-agent.service`, where each folder is written as `"-/srv/media"`. A
+`/etc/xixo-link/config.json`, and the `BindReadOnlyPaths=` line in
+`/etc/systemd/system/xixo-link.service`, where each folder is written as `"-/srv/media"`. A
 writable folder is `{"path": "/srv/inbox", "writable": true}` in the config and goes on a
 `BindPaths=` line in the service. Then run `sudo systemctl daemon-reload` and
-`sudo systemctl restart xixo-agent`. A folder only in the config is missing for the agent.
+`sudo systemctl restart xixo-link`. A folder only in the config is missing for xixo link.
 
 ## Offer tools to MCP clients
 
 A machine offers no tools to MCP clients until its own configuration names them. On the machine,
-add a `tools` list to `/etc/xixo-agent/config.json`, such as `"tools": ["browse", "search",
-"extract"]`, and run `sudo systemctl restart xixo-agent`. The names are `browse`, `search`, `read`,
-`write`, `extract`, and `models`. The machine's card lists the ones it offers once the agent
+add a `tools` list to `/etc/xixo-link/config.json`, such as `"tools": ["browse", "search",
+"extract"]`, and run `sudo systemctl restart xixo-link`. The names are `browse`, `search`, `read`,
+`write`, `extract`, and `models`. The machine's card lists the ones it offers once xixo link
 connects again, and a client sees them when it describes the machine through the `resource` tool.
 [Tools a machine offers](/concepts/resources/#tools-a-machine-offers) says what each does and what
 else it needs. Installing again over SSH keeps the list.
@@ -202,22 +202,22 @@ else it needs. Installing again over SSH keeps the list.
 ## Remove a machine
 
 Archive and delete the folders attached through it, then the machine. Archiving the machine
-unenrolls it in masks, which archives its client and revokes every token it holds, and closes the
-agent's connection at once. The agent then exits with status 78 the next time it asks masks for a
+unenrolls it in masks, which archives its client and revokes every token it holds, and closes xixo
+link's connection at once. xixo link then exits with status 78 the next time it asks masks for a
 token, and systemd leaves it stopped. When masks cannot be reached, the machine stays attached
-and the error says so, since an agent left enrolled could still sign in. Try again once masks
+and the error says so, since a machine left enrolled could still sign in. Try again once masks
 answers.
 
 Installing again over a machine that is already enrolled unenrolls the earlier client before the
 new one enrolls. **Link up again** in a machine's menu makes a fresh code for it, and the earlier
 client is unenrolled once the new one is sent back to xixo.
 
-The agent stays on the machine, stopped. To remove it from a Linux machine:
+xixo link stays on the machine, stopped. To remove it from a Linux machine:
 
 ```sh
-sudo systemctl disable --now xixo-agent
-sudo rm -rf /etc/systemd/system/xixo-agent.service /etc/systemd/system/xixo-agent.service.d
-sudo rm -f /usr/local/bin/xixo-agent
-sudo rm -rf /etc/xixo-agent /var/lib/xixo-agent /var/cache/xixo-agent
+sudo systemctl disable --now xixo-link
+sudo rm -rf /etc/systemd/system/xixo-link.service /etc/systemd/system/xixo-link.service.d
+sudo rm -f /usr/local/bin/xixo-link
+sudo rm -rf /etc/xixo-link /var/lib/xixo-link /var/cache/xixo-link
 sudo systemctl daemon-reload
 ```

@@ -26,7 +26,7 @@ describe('plain words for resources', () => {
     expect(does({ ...base, type: 'filesystem', via: 'studio' })).toBe(
       'A folder on studio',
     )
-    expect(does({ ...base, type: 'xixo-agent', key: 'local' })).toBe(
+    expect(does({ ...base, type: 'machine', key: 'local' })).toBe(
       'The machine xixo runs on',
     )
     expect(
@@ -41,8 +41,8 @@ describe('plain words for resources', () => {
 
   test('an error reads as a sentence, and anything unknown stays general', () => {
     expect(
-      humane('local: the agent beside the server has not enrolled yet'),
-    ).toBe("The agent on this server hasn't connected yet")
+      humane('local: xixo link beside the server has not enrolled yet'),
+    ).toBe("xixo link on this server hasn't connected yet")
     expect(humane('ECONNREFUSED 10.0.0.4:11434')).toBe(
       "It didn't answer when xixo last checked",
     )

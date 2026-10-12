@@ -13,8 +13,8 @@ class PhotoPlaceTest < ActiveSupport::TestCase
   teardown { Resource::Places.spacing = nil }
 
   def analyzed(location, name: "market.jpg")
-    FakeAgent.script = lambda do |*|
-      FakeAgent.extracted({ "dimensions" => { "width" => 640, "height" => 480 }, "location" => location }, extractor: "image")
+    FakeLink.script = lambda do |*|
+      FakeLink.extracted({ "dimensions" => { "width" => 640, "height" => 480 }, "location" => location }, extractor: "image")
     end
 
     Tenant.switch(@tenant) do

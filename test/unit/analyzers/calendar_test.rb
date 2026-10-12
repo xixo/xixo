@@ -9,7 +9,7 @@ class CalendarTest < ActiveSupport::TestCase
     assert_equal "20261399", Analyzer::Calendar.read_as("20261399")
   end
 
-  test "each event the agent marks as a section stays its own, so a passage never runs across two" do
+  test "each event xixo link marks as a section stays its own, so a passage never runs across two" do
     tenant = Tenant.create!(subdomain: "calendar-#{SecureRandom.hex(4)}", name: "Calendar")
     lines = (1..12).map do |day|
       "Site visit #{day} · #{Analyzer::Calendar.read_as("202609#{format('%02d', day)}T090000")} · " \
@@ -21,7 +21,7 @@ class CalendarTest < ActiveSupport::TestCase
       from += line.length + 1
       part
     end
-    FakeAgent.script = ->(*) { FakeAgent.extracted({ "text" => lines.join("\n"), "outline" => outline }, extractor: "calendar") }
+    FakeLink.script = ->(*) { FakeLink.extracted({ "text" => lines.join("\n"), "outline" => outline }, extractor: "calendar") }
 
     Tenant.switch(tenant) do
       storage = Resource::Database.create!(key: "desk", name: "Desk")

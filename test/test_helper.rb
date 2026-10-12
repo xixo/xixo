@@ -7,7 +7,7 @@ require_relative "support/fake_issuer"
 require_relative "support/fake_search_engine"
 require_relative "support/fake_s3"
 require_relative "support/mcp_client"
-require_relative "support/fake_agent"
+require_relative "support/fake_link"
 require_relative "support/fake_disk"
 
 ENV["XIXO_PUBLIC_ORIGIN"] = nil
@@ -33,7 +33,7 @@ module ActiveSupport
 
     setup do
       Masks::Client.registry.clear!
-      FakeAgent.reset!
+      FakeLink.reset!
       FakeDisk.staged.clear
       FakeS3.reset!
       Resource::Mcp::Sessions.clear!

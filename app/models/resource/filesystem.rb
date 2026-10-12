@@ -10,7 +10,7 @@ class Resource
     serves :storage
     accepts "*/*"
 
-    validate :reached_through_an_agent
+    validate :reached_through_a_machine
     validate :folder_is_shared, if: -> { new_record? || will_save_change_to_details? || will_save_change_to_via_id? }
     validate :folder_is_not_anothers, if: -> { new_record? || will_save_change_to_details? || will_save_change_to_via_id? || will_save_change_to_owner_subject? }
 
@@ -18,12 +18,12 @@ class Resource
       def attaching
         {
           label: "A folder",
-          blurb: "A folder on a machine running the xixo agent, the server's own included. The agent reads " \
+          blurb: "A folder on a machine running xixo link, the server's own included. xixo link reads " \
                  "nothing outside the folders its config shares, and writes only to the ones it marks writable.",
           names: "A name for the folder",
           fields: [
             field("folder", "Folder", required: true, placeholder: "/data/files",
-                  help: "One of the folders the machine's agent shares."),
+                  help: "One of the folders xixo link on the machine shares."),
             field("prefix", "Prefix", help: "Left off, the whole folder is walked."),
             field("skip", "Also skip", kind: "list", placeholder: "*.tmp",
                   help: "A name or a pattern such as build or *.tmp on each line. Folders and files with a " \
@@ -58,8 +58,8 @@ class Resource
       end
     end
 
-    def agent
-      via if via.is_a?(XixoAgent)
+    def machine
+      via if via.is_a?(Machine)
     end
 
     def folder
@@ -67,22 +67,22 @@ class Resource
     end
 
     def writable?
-      agent.present? && agent.writable_folders.include?(folder)
+      machine.present? && machine.writable_folders.include?(folder)
     end
 
     def served
-      return super unless agent&.heard_from? && !writable?
+      return super unless machine&.heard_from? && !writable?
 
       super.merge("accepts" => [])
     end
 
     def target_host
-      agent && (agent.machine["hostname"].presence || agent.key)
+      machine && (machine.machine["hostname"].presence || machine.key)
     end
 
     def answers!
       shared!
-      raise Resource::Failed, "#{key}: the agent on #{agent.key} is not connected" unless agent.connected?
+      raise Resource::Failed, "#{key}: #{machine.key} is not connected" unless machine.connected?
 
       true
     end
@@ -93,7 +93,7 @@ class Resource
 
     def check!
       answers!
-      agent.ask("list", { "folder" => folder, "limit" => 1 })
+      machine.ask("list", { "folder" => folder, "limit" => 1 })
       true
     end
 
@@ -136,26 +136,26 @@ class Resource
 
     def download(locator)
       shared!
-      agent.read(folder, relative!(locator.to_h["path"]))
+      machine.read(folder, relative!(locator.to_h["path"]))
     end
 
     def digest_of(locator)
       shared!
-      Fingerprint.reported(agent.ask("hash", { "folder" => folder, "path" => relative!(locator.to_h["path"]) }))
+      Fingerprint.reported(machine.ask("hash", { "folder" => folder, "path" => relative!(locator.to_h["path"]) }))
     end
 
     def upload(name, body)
       shared!
-      raise Resource::Refused, "#{key}: the agent on #{agent.key} shares #{folder} read-only" unless writable?
+      raise Resource::Refused, "#{key}: #{machine.key} shares #{folder} read-only" unless writable?
 
       path = relative!(name.to_s)
-      staged = agent.upload(body.respond_to?(:read) ? body : StringIO.new(body.to_s))
+      staged = machine.upload(body.respond_to?(:read) ? body : StringIO.new(body.to_s))
 
       begin
-        written = agent.ask("write", staged.merge("folder" => folder, "path" => path, "replace" => ours?(path)),
+        written = machine.ask("write", staged.merge("folder" => folder, "path" => path, "replace" => ours?(path)),
                             within: writing_within(staged["size"]))
       ensure
-        agent.forget(staged["upload"])
+        machine.forget(staged["upload"])
       end
 
       locator_for(entry_from(written))
@@ -172,7 +172,7 @@ class Resource
     def command_get(key:)
       shared!
       path = relative!(locator_for(object_for(key))["path"])
-      bytes, size = agent.glimpse(folder, path, limit: GLIMPSE_BYTES)
+      bytes, size = machine.glimpse(folder, path, limit: GLIMPSE_BYTES)
 
       glimpse(key, bytes, size)
     end
@@ -190,21 +190,21 @@ class Resource
       def listed(prefix: nil, cursor: nil, limit: PAGE)
         asked = { "folder" => folder, "limit" => limit, "prefix" => prefix.presence, "cursor" => cursor,
                   "skip" => Array(details.to_h["skip"]).presence }.compact
-        held = agent.ask("list", asked).to_h
+        held = machine.ask("list", asked).to_h
 
         entries = Array(held["entries"]).first(limit).map { |entry| entry_from(entry) }
         [ entries, held["cursor"].present? ]
       end
 
       def entry_from(said)
-        raise Resource::Failed, "#{key}: the agent listed something that is not a file" unless said.is_a?(Hash)
+        raise Resource::Failed, "#{key}: xixo link listed something that is not a file" unless said.is_a?(Hash)
 
         size = said["size"]
-        raise Resource::Failed, "#{key}: the agent listed a file without a size" unless size.is_a?(Integer) && size >= 0
+        raise Resource::Failed, "#{key}: xixo link listed a file without a size" unless size.is_a?(Integer) && size >= 0
 
         Entry.new(path: relative!(said["path"]), size: size, modified_at: Time.iso8601(said["modified_at"].to_s))
       rescue ArgumentError
-        raise Resource::Failed, "#{key}: the agent listed a file without a time"
+        raise Resource::Failed, "#{key}: xixo link listed a file without a time"
       end
 
       def ours?(path)
@@ -225,7 +225,7 @@ class Resource
         held = path.to_s
         parts = held.split("/")
 
-        if held.empty? || held.bytesize > XixoAgent::MOST_PATH || held.start_with?("/") || held.include?("\0") ||
+        if held.empty? || held.bytesize > Machine::MOST_PATH || held.start_with?("/") || held.include?("\0") ||
            !held.valid_encoding? || parts.any? { |part| part.empty? || part.in?(%w[. ..]) }
           raise Resource::Failed, "#{key}: #{held.first(80).inspect} is not a path inside the folder"
         end
@@ -234,22 +234,22 @@ class Resource
       end
 
       def shared!
-        raise Resource::Unusable, "#{key} is reached through no agent" if agent.nil?
-        return if !agent.heard_from? || agent.offered_folders.include?(folder)
+        raise Resource::Unusable, "#{key} is reached through no machine" if machine.nil?
+        return if !machine.heard_from? || machine.offered_folders.include?(folder)
 
-        said = "#{key}: the agent on #{agent.key} no longer shares #{folder}"
+        said = "#{key}: #{machine.key} no longer shares #{folder}"
         record_check(said) if persisted?
         raise Resource::Unusable, said
       end
 
-      def reached_through_an_agent
-        return if via.is_a?(XixoAgent)
+      def reached_through_a_machine
+        return if via.is_a?(Machine)
 
-        errors.add(:via, "must be a machine with the xixo agent, which is the only way to reach its folders")
+        errors.add(:via, "must be a machine running xixo link, which is the only way to reach its folders")
       end
 
       def folder_is_not_anothers
-        return unless via.is_a?(XixoAgent) && folder.start_with?("/")
+        return unless via.is_a?(Machine) && folder.start_with?("/")
 
         held = Filesystem.where(via_id: via_id).where.not(id: id).find do |other|
           other.owner_subject != owner_subject && nested?(other.folder, folder)
@@ -268,13 +268,13 @@ class Resource
       end
 
       def folder_is_shared
-        return unless via.is_a?(XixoAgent)
+        return unless via.is_a?(Machine)
 
         errors.add(:folder, "must be an absolute path") unless folder.start_with?("/")
         return if !via.heard_from? || via.offered_folders.include?(folder)
 
         offered = via.offered_folders
-        errors.add(:folder, "#{folder} is not one the agent on #{via.key} shares. " \
+        errors.add(:folder, "#{folder} is not one #{via.key} shares. " \
                             "#{offered.any? ? "It shares #{offered.to_sentence}" : 'It shares nothing yet'}")
       end
   end

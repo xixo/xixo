@@ -23,7 +23,7 @@ guide links to a concept page for the why.
 - Write xixo in lowercase wherever people read it, at the start of a sentence
   and in a heading too: "xixo keeps the original where it lives." The same
   goes for masks. Code keeps its own casing: the `Xixo` module, the
-  `XixoAgent` class, `XIXO_` variables, and Go identifiers.
+  `XixoSchema` class, `XIXO_` variables, and Go identifiers.
 - Use the present tense: "Returns the feed", not "Will return the feed".
 - Use American English and the Oxford comma: "catalog", "color", "red, white,
   and blue".
@@ -34,6 +34,15 @@ guide links to a concept page for the why.
   code, paths, variables, and commands in backticks.
 - Document edge cases: an empty catalog, a missing model, a resource that
   fails its check.
+
+## Words
+
+| | |
+| --- | --- |
+| xixo link | The program that runs on each linked machine, `xixo-link` on disk. Write it lowercase, without "the": "xixo link dials xixo." |
+| machine | What xixo link runs on, and the resource that stands for it, type `machine`. A machine shares folders, says hello, and goes offline. |
+| agent | An AI agent: a model calling xixo's tools, in a feed's run or through an MCP client. Never the program on a machine. |
+| launch agent | macOS's own term for a per-user launchd job, which is how xixo link runs on a Mac. |
 
 ## Plain prose, no flourishes
 

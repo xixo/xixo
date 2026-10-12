@@ -28,7 +28,7 @@ class ResourceDeclaringTest < ActiveSupport::TestCase
       assert_equal "filesystem", files.class.sti_name
       assert_equal "Files", files.name
       assert_equal "/data/files/#{@tenant.subdomain}", files.details["folder"]
-      assert_equal Resource::XixoAgent.local, files.via
+      assert_equal Resource::Machine.local, files.via
       assert files.default_storage?
     end
   end

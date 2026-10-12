@@ -25,9 +25,9 @@ module Machines
     )
   end
 
-  def agent_on(tenant, key: "box", client_id: "agent-#{SecureRandom.hex(4)}", folders: [ "/srv/media" ], connected: true)
+  def machine_on(tenant, key: "box", client_id: "link-#{SecureRandom.hex(4)}", folders: [ "/srv/media" ], connected: true)
     Tenant.switch(tenant) do
-      Resource::XixoAgent.create!(
+      Resource::Machine.create!(
         key: key, name: key,
         details: {
           "host" => "100.64.0.9", "user" => "jon", "folders" => folders, "client_id" => client_id,

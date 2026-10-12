@@ -48,4 +48,4 @@
 /.dockerignore
 /Dockerfile*
 
-/agent/macos/build
+/link/macos/build

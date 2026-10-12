@@ -151,7 +151,7 @@ describe('Resources', () => {
   test('machines come first, this server among them, and say plainly what they share', async () => {
     const local = resource({
       id: '9',
-      type: 'xixo-agent',
+      type: 'machine',
       key: 'local',
       name: 'This server',
       capabilities: ['transport'],
@@ -224,7 +224,7 @@ describe('Resources', () => {
             {
               os: 'linux',
               arch: 'amd64',
-              file: 'xixo-agent-linux-amd64',
+              file: 'xixo-link-linux-amd64',
               sha256: 'a'.repeat(64),
             },
           ],
@@ -255,7 +255,7 @@ describe('Resources', () => {
       within(dialog).getByRole('button', { name: 'Show the commands' }),
     )
 
-    expect(await within(dialog).findByText('Get the agent')).toBeTruthy()
+    expect(await within(dialog).findByText('Get xixo link')).toBeTruthy()
     expect(within(dialog).getByText(/code='enroll-secret'/)).toBeTruthy()
     expect(
       within(dialog).getByText(/Waiting for studio to link up/),

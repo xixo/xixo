@@ -7,7 +7,7 @@ class ExtractionTest < ActiveSupport::TestCase
 
   setup do
     @tenant = Tenant.create!(subdomain: "extract-#{SecureRandom.hex(4)}", name: "Extraction")
-    @machine = agent_on(@tenant, folders: [ "/srv/notes" ])
+    @machine = machine_on(@tenant, folders: [ "/srv/notes" ])
 
     Tenant.switch(@tenant) do
       @machine.update_columns(details: @machine.details.deep_merge("machine" => { "extractors" => %w[text] }))
@@ -16,7 +16,7 @@ class ExtractionTest < ActiveSupport::TestCase
     end
   end
 
-  test "a file on a machine is read by that machine's agent, where it lies" do
+  test "a file on a machine is read by that machine, where it lies" do
     feed = Tenant.switch(@tenant) { on_machine("plan.txt") }
     asked = []
 
@@ -26,7 +26,7 @@ class ExtractionTest < ActiveSupport::TestCase
                  asked.filter_map { |verb, args| args["source"] if verb == "extract" }
     assert_equal [ { "folder" => "/srv/notes", "path" => "plan.txt" } ], asked.filter_map { |verb, args| args if verb == "hash" }
     assert_not asked.any? { |verb, _| verb == "read" }
-    assert_empty FakeAgent.asked
+    assert_empty FakeLink.asked
     Tenant.switch(@tenant) do
       assert_equal "the plan", feed.reload.analysis.step_result("text")
       assert_equal sha("plan.txt"), feed.reference.digest
@@ -52,7 +52,7 @@ class ExtractionTest < ActiveSupport::TestCase
     answering(asked, { "text" => "never" }) { analyze(feed) }
 
     assert_not asked.any? { |verb, _| %w[read extract].include?(verb) }
-    assert_empty FakeAgent.asked
+    assert_empty FakeLink.asked
     Tenant.switch(@tenant) do
       message = feed.reload.analysis.step("extracted").dig("error", "message")
       assert_match(/box has no pdf extractor/, message)
@@ -60,7 +60,7 @@ class ExtractionTest < ActiveSupport::TestCase
     end
   end
 
-  test "a machine that lends sends a file it cannot read to the agent beside the server" do
+  test "a machine that lends sends a file it cannot read to xixo link beside the server" do
     Tenant.switch(@tenant) { @machine.update!(details: @machine.details.merge("lend" => true)) }
     feed = Tenant.switch(@tenant) { on_machine("budget.pdf") }
     asked = []
@@ -70,15 +70,15 @@ class ExtractionTest < ActiveSupport::TestCase
     end
 
     assert_not asked.any? { |verb, _| verb == "extract" }
-    extracted = FakeAgent.asked.select { |held| held.verb == "extract" }
+    extracted = FakeLink.asked.select { |held| held.verb == "extract" }
     assert_equal 1, extracted.size
     assert_equal "%PDF bytes of the budget", extracted.first.bytes
     assert extracted.first.args.dig("source", "upload")
     Tenant.switch(@tenant) { assert_nil feed.reload.analysis.step("extracted").to_h["error"] }
   end
 
-  test "the same file on two machines becomes one item by the digests their agents report" do
-    other = agent_on(@tenant, key: "attic", folders: [ "/mnt/photos" ])
+  test "the same file on two machines becomes one item by the digests the machines report" do
+    other = machine_on(@tenant, key: "attic", folders: [ "/mnt/photos" ])
     first, second = Tenant.switch(@tenant) do
       copy = Resource::Filesystem.create!(key: "attic-photos", name: "Attic photos", via: other, details: { "folder" => "/mnt/photos" })
       [ on_machine("beach.jpg"), create_feed(resource: copy, locator_key: "beach-copy.jpg",
@@ -100,8 +100,8 @@ class ExtractionTest < ActiveSupport::TestCase
     end
   end
 
-  test "with no agent connected, analysis waits and is tried again" do
-    FakeAgent.standing = false
+  test "with no machine connected, analysis waits and is tried again" do
+    FakeLink.standing = false
     feed = Tenant.switch(@tenant) { stored("notes.txt", "remember the milk") }
     analysis = Tenant.switch(@tenant) { Analysis.open!(feed: feed, cause: "manual") }
 
@@ -111,12 +111,12 @@ class ExtractionTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       assert analysis.reload.open?
-      assert_match(/no agent beside the server/, analysis.step("extracted").dig("error", "message"))
+      assert_match(/link beside the server is not connected/, analysis.step("extracted").dig("error", "message"))
     end
   end
 
-  test "an agent beside the server without the extractor fails the file with the reason" do
-    FakeAgent.local.extractors = %w[text]
+  test "xixo link beside the server without the extractor fails the file with the reason" do
+    FakeLink.local.extractors = %w[text]
     feed = Tenant.switch(@tenant) { stored("plan.pdf", "%PDF") }
 
     analyze(feed)
@@ -126,8 +126,8 @@ class ExtractionTest < ActiveSupport::TestCase
     end
   end
 
-  test "a text longer than the server reads is cut and says so, however long the agent sent" do
-    FakeAgent.script = ->(*) { FakeAgent.extracted({ "text" => "x" * (Analyzer::Base::MAX_TEXT + 10) }) }
+  test "a text longer than the server reads is cut and says so, however long xixo link sent" do
+    FakeLink.script = ->(*) { FakeLink.extracted({ "text" => "x" * (Analyzer::Base::MAX_TEXT + 10) }) }
     feed = Tenant.switch(@tenant) { stored("long.txt", "long") }
 
     analyze(feed)
@@ -165,21 +165,21 @@ class ExtractionTest < ActiveSupport::TestCase
       sha = method(:sha)
       exchanged = lambda do |verb, args = {}, within: nil, &block|
         asked << [ verb, args ]
-        next block.call(FakeAgent::Answer.new({ "size" => 0 }, {})) if verb == "read"
+        next block.call(FakeLink::Answer.new({ "size" => 0 }, {})) if verb == "read"
 
         if verb == "hash"
           found = digests.fetch(args["path"]) { sha.call(args["path"]) }
-          next block.call(FakeAgent::Answer.new({ "sha256" => found, "size" => 10 }, {}))
+          next block.call(FakeLink::Answer.new({ "sha256" => found, "size" => 10 }, {}))
         end
 
-        result, held = FakeAgent.extracted(steps)
+        result, held = FakeLink.extracted(steps)
         path = args.dig("source", "path")
         result = result.deep_stringify_keys
         result = result.merge("sha256" => sha.call(path), "size" => 10) if path
-        block.call(FakeAgent::Answer.new(result, held))
+        block.call(FakeLink::Answer.new(result, held))
       end
 
-      with_method(Resource::XixoAgent, :exchanged, exchanged, &)
+      with_method(Resource::Machine, :exchanged, exchanged, &)
     end
 
     def with_method(klass, name, body)

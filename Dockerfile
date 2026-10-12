@@ -35,18 +35,18 @@ ENV RAILS_ENV="production" \
 # Node, for the Vite build.
 FROM docker.io/library/node:$NODE_VERSION-slim AS node
 
-FROM --platform=$BUILDPLATFORM docker.io/library/golang:$GO_VERSION AS agent
-WORKDIR /agent
-COPY agent/go.mod agent/go.sum ./
+FROM --platform=$BUILDPLATFORM docker.io/library/golang:$GO_VERSION AS link
+WORKDIR /link
+COPY link/go.mod link/go.sum ./
 RUN go mod download
-COPY agent/ ./
-COPY .release-please-manifest.json /agent/
+COPY link/ ./
+COPY .release-please-manifest.json /link/
 RUN version=$(sed -n 's/.*"\.": *"\([^"]*\)".*/\1/p' .release-please-manifest.json) && \
     for os in linux darwin; do for arch in amd64 arm64; do \
       CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath \
-        -ldflags "-s -w -X main.version=${version:-dev}" -o /opt/xixo-agent/xixo-agent-$os-$arch . || exit 1; \
+        -ldflags "-s -w -X main.version=${version:-dev}" -o /opt/xixo-link/xixo-link-$os-$arch . || exit 1; \
     done; done && \
-    cp xixo-agent.service xixo-agent.plist /opt/xixo-agent/
+    cp xixo-link.service xixo-link.plist /opt/xixo-link/
 
 FROM scratch AS masks-client
 COPY vendor/.keep /
@@ -123,7 +123,7 @@ USER 1000:1000
 COPY --chown=rails:rails --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"
 COPY --chown=rails:rails --from=build /masks /masks
 COPY --chown=rails:rails --from=build /rails /rails
-COPY --from=agent /opt/xixo-agent /opt/xixo-agent
+COPY --from=link /opt/xixo-link /opt/xixo-link
 
 # Entrypoint prepares the database.
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]

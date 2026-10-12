@@ -9,7 +9,7 @@ class TablesTest < ActiveSupport::TestCase
     [ "2026-08-04", "Copperleaf Cafe", "-4.50" ]
   ].freeze
 
-  test "a table an agent sent is kept only in the shape the server reads" do
+  test "a table a machine sent is kept only in the shape the server reads" do
     sound = Tables.sound("name" => "t", "columns" => [ "A", 2 ], "rows" => [ [ "x", { "nested" => 1 }, "extra" ], "not a row" ])
 
     assert_equal({ "name" => "t", "columns" => %w[A 2], "rows" => [ [ "x", '{"nested" => 1}' ] ] }, sound)

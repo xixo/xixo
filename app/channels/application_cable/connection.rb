@@ -10,7 +10,7 @@ module ApplicationCable
       Tenant.switch(tenant) do
         if request.authorization.present?
           held = enrolled || reject_unauthorized_connection
-          self.machine = held.agent
+          self.machine = held.machine
           self.client_id = held.claims.client_id
         else
           self.grant = granted || reject_unauthorized_connection
@@ -37,7 +37,7 @@ module ApplicationCable
       end
 
       def enrolled
-        held = Resource::XixoAgent::Caller.from(request, path: "/cable")
+        held = Resource::Machine::Caller.from(request, path: "/cable")
         return nil if held.nil?
 
         @expires_at = held.expires_at

@@ -62,7 +62,7 @@ export function LinkUpPanel({
           Link up a machine
         </h3>
         <p className="linkup-says">
-          Put the xixo agent on another computer. Its files stay where they are.
+          Put xixo link on another computer. Its files stay where they are.
         </p>
       </div>
 
@@ -343,8 +343,8 @@ function Commands({
 
   if (!info || !build) {
     return (
-      <Alert color="yellow" title="This server holds no agent to hand out">
-        The agent builds live in the folder XIXO_AGENT_DIR names. The server
+      <Alert color="yellow" title="This server holds no xixo link to hand out">
+        The xixo link builds live in the folder XIXO_LINK_DIR names. The server
         image puts them there.
       </Alert>
     )
@@ -470,7 +470,7 @@ function Commands({
       <div className="linkup-wait" data-linked={Boolean(heard?.linked)}>
         <span className="linkup-dot" />
         {heard?.linked
-          ? `${code.key} is linked. Waiting for its agent to start.`
+          ? `${code.key} is linked. Waiting for xixo link on it to start.`
           : `Waiting for ${code.key} to link up. Run the steps in one terminal on the machine.`}
       </div>
     </Stack>

@@ -137,7 +137,7 @@ interface Resource {
   } | null
 }
 
-const MACHINE = 'xixo-agent'
+const MACHINE = 'machine'
 const LOCAL = 'local'
 
 const CHECKING_POLL = 2000
@@ -742,7 +742,7 @@ function Details({ resource, acts }: { resource: Resource; acts: Acts }) {
       .join('. ')
 
     if (system) rows.push(['Machine', system])
-    if (machine.version) rows.push(['Agent', machine.version])
+    if (machine.version) rows.push(['xixo link', machine.version])
     if (machine.folders.length > 0)
       rows.push([
         'Folders',

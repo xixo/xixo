@@ -14,7 +14,7 @@ class Resource
       @resource.name = name.strip if name.present?
       settle(settings) unless settings.nil?
       @resource.via = via.empty? ? nil : Resource.transport!(via, @grant) unless via.nil?
-      Resource::XixoAgent.carried_for!(@resource, @grant)
+      Resource::Machine.carried_for!(@resource, @grant)
 
       raise Refused, @resource.errors.full_messages.to_sentence unless @resource.save
 

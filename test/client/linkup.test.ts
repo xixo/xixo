@@ -16,7 +16,7 @@ const plan = {
   build: {
     os: 'linux',
     arch: 'arm64',
-    file: 'xixo-agent-linux-arm64',
+    file: 'xixo-link-linux-arm64',
     sha256: 'f'.repeat(64),
   },
   folders: ['/srv/media', '/data/My Photos!'],
@@ -25,7 +25,7 @@ const plan = {
 }
 
 describe('linking up a machine', () => {
-  test('the code reaches curl and the agent on standard input, never as an argument', () => {
+  test('the code reaches curl and xixo link on standard input, never as an argument', () => {
     const all = steps(plan)
       .map((step) => step.command)
       .join('\n')
@@ -36,7 +36,7 @@ describe('linking up a machine', () => {
       `printf 'Authorization: Bearer %s\\n' "$code" | curl -fsS -H @-`,
     )
     expect(all).toContain(
-      `printf %s "$code" | xixo-agent enroll --token - --name 'jon'\\''s studio'`,
+      `printf %s "$code" | xixo-link enroll --token - --name 'jon'\\''s studio'`,
     )
     expect(all).not.toContain('curl -fsSL')
   })
@@ -45,10 +45,10 @@ describe('linking up a machine', () => {
     const [get] = steps(plan)
 
     expect(get.command).toContain(
-      "'https://xixo.example.com/agent/download/xixo-agent-linux-arm64'",
+      "'https://xixo.example.com/link/download/xixo-link-linux-arm64'",
     )
     expect(get.command).toContain(
-      `echo '${'f'.repeat(64)}  xixo-agent' | sha256sum -c -`,
+      `echo '${'f'.repeat(64)}  xixo-link' | sha256sum -c -`,
     )
   })
 
@@ -63,22 +63,20 @@ describe('linking up a machine', () => {
       extracts_for_others: true,
     })
     expect(shares.command).toContain(
-      '"https://xixo.example.com/agent/download/xixo-agent.service?user=$(id -un)&folders%5B%5D=%2Fsrv%2Fmedia&folders%5B%5D=%2Fdata%2FMy%20Photos%21"',
+      '"https://xixo.example.com/link/download/xixo-link.service?user=$(id -un)&folders%5B%5D=%2Fsrv%2Fmedia&folders%5B%5D=%2Fdata%2FMy%20Photos%21"',
     )
   })
 
-  test('linking comes before the agent starts, so its first connection is known', () => {
+  test('linking comes before xixo link starts, so its first connection is known', () => {
     const [, , last] = steps(plan)
     const lines = last.command.split('\n')
 
-    expect(
-      lines.findIndex((line) => line.includes('/agent/link')),
-    ).toBeLessThan(
+    expect(lines.findIndex((line) => line.includes('/link'))).toBeLessThan(
       lines.findIndex((line) => line.includes('systemctl enable --now')),
     )
   })
 
-  test('a folder the agent cannot share is named', () => {
+  test('a folder xixo link cannot share is named', () => {
     expect(folderLines(' /srv/media \n\n/data\n')).toEqual([
       '/srv/media',
       '/data',
@@ -101,21 +99,21 @@ describe('linking up a machine', () => {
     expect(quoted("it's")).toBe(`'it'\\''s'`)
   })
 
-  test('a Mac gets the agent in its Library and starts it as a launch agent', () => {
+  test('a Mac gets xixo link in its Library and starts it as a launch agent', () => {
     const [get, shares, last] = steps({
       ...plan,
-      build: { ...plan.build, os: 'darwin', file: 'xixo-agent-darwin-arm64' },
+      build: { ...plan.build, os: 'darwin', file: 'xixo-link-darwin-arm64' },
     })
 
     expect(get.command).toContain('shasum -a 256 -c -')
     expect(get.command).toContain(
-      'install -m 0755 xixo-agent "$dir/bin/xixo-agent"',
+      'install -m 0755 xixo-link "$dir/bin/xixo-link"',
     )
     expect(shares.command).toContain('cat > "$dir/config.json"')
     expect(shares.command).toContain(
-      `'https://xixo.example.com/agent/download/xixo-agent.plist' | sed "s|@HOME@|$HOME|g"`,
+      `'https://xixo.example.com/link/download/xixo-link.plist' | sed "s|@HOME@|$HOME|g"`,
     )
-    expect(last.command).toContain('"$dir/bin/xixo-agent" enroll --token -')
+    expect(last.command).toContain('"$dir/bin/xixo-link" enroll --token -')
     expect(last.command).toContain('launchctl bootstrap "gui/$(id -u)"')
     expect(last.command).not.toContain('sudo')
   })
