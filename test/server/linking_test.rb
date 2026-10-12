@@ -103,6 +103,12 @@ class LinkingTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "User=jon\n"
     assert_includes response.body, %(BindReadOnlyPaths="-/srv/media" "-/data/My Photos"\n)
 
+    get "/link/download/xixo-link.service", params: { user: "jon", folders: [ "/srv/media", "/srv/inbox:rw" ] },
+                                              headers: bearer(code)
+
+    assert_response :ok
+    assert_includes response.body, %(BindReadOnlyPaths="-/srv/media"\nBindPaths="-/srv/inbox"\n)
+
     get "/link/download/xixo-link.service", params: { user: "jon; rm -rf /", folders: [ "/srv" ] }, headers: bearer(code)
     assert_response :unprocessable_content
 

@@ -26,9 +26,11 @@ import { useMutation, useSubscription } from 'xixo/react'
 import {
   type Build,
   buildLabel,
-  folderLines,
   offered,
+  STANDARD_TOOLS,
+  sharedFolders,
   steps,
+  TOOLS,
   unshareable,
 } from '../linkup'
 
@@ -298,6 +300,7 @@ function Commands({
   const builds = offered(info?.builds ?? [])
   const [file, setFile] = useState(builds[0]?.file ?? '')
   const [folders, setFolders] = useState('')
+  const [tools, setTools] = useState<string[]>(STANDARD_TOOLS)
   const [extractsForOthers, setExtractsForOthers] = useState(false)
   const [lend, setLend] = useState(false)
   const left = useCountdown(code.expiresAt)
@@ -309,9 +312,9 @@ function Commands({
   }, [heard, onChanged])
 
   const build = builds.find((held) => held.file === file) ?? builds[0]
-  const typed = folderLines(folders)
+  const typed = sharedFolders(folders)
   const problems = typed
-    .map(unshareable)
+    .map((folder) => unshareable(folder.path))
     .filter((held): held is string => held !== null)
 
   if (heard?.connected) {
@@ -357,6 +360,7 @@ function Commands({
     name: code.key,
     build,
     folders: typed,
+    tools,
     extractsForOthers,
     lend,
   })
@@ -405,7 +409,7 @@ function Commands({
         <Textarea
           size="md"
           label="Folders it shares"
-          description="One absolute path per line. These fill in the commands. The config on the machine decides, and xixo reads nothing outside the folders it names."
+          description="One absolute path per line. End a line with :rw for a folder xixo may also write into. These fill in the commands. The config on the machine decides, and xixo reads nothing outside the folders it names."
           placeholder="/srv/media"
           autosize
           minRows={2}
@@ -415,6 +419,23 @@ function Commands({
           onChange={(event) => setFolders(event.currentTarget.value)}
           error={problems.length > 0 ? problems.join('. ') : undefined}
         />
+        <Checkbox.Group
+          label="What it offers MCP clients"
+          description="The tools a client reaches on this machine through xixo. The config on the machine keeps the list."
+          value={tools}
+          onChange={setTools}
+        >
+          <div className="linkup-tools">
+            {TOOLS.map((tool) => (
+              <Checkbox
+                key={tool.name}
+                value={tool.name}
+                label={tool.label}
+                description={tool.description}
+              />
+            ))}
+          </div>
+        </Checkbox.Group>
         <details className="linkup-options">
           <summary>More options</summary>
           <Stack gap="var(--s3)" mt="var(--s3)">

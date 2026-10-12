@@ -32,14 +32,19 @@ one that owns the folders.
 3. Pick the machine's system. On Linux, `uname -m` prints `x86_64` for Intel or AMD and `aarch64`
    for ARM. On a Mac, **About This Mac** names an Apple M chip for Apple silicon.
 4. Under **Folders it shares**, list the folders xixo link may read, one absolute path per line.
-   These fill in the commands. The config on the machine decides what is shared, and xixo reads
-   nothing outside it. A path holding a colon, a quotation mark, an apostrophe, a backslash, or a
-   control character is refused.
-5. Under **More options**, turn on **Help read files from other machines** to let xixo send this
+   End a line with `:rw`, such as `/srv/inbox:rw`, for a folder xixo may also write into. These
+   fill in the commands. The config on the machine decides what is shared, and xixo reads nothing
+   outside it. A path holding a colon, a quotation mark, an apostrophe, a backslash, or a control
+   character is refused.
+5. Under **What it offers MCP clients**, choose the tools a client reaches on the machine through
+   xixo. **Browse**, **Search**, **Read**, and **Extract** start checked. **Write** needs a `:rw`
+   folder, and **Models** a model server on the machine. The choice lands in the machine's config
+   as `tools`.
+6. Under **More options**, turn on **Help read files from other machines** to let xixo send this
    machine files from elsewhere to read, and **Let xixo fetch whole files from it** for downloads,
    previews, and reading elsewhere. Both are off unless you turn them on, and both land in the
    machine's config as `extracts_for_others` and `lend`.
-6. Run the three steps in one terminal on the machine, in order. They share the code through the
+7. Run the three steps in one terminal on the machine, in order. They share the code through the
    `code` variable.
 
 The steps on Linux:
@@ -48,7 +53,8 @@ The steps on Linux:
    SHA-256, and installs it at `/usr/local/bin/xixo-link`.
 2. **Say what it shares** writes `/etc/xixo-link/config.json` and fetches the systemd service from
    xixo, filled in with the account and the folders, into
-   `/etc/systemd/system/xixo-link.service`. The service mounts each folder read-only.
+   `/etc/systemd/system/xixo-link.service`. The service mounts each folder read-only, or
+   read-write for a `:rw` folder.
 3. **Link up and start** creates `/var/lib/xixo-link`, runs `xixo-link enroll` with the code on
    standard input, sends the client it prints back to xixo with the same code, and starts the
    service.

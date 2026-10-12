@@ -5,16 +5,66 @@ export interface Build {
   sha256: string
 }
 
+export interface Shared {
+  path: string
+  writable: boolean
+}
+
 export interface Plan {
   xixo: string
   issuer: string
   code: string
   name: string
   build: Build
-  folders: string[]
+  folders: Shared[]
+  tools: string[]
   extractsForOthers: boolean
   lend: boolean
 }
+
+export interface Tool {
+  name: string
+  label: string
+  description: string
+}
+
+export const TOOLS: Tool[] = [
+  {
+    name: 'browse',
+    label: 'Browse',
+    description: 'List the files in its folders.',
+  },
+  {
+    name: 'search',
+    label: 'Search',
+    description: 'Find files by name, path, and the text drawn out of them.',
+  },
+  {
+    name: 'read',
+    label: 'Read',
+    description:
+      'Read a file as text. Without whole files, the text xixo drew out.',
+  },
+  {
+    name: 'extract',
+    label: 'Extract',
+    description: "Run the machine's own readers on a file.",
+  },
+  {
+    name: 'write',
+    label: 'Write',
+    description: 'Write files into a folder that ends in :rw.',
+  },
+  {
+    name: 'models',
+    label: 'Models',
+    description: 'Ask a model server on the machine, such as Ollama.',
+  },
+]
+
+export const STANDARD_TOOLS = ['browse', 'search', 'read', 'extract']
+
+const WRITABLE = ':rw'
 
 export interface Step {
   title: string
@@ -47,6 +97,14 @@ export function folderLines(text: string) {
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
+}
+
+export function sharedFolders(text: string): Shared[] {
+  return folderLines(text).map((line) =>
+    line.endsWith(WRITABLE)
+      ? { path: line.slice(0, -WRITABLE.length), writable: true }
+      : { path: line, writable: false },
+  )
 }
 
 export function unshareable(path: string) {
@@ -82,9 +140,14 @@ export function config(plan: Plan) {
     {
       xixo: plan.xixo,
       issuer: plan.issuer,
-      folders: plan.folders,
+      folders: plan.folders.map((folder) =>
+        folder.writable ? { path: folder.path, writable: true } : folder.path,
+      ),
       lend: plan.lend,
       extracts_for_others: plan.extractsForOthers,
+      tools: TOOLS.map((tool) => tool.name).filter((name) =>
+        plan.tools.includes(name),
+      ),
     },
     null,
     2,
@@ -120,7 +183,7 @@ function mac(plan: Plan): Step[] {
     {
       title: 'Say what it shares',
       detail:
-        'Writes the config and the launch agent. The config on the machine is the only place its folders are named. Change it there to change them later.',
+        'Writes the config and the launch agent. The config on the machine is the only place its folders and tools are named. Change it there to change them later.',
       command: [
         `cat > "$dir/config.json" <<'EOF'`,
         config(plan),
@@ -148,7 +211,10 @@ export function steps(plan: Plan): Step[] {
   const download = `${plan.xixo}/link/download/${plan.build.file}`
   const unit = [
     `${plan.xixo}/link/download/xixo-link.service?user=$(id -un)`,
-    ...plan.folders.map((folder) => `folders%5B%5D=${escaped(folder)}`),
+    ...plan.folders.map(
+      (folder) =>
+        `folders%5B%5D=${escaped(folder.writable ? `${folder.path}${WRITABLE}` : folder.path)}`,
+    ),
   ].join('&')
 
   return [
@@ -167,7 +233,7 @@ export function steps(plan: Plan): Step[] {
     {
       title: 'Say what it shares',
       detail:
-        'Writes the config and the service. The config on the machine is the only place its folders are named, and the service mounts each one read-only. Change both on the machine to change them later.',
+        'Writes the config and the service. The config on the machine is the only place its folders and tools are named, and the service mounts each folder read-only, or read-write when it ends in :rw. Change both on the machine to change them later.',
       command: [
         'sudo install -d -m 0755 /etc/xixo-link',
         "sudo tee /etc/xixo-link/config.json > /dev/null <<'EOF'",

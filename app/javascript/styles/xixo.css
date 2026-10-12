@@ -3567,6 +3567,13 @@ a.tag:hover {
   opacity: 0.85;
 }
 
+.linkup-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--s3) var(--s4);
+  margin-top: var(--s2);
+}
+
 .linkup-options summary {
   color: var(--muted);
   font-size: var(--t-small);

@@ -4,6 +4,8 @@ import {
   folderLines,
   offered,
   quoted,
+  STANDARD_TOOLS,
+  sharedFolders,
   steps,
   unshareable,
 } from '../../app/javascript/linkup'
@@ -19,7 +21,11 @@ const plan = {
     file: 'xixo-link-linux-arm64',
     sha256: 'f'.repeat(64),
   },
-  folders: ['/srv/media', '/data/My Photos!'],
+  folders: [
+    { path: '/srv/media', writable: false },
+    { path: '/data/My Photos!', writable: false },
+  ],
+  tools: STANDARD_TOOLS,
   extractsForOthers: true,
   lend: false,
 }
@@ -61,9 +67,27 @@ describe('linking up a machine', () => {
       folders: ['/srv/media', '/data/My Photos!'],
       lend: false,
       extracts_for_others: true,
+      tools: ['browse', 'search', 'read', 'extract'],
     })
     expect(shares.command).toContain(
       '"https://xixo.example.com/link/download/xixo-link.service?user=$(id -un)&folders%5B%5D=%2Fsrv%2Fmedia&folders%5B%5D=%2Fdata%2FMy%20Photos%21"',
+    )
+  })
+
+  test('a folder ending in :rw is shared writable in the config and the service, and the tools chosen are written', () => {
+    const writable = {
+      ...plan,
+      folders: sharedFolders('/srv/media\n/srv/inbox:rw'),
+      tools: ['write', 'browse', 'models'],
+    }
+    const [, shares] = steps(writable)
+
+    expect(JSON.parse(config(writable))).toMatchObject({
+      folders: ['/srv/media', { path: '/srv/inbox', writable: true }],
+      tools: ['browse', 'write', 'models'],
+    })
+    expect(shares.command).toContain(
+      'folders%5B%5D=%2Fsrv%2Fmedia&folders%5B%5D=%2Fsrv%2Finbox%3Arw"',
     )
   })
 
@@ -86,6 +110,10 @@ describe('linking up a machine', () => {
     expect(unshareable('/srv/../etc')).toMatch(/shortest form/)
     expect(unshareable('/srv/media/')).toMatch(/shortest form/)
     expect(unshareable('/srv/a:b')).toMatch(/colon/)
+    expect(sharedFolders('/srv/inbox:rw\n/srv/a:b')).toEqual([
+      { path: '/srv/inbox', writable: true },
+      { path: '/srv/a:b', writable: false },
+    ])
   })
 
   test('only systems the commands are written for are offered', () => {
