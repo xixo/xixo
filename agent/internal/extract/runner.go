@@ -6,8 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"syscall"
 	"time"
@@ -16,11 +17,18 @@ import (
 const (
 	MostMemory  = 4 << 30
 	MostOutput  = 64 << 20
-	LimitedArg  = "__limited"
 	DefaultTime = 10 * time.Minute
 )
 
+var ProgramMemory = map[string]uint64{
+	"exiftool": 6 << 30,
+}
+
 var ErrStopped = errors.New("the program ran past its deadline and was stopped")
+
+const cappedScript = `want=$1; shift; hard=$(ulimit -H -d); if [ "$hard" != unlimited ] && [ "$hard" -lt "$want" ]; then want=$hard; fi; ulimit -d "$want" || exit 125; exec "$@"`
+
+const uncappedScript = `shift; exec "$@"`
 
 type Limited struct {
 	Memory uint64
@@ -28,37 +36,24 @@ type Limited struct {
 	Env    []string
 }
 
-func init() {
-	if len(os.Args) > 3 && os.Args[1] == LimitedArg {
-		os.Exit(limitedExec(os.Args[2], os.Args[3:]))
+func (l Limited) memoryFor(program string) uint64 {
+	if l.Memory != 0 {
+		return l.Memory
 	}
+
+	if held, ok := ProgramMemory[filepath.Base(program)]; ok {
+		return held
+	}
+
+	return MostMemory
 }
 
-func limitedExec(memory string, args []string) int {
-	held, err := strconv.ParseUint(memory, 10, 64)
-	if err != nil || len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "xixo-agent: a limited run needs a memory cap and a program")
-
-		return 2
+func limitScript() string {
+	if runtime.GOOS == "darwin" {
+		return uncappedScript
 	}
 
-	if err := setDataLimit(held); err != nil {
-		fmt.Fprintln(os.Stderr, "xixo-agent: the memory cap could not be set:", err)
-
-		return 2
-	}
-
-	program, err := exec.LookPath(args[0])
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "xixo-agent:", err)
-
-		return 127
-	}
-
-	err = syscall.Exec(program, args, os.Environ())
-	fmt.Fprintln(os.Stderr, "xixo-agent:", err)
-
-	return 126
+	return cappedScript
 }
 
 func (l Limited) Run(ctx context.Context, limit time.Duration, program string, args ...string) ([]byte, error) {
@@ -73,20 +68,12 @@ func (l Limited) RunTo(ctx context.Context, limit time.Duration, stdout io.Write
 		limit = DefaultTime
 	}
 
-	memory := l.Memory
-	if memory == 0 {
-		memory = MostMemory
-	}
-
-	self, err := os.Executable()
-	if err != nil {
-		return err
-	}
+	kilobytes := strconv.FormatUint(l.memoryFor(program)>>10, 10)
 
 	ctx, cancel := context.WithTimeout(ctx, limit)
 	defer cancel()
 
-	command := exec.Command(self, append([]string{LimitedArg, strconv.FormatUint(memory, 10), program}, args...)...)
+	command := exec.Command("/bin/sh", append([]string{"-c", limitScript(), "xixo-agent-limit", kilobytes, program}, args...)...)
 	command.Dir = l.Dir
 	command.Env = l.Env
 	command.Stdout = stdout
