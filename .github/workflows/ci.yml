@@ -98,7 +98,7 @@ jobs:
       - name: Build the mac reader for Apple silicon and Intel
         run: |
           make -C macos
-          lipo -verify_arch arm64 x86_64 macos/build/xixo-mac-reader
+          lipo macos/build/xixo-mac-reader -verify_arch arm64 x86_64
 
       - name: Test extraction with the mac reader under the sandbox
         run: go test ./internal/extract/...

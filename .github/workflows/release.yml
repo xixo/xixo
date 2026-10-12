@@ -102,7 +102,7 @@ jobs:
       - name: Build the mac reader for Apple silicon and Intel
         run: |
           make -C link/macos
-          lipo -verify_arch arm64 x86_64 link/macos/build/xixo-mac-reader
+          lipo link/macos/build/xixo-mac-reader -verify_arch arm64 x86_64
           cd link/macos/build && shasum -a 256 xixo-mac-reader > xixo-mac-reader.sha256
 
       - name: Attach it and its SHA-256 to the release
