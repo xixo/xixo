@@ -27,8 +27,7 @@
         }
       },
       "deviation": {
-        "error": "vips failed: vips failed: exit status 1: (vips:3357): GLib-GObject-CRITICAL **: 01:41:30.474: value \"nan\" of type 'gdouble' is invalid or out of range for property 'out' of type 'gdouble'\ndeviate: ...",
-        "result": null
+        "result": 0
       },
       "dimensions": {
         "result": {

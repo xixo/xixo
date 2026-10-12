@@ -6,12 +6,14 @@
     "files": [],
     "steps": {
       "info": {
-        "error": "libreoffice produced no pdf",
-        "result": null
+        "result": {
+          "creationdate": "Mon Oct 12 07:56:20 2026 UTC",
+          "page_size": "595.304 x 841.89 pts (A4)",
+          "pages": 1
+        }
       },
       "metadata": {
-        "error": "exiftool failed: exit status 1: Out of memory in perl:util:safesysrealloc",
-        "result": null
+        "result": {}
       },
       "text": {
         "digest": "headings and tables from the document itself, else the pdf's text",

@@ -27,7 +27,13 @@
         }
       },
       "dimensions": {
-        "error": "photo.nef carries no image simple_dcraw could read",
+        "result": {
+          "height": 4032,
+          "width": 6032
+        }
+      },
+      "location": {
+        "digest": "exiftool",
         "result": null
       },
       "metadata": {
