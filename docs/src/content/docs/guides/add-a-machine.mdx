@@ -31,25 +31,42 @@ You need:
 5. Optionally, fill in **Host key** with the fingerprint `ssh-keygen -lf
    /etc/ssh/ssh_host_ed25519_key.pub` prints on the machine. Left empty, the key the machine
    offers on the first install is kept.
-6. Choose **Attach it**.
+6. Leave **Extract on the machine** on to install the programs that read PDFs, office documents,
+   images, audio, and video. They install with apt, so this needs Debian or Ubuntu.
+7. Choose **Attach it**.
 
 Attaching starts an install run. **What it has done** in the machine's menu shows it, with a line
 for each step. The run:
 
 1. Checks the machine's host key against the one kept.
 2. Refuses anything other than Linux on x86_64 or aarch64, and an account without `sudo -n`.
-3. Places the agent at `/usr/local/bin/xixo-agent` and checks its SHA-256 on the machine.
-4. Writes `/etc/xixo-agent/config.json` with xixo's address, masks' address, and the folders.
-5. Asks masks for an enrollment token and runs `xixo-agent enroll`, which makes the agent's keys on
+3. Installs the extraction programs with `apt-get` when **Extract on the machine** is on, the same
+   packages as the agent beside the server. On a machine that is not Debian or Ubuntu, or when apt
+   fails, the run says so and goes on, and the agent reads only what needs no program: plain text,
+   data, calendars, contacts, email, books, and spreadsheets.
+4. Places the agent at `/usr/local/bin/xixo-agent` and checks its SHA-256 on the machine.
+5. Writes `/etc/xixo-agent/config.json` with xixo's address, masks' address, and the folders.
+6. Asks masks for an enrollment token and runs `xixo-agent enroll`, which makes the agent's keys on
    the machine and registers it with masks as a client of its own.
-6. Installs and starts the `xixo-agent` systemd service as the account. The service sees `/home`,
+7. Installs and starts the `xixo-agent` systemd service as the account. The service sees `/home`,
    `/root`, `/srv`, `/mnt`, `/media`, `/opt`, and `/var/lib` as empty, apart from its own state
    directory, and each shared folder is mounted back read-only. A file outside the shared folders
    is missing for the agent even when its account could read it.
 
 xixo drops the private key when the run ends, whether it worked or not. Within a minute the agent
-connects, and the machine's card shows its hostname, the agent's version, its uptime, and how many
-folders it shares.
+connects, and the machine's card shows its hostname, the agent's version, its uptime, how many
+folders it shares, and the kinds of file it cannot read.
+
+## Files a machine cannot read
+
+A file on a machine is read by that machine's own agent, so only its text leaves the machine. A
+file whose program the machine lacks, such as a PDF on a machine without poppler, is not read, and
+its item says why. Two settings change that:
+
+- Run the install again with **Extract on the machine** on, which installs the programs.
+- Turn on **Send files this machine can't read to the server** in the machine's settings. Each such
+  file is then copied to the agent beside the server, which reads it there. The copy is deleted once
+  it is read.
 
 ## Attach a folder
 

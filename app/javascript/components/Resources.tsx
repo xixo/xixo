@@ -95,6 +95,9 @@ interface Resource {
     seenAt?: string | null
     uptime?: number | null
     folders: string[]
+    extractors: string[]
+    unread: string[]
+    lends: boolean
   } | null
 }
 
@@ -137,6 +140,13 @@ function told(resource: Resource) {
     : 'not checked yet'
 }
 
+function unread(machine: NonNullable<Resource['machine']>) {
+  if (machine.unread.length === 0) return 'reads every kind of file'
+
+  const kinds = machine.unread.join(', ')
+  return machine.lends ? `sends ${kinds} to the server` : `cannot read ${kinds}`
+}
+
 function machined(machine: NonNullable<Resource['machine']>) {
   const shares = `shares ${machine.folders.length} ${machine.folders.length === 1 ? 'folder' : 'folders'}`
 
@@ -150,6 +160,7 @@ function machined(machine: NonNullable<Resource['machine']>) {
     machine.version && `agent ${machine.version}`,
     machine.uptime != null && `up ${Math.floor(machine.uptime / 86400)}d`,
     shares,
+    unread(machine),
   ]
     .filter(Boolean)
     .join(' · ')

@@ -65,6 +65,36 @@ class MachinesTest < ActionDispatch::IntegrationTest
                  body.dig("data", "discovered")
   end
 
+  test "a machine says which kinds of file it reads, which it cannot, and whether it lends them to the server" do
+    agent = agent_on(@tenant, folders: [ "/srv/media" ])
+    Tenant.switch(@tenant) do
+      agent.update_columns(details: agent.details.merge("lend" => true).deep_merge("machine" => { "extractors" => %w[text pdf] }))
+    end
+
+    body = graphql(Grant::SCOPES, "{ resources { key machine { extractors unread lends } } }")
+
+    held = body.dig("data", "resources").find { |listed| listed["key"] == "box" }["machine"]
+    assert_equal %w[text pdf], held["extractors"]
+    assert_equal Resource::XixoAgent::EXTRACTORS - %w[text pdf], held["unread"]
+    assert_equal true, held["lends"]
+  end
+
+  test "an admin turns lending on for a machine without touching what it learned at install" do
+    agent = agent_on(@tenant, folders: [ "/srv/media" ])
+
+    body = graphql(Grant::SCOPES, <<~GQL)
+      mutation { updateResource(input: { id: "#{agent.id}", settings: { lend: true } }) { resource { key } } }
+    GQL
+
+    assert_nil body["errors"]
+    Tenant.switch(@tenant) do
+      held = agent.reload
+      assert held.lends?
+      assert_equal [ "/srv/media" ], held.details["folders"]
+      assert held.client_id.present?
+    end
+  end
+
   test "a folder attaches through the machine and is refused when the machine does not share it" do
     agent_on(@tenant, folders: [ "/srv/media" ])
     attach = <<~GQL

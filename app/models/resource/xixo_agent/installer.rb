@@ -15,6 +15,14 @@ class Resource
       FINGERPRINT = %r{\ASHA256:[A-Za-z0-9+/]{43}\z}
       FOLDERS = "@FOLDERS@".freeze
       UNSHAREABLE = /[[:cntrl:]:"'\\]/
+      PACKAGES = %w[
+        ca-certificates libvips-tools libraw-bin libimage-exiftool-perl libarchive-zip-perl poppler-utils
+        tesseract-ocr ffmpeg libreoffice-writer libreoffice-calc fonts-liberation
+      ].freeze
+      DEBIANS = %w[debian ubuntu].freeze
+      APT = "sudo -n env DEBIAN_FRONTEND=noninteractive apt-get".freeze
+      INSTALLED_WITHIN = 45.minutes
+      TOLD_LINES = 5
 
       def initialize(agent, shell:, minter: Enrollment.method(:mint), revoker: Enrollment.method(:revoke), log: ->(*) { })
         @agent = agent
@@ -29,6 +37,7 @@ class Resource
         arch = system!
         sudo!
         user, group = account!
+        programs = programs!
 
         place!(binary_for(arch), BINARY, mode: "0755")
         @log.call("placed the agent for linux/#{arch} at #{BINARY}")
@@ -48,7 +57,8 @@ class Resource
         version = run!("#{BINARY} version").strip.first(MOST_TEXT)
         @log.call("started the xixo-agent service as #{user}, version #{version}")
 
-        @agent.enrolled!(client_id: client_id, host_key: pinned, version: version, arch: arch, revoker: @revoker)
+        @agent.enrolled!(client_id: client_id, host_key: pinned, version: version, arch: arch, programs: programs,
+                         revoker: @revoker)
       end
 
       private
@@ -98,6 +108,68 @@ class Resource
           end
 
           [ user, group ]
+        end
+
+        def programs!
+          unless @agent.programs?
+            @log.call("left the extraction programs off, as asked")
+            return "left off"
+          end
+
+          named = distribution
+          unless named
+            told = "skipped the extraction programs: they install with apt on Debian or Ubuntu, and this machine is " \
+                   "#{released['PRETTY_NAME'].presence || released['ID'].presence || 'neither'}"
+            @log.call(told)
+            return told.first(200)
+          end
+
+          apt!("update -qq")
+          apt!("install -y --no-install-recommends #{PACKAGES.join(' ')}")
+          @log.call("installed the extraction programs with apt on #{named}")
+          "installed"
+        rescue Resource::Failed => e
+          told = "the extraction programs did not install, so the agent reads only what needs no program: #{e.message}"
+          @log.call(told)
+          told.first(300)
+        end
+
+        def distribution
+          names = [ released["ID"], *released["ID_LIKE"].to_s.split ].map(&:downcase)
+          (names & DEBIANS).first
+        end
+
+        def released
+          @released ||= begin
+            ran = @shell.run("cat /etc/os-release")
+            text = ran.status&.zero? ? ran.out.to_s : ""
+
+            text.lines.filter_map do |line|
+              name, value = line.strip.split("=", 2)
+              next if value.nil? || !name.match?(/\A[A-Z_]+\z/)
+
+              [ name, value.delete_prefix('"').delete_suffix('"').first(80) ]
+            end.to_h
+          end
+        end
+
+        def apt!(arguments)
+          ran = @shell.run("#{APT} #{arguments}", within: INSTALLED_WITHIN)
+          told(ran)
+          return if ran.status&.zero?
+
+          said = Redaction.scrub([ ran.err, ran.out ].map { |held| held.to_s.strip }.find(&:present?).to_s.lines.last.to_s.strip).to_s
+          said = "the machine ended it without an exit status" if said.blank? && ran.status.nil?
+          raise Resource::Failed, "apt-get #{arguments.split.first} failed#{": #{said.first(200)}" if said.present?}"
+        end
+
+        def told(ran)
+          [ ran.out, ran.err ].each do |held|
+            held.to_s.lines.last(TOLD_LINES).each do |line|
+              line = Redaction.scrub(line.strip).to_s.first(200)
+              @log.call(line) if line.present?
+            end
+          end
         end
 
         def enroll!

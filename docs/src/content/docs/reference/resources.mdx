@@ -36,7 +36,6 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | [`tailnet`](#tailnet) | `transport` |  |
 | [`feedback`](#feedback) | `feedback` |  |
 | [`xixo-agent`](#xixo-agent) | `transport` |  |
-| [`agent-folder`](#agent-folder) | — | yes |
 
 ## s3
 
@@ -74,7 +73,7 @@ Object storage. One bucket over the S3 API. AWS, R2, B2, Wasabi, MinIO and Garag
 
 ## filesystem
 
-A directory. A directory on the machine running xixo, inside this tenant's own directory under a root the server was started with. A relative path is taken from there.
+A folder. A folder on a machine running the xixo agent, the server's own included. The agent reads nothing outside the folders its config shares, and writes only to the ones it marks writable.
 
 |  |  |
 | --- | --- |
@@ -83,16 +82,16 @@ A directory. A directory on the machine running xixo, inside this tenant's own d
 | Up to | — |
 | Syncs | yes |
 | Connected through masks | no |
-| Reached through a transport | no |
+| Reached through a transport | yes |
 | Attached from the app | yes |
 
 ### Fields
 
 | Field | Label | Kind | Required | Held | Asked when | Help |
 | --- | --- | --- | --- | --- | --- | --- |
-| `root` | Directory | string | yes |  |  |  |
-| `prefix` | Prefix | string |  |  |  | Left off, the whole directory is walked. |
-| `skip` | Also skip | list |  |  |  | A name or a pattern such as build or *.tmp on each line. Folders and files with a matching name are never walked. .git, .hg, .svn, node_modules, __pycache__, .venv, .tox, .Trash, .Trashes, .Spotlight-V100, .fseventsd, .DS_Store, ._*, Thumbs.db, desktop.ini are always skipped. |
+| `folder` | Folder | string | yes |  |  | One of the folders the machine's agent shares. |
+| `prefix` | Prefix | string |  |  |  | Left off, the whole folder is walked. |
+| `skip` | Also skip | list |  |  |  | A name or a pattern such as build or *.tmp on each line. Folders and files with a matching name are never walked. |
 
 ### Commands
 
@@ -728,6 +727,8 @@ A machine with the xixo agent. A Linux machine xixo connects to once over SSH, i
 | `private_key` | SSH private key | text |  | encrypted |  | Used once to install the agent and then dropped, whether the install worked or not. Paste it again to install again. |
 | `host_key` | Host key | string |  |  |  | The SHA256 fingerprint of the machine's SSH host key. Left empty, the key seen on the first install is kept, and every later install must meet the same one. |
 | `folders` | Folders it shares | lines |  |  |  | Absolute paths, one per line. The agent reads nothing outside them, and only an install or the machine's own config changes them. |
+| `programs` | Extract on the machine | boolean |  |  |  | Installs the programs that read PDFs, office documents, images, audio, and video with apt on Debian or Ubuntu, so only text leaves the machine. Left off, the machine reads only plain text, data, calendars, contacts, email, books, and spreadsheets. |
+| `lend` | Send files this machine can't read to the server | boolean |  |  |  | A file this machine has no program for goes to the agent beside the server. Left off, such a file is not read, and nothing on this machine leaves it but text. |
 
 ### Commands
 
@@ -735,33 +736,3 @@ A machine with the xixo agent. A Linux machine xixo connects to once over SSH, i
 | --- | --- |
 | `health` | — |
 | `discover` | — |
-
-## agent-folder
-
-A folder on a machine. A folder the xixo agent on a machine shares. xixo asks the agent for what is in it, and the agent reads nothing outside the folders its own config lists.
-
-|  |  |
-| --- | --- |
-| Serves | — |
-| Accepts | — |
-| Up to | — |
-| Syncs | yes |
-| Connected through masks | no |
-| Reached through a transport | yes |
-| Attached from the app | yes |
-
-### Fields
-
-| Field | Label | Kind | Required | Held | Asked when | Help |
-| --- | --- | --- | --- | --- | --- | --- |
-| `folder` | Folder | string | yes |  |  | One of the folders the machine's agent shares. |
-| `prefix` | Prefix | string |  |  |  | Left off, the whole folder is walked. |
-| `skip` | Also skip | list |  |  |  | A name or a pattern such as build or *.tmp on each line. Folders and files with a matching name are never walked. |
-
-### Commands
-
-| Command | Arguments |
-| --- | --- |
-| `list` | `prefix: string?` `limit: integer?` |
-| `get` | `key: string` |
-| `keep` | `key: string` |

@@ -18,15 +18,17 @@ class InstallerTest < ActiveSupport::TestCase
         /\Aid -un\z/ => "jon\n",
         /\Aid -gn\z/ => "jon\n",
         /\A\/usr\/local\/bin\/xixo-agent enroll/ => "agent-client-1\n",
-        /\A\/usr\/local\/bin\/xixo-agent version\z/ => "0.2.0\n"
+        /\A\/usr\/local\/bin\/xixo-agent version\z/ => "0.2.0\n",
+        %r{\Acat /etc/os-release\z} => %(PRETTY_NAME="Ubuntu 24.04.3 LTS"\nID=ubuntu\nID_LIKE=debian\n)
       }.merge(answers)
       @ran = []
       @written = {}
     end
 
-    def run(command, stdin: nil)
+    def run(command, stdin: nil, within: nil)
       body = stdin.respond_to?(:read) ? stdin.read : stdin
       @ran << [ command, body ]
+      @within = (@within || {}).merge(command => within)
 
       if (target = command[/\Asudo -n tee (\S+) > \/dev\/null\z/, 1])
         @written[target] = body
@@ -45,6 +47,10 @@ class InstallerTest < ActiveSupport::TestCase
 
     def commands
       @ran.map(&:first)
+    end
+
+    def within(command)
+      @within.to_h[command]
     end
   end
 
@@ -76,7 +82,7 @@ class InstallerTest < ActiveSupport::TestCase
 
       assert_equal "agent-client-1", agent.client_id
       assert_equal KEY, agent.details["host_key"]
-      assert_equal({ "version" => "0.2.0", "arch" => "arm64" }, agent.details["installed"].except("at"))
+      assert_equal({ "version" => "0.2.0", "arch" => "arm64", "programs" => "installed" }, agent.details["installed"].except("at"))
     end
 
     assert_equal "arm binary", shell.written["/usr/local/bin/.xixo-agent.new"]
@@ -190,10 +196,10 @@ class InstallerTest < ActiveSupport::TestCase
 
   test "a binary that arrives changed is not put in place" do
     shell = FakeShell.new(answers: { %r{\Asudo -n sha256sum /usr/local/bin} => "0000  x\n" })
-    shell.define_singleton_method(:run) do |command, stdin: nil|
+    shell.define_singleton_method(:run) do |command, stdin: nil, within: nil|
       return FakeShell::Ran.new(status: 0, out: "0000  x\n", err: "") if command.start_with?("sudo -n sha256sum /usr/local/bin")
 
-      super(command, stdin: stdin)
+      super(command, stdin: stdin, within: within)
     end
 
     Tenant.switch(@tenant) do
@@ -300,9 +306,9 @@ class InstallerTest < ActiveSupport::TestCase
       agent = machine
       revoked = []
       shell = FakeShell.new
-      shell.define_singleton_method(:run) do |command, stdin: nil|
+      shell.define_singleton_method(:run) do |command, stdin: nil, within: nil|
         Resource::XixoAgent.where(id: agent.id).update_all(archived_at: Time.current) if command.include?("systemctl restart")
-        super(command, stdin: stdin)
+        super(command, stdin: stdin, within: within)
       end
 
       error = assert_raises(Resource::Failed) do
@@ -386,6 +392,76 @@ class InstallerTest < ActiveSupport::TestCase
     assert_raises(Resource::Failed) { Resource::XixoAgent::Enrollment.mint(@tenant, name: "Box") }
   end
 
+  test "an install puts the extraction programs on a Debian or Ubuntu machine with apt, the packages the agent's own image uses" do
+    shell = FakeShell.new
+
+    Tenant.switch(@tenant) { installer(machine, shell).install! }
+
+    install = shell.commands.find { |command| command.include?("apt-get install") }
+    assert_equal "sudo -n env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends " \
+                 "#{Resource::XixoAgent::Installer::PACKAGES.join(' ')}", install
+    assert_equal Resource::XixoAgent::Installer::INSTALLED_WITHIN, shell.within(install)
+    assert_operator shell.commands.index { |command| command.include?("apt-get update") }, :<, shell.commands.index(install)
+    assert_operator shell.commands.index(install), :<, shell.commands.index("sudo -n systemctl restart xixo-agent")
+  end
+
+  test "the programs installed are the ones the agent's own image installs" do
+    image = Rails.root.join("Dockerfile.agent").read
+    listed = image[/apt-get install --no-install-recommends -y\s*\\?\n(.*?)&&/m, 1].to_s.split(/[\s\\]+/).reject(&:empty?)
+
+    assert_equal listed.sort, Resource::XixoAgent::Installer::PACKAGES.sort
+  end
+
+  test "a machine that is not Debian or Ubuntu gets the agent without the programs, and says why" do
+    told = []
+    shell = FakeShell.new(answers: { %r{\Acat /etc/os-release\z} => %(PRETTY_NAME="Fedora Linux 41"\nID=fedora\n) })
+
+    Tenant.switch(@tenant) do
+      agent = machine
+      installer(agent, shell, log: ->(line) { told << line }).install!
+      agent.reload
+
+      assert_equal "agent-client-1", agent.client_id
+      assert_match(/apt on Debian or Ubuntu, and this machine is Fedora Linux 41/, agent.details.dig("installed", "programs"))
+    end
+
+    assert_no_match(/apt-get/, shell.commands.join("\n"))
+    assert told.any? { |line| line.include?("Fedora Linux 41") }
+  end
+
+  test "programs that fail to install leave the agent installed, and the failure is kept and scrubbed into the log" do
+    told = []
+    failed = Resource::XixoAgent::Shell::Ran.new(status: 100, out: "", err: "Err:1 http://mirror:hunter2@apt.example/ubuntu noble\nE: Unable to locate package ffmpeg\n")
+    shell = FakeShell.new(answers: { /apt-get install/ => failed })
+
+    Tenant.switch(@tenant) do
+      agent = machine
+      installer(agent, shell, log: ->(line) { told << line }).install!
+      agent.reload
+
+      assert_equal "agent-client-1", agent.client_id
+      assert_match(/did not install, so the agent reads only what needs no program/, agent.details.dig("installed", "programs"))
+    end
+
+    assert_includes shell.commands, "sudo -n systemctl restart xixo-agent"
+    assert told.any? { |line| line.include?("Unable to locate package ffmpeg") }
+    assert told.any? { |line| line.include?("http://apt.example/ubuntu") }
+    assert_no_match(/hunter2/, told.join("\n"))
+  end
+
+  test "a machine set to leave the programs off gets no apt at all" do
+    shell = FakeShell.new
+
+    Tenant.switch(@tenant) do
+      agent = machine(details: { "programs" => false })
+      installer(agent, shell).install!
+
+      assert_equal "left off", agent.reload.details.dig("installed", "programs")
+    end
+
+    assert_no_match(/apt-get|os-release/, shell.commands.join("\n"))
+  end
+
   private
 
     def swapping(holder, name, replacement)
@@ -403,8 +479,9 @@ class InstallerTest < ActiveSupport::TestCase
       )
     end
 
-    def installer(agent, shell)
+    def installer(agent, shell, log: ->(*) { })
       minted = @minted
-      Resource::XixoAgent::Installer.new(agent, shell: shell, minter: ->(_tenant, name:) { minted << name && "minted-for-#{name}" })
+      Resource::XixoAgent::Installer.new(agent, shell: shell, log: log,
+                                                minter: ->(_tenant, name:) { minted << name && "minted-for-#{name}" })
     end
 end

@@ -54,8 +54,27 @@ class ExtractionTest < ActiveSupport::TestCase
     assert_not asked.any? { |verb, _| %w[read extract].include?(verb) }
     assert_empty FakeAgent.asked
     Tenant.switch(@tenant) do
-      assert_match(/box has no pdf extractor/, feed.reload.analysis.step("extracted").dig("error", "message"))
+      message = feed.reload.analysis.step("extracted").dig("error", "message")
+      assert_match(/box has no pdf extractor/, message)
+      assert_match(/Send files this machine can't read to the server/, message)
     end
+  end
+
+  test "a machine that lends sends a file it cannot read to the agent beside the server" do
+    Tenant.switch(@tenant) { @machine.update!(details: @machine.details.merge("lend" => true)) }
+    feed = Tenant.switch(@tenant) { on_machine("budget.pdf") }
+    asked = []
+
+    with_method(Resource::Filesystem, :download, ->(_locator) { StringIO.new("%PDF bytes of the budget") }) do
+      answering(asked, { "text" => "never" }) { analyze(feed) }
+    end
+
+    assert_not asked.any? { |verb, _| verb == "extract" }
+    extracted = FakeAgent.asked.select { |held| held.verb == "extract" }
+    assert_equal 1, extracted.size
+    assert_equal "%PDF bytes of the budget", extracted.first.bytes
+    assert extracted.first.args.dig("source", "upload")
+    Tenant.switch(@tenant) { assert_nil feed.reload.analysis.step("extracted").to_h["error"] }
   end
 
   test "the same file on two machines becomes one item by the digests their agents report" do

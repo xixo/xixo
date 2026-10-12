@@ -65,7 +65,7 @@ class Resource
         @host_key = host_key
       end
 
-      def run(command, stdin: nil)
+      def run(command, stdin: nil, within: RAN_WITHIN)
         out = +""
         err = +""
         status = nil
@@ -81,9 +81,9 @@ class Resource
           end
         end
 
-        deadline = RAN_WITHIN.seconds.from_now
+        deadline = within.seconds.from_now
         @ssh.loop(0.1) { channel.active? && Time.current < deadline }
-        raise Resource::Failed, "a command ran past #{RAN_WITHIN}s" if channel.active?
+        raise Resource::Failed, "a command ran past #{within.to_i}s" if channel.active?
 
         Ran.new(status: status, out: out, err: err)
       end

@@ -40,6 +40,9 @@ query Resources($archived: Boolean) {
       seenAt
       uptime
       folders
+      extractors
+      unread
+      lends
     }
   }
 }

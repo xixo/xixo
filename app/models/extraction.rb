@@ -59,6 +59,10 @@ class Extraction
       folder = reference.try(:resource)
       return on_machine(folder) if folder.is_a?(Resource::Filesystem)
 
+      beside_the_server
+    end
+
+    def beside_the_server
       local = Resource::XixoAgent.local
       raise Analyzer::Waiting, "no agent beside the server is connected to read #{filename}" unless local&.connected?
       unless reads?(local)
@@ -72,12 +76,13 @@ class Extraction
       agent = folder.agent
       raise Analyzer::Waiting, "the agent that shares #{filename} is not connected" unless agent&.connected?
       raise Analyzer::Failed, "#{agent.key} no longer shares #{folder.folder}" unless agent.offered_folders.include?(folder.folder)
+      return [ agent, { "folder" => folder.folder, "path" => reference.locator.to_h["path"].to_s } ] if reads?(agent)
+      return beside_the_server if agent.lends? && !agent.local?
+      raise Analyzer::Failed, "the agent beside the server has no #{kind} extractor, so it cannot read #{filename}" if agent.local?
 
-      unless reads?(agent)
-        raise Analyzer::Failed, "#{agent.key} has no #{kind} extractor, and a file on a machine is read only by its own agent"
-      end
-
-      [ agent, { "folder" => folder.folder, "path" => reference.locator.to_h["path"].to_s } ]
+      raise Analyzer::Failed,
+            "#{agent.key} has no #{kind} extractor, and a file on a machine is read only by its own agent " \
+            "unless the machine's \"Send files this machine can't read to the server\" setting is on"
     end
 
     def reads?(agent)

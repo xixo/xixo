@@ -48,7 +48,14 @@ class Resource
                         "first install is kept, and every later install must meet the same one."),
             field("folders", "Folders it shares", kind: "lines", placeholder: "/srv/media",
                   help: "Absolute paths, one per line. The agent reads nothing outside them, and only an install " \
-                        "or the machine's own config changes them.")
+                        "or the machine's own config changes them."),
+            field("programs", "Extract on the machine", kind: "boolean", value: "true",
+                  help: "Installs the programs that read PDFs, office documents, images, audio, and video with " \
+                        "apt on Debian or Ubuntu, so only text leaves the machine. Left off, the machine reads " \
+                        "only plain text, data, calendars, contacts, email, books, and spreadsheets."),
+            field("lend", "Send files this machine can't read to the server", kind: "boolean", value: "false",
+                  help: "A file this machine has no program for goes to the agent beside the server. Left off, " \
+                        "such a file is not read, and nothing on this machine leaves it but text.")
           ]
         }
       end
@@ -110,6 +117,14 @@ class Resource
 
     def local?
       details.to_h["local"] == true
+    end
+
+    def programs?
+      details.to_h["programs"] != false
+    end
+
+    def lends?
+      details.to_h["lend"] == true
     end
 
     def seen_at
@@ -192,6 +207,19 @@ class Resource
       end
     end
 
+    def glimpse(folder, path, limit:, within: ANSWERED_WITHIN)
+      exchanged("read", { "folder" => folder, "path" => path, "limit" => limit }, within: within) do |answer|
+        held = answer.result.to_h
+        file = Reading.new(self, answer.exchange, size: held["size"]).file
+
+        begin
+          [ file.read(limit).to_s, held["total"].is_a?(Integer) ? held["total"] : held["size"] ]
+        ensure
+          file.close!
+        end
+      end
+    end
+
     def upload(io)
       raise Resource::Offline, "#{key}: the agent is not connected" unless connected?
 
@@ -240,14 +268,14 @@ class Resource
       save!
     end
 
-    def enrolled!(client_id:, host_key:, version:, arch:, revoker: Enrollment.method(:revoke))
+    def enrolled!(client_id:, host_key:, version:, arch:, programs: nil, revoker: Enrollment.method(:revoke))
       put_away = transaction do
         held = XixoAgent.lock.find(id)
         next true if held.archived_at.present?
 
         held.details = held.details.to_h.merge(
           "client_id" => client_id, "host_key" => host_key,
-          "installed" => { "version" => version, "arch" => arch, "at" => now_stamp }
+          "installed" => { "version" => version, "arch" => arch, "programs" => programs, "at" => now_stamp }.compact
         )
         held.save!
         false

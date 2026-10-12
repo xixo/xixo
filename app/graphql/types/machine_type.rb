@@ -18,6 +18,13 @@ module Types
     field :memory_total, GraphQL::Types::BigInt
     field :memory_available, GraphQL::Types::BigInt
     field :disks, [ Types::MachineDiskType ], null: false
+    field :extractors, [ String ], null: false,
+          description: "The kinds of file the agent can read, by the programs installed on the machine."
+    field :unread, [ String ], null: false,
+          description: "The kinds of file the agent cannot read, because the machine lacks their programs. " \
+                       "Such a file on this machine is not read unless the machine lends it to the server."
+    field :lends, Boolean, null: false,
+          description: "Whether a file this machine cannot read goes to the agent beside the server."
     field :services, [ Types::MachineServiceType ], null: false,
           description: "Model servers listening on the machine, with its tailnet address when it has one."
 
@@ -34,6 +41,9 @@ module Types
     def memory_available = health.dig("memory", "available")
     def disks = Array(health["disks"])
     def services = Array(object.machine["services"])
+    def extractors = object.extractors
+    def unread = Resource::XixoAgent::EXTRACTORS - object.extractors
+    def lends = object.lends?
 
     private
 

@@ -78,6 +78,25 @@ class FilesystemTest < ActiveSupport::TestCase
     end
   end
 
+  test "a glimpse asks the agent for only the bytes it shows, and says the file's whole size" do
+    Tenant.switch(@tenant) do
+      folder = attached
+      answering(folder, [ { "entries" => [ entry("big.log") ] } ])
+      glimpsed = []
+      folder.agent.define_singleton_method(:read) { |*| raise "a glimpse read the whole file" }
+      folder.agent.define_singleton_method(:glimpse) do |shared, path, limit:|
+        glimpsed << [ shared, path, limit ]
+        [ "the first lines", 5_000_000_000 ]
+      end
+
+      held = folder.command_get(key: "big.log")
+
+      assert_equal [ [ "/srv/media", "big.log", Resource::GLIMPSE_BYTES ] ], glimpsed
+      assert_equal 5_000_000_000, held["size"]
+      assert_equal "the first lines", held["text"]
+    end
+  end
+
   test "a folder the agent stopped sharing is not asked for" do
     Tenant.switch(@tenant) do
       folder = attached

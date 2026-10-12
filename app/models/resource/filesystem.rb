@@ -169,11 +169,11 @@ class Resource
     end
 
     def command_get(key:)
-      file = download(locator_for(object_for(key)))
+      shared!
+      path = relative!(locator_for(object_for(key))["path"])
+      bytes, size = agent.glimpse(folder, path, limit: GLIMPSE_BYTES)
 
-      glimpse(key, file.read(GLIMPSE_BYTES), file.size)
-    ensure
-      file&.close!
+      glimpse(key, bytes, size)
     end
 
     def command_keep(key:) = kept(key)
