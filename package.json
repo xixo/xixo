@@ -29,7 +29,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
-    "@graphql-codegen/cli": "^7.4.3",
+    "@graphql-codegen/cli": "^7.4.5",
     "@graphql-codegen/typed-document-node": "^7.1.1",
     "@graphql-codegen/typescript": "^6.1.0",
     "@graphql-codegen/typescript-operations": "^6.1.9",
@@ -40,13 +40,13 @@
     "@types/rails__actioncable": "^8.0.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^6.1.1",
+    "@vitejs/plugin-react": "^6.1.2",
     "chokidar-cli": "^3.0.0",
     "graphql": "^17.0.2",
     "happy-dom": "^20.14.6",
-    "playwright": "1.63.0",
+    "playwright": "1.64.0",
     "typescript": "^7.0.2",
-    "vite": "^8.3.2",
+    "vite": "^8.3.3",
     "vite-plugin-ruby": "^5.2.5",
     "vitest": "^5.0.3"
   }
