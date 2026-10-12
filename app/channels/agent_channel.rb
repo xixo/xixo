@@ -2,7 +2,7 @@ class AgentChannel < ApplicationCable::Channel
   periodically :expire, every: 15.seconds
 
   def subscribed
-    return reject if machine.nil?
+    return reject if machine.nil? || !current?
 
     @session = SecureRandom.uuid
     stream_for machine
@@ -56,15 +56,21 @@ class AgentChannel < ApplicationCable::Channel
 
     def within
       Tenant.switch(tenant) do
-        agent = Resource::XixoAgent.active.find_by(id: machine.id)
-        yield agent if agent
+        agent = Resource::XixoAgent.enrolled(client_id)
+        next yield agent if agent&.id == machine.id
+
+        connection.close(reason: "unauthorized", reconnect: false)
       end
     end
 
-    def expire
-      gone = Tenant.switch(tenant) { !Resource::XixoAgent.active.exists?(id: machine.id) }
-      return unless connection.expired? || gone
+    def current?
+      Tenant.switch(tenant) { Resource::XixoAgent.enrolled(client_id)&.id == machine.id }
+    end
 
-      connection.close(reason: "unauthorized", reconnect: !gone)
+    def expire
+      held = current?
+      return unless connection.expired? || !held
+
+      connection.close(reason: "unauthorized", reconnect: held)
     end
 end

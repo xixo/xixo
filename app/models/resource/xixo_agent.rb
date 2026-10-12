@@ -23,7 +23,7 @@ class Resource
     validate :shared_by_everyone
 
     after_commit :install_later, on: %i[create update], if: :key_given?
-    after_commit :hang_up, on: %i[update destroy], if: :put_away_now?
+    after_commit :hang_up, on: %i[update destroy], if: -> { put_away_now? || client_replaced? }
 
     class << self
       def attaching
@@ -361,8 +361,20 @@ class Resource
         destroyed? || (saved_change_to_archived_at? && archived_at.present?)
       end
 
+      def client_replaced?
+        before = details_before_last_save.to_h["client_id"]
+
+        before.present? && before != client_id
+      end
+
       def hang_up
-        ActionCable.server.remote_connections.where(tenant: tenant, grant: nil, machine: self).disconnect(reconnect: false)
+        clients = [ details_before_last_save.to_h["client_id"] ]
+        clients << client_id if put_away_now?
+
+        clients.compact.uniq.each do |client|
+          ActionCable.server.remote_connections.where(tenant: tenant, grant: nil, machine: self, client_id: client)
+                     .disconnect(reconnect: false)
+        end
       end
 
       def key_given?

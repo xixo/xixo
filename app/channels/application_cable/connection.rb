@@ -1,6 +1,6 @@
 module ApplicationCable
   class Connection < ActionCable::Connection::Base
-    identified_by :tenant, :grant, :machine
+    identified_by :tenant, :grant, :machine, :client_id
 
     attr_reader :expires_at
 
@@ -9,7 +9,9 @@ module ApplicationCable
 
       Tenant.switch(tenant) do
         if request.authorization.present?
-          self.machine = enrolled || reject_unauthorized_connection
+          held = enrolled || reject_unauthorized_connection
+          self.machine = held.agent
+          self.client_id = held.claims.client_id
         else
           self.grant = granted || reject_unauthorized_connection
         end
@@ -39,7 +41,7 @@ module ApplicationCable
         return nil if held.nil?
 
         @expires_at = held.expires_at
-        held.agent
+        held
       end
 
       def masks_session

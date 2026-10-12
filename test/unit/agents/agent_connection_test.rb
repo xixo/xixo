@@ -18,6 +18,7 @@ class AgentConnectionTest < ActionCable::Connection::TestCase
     present(token, dpop_proof(token, url: cable_url))
 
     assert_equal @agent, connection.machine
+    assert_equal "box-client", connection.client_id
     assert_nil connection.grant
   end
 

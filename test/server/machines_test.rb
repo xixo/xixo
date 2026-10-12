@@ -146,7 +146,7 @@ class MachinesTest < ActionDispatch::IntegrationTest
 
     assert_equal [ { "subdomain" => @tenant.subdomain, "client_id" => "items-test-client", "machine" => "agent-gone" } ],
                  issuer.unenrollments.select { |held| held["subdomain"] == @tenant.subdomain }
-    assert_equal [ [ { tenant: @tenant, grant: nil, machine: agent }, false ] ], hung_up
+    assert_equal [ [ { tenant: @tenant, grant: nil, machine: agent, client_id: "agent-gone" }, false ] ], hung_up
 
     Tenant.switch(@tenant) do
       held = agent.reload
@@ -154,6 +154,22 @@ class MachinesTest < ActionDispatch::IntegrationTest
       assert_equal "agent-gone", held.details.dig("unenrolled", "client_id")
       assert_nil Resource::XixoAgent.enrolled("agent-gone")
     end
+  end
+
+  test "binding a machine to another client or unenrolling it hangs up the client it had, and only that one" do
+    agent = agent_on(@tenant, client_id: "agent-first")
+    hung_up = []
+
+    swapping(ActionCable.server, :remote_connections, -> { Hanging.new(hung_up) }) do
+      Tenant.switch(@tenant) do
+        agent.bound!("agent-second", revoker: ->(*) { true })
+        agent.update!(name: "Renamed")
+        agent.unenroll!(revoker: ->(*) { true })
+      end
+    end
+
+    assert_equal [ "agent-first", "agent-second" ], hung_up.map { |identifiers, _| identifiers[:client_id] }
+    assert(hung_up.all? { |identifiers, reconnect| identifiers[:machine] == agent && !reconnect })
   end
 
   test "a machine stays attached while masks cannot be reached to unenroll it" do

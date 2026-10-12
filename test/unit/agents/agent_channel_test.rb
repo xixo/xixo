@@ -33,7 +33,7 @@ class AgentChannelTest < ActionCable::Channel::TestCase
   end
 
   test "a person's socket cannot join the GraphQL channel as a machine, nor a machine's the GraphQL one" do
-    stub_connection(tenant: @tenant, grant: nil, machine: @agent)
+    stub_connection(tenant: @tenant, grant: nil, machine: @agent, client_id: @agent.client_id)
     subscription = GraphqlChannel.new(connection, "{}", { "channel" => "GraphqlChannel" })
     subscription.subscribe_to_channel
 
@@ -260,6 +260,42 @@ class AgentChannelTest < ActionCable::Channel::TestCase
     Tenant.switch(@tenant) { assert_not fresh.connected? }
   end
 
+  test "a client the machine was enrolled again past is shut out at its next message and at the next sweep" do
+    connected
+    perform :hello, HELLO
+    closed = closing
+
+    Tenant.switch(@tenant) { fresh.update_columns(details: fresh.details.merge("client_id" => "agent-newer")) }
+    perform :health, HEALTH
+
+    assert_nil fresh.machine["health"]
+    assert_equal [ { reason: "unauthorized", reconnect: false } ], closed
+
+    subscription.send(:expire)
+    assert_equal [ { reason: "unauthorized", reconnect: false } ] * 2, closed
+  end
+
+  test "a client the machine no longer names cannot subscribe" do
+    stub_connection(tenant: @tenant, grant: nil, machine: @agent, client_id: "agent-older")
+    subscribe
+
+    assert subscription.rejected?
+  end
+
+  test "the sweep lets the current client stay, and asks an expired one to sign in again" do
+    connected
+    closed = closing
+    expired = false
+    connection.define_singleton_method(:expired?) { expired }
+
+    subscription.send(:expire)
+    assert_empty closed
+
+    expired = true
+    subscription.send(:expire)
+    assert_equal [ { reason: "unauthorized", reconnect: true } ], closed
+  end
+
   test "an answer names files the agent streamed back under their own ids" do
     connected
     perform :hello, HELLO
@@ -304,8 +340,15 @@ class AgentChannelTest < ActionCable::Channel::TestCase
   private
 
     def connected
-      stub_connection(tenant: @tenant, grant: nil, machine: @agent)
+      stub_connection(tenant: @tenant, grant: nil, machine: @agent, client_id: @agent.client_id)
       subscribe
+    end
+
+    def closing
+      closed = []
+      connection.define_singleton_method(:close) { |**options| closed << options }
+      connection.define_singleton_method(:expired?) { false } unless connection.respond_to?(:expired?)
+      closed
     end
 
     def fresh
