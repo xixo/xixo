@@ -1,5 +1,15 @@
 query Resources($archived: Boolean) {
   administrator
+  linkUp {
+    xixo
+    issuer
+    builds {
+      os
+      arch
+      file
+      sha256
+    }
+  }
   resources(archived: $archived) {
     id
     type
@@ -46,6 +56,51 @@ query Resources($archived: Boolean) {
       lends
       tools
       warnings
+      os
+      arch
+      extractsForOthers
+      linked
+      selfLinked
+      linkingUntil
+      services {
+        kind
+        port
+      }
+      memoryTotal
+      memoryAvailable
+      disks {
+        path
+        total
+        free
+      }
+    }
+  }
+}
+
+mutation LinkMachine($key: String, $name: String, $id: ID) {
+  linkMachine(input: { key: $key, name: $name, id: $id }) {
+    resource {
+      id
+      key
+      name
+    }
+    code
+    expiresAt
+  }
+}
+
+subscription MachineChanged($id: ID) {
+  machineChanged(id: $id) {
+    resource {
+      id
+      key
+      machine {
+        hostname
+        connected
+        linked
+        folders
+        linkingUntil
+      }
     }
   }
 }

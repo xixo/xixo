@@ -6,16 +6,17 @@ import {
   Menu,
   NumberInput,
   Popover,
-  Stack,
   Tooltip,
 } from '@mantine/core'
 import {
   IconArchive,
   IconArchiveOff,
   IconCheck,
+  IconChevronDown,
   IconClock,
   IconDots,
   IconHistory,
+  IconLink,
   IconLock,
   IconPencil,
   IconPlugConnected,
@@ -24,11 +25,11 @@ import {
   IconShieldLock,
   IconSparkles,
   IconStar,
-  IconStarFilled,
   IconTrash,
 } from '@tabler/icons-react'
 import {
   type CSSProperties,
+  type ReactNode,
   type RefObject,
   useEffect,
   useRef,
@@ -48,10 +49,27 @@ import {
 import { useQuery } from 'xixo/react'
 import { session } from '../hooks/useSession'
 import { useTitle } from '../hooks/useTitle'
+import {
+  cannotRead,
+  disks,
+  does,
+  humane,
+  lastSeen,
+  memory,
+  reads,
+  upFor,
+  warning,
+} from '../plain'
 import { unraised } from '../shared'
 import { ago, dated } from '../when'
 import { Attach, type Editing, glyphFor } from './Attach'
 import { Failed } from './Failed'
+import {
+  LinkUpDialog,
+  type LinkUpInfo,
+  LinkUpPanel,
+  type Machine,
+} from './LinkUp'
 import { RunsDialog } from './Runs'
 import { useAloud, useSay } from './Say'
 import { Intro } from './Settings'
@@ -102,30 +120,63 @@ interface Resource {
     lends: boolean
     tools: string[]
     warnings: string[]
+    os?: string | null
+    arch?: string | null
+    extractsForOthers?: boolean | null
+    linked: boolean
+    selfLinked: boolean
+    linkingUntil?: string | null
+    services: { kind: string; port: number }[]
+    memoryTotal?: number | string | null
+    memoryAvailable?: number | string | null
+    disks: {
+      path: string
+      total?: number | string | null
+      free?: number | string | null
+    }[]
   } | null
 }
 
+const MACHINE = 'xixo-agent'
+const LOCAL = 'local'
+
 const CHECKING_POLL = 2000
 
-function toneFor(resource: Resource) {
-  if (resource.syncing) return 'var(--busy)'
-  if (resource.needsConnect) return 'var(--bad)'
-  if (resource.checking) return 'var(--busy)'
-  if (resource.offline) return 'var(--away)'
-  if (!resource.checkedAt) return 'var(--edge)'
-
-  return resource.healthy ? 'var(--ok)' : 'var(--bad)'
+interface Status {
+  tone: string
+  said: string | null
+  busy: boolean
 }
 
-function standing(resource: Resource) {
-  if (resource.syncing) return 'syncing'
-  if (resource.needsConnect)
-    return resource.connectedBy ? 'needs reconnecting' : 'not connected yet'
-  if (resource.checking) return 'checking'
-  if (resource.offline) return 'offline'
-  if (!resource.checkedAt) return 'never checked'
+function status(resource: Resource): Status {
+  const machine = resource.machine
 
-  return resource.healthy ? 'reachable' : 'failing'
+  if (resource.syncing)
+    return { tone: 'var(--busy)', said: 'syncing', busy: true }
+  if (resource.needsConnect)
+    return {
+      tone: 'var(--bad)',
+      said: resource.connectedBy ? 'needs reconnecting' : 'not connected',
+      busy: false,
+    }
+  if (resource.checking)
+    return { tone: 'var(--busy)', said: 'checking', busy: true }
+  if (machine?.linkingUntil)
+    return { tone: 'var(--busy)', said: 'waiting to link up', busy: true }
+  if (machine && !machine.linked && resource.key !== LOCAL)
+    return { tone: 'var(--edge)', said: 'not linked', busy: false }
+  if (machine)
+    return machine.connected
+      ? { tone: 'var(--ok)', said: null, busy: false }
+      : { tone: 'var(--away)', said: 'offline', busy: false }
+  if (resource.offline)
+    return { tone: 'var(--away)', said: 'offline', busy: false }
+  if (!resource.checkedAt)
+    return { tone: 'var(--edge)', said: null, busy: false }
+
+  return resource.healthy
+    ? { tone: 'var(--ok)', said: null, busy: false }
+    : { tone: 'var(--bad)', said: 'not working', busy: false }
 }
 
 function told(resource: Resource) {
@@ -137,44 +188,46 @@ function told(resource: Resource) {
       : `${host} has not been seen on ${resource.via ?? 'its network'}`
   }
 
-  if (resource.checkError) return unraised(resource.checkError)
+  if (resource.machine && !resource.machine.connected)
+    return lastSeen(resource.machine) ?? 'not connected'
+
+  if (resource.checkError) return humane(resource.checkError)
 
   return resource.checkedAt
     ? `checked ${ago(resource.checkedAt)}`
     : 'not checked yet'
 }
 
-function unread(machine: NonNullable<Resource['machine']>) {
-  if (machine.unread.length === 0) return 'reads every kind of file'
-
-  const kinds = machine.unread.join(', ')
-  return machine.lends ? `sends ${kinds} to the server` : `cannot read ${kinds}`
+function plural(count: number, one: string, many = `${one}s`) {
+  return `${count} ${count === 1 ? one : many}`
 }
 
-function offering(machine: NonNullable<Resource['machine']>) {
-  return machine.tools.length === 0
-    ? 'offers no tools to MCP clients'
-    : `offers ${machine.tools.join(', ')} to MCP clients`
+const MODELS: Record<string, string> = {
+  ollama: 'Ollama',
+  lmstudio: 'LM Studio',
 }
 
-function machined(machine: NonNullable<Resource['machine']>) {
-  const shares = `shares ${machine.folders.length} ${machine.folders.length === 1 ? 'folder' : 'folders'}`
+function machineLines(machine: NonNullable<Resource['machine']>) {
+  if (!machine.linked && !machine.connected && !machine.seenAt) return []
 
-  if (!machine.connected)
-    return machine.seenAt
-      ? `agent last heard ${ago(machine.seenAt)}`
-      : 'agent not connected yet'
+  const models = [...new Set(machine.services.map((held) => held.kind))]
+    .map((kind) => MODELS[kind] ?? kind)
+    .join(' and ')
+  const helps = [
+    machine.extractsForOthers && 'reads for other machines',
+    machine.lends && 'sends what it cannot read to the server',
+  ].filter(Boolean)
 
   return [
-    machine.hostname,
-    machine.version && `agent ${machine.version}`,
-    machine.uptime != null && `up ${Math.floor(machine.uptime / 86400)}d`,
-    shares,
-    unread(machine),
-    offering(machine),
-  ]
-    .filter(Boolean)
-    .join(' · ')
+    machine.connected ? null : lastSeen(machine)?.replace(/^l/, 'L'),
+    machine.folders.length === 0
+      ? 'Shares no folders yet'
+      : `Shares ${plural(machine.folders.length, 'folder')}`,
+    reads(machine.extractors, machine.unread),
+    helps.length > 0 ? `Also ${helps.join(' and ')}` : null,
+    models ? `Has ${models}` : null,
+    warning(machine),
+  ].filter((line): line is string => Boolean(line))
 }
 
 export function Resources() {
@@ -251,6 +304,9 @@ export function Resources() {
   const [params, setParams] = useSearchParams()
   const [attaching, setAttaching] = useState(params.has('attach'))
   const [editing, setEditing] = useState<Editing | null>(null)
+  const [linkingUp, setLinkingUp] = useState(false)
+  const [relinking, setRelinking] = useState<Machine | null>(null)
+  const [installing, setInstalling] = useState(false)
   const [history, setHistory] = useState<Resource | null>(null)
   const arrived = useRef<HTMLElement | null>(null)
 
@@ -267,18 +323,24 @@ export function Resources() {
     return () => window.clearInterval(polling)
   }, [checking, refetch])
 
+  const closeAttach = () => {
+    setAttaching(false)
+    if (!params.has('attach')) return
+
+    const rest = new URLSearchParams(params)
+    rest.delete('attach')
+    setParams(rest, { replace: true })
+  }
+
   if (loading && !data) return <Loader size="sm" color="var(--accent)" />
   if (error) return <Failed error={error} retry={refetch} />
 
   const resources = (data?.resources ?? []) as Resource[]
   const administrator = data?.administrator ?? false
+  const linkUp = (data?.linkUp ?? null) as LinkUpInfo | null
   const transports = resources
     .filter((resource) => resource.capabilities.includes('transport'))
     .map((resource) => resource.key)
-  const shelves = SHELVES.map((shelf) => ({
-    ...shelf,
-    held: resources.filter((resource) => shelfOf(resource) === shelf.key),
-  })).filter((shelf) => shelf.held.length > 0)
 
   const acts: Acts = {
     check: async (resource) => {
@@ -350,10 +412,29 @@ export function Resources() {
       return true
     },
     change: (resource) => setEditing(resource),
+    relink: (resource) => setRelinking(resource),
     history: (resource) => setHistory(resource),
     putAway,
     remove: (resource) => setDeleting(resource),
   }
+
+  const inUse = (key: Shelf) =>
+    resources.filter((resource) => shelfOf(resource) === key)
+  const machineCards = inUse('machines').sort((a, b) =>
+    a.key === LOCAL ? -1 : b.key === LOCAL ? 1 : a.key.localeCompare(b.key),
+  )
+
+  const card = (resource: Resource) => (
+    <ResourceCard
+      key={resource.id}
+      resource={resource}
+      landed={resource.id === landed}
+      landedRef={resource.id === landed ? arrived : undefined}
+      putting={putting === resource.id}
+      administrator={administrator}
+      acts={acts}
+    />
+  )
 
   return (
     <div className="settings-page">
@@ -376,7 +457,7 @@ export function Resources() {
         lead={
           shelved
             ? 'Put away, and still holding everything they ever catalogued.'
-            : 'The places your items live, the models that read them, and the tools agents reach for.'
+            : 'Your machines, where your files live, what reads them, and the tools agents reach for.'
         }
       >
         <div className="switcher" data-wide="true">
@@ -401,7 +482,7 @@ export function Resources() {
         {!shelved && (
           <Button
             radius="xl"
-            color="brand"
+            variant="default"
             leftSection={<IconPlus size={16} stroke={2} />}
             onClick={() => setAttaching(true)}
           >
@@ -411,30 +492,38 @@ export function Resources() {
       </Intro>
 
       {!administrator && !shelved && (
-        <Alert
-          variant="light"
-          color="gray"
-          title="Places everyone shares are changed by an administrator"
-        >
-          <Stack gap="var(--s2)" align="flex-start">
-            <span>
-              You can attach places that are only yours. Attaching, changing, or
-              putting away a place everyone shares, and choosing where drops
-              land or what answers questions, takes an administrator sign-in.
-              masks gives it to the people allowed to administer xixo.
-            </span>
-            <Button
-              component="a"
-              href={administratorSignIn()}
-              size="compact-sm"
-              radius="xl"
-              variant="default"
-              leftSection={<IconShieldLock size={14} />}
-            >
-              Sign in as an administrator
-            </Button>
-          </Stack>
-        </Alert>
+        <p className="quiet-note">
+          <IconShieldLock size={15} stroke={1.8} />
+          <span>Places everyone shares are changed by an administrator.</span>
+          <a href={administratorSignIn()}>Sign in as one</a>
+        </p>
+      )}
+
+      {linkingUp || relinking ? (
+        <LinkUpDialog
+          info={linkUp}
+          relinking={relinking}
+          onClose={() => {
+            setLinkingUp(false)
+            setRelinking(null)
+          }}
+          onChanged={refetch}
+          onSsh={() => {
+            setLinkingUp(false)
+            setInstalling(true)
+          }}
+        />
+      ) : null}
+
+      {installing && (
+        <Attach
+          opened
+          administrator={administrator}
+          transports={transports}
+          initialType={MACHINE}
+          onClose={() => setInstalling(false)}
+          onAttached={refetch}
+        />
       )}
 
       {attaching && (
@@ -442,14 +531,11 @@ export function Resources() {
           opened
           administrator={administrator}
           transports={transports}
-          onClose={() => {
-            setAttaching(false)
-            if (!params.has('attach')) return
-
-            const rest = new URLSearchParams(params)
-            rest.delete('attach')
-            setParams(rest, { replace: true })
+          onLinkUp={() => {
+            closeAttach()
+            setLinkingUp(true)
           }}
+          onClose={closeAttach}
           onAttached={refetch}
         />
       )}
@@ -464,28 +550,54 @@ export function Resources() {
         />
       )}
 
-      {shelves.map((shelf) => (
-        <section key={shelf.key} className="shelf-group">
+      {!shelved && (
+        <section className="shelf-group" data-shelf="machines">
           <div className="shelf-group-head">
-            <h2 className="label">{shelf.title}</h2>
-            <span className="shelf-group-note">{shelf.note}</span>
+            <h2 className="label">Machines</h2>
+            <span className="shelf-group-note">
+              The computers that make up your xixo
+            </span>
           </div>
 
-          <div className="rcards" data-compact={shelf.key === 'tools'}>
-            {shelf.held.map((resource) => (
-              <ResourceCard
-                key={resource.id}
-                resource={resource}
-                landed={resource.id === landed}
-                landedRef={resource.id === landed ? arrived : undefined}
-                putting={putting === resource.id}
-                administrator={administrator}
-                acts={acts}
-              />
-            ))}
-          </div>
+          <LinkUpPanel
+            administrator={administrator}
+            onLinkUp={() => setLinkingUp(true)}
+          />
+
+          {machineCards.length > 0 && (
+            <div className="rcards">{machineCards.map(card)}</div>
+          )}
         </section>
-      ))}
+      )}
+
+      {SHELVES.filter((shelf) => !(shelf.key === 'machines' && !shelved)).map(
+        (shelf) => {
+          const held = inUse(shelf.key)
+          if (held.length === 0) return null
+
+          return (
+            <section
+              key={shelf.key}
+              className="shelf-group"
+              data-shelf={shelf.key}
+            >
+              <div className="shelf-group-head">
+                <h2 className="label">{shelf.title}</h2>
+                <span className="shelf-group-note">{shelf.note}</span>
+              </div>
+
+              <div
+                className="rcards"
+                data-compact={
+                  shelf.key === 'tools' || shelf.key === 'connections'
+                }
+              >
+                {held.map(card)}
+              </div>
+            </section>
+          )
+        },
+      )}
 
       {history && (
         <RunsDialog resource={history} onClose={() => setHistory(null)} />
@@ -513,11 +625,10 @@ export function Resources() {
         </Sure>
       )}
 
-      {resources.length === 0 && (
+      {shelved && resources.length === 0 && (
         <div className="settings-empty">
-          {shelved
-            ? 'Nothing has been put away. A resource you stop using goes here, and what it catalogued stays searchable until you delete it.'
-            : 'No resources are attached yet. Attach one and its contents become items you can search.'}
+          Nothing has been put away. A resource you stop using goes here, and
+          what it catalogued stays searchable until you delete it.
         </div>
       )}
     </div>
@@ -541,6 +652,7 @@ interface Acts {
   takeQuestions: (resource: Resource) => void
   schedule: (resource: Resource, seconds: number | null) => Promise<boolean>
   change: (resource: Resource) => void
+  relink: (resource: Resource) => void
   history: (resource: Resource) => void
   putAway: (resource: Resource, archived: boolean) => void
   remove: (resource: Resource) => void
@@ -548,9 +660,15 @@ interface Acts {
 
 const SHELVES = [
   {
+    key: 'machines',
+    title: 'Machines',
+    note: 'The computers that make up your xixo',
+    tone: 'var(--accent)',
+  },
+  {
     key: 'storage',
     title: 'Storage',
-    note: 'Where your items live',
+    note: 'Where your files live',
     tone: 'var(--k-text)',
   },
   {
@@ -566,21 +684,98 @@ const SHELVES = [
     tone: 'var(--k-data)',
   },
   {
-    key: 'networks',
-    title: 'Networks',
-    note: 'What xixo reaches the others through',
-    tone: 'var(--k-email)',
+    key: 'connections',
+    title: 'Connections',
+    note: 'How xixo reaches the others',
+    tone: 'var(--k-file)',
   },
 ] as const
 
 type Shelf = (typeof SHELVES)[number]['key']
 
 function shelfOf(resource: Resource): Shelf {
+  if (resource.type === MACHINE) return 'machines'
   if (resource.capabilities.includes('storage')) return 'storage'
   if (resource.capabilities.includes('inference')) return 'models'
-  if (resource.capabilities.includes('transport')) return 'networks'
+  if (resource.capabilities.includes('transport')) return 'connections'
 
   return 'tools'
+}
+
+function Details({ resource, acts }: { resource: Resource; acts: Acts }) {
+  const machine = resource.machine
+  const rows: [string, ReactNode][] = [
+    [
+      'Key',
+      <span key="key" className="mono">
+        {resource.key}
+      </span>,
+    ],
+    [
+      'Type',
+      <span key="type" className="mono">
+        {resource.type}
+      </span>,
+    ],
+    ...(resource.via
+      ? ([['Reached through', resource.via]] as [string, ReactNode][])
+      : []),
+    ['Does', resource.capabilities.join(', ') || 'nothing on its own'],
+  ]
+
+  if (resource.syncable)
+    rows.push([
+      'Syncs',
+      <Every
+        key="every"
+        resource={resource}
+        onKeep={resource.manageable ? acts.schedule : undefined}
+      />,
+    ])
+
+  if (machine) {
+    const system = [machine.hostname, machine.os, machine.arch]
+      .filter(Boolean)
+      .join(', ')
+    const health = [upFor(machine.uptime), memory(machine), ...disks(machine)]
+      .filter(Boolean)
+      .join('. ')
+
+    if (system) rows.push(['Machine', system])
+    if (machine.version) rows.push(['Agent', machine.version])
+    if (machine.folders.length > 0)
+      rows.push([
+        'Folders',
+        <span key="folders" className="mono">
+          {machine.folders.join('\n')}
+        </span>,
+      ])
+    if (machine.unread.length > 0)
+      rows.push(['Cannot read', cannotRead(machine.unread)])
+    rows.push([
+      'Offers MCP clients',
+      machine.tools.length > 0 ? machine.tools.join(', ') : 'no tools',
+    ])
+    if (health) rows.push(['Health', health])
+  }
+
+  rows.push([
+    'Checked',
+    resource.checkedAt ? ago(resource.checkedAt) : 'not yet',
+  ])
+  if (resource.checkError)
+    rows.push(['What it said', unraised(resource.checkError)])
+
+  return (
+    <dl className="rcard-details">
+      {rows.map(([term, value]) => (
+        <div key={term}>
+          <dt>{term}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
 }
 
 function ResourceCard({
@@ -598,10 +793,23 @@ function ResourceCard({
   administrator: boolean
   acts: Acts
 }) {
+  const [open, setOpen] = useState(false)
   const Glyph = glyphFor(resource.type)
   const shelf = shelfOf(resource)
   const tone = SHELVES.find((held) => held.key === shelf)?.tone
-  const storage = shelf === 'storage'
+  const state = status(resource)
+  const machine = resource.machine
+  const linkable =
+    administrator && resource.type === MACHINE && resource.key !== LOCAL
+  const unlinked = linkable && !machine?.linked && !machine?.linkingUntil
+  const problem =
+    resource.checkError &&
+    !resource.checking &&
+    !machine?.linkingUntil &&
+    !(machine?.linked && !machine.connected)
+      ? humane(resource.checkError)
+      : null
+  const lines = machine ? machineLines(machine) : []
 
   return (
     <article
@@ -611,41 +819,32 @@ function ResourceCard({
       data-failing={Boolean(
         (resource.checkError && !resource.checking) || resource.needsConnect,
       )}
-      style={{ '--tone': tone, '--state': toneFor(resource) } as CSSProperties}
+      style={{ '--tone': tone, '--state': state.tone } as CSSProperties}
     >
       <div className="rcard-top">
         <span className="rcard-icon">
           <Glyph size={20} stroke={1.6} />
         </span>
 
+        <div className="rcard-name">
+          <h3 className="rcard-key">{resource.name || resource.key}</h3>
+          <div className="rcard-kind">{does(resource)}</div>
+        </div>
+
         <Tooltip label={told(resource)}>
           <span
             className="rcard-state"
-            data-busy={resource.syncing || resource.checking}
+            data-busy={state.busy}
+            data-quiet={state.said === null}
+            role="img"
+            aria-label={state.said ?? told(resource)}
           >
-            {standing(resource)}
+            {state.said}
           </span>
         </Tooltip>
       </div>
 
-      <div className="rcard-name">
-        <h3 className="rcard-key">{resource.key}</h3>
-        <div className="rcard-kind">
-          {resource.name && resource.name !== resource.key && (
-            <>{resource.name} · </>
-          )}
-          <span className="mono">{resource.type}</span>
-          {resource.machine && <> · {machined(resource.machine)}</>}
-          {resource.via && (
-            <>
-              {' '}
-              · via <span className="mono">{resource.via}</span>
-            </>
-          )}
-        </div>
-      </div>
-
-      {storage && (
+      {shelf === 'storage' && (
         <div className="rcard-figure">
           <span className="rcard-count">
             {resource.itemsCount.toLocaleString()}
@@ -653,23 +852,6 @@ function ResourceCard({
           <span className="rcard-unit">
             {resource.itemsCount === 1 ? 'item' : 'items'}
           </span>
-        </div>
-      )}
-
-      {(resource.defaultStorage ||
-        resource.defaultInference ||
-        resource.personal) && (
-        <div className="rcard-roles">
-          {resource.defaultStorage && (
-            <span className="rcard-role">
-              <IconStarFilled size={12} /> Drops land here
-            </span>
-          )}
-          {resource.defaultInference && (
-            <span className="rcard-role">
-              <IconSparkles size={12} /> Answers questions
-            </span>
-          )}
           {resource.personal && (
             <span className="rcard-role" data-plain="true">
               <IconLock size={12} /> Only you
@@ -678,13 +860,19 @@ function ResourceCard({
         </div>
       )}
 
-      {resource.checkError && (
-        <div className="rcard-error">{unraised(resource.checkError)}</div>
+      {lines.length > 0 && (
+        <ul className="rcard-lines">
+          {lines.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
       )}
 
-      {resource.machine?.warnings.map((warning) => (
-        <div key={warning} className="rcard-notice">
-          {warning}
+      {problem && <div className="rcard-error">{problem}</div>}
+
+      {machine?.warnings.map((said) => (
+        <div key={said} className="rcard-notice">
+          {said}
         </div>
       ))}
 
@@ -696,159 +884,172 @@ function ResourceCard({
       )}
 
       <footer className="rcard-foot">
+        <button
+          type="button"
+          className="rcard-more"
+          aria-expanded={open}
+          onClick={() => setOpen((held) => !held)}
+        >
+          Details
+          <IconChevronDown size={14} stroke={1.8} data-open={open} />
+        </button>
+
         {resource.archivedAt ? (
-          <>
-            <span className="rcard-when">
-              put away {dated(resource.archivedAt)}
-            </span>
-            <div className="rcard-actions" hidden={!resource.manageable}>
-              <Button
-                size="compact-sm"
-                radius="xl"
-                variant="subtle"
-                color="red"
-                leftSection={<IconTrash size={14} />}
-                disabled={putting}
-                onClick={() => acts.remove(resource)}
-              >
-                Delete
-              </Button>
-              <Button
-                size="compact-sm"
-                radius="xl"
-                variant="default"
-                leftSection={<IconArchiveOff size={14} />}
-                loading={putting}
-                onClick={() => acts.putAway(resource, false)}
-              >
-                Put back
-              </Button>
-            </div>
-          </>
+          <div className="rcard-actions" hidden={!resource.manageable}>
+            <Button
+              size="compact-sm"
+              radius="xl"
+              variant="subtle"
+              color="red"
+              leftSection={<IconTrash size={14} />}
+              disabled={putting}
+              onClick={() => acts.remove(resource)}
+            >
+              Delete
+            </Button>
+            <Button
+              size="compact-sm"
+              radius="xl"
+              variant="default"
+              leftSection={<IconArchiveOff size={14} />}
+              loading={putting}
+              onClick={() => acts.putAway(resource, false)}
+            >
+              Put back
+            </Button>
+          </div>
         ) : (
-          <>
-            {resource.syncable ? (
-              <Every
-                resource={resource}
-                onKeep={resource.manageable ? acts.schedule : undefined}
-              />
-            ) : (
-              <span className="rcard-when">
-                {resource.capabilities.join(' · ')}
-              </span>
+          <div className="rcard-actions">
+            {unlinked && (
+              <Button
+                size="compact-sm"
+                radius="xl"
+                color="brand"
+                leftSection={<IconLink size={14} />}
+                onClick={() => acts.relink(resource)}
+              >
+                Get a fresh code
+              </Button>
             )}
 
-            <div className="rcard-actions">
-              {resource.manageable &&
-                resource.delegated &&
-                resource.connectUrl && (
-                  <Button
-                    component="a"
-                    href={resource.connectUrl}
-                    size="compact-sm"
-                    radius="xl"
-                    color={resource.needsConnect ? 'brand' : 'gray'}
-                    variant={resource.needsConnect ? 'filled' : 'subtle'}
-                    leftSection={<IconPlugConnected size={14} />}
-                  >
-                    {resource.needsConnect
-                      ? resource.connectedBy
-                        ? 'Reconnect'
-                        : 'Connect'
-                      : 'Connect again'}
-                  </Button>
-                )}
-
-              {resource.syncable && (
-                <Tooltip label="Sync now">
-                  <ActionIcon
-                    size={32}
-                    radius="xl"
-                    variant="default"
-                    aria-label={`Sync ${resource.key}`}
-                    loading={resource.syncing}
-                    onClick={() => acts.sync(resource)}
-                  >
-                    <IconRefresh size={16} stroke={1.8} />
-                  </ActionIcon>
-                </Tooltip>
+            {resource.manageable &&
+              resource.delegated &&
+              resource.connectUrl && (
+                <Button
+                  component="a"
+                  href={resource.connectUrl}
+                  size="compact-sm"
+                  radius="xl"
+                  color={resource.needsConnect ? 'brand' : 'gray'}
+                  variant={resource.needsConnect ? 'filled' : 'subtle'}
+                  leftSection={<IconPlugConnected size={14} />}
+                >
+                  {resource.needsConnect
+                    ? resource.connectedBy
+                      ? 'Reconnect'
+                      : 'Connect'
+                    : 'Connect again'}
+                </Button>
               )}
 
-              <Menu position="bottom-end" width={220}>
-                <Menu.Target>
-                  <ActionIcon
-                    size={32}
-                    radius="xl"
-                    variant="subtle"
-                    color="gray"
-                    aria-label={`More for ${resource.key}`}
-                  >
-                    <IconDots size={16} stroke={1.8} />
-                  </ActionIcon>
-                </Menu.Target>
-                <Menu.Dropdown>
-                  <Menu.Item
-                    leftSection={<IconCheck size={15} />}
-                    onClick={() => acts.check(resource)}
-                  >
-                    Check
-                  </Menu.Item>
-                  <Menu.Item
-                    leftSection={<IconHistory size={15} />}
-                    onClick={() => acts.history(resource)}
-                  >
-                    What it has done
-                  </Menu.Item>
-                  {resource.manageable && (
-                    <>
-                      {administrator &&
-                        resource.capabilities.includes('storage') && (
-                          <Menu.Item
-                            disabled={resource.defaultStorage}
-                            leftSection={<IconStar size={15} />}
-                            onClick={() => acts.takeDrops(resource)}
-                          >
-                            Take drops
-                          </Menu.Item>
-                        )}
-                      {administrator &&
-                        resource.capabilities.includes('inference') && (
-                          <Menu.Item
-                            disabled={resource.defaultInference}
-                            leftSection={<IconSparkles size={15} />}
-                            onClick={() => acts.takeQuestions(resource)}
-                          >
-                            Take questions
-                          </Menu.Item>
-                        )}
-                      {resource.changeable && (
+            {resource.syncable && (
+              <Tooltip label="Sync now">
+                <ActionIcon
+                  size={32}
+                  radius="xl"
+                  variant="default"
+                  aria-label={`Sync ${resource.key}`}
+                  loading={resource.syncing}
+                  onClick={() => acts.sync(resource)}
+                >
+                  <IconRefresh size={16} stroke={1.8} />
+                </ActionIcon>
+              </Tooltip>
+            )}
+
+            <Menu position="bottom-end" width={220}>
+              <Menu.Target>
+                <ActionIcon
+                  size={32}
+                  radius="xl"
+                  variant="subtle"
+                  color="gray"
+                  aria-label={`More for ${resource.key}`}
+                >
+                  <IconDots size={16} stroke={1.8} />
+                </ActionIcon>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Item
+                  leftSection={<IconCheck size={15} />}
+                  onClick={() => acts.check(resource)}
+                >
+                  Check
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconHistory size={15} />}
+                  onClick={() => acts.history(resource)}
+                >
+                  What it has done
+                </Menu.Item>
+                {resource.manageable && (
+                  <>
+                    {linkable && !unlinked && (
+                      <Menu.Item
+                        leftSection={<IconLink size={15} />}
+                        onClick={() => acts.relink(resource)}
+                      >
+                        Link up again
+                      </Menu.Item>
+                    )}
+                    {administrator &&
+                      resource.capabilities.includes('storage') && (
                         <Menu.Item
-                          leftSection={<IconPencil size={15} />}
-                          onClick={() => acts.change(resource)}
+                          disabled={resource.defaultStorage}
+                          leftSection={<IconStar size={15} />}
+                          onClick={() => acts.takeDrops(resource)}
                         >
-                          Change
+                          Take drops
                         </Menu.Item>
                       )}
-                      <Menu.Divider />
+                    {administrator &&
+                      resource.capabilities.includes('inference') && (
+                        <Menu.Item
+                          disabled={resource.defaultInference}
+                          leftSection={<IconSparkles size={15} />}
+                          onClick={() => acts.takeQuestions(resource)}
+                        >
+                          Take questions
+                        </Menu.Item>
+                      )}
+                    {resource.changeable && (
                       <Menu.Item
-                        leftSection={<IconArchive size={15} />}
-                        disabled={putting}
-                        onClick={() => acts.putAway(resource, true)}
+                        leftSection={<IconPencil size={15} />}
+                        onClick={() => acts.change(resource)}
                       >
-                        Put away
+                        Change
                       </Menu.Item>
-                    </>
-                  )}
-                </Menu.Dropdown>
-              </Menu>
-            </div>
-          </>
+                    )}
+                    <Menu.Divider />
+                    <Menu.Item
+                      leftSection={<IconArchive size={15} />}
+                      disabled={putting}
+                      onClick={() => acts.putAway(resource, true)}
+                    >
+                      Put away
+                    </Menu.Item>
+                  </>
+                )}
+              </Menu.Dropdown>
+            </Menu>
+          </div>
         )}
       </footer>
+
+      {open && <Details resource={resource} acts={acts} />}
     </article>
   )
 }
-
 function Every({
   resource,
   onKeep,

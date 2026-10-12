@@ -64,7 +64,7 @@ describe('Resources', () => {
 
     expect(
       await screen.findByText(
-        'Places everyone shares are changed by an administrator',
+        'Places everyone shares are changed by an administrator.',
       ),
     ).toBeTruthy()
 
@@ -106,10 +106,10 @@ describe('Resources', () => {
   test('an administrator sees no such notice', async () => {
     show(<Resources />, resources(true).client, '/settings/resources')
 
-    expect(await screen.findByText('household')).toBeTruthy()
+    expect(await screen.findByText('Household')).toBeTruthy()
     expect(
       screen.queryByText(
-        'Places everyone shares are changed by an administrator',
+        'Places everyone shares are changed by an administrator.',
       ),
     ).toBeNull()
   })
@@ -146,5 +146,122 @@ describe('Resources', () => {
     show(<Resources />, client, '/settings/resources?attach=1')
 
     expect(await screen.findByRole('dialog')).toBeTruthy()
+  })
+
+  test('machines come first, this server among them, and say plainly what they share', async () => {
+    const local = resource({
+      id: '9',
+      type: 'xixo-agent',
+      key: 'local',
+      name: 'This server',
+      capabilities: ['transport'],
+      changeable: false,
+      machine: {
+        hostname: 'xixo',
+        version: '0.4.0',
+        connected: true,
+        seenAt: new Date().toISOString(),
+        uptime: 90000,
+        folders: ['/data/files'],
+        extractors: ['pdf', 'text'],
+        unread: [],
+        lends: false,
+        tools: [],
+        warnings: [],
+        os: 'linux',
+        arch: 'arm64',
+        extractsForOthers: true,
+        linked: true,
+        selfLinked: false,
+        linkingUntil: null,
+        services: [{ kind: 'ollama', port: 11434 }],
+        memoryTotal: null,
+        memoryAvailable: null,
+        disks: [],
+      },
+    })
+    const tailnet = resource({
+      id: '8',
+      type: 'tailnet',
+      key: 'home',
+      name: 'home',
+      capabilities: ['transport'],
+    })
+    const { client } = fakeClient({
+      Resources: () => ({
+        administrator: true,
+        resources: [household, tailnet, local],
+      }),
+    })
+
+    show(<Resources />, client, '/settings/resources')
+
+    const headings = (await screen.findAllByRole('heading', { level: 2 })).map(
+      (heading) => heading.textContent,
+    )
+    expect(headings).toEqual(['Machines', 'Storage', 'Connections'])
+    expect(screen.getByText('This server')).toBeTruthy()
+    expect(screen.getByText('The machine xixo runs on')).toBeTruthy()
+    expect(screen.getByText('Shares 1 folder')).toBeTruthy()
+    expect(screen.getByText('Reads every kind of file')).toBeTruthy()
+    expect(screen.getByText('Also reads for other machines')).toBeTruthy()
+    expect(screen.getByText('Has Ollama')).toBeTruthy()
+    expect(
+      screen.getByText('A folder on this server, where your uploads go'),
+    ).toBeTruthy()
+    expect(screen.queryByText('reachable')).toBeNull()
+  })
+
+  test('linking up a machine names it, then shows commands carrying the code', async () => {
+    const { client, asked } = fakeClient({
+      Resources: () => ({
+        administrator: true,
+        resources: [household],
+        linkUp: {
+          xixo: 'https://xixo.example.com',
+          issuer: 'https://id.example.com',
+          builds: [
+            {
+              os: 'linux',
+              arch: 'amd64',
+              file: 'xixo-agent-linux-amd64',
+              sha256: 'a'.repeat(64),
+            },
+          ],
+        },
+      }),
+      LinkMachine: () => ({
+        linkMachine: {
+          resource: { id: '7', key: 'studio', name: 'studio' },
+          code: 'enroll-secret',
+          expiresAt: new Date(Date.now() + 600_000).toISOString(),
+        },
+      }),
+    })
+
+    show(<Resources />, client, '/settings/resources')
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Link up' }),
+    )
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Link up a machine',
+    })
+    await userEvent.type(
+      within(dialog).getByLabelText(/Name the machine/),
+      'studio',
+    )
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Show the commands' }),
+    )
+
+    expect(await within(dialog).findByText('Get the agent')).toBeTruthy()
+    expect(within(dialog).getByText(/code='enroll-secret'/)).toBeTruthy()
+    expect(
+      within(dialog).getByText(/Waiting for studio to link up/),
+    ).toBeTruthy()
+    expect(
+      asked.find((ask) => ask.name === 'LinkMachine')?.variables,
+    ).toMatchObject({ key: 'studio' })
   })
 })

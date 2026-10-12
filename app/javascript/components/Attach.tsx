@@ -25,8 +25,10 @@ import {
   IconCloud,
   IconCpu,
   IconDatabase,
+  IconDeviceDesktop,
   IconFolders,
   IconGitBranch,
+  IconLink,
   IconMail,
   IconMapPin,
   IconNetwork,
@@ -70,6 +72,8 @@ export interface Editing {
 
 const DIRECT = ' directly'
 
+const LINKED = 'xixo-agent'
+
 type Glyph = typeof IconPuzzle
 
 const GLYPHS: Record<string, Glyph> = {
@@ -95,6 +99,7 @@ const GLYPHS: Record<string, Glyph> = {
   slack: IconBrandSlack,
   git: IconGitBranch,
   tailnet: IconNetwork,
+  'xixo-agent': IconDeviceDesktop,
 }
 
 const GROUPS: {
@@ -214,6 +219,8 @@ export function Attach({
   editing,
   transports = [],
   administrator = false,
+  initialType,
+  onLinkUp,
 }: {
   opened: boolean
   onClose: () => void
@@ -221,12 +228,16 @@ export function Attach({
   editing?: Editing
   transports?: string[]
   administrator?: boolean
+  initialType?: string
+  onLinkUp?: () => void
 }) {
   const { data, loading } = useQuery(ResourceTypesDocument, {})
   const attach = useMutation(AttachResourceDocument)
   const update = useMutation(UpdateResourceDocument)
 
-  const [chosen, setChosen] = useState<string | null>(editing?.type ?? null)
+  const [chosen, setChosen] = useState<string | null>(
+    editing?.type ?? initialType ?? null,
+  )
   const [key, setKey] = useState(editing?.key ?? '')
   const [name, setName] = useState(editing?.name ?? '')
   const [typed, setTyped] = useState<Typed>({})
@@ -236,8 +247,15 @@ export function Attach({
   const [personal, setPersonal] = useState(!administrator)
   const [via, setVia] = useState(editing?.via ?? DIRECT)
 
-  const types = data?.resourceTypes ?? []
-  const type = types.find((held) => held.type === chosen) ?? null
+  const types = (data?.resourceTypes ?? []).filter(
+    (held) => !onLinkUp || held.type !== LINKED,
+  )
+  const initial = initialType
+    ? (data?.resourceTypes ?? []).find((held) => held.type === initialType)
+    : undefined
+  const type =
+    types.find((held) => held.type === chosen) ??
+    (initial?.type === chosen ? initial : null)
   const [find, setFind] = useState('')
   const [shelf, setShelf] = useState<string | null>(null)
   const needle = find.trim().toLowerCase()
@@ -255,6 +273,12 @@ export function Attach({
   if (editing && type && seededFor !== editing.id) {
     setTyped(seeded(type, editing))
     setSeededFor(editing.id)
+  }
+
+  if (!editing && initial && seededFor !== initial.type) {
+    setTyped(seeded(initial))
+    setKey((held) => held || initial.type)
+    setSeededFor(initial.type)
   }
 
   const kept = (field: Field) =>
@@ -402,6 +426,22 @@ export function Attach({
         <Loader size="sm" color="var(--accent)" />
       ) : !type ? (
         <div className="attach-picker">
+          {onLinkUp && (
+            <button type="button" className="attach-linkup" onClick={onLinkUp}>
+              <span className="attach-icon attach-icon-large">
+                <IconLink size={26} stroke={1.6} />
+              </span>
+              <span className="attach-linkup-text">
+                <span className="attach-linkup-name">Link up a machine</span>
+                <span className="attach-linkup-says">
+                  Put the xixo agent on another computer. Its folders become
+                  searchable, it helps read files, and its models can answer.
+                </span>
+              </span>
+              <span className="attach-linkup-go">Link up</span>
+            </button>
+          )}
+
           <div className="attach-intro">
             <TextInput
               size="md"
