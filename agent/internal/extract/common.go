@@ -4,7 +4,7 @@ import "context"
 
 func Common(ctx context.Context, in Input, out *Output) error {
 	if Describable(in.MIME) && !in.Skipped("metadata") {
-		if found, err := ReadMetadata(ctx, in.Run, in.Path); err != nil {
+		if found, err := readMetadata(ctx, in); err != nil {
 			out.Fail("metadata", err)
 		} else {
 			out.Set("metadata", found)

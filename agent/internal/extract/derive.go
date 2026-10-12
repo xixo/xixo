@@ -92,6 +92,10 @@ func (d *deriving) run(program string, args ...string) error {
 }
 
 func (d *deriving) render() (string, error) {
+	if made, handled, err := d.onMac(); handled {
+		return made, err
+	}
+
 	switch {
 	case d.in.MIME == Page:
 		return d.fromPage()

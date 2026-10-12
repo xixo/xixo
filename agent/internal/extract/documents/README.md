@@ -50,6 +50,28 @@ An animation with more than one frame sends evenly spaced frames as `frame`
 files: JPEG, 768 pixels wide, named `frame-N.jpg` for frame N counted from 0, at
 most `Settings.Frames` of them.
 
+## On macOS
+
+On macOS three more extractors register under the same names and go first
+when their programs are present.
+
+`pdf` with the mac reader reads each page's text with PDFKit and joins the
+pages with form feeds. `info` holds the same fields, read from the document's
+attributes. A pdf with bookmarks adds an `outline` step, each bookmark starting
+at its page. OCR renders pages at 200 dpi and reads them with Vision, and joins
+the pages with form feeds.
+
+`image` with the mac reader measures dimensions, deviation, and frames, and
+reads `location`, with ImageIO, which reads camera raw files directly. The
+digest of `location` is `imageio`. `ocr` is what Vision reads, one line for each
+line of text, top to bottom.
+
+`doc` with `textutil` also handles `.rtf` (`text/rtf` and `application/rtf`)
+and `.webarchive`. A docx or odt still reads its own XML first, and anything
+else is `textutil`'s plain text. `info` holds the title and author that
+`textutil -info` names, with no page count. Digest: `headings and tables from
+the document itself, else textutil's text`.
+
 ## Tests
 
 `go test` runs everything that needs no outside program anywhere. The rest skips

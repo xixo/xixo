@@ -54,11 +54,18 @@ The extractor is chosen in this order, first match wins: pdf, image, media,
 doc, epub, xlsx, calendar, pkpass, email, contact, data, text, fallback.
 `extractors` in the agent's hello lists the ones whose programs are present.
 
+A name can have more than one extractor behind it. On macOS the `pdf`, `image`,
+`doc`, and `media` names also have extractors built on the mac reader and
+`textutil`, and the first one whose programs are present reads the file. They
+answer with the same steps. See
+[what a Mac reads](../../README.md#what-a-mac-reads) for the order and the
+differences.
+
 ## Steps every extractor gets
 
 | Step | When | Result |
 |---|---|---|
-| `metadata` | not text, JSON, or XML | an object of exiftool tags, group prefixes dropped, plumbing tags left out, at most 200 tags, values cut at 500 characters, lists joined with `, ` |
+| `metadata` | not text, JSON, or XML | an object of exiftool tags, group prefixes dropped, plumbing tags left out, at most 200 tags, values cut at 500 characters, lists joined with `, `; on a Mac without exiftool, the tags the mac reader or `textutil -info` names, under exiftool's names |
 | `derived` | images, video, audio, PDFs, page captures | `{"thumbnail": "thumbnail.jpg", "preview": "preview.jpg"}`, with both files attached in the roles `thumbnail` and `preview` |
 
 A thumbnail is `settings.thumbnail` pixels wide. A preview fits within

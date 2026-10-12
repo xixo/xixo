@@ -47,3 +47,5 @@
 # Ignore Docker-related files
 /.dockerignore
 /Dockerfile*
+
+/agent/macos/build

@@ -24,8 +24,25 @@ Linux, so they run on Apple silicon without a separate signing step.
 The xixo image builds all four into `/opt/xixo-agent`, next to
 `xixo-agent.service` and `xixo-agent.plist`.
 
+On macOS the agent also uses the mac reader, `xixo-mac-reader`, a small Swift
+program that reads PDFs, images, audio, and video with the frameworks macOS
+ships. It builds only on a Mac with the Xcode command line tools, as one
+binary for Apple silicon and Intel:
+
+```sh
+make -C macos
+```
+
+The binary lands in `macos/build/xixo-mac-reader`, signed ad hoc. The xixo
+image cannot build it, so each release attaches it to the release on GitHub,
+built on a macOS runner. See [what a Mac reads](#what-a-mac-reads) for what it
+does.
+
 `go test ./...` runs the tests. On macOS the tests also run real extraction
-programs under the sandbox when they are installed.
+programs under the sandbox when they are installed, and, once `make -C macos`
+has built the mac reader, read PDFs, images, documents, audio, and video under
+the sandbox with a `PATH` that holds only the system folders, the way a Mac
+without Homebrew does.
 `XIXO_SANDBOX_OFFICE=1 go test ./internal/extract -run LibreOffice` converts a
 document with LibreOffice under the sandbox, which is left out by default
 because a crash there opens a crash report dialog.
@@ -348,12 +365,18 @@ silicon and on Intel Macs.
 ### Installing
 
 1. Get `xixo-agent-darwin-arm64` for Apple silicon or `xixo-agent-darwin-amd64`
-   for an Intel Mac, and `xixo-agent.plist`. Put the binary in place:
+   for an Intel Mac, `xixo-agent.plist`, and `xixo-mac-reader` from the
+   release. Put the binaries in place, side by side:
 
    ```sh
    mkdir -p ~/Library/Application\ Support/xixo-agent/bin
    install -m 0755 xixo-agent-darwin-arm64 ~/Library/Application\ Support/xixo-agent/bin/xixo-agent
+   install -m 0755 xixo-mac-reader ~/Library/Application\ Support/xixo-agent/bin/xixo-mac-reader
    ```
+
+   The agent looks for the mac reader beside its own binary first, then on
+   `PATH`. Without it, a Mac reads PDFs, images, audio, and video only with
+   the Homebrew programs in [what a Mac reads](#what-a-mac-reads).
 
 2. A browser marks a downloaded file as quarantined, and macOS then refuses to
    run a binary that Apple has not notarized. Remove the mark. The command
@@ -361,6 +384,7 @@ silicon and on Intel Macs.
 
    ```sh
    xattr -d com.apple.quarantine ~/Library/Application\ Support/xixo-agent/bin/xixo-agent
+   xattr -d com.apple.quarantine ~/Library/Application\ Support/xixo-agent/bin/xixo-mac-reader
    ```
 
    The binary carries an ad hoc signature from the Go linker. `codesign -dv`
@@ -469,6 +493,24 @@ The profile:
 - allows writing only inside the work folder
 - allows no network
 
+The mac reader gets more, because Vision runs its text recognition on the
+GPU and the Neural Engine, and AVFoundation looks up the system's audio codecs.
+It may also:
+
+- read its own binary, list the folder that holds it (Vision looks there for
+  resources), and see that the folders above it exist
+- open the IOSurface, Apple GPU, and Neural Engine user clients
+  (`IOSurfaceRootUserClient`, `AGXDeviceUserClient`, and
+  `H11ANEInDirectPathClient`)
+- reach `com.apple.appleneuralengine` and
+  `com.apple.audio.AudioComponentRegistrar`, the registry of audio codecs
+
+It reaches no network, no audio device, no window server, and no pasteboard.
+Vision without the GPU client reads no text and reports no error, so the tests
+check that a known receipt reads under the sandbox.
+
+`textutil` runs under the plain profile.
+
 `soffice` gets more, because LibreOffice starts the macOS application
 frameworks even when headless. It may also read `/Applications/LibreOffice.app`,
 reach the launch services, window server, pasteboard, disk arbitration, power
@@ -480,6 +522,11 @@ The sandbox has limits:
 - A program can see that the work folder's parent folders exist, though it
   cannot list them.
 - A program can read any file under the system and Homebrew folders.
+- The mac reader can open the GPU and Neural Engine drivers, which gives a file
+  that took it over more of the kernel to reach than the other programs have.
+- The profile names the Apple GPU's driver. An Intel Mac's GPU has another
+  driver, which the profile does not open, and the mac reader's OCR there is
+  untested.
 - LibreOffice can reach the pasteboard, so a document that took it over could
   read the clipboard. With no network, what it reads can only reach xixo in the
   extraction's output.
@@ -493,19 +540,64 @@ The sandbox has limits:
 When `sandbox-exec` is missing, the agent runs no extraction program and warns
 in `hello` and `health`, unless the configuration sets `extract_unsandboxed`.
 
-### Programs for extraction
+### What a Mac reads
 
-The extractors use programs from Homebrew:
+A Mac reads every kind of file xixo sends to an agent with what macOS ships,
+once the mac reader sits beside the agent. Homebrew is optional. Each
+extractor uses the program listed first that the Mac has:
+
+| Extractor | Programs, in order | What a Mac without Homebrew reads |
+|---|---|---|
+| `pdf` | the mac reader, then poppler and tesseract | the text of each page with PDFKit, with pages separated by form feeds and the PDF's bookmarks as an `outline`; a page with too little text is rendered at 200 dpi and read by Vision |
+| `image` | the mac reader, then vips, exiftool, tesseract, and libraw | dimensions, deviation, frames, and location with ImageIO, which reads HEIC, WebP, TIFF, and camera raw files; text with Vision |
+| `media` | ffmpeg, then the mac reader | the probe, the signal, the 16 kHz WAV for transcription, and video frames with AVFoundation |
+| `doc` | `textutil`, then LibreOffice and poppler | `.doc`, `.docx`, `.odt`, `.rtf`, and `.webarchive`; headings and tables from a `.docx` or `.odt` itself, else `textutil`'s plain text; `info` holds the title and author |
+| `epub`, `xlsx`, `calendar`, `pkpass`, `email`, `contact`, `data`, `text`, `fallback` | none | everything, since these read files in Go |
+
+The two steps every extractor gets also work without Homebrew. `metadata`
+uses exiftool when it is installed, and otherwise the mac reader for images,
+PDFs, audio, and video and `textutil -info` for documents. Thumbnails and
+previews come from the mac reader, except that video and audio use ffmpeg when
+it is installed.
+
+The mac reader goes first for PDFs and images because Vision reads scans and
+photographs better than tesseract does. ffmpeg goes first for media because it
+opens more containers and measures loudness to the EBU R128 standard, which the
+mac reader follows closely. `textutil` goes first for documents because it
+needs no exception in the sandbox, while LibreOffice needs the window server
+and the pasteboard.
+
+Some programs macOS ships are left out. `mdls` reads the Spotlight index,
+which never covers the extraction's work folder. `sips` writes through the
+user's temporary folder whatever `TMPDIR` says, which the sandbox refuses, so
+the mac reader draws images with ImageIO instead. `qlmanage` hands the file to
+Quick Look's own services outside the agent's sandbox. AVFoundation decodes
+every format `afconvert` reads, so the mac reader makes the WAV itself.
+
+A Mac without Homebrew has these gaps:
+
+- `metadata` for an epub, a spreadsheet, an archive, or any other type outside
+  images, PDFs, media, and documents fails with "reading this kind of file's
+  metadata needs exiftool, which this Mac lacks"
+- AVFoundation opens MP4, MOV, M4A, MP3, WAV, AIFF, CAF, and FLAC; Matroska,
+  WebM, Ogg, and AVI need ffmpeg
+- a legacy `.xls` spreadsheet needs LibreOffice
+- `info` for a document carries no page count
+- without the mac reader, a recording's waveform needs ffmpeg and a page
+  capture's thumbnail needs vips
+
+Homebrew installs the programs that read more:
 
 ```sh
-brew install exiftool poppler tesseract ffmpeg vips libraw
+brew install exiftool ffmpeg
 ```
 
-LibreOffice is needed only for `.doc`, `.docx`, `.odt`, and older spreadsheet
-formats. Without it, the agent leaves the `doc` extractor out of `extractors`
-and xixo sends those files elsewhere.
+exiftool reads metadata from every type, and ffmpeg opens every container.
+poppler, tesseract, vips, libraw, and LibreOffice are used when the mac reader
+is missing:
 
 ```sh
+brew install poppler tesseract vips libraw
 brew install --cask libreoffice
 ```
 

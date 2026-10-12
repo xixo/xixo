@@ -26,6 +26,11 @@ var (
 	sandboxReshown = []string{"/opt/homebrew/etc/fonts", "/usr/local/etc/fonts"}
 )
 
+var (
+	readerClients  = []string{"IOSurfaceRootUserClient", "AGXDeviceUserClient", "H11ANEInDirectPathClient"}
+	readerServices = []string{"com.apple.appleneuralengine", "com.apple.audio.AudioComponentRegistrar"}
+)
+
 var officeServices = []string{
 	"com.apple.coreservices.launchservicesd", "com.apple.CoreServices.coreservicesd", "com.apple.SystemConfiguration.configd",
 	"com.apple.windowserver.active", "com.apple.DiskArbitration.diskarbitrationd", "com.apple.tccd.system",
@@ -48,6 +53,14 @@ func Profile(work, program string) (string, error) {
 	held.WriteString("(deny file-read*" + subpaths(sandboxHidden) + ")\n")
 	held.WriteString("(allow file-read*" + subpaths(sandboxReshown) + ")\n")
 	held.WriteString("(allow file-write*" + subpaths([]string{work}) + ")\n")
+
+	if IsMacReader(program) && filepath.IsAbs(program) {
+		held.WriteString("(allow file-read* (literal " + quoted(filepath.Clean(program)) + "))\n")
+		held.WriteString("(allow file-read* (literal " + quoted(filepath.Dir(filepath.Clean(program))) + "))\n")
+		held.WriteString("(allow file-read-metadata" + literals(ancestors(filepath.Clean(program))) + ")\n")
+		held.WriteString("(allow iokit-open (iokit-user-client-class" + quotedAll(readerClients) + "))\n")
+		held.WriteString("(allow mach-lookup (global-name" + quotedAll(readerServices) + "))\n")
+	}
 
 	if filepath.Base(program) == "soffice" {
 		held.WriteString("(allow file-read*" + subpaths([]string{"/Applications/LibreOffice.app"}) + ")\n")

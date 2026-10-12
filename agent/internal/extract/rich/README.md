@@ -25,6 +25,15 @@ Handles every `audio/*` and `video/*` type, and needs `ffmpeg`, `ffprobe`, and
 
 Skipping `signal`, `transcript`, or `scenes` leaves out that work.
 
+On a Mac without ffmpeg, the mac reader answers with the same steps through
+AVFoundation. Codecs carry ffmpeg's names (`h264`, `aac`, `pcm_s16le`), and
+`format` is ffmpeg's name for the container the extension names. `signal`
+follows EBU R128 for loudness and range, takes the sample peak, finds silences
+below -50 dB lasting half a second, and measures the spectrum in 2048-sample
+Hann windows. On the recordings in the corpus, loudness, range, and peak match
+ffmpeg's to within 0.2, the centroid to within a few hertz, and flatness falls
+in the same band.
+
 ## email
 
 Handles `message/rfc822`, and needs no programs.

@@ -78,6 +78,37 @@ jobs:
             CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath -o "/tmp/xixo-agent-linux-$arch" .
           done
 
+  mac_reader:
+    runs-on: macos-latest
+
+    defaults:
+      run:
+        working-directory: agent
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: agent/go.mod
+          cache-dependency-path: agent/go.sum
+
+      - name: Build the mac reader for Apple silicon and Intel
+        run: |
+          make -C macos
+          lipo -verify_arch arm64 x86_64 macos/build/xixo-mac-reader
+
+      - name: Test extraction with the mac reader under the sandbox
+        run: go test ./internal/extract/...
+
+      - name: Build for macOS
+        run: |
+          for arch in amd64 arm64; do
+            CGO_ENABLED=0 GOOS=darwin GOARCH="$arch" go build -trimpath -o "/tmp/xixo-agent-darwin-$arch" .
+          done
+
   boot:
     needs: [format, actions, lint, lint_js]
     runs-on: ubuntu-latest

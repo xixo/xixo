@@ -107,11 +107,19 @@ var ErrUnhandled = errors.New("no extractor reads that file")
 
 var (
 	mu         sync.RWMutex
-	registered = map[string]Extractor{}
+	registered = map[string][]Extractor{}
 	lookPath   = exec.LookPath
 )
 
 func Register(e Extractor) {
+	enlist(e, false)
+}
+
+func Prefer(e Extractor) {
+	enlist(e, true)
+}
+
+func enlist(e Extractor, first bool) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -119,7 +127,11 @@ func Register(e Extractor) {
 		panic("extract: " + e.Name() + " is not in the extraction order")
 	}
 
-	registered[e.Name()] = e
+	if first {
+		registered[e.Name()] = append([]Extractor{e}, registered[e.Name()]...)
+	} else {
+		registered[e.Name()] = append(registered[e.Name()], e)
+	}
 }
 
 func Registered() []Extractor {
@@ -129,12 +141,26 @@ func Registered() []Extractor {
 	held := []Extractor{}
 
 	for _, name := range Order {
-		if e, ok := registered[name]; ok {
+		if e := chosen(registered[name]); e != nil {
 			held = append(held, e)
 		}
 	}
 
 	return held
+}
+
+func chosen(held []Extractor) Extractor {
+	for _, e := range held {
+		if usable(e) {
+			return e
+		}
+	}
+
+	if len(held) > 0 {
+		return held[0]
+	}
+
+	return nil
 }
 
 func For(mime, name string) Extractor {
