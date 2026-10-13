@@ -11,6 +11,7 @@ import {
 import {
   IconArrowLeft,
   IconArrowRight,
+  IconArrowsMove,
   IconChevronDown,
   IconCut,
   IconDots,
@@ -50,6 +51,7 @@ import { hrefFor, lookOf, TYPE, toned } from '../looks'
 import { Connections } from './Connections'
 import { Conversation } from './Conversation'
 import { Failed } from './Failed'
+import { Move, type Moving } from './Move'
 import { OneLine } from './OneLine'
 import { Passes, placementOf, why } from './Passes'
 import { Readout } from './Readout'
@@ -102,6 +104,7 @@ export function ItemDetail() {
   const [notingOpen, setNotingOpen] = useState(false)
   const [taggerOpen, setTaggerOpen] = useState(false)
   const [relating, setRelating] = useState(false)
+  const [moving, setMoving] = useState<Moving | null>(null)
   const [zoomed, setZoomed] = useState<{ url: string; alt: string } | null>(
     null,
   )
@@ -305,6 +308,18 @@ export function ItemDetail() {
                 >
                   Relate to another item
                 </Menu.Item>
+                {originals.some(
+                  (reference) => reference.resource.type === 'filesystem',
+                ) && (
+                  <Menu.Item
+                    leftSection={<IconArrowsMove size={15} stroke={1.6} />}
+                    onClick={() =>
+                      setMoving({ kind: 'feed', id: item.id, name })
+                    }
+                  >
+                    Move to…
+                  </Menu.Item>
+                )}
                 <Menu.Item
                   leftSection={<IconRefresh size={15} stroke={1.6} />}
                   disabled={analyze.loading}
@@ -500,6 +515,14 @@ export function ItemDetail() {
           onChanged={settled}
         />
       )}
+
+      <Move
+        moving={moving}
+        onClose={() => {
+          setMoving(null)
+          refetch()
+        }}
+      />
 
       <Connections
         key={`${item.id}-${item.connectedCount}`}

@@ -1,3 +1,11 @@
+fragment MoveProgressFields on MoveProgress {
+  files
+  filesDone
+  filesFailed
+  bytes
+  bytesDone
+}
+
 query Runs($status: String, $resourceId: ID, $after: ID, $limit: Int) {
   runs(status: $status, resourceId: $resourceId, after: $after, limit: $limit) {
     hasMore
@@ -9,6 +17,9 @@ query Runs($status: String, $resourceId: ID, $after: ID, $limit: Int) {
       processed
       lines
       error
+      moved {
+        ...MoveProgressFields
+      }
       startedAt
       finishedAt
       createdAt
@@ -36,8 +47,35 @@ subscription RunProgressed {
       status
       processed
       error
+      moved {
+        ...MoveProgressFields
+      }
       startedAt
       finishedAt
+    }
+  }
+}
+
+query MoveRun($id: ID!) {
+  run(id: $id) {
+    id
+    status
+    error
+    moved {
+      ...MoveProgressFields
+    }
+  }
+}
+
+subscription MoveProgressed($id: ID!) {
+  runProgressed(id: $id) {
+    run {
+      id
+      status
+      error
+      moved {
+        ...MoveProgressFields
+      }
     }
   }
 }

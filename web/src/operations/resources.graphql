@@ -44,6 +44,7 @@ query Resources($archived: Boolean) {
     via
     routable
     machineId
+    movable
     machine {
       hostname
       os
@@ -310,6 +311,33 @@ mutation SetSyncInterval($id: ID!, $seconds: Int) {
 mutation ExportFeeds($destinationId: ID, $type: String, $query: String) {
   exportFeeds(
     input: { destinationId: $destinationId, type: $type, query: $query }
+  ) {
+    run {
+      id
+      status
+    }
+  }
+}
+
+mutation MoveFiles(
+  $destinationId: ID!
+  $into: String
+  $sourceId: ID
+  $path: String
+  $feedIds: [ID!]
+  $query: String
+  $type: String
+) {
+  moveFiles(
+    input: {
+      destinationId: $destinationId
+      into: $into
+      sourceId: $sourceId
+      path: $path
+      feedIds: $feedIds
+      query: $query
+      type: $type
+    }
   ) {
     run {
       id

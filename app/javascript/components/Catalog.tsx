@@ -1,5 +1,6 @@
 import { Button, Group, Loader, Menu, Stack, Text } from '@mantine/core'
 import {
+  IconArrowsMove,
   IconDots,
   IconFilePlus,
   IconFolderPlus,
@@ -35,6 +36,7 @@ import { Failed } from './Failed'
 import { FeedForm } from './FeedForm'
 import { FeedHead } from './FeedHead'
 import { Lost } from './Lost'
+import { Move, type Moving } from './Move'
 import { type Row, Rows, type View } from './Rows'
 import { useAloud, useSay } from './Say'
 import { SETUP_SETTING, Setup } from './Setup'
@@ -448,6 +450,7 @@ function Types() {
 
 function Tools({ type, term }: { type: string | null; term: string }) {
   const [exporting, setExporting] = useState(false)
+  const [moving, setMoving] = useState<Moving | null>(null)
 
   return (
     <>
@@ -457,6 +460,7 @@ function Tools({ type, term }: { type: string | null; term: string }) {
         type={type}
         term={term}
       />
+      <Move moving={moving} onClose={() => setMoving(null)} />
 
       <Menu position="bottom-end" width={210}>
         <Menu.Target>
@@ -476,6 +480,12 @@ function Tools({ type, term }: { type: string | null; term: string }) {
             onClick={() => setExporting(true)}
           >
             Export these…
+          </Menu.Item>
+          <Menu.Item
+            leftSection={<IconArrowsMove size={16} stroke={1.6} />}
+            onClick={() => setMoving({ kind: 'selection', type, term })}
+          >
+            Move these…
           </Menu.Item>
         </Menu.Dropdown>
       </Menu>

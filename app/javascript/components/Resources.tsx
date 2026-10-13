@@ -12,6 +12,7 @@ import {
 import {
   IconArchive,
   IconArchiveOff,
+  IconArrowsMove,
   IconCheck,
   IconChevronDown,
   IconClock,
@@ -90,6 +91,7 @@ import {
 } from './LinkUp'
 import { MachineIcon } from './MachineIcon'
 import { LinkMark } from './Mark'
+import { Move, type Moving } from './Move'
 import { RunsDialog } from './Runs'
 import { useAloud, useSay } from './Say'
 import { Intro } from './Settings'
@@ -126,6 +128,7 @@ interface Resource {
   personal: boolean
   delegated: boolean
   needsConnect: boolean
+  movable?: boolean
   connectedBy?: string | null
   connectUrl?: string | null
   via?: string | null
@@ -477,6 +480,7 @@ export function Resources() {
   const [editing, setEditing] = useState<Editing | null>(null)
   const [linkingUp, setLinkingUp] = useState(false)
   const [history, setHistory] = useState<Resource | null>(null)
+  const [moving, setMoving] = useState<Moving | null>(null)
   const arrived = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
@@ -597,6 +601,11 @@ export function Resources() {
     },
     change: (resource) => setEditing(resource),
     history: (resource) => setHistory(resource),
+    move: (resource) =>
+      setMoving({
+        kind: 'folder',
+        source: { id: resource.id, key: resource.key },
+      }),
     putAway,
     remove: (resource) => setDeleting(resource),
   }
@@ -835,6 +844,8 @@ export function Resources() {
         <RunsDialog resource={history} onClose={() => setHistory(null)} />
       )}
 
+      <Move moving={moving} onClose={() => setMoving(null)} />
+
       {deleting && (
         <Sure
           opened
@@ -885,6 +896,7 @@ interface Acts {
   schedule: (resource: Resource, seconds: number | null) => Promise<boolean>
   change: (resource: Resource) => void
   history: (resource: Resource) => void
+  move: (resource: Resource) => void
   putAway: (resource: Resource, archived: boolean) => void
   remove: (resource: Resource) => void
 }
@@ -1454,6 +1466,14 @@ function More({
           >
             What it has done
           </Menu.Item>
+          {resource.movable && (
+            <Menu.Item
+              leftSection={<IconArrowsMove size={15} />}
+              onClick={() => acts.move(resource)}
+            >
+              Move files…
+            </Menu.Item>
+          )}
           {resource.manageable &&
             resource.delegated &&
             !resource.needsConnect &&
