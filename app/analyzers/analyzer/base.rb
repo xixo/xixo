@@ -3,7 +3,7 @@ module Analyzer
     MAX_TEXT = 200_000
     LEFT_OUT = "dropped".freeze
     EXTRACTED = "extracted".freeze
-    EXTRACTED_AS = "steps from a machine's extraction".freeze
+    EXTRACTED_AS = "steps from a machine's extraction, with previews that carry no EXIF".freeze
     DECODED = "decoded by its byte order mark, as UTF-8, or as Windows-1252".freeze
     STEPS = %w[
       metadata derived info text dimensions deviation frames location ocr probe signal shape tables events
