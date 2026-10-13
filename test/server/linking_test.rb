@@ -57,7 +57,7 @@ class LinkingTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "darwin-arm64) sum=#{Digest::SHA256.hexdigest('mac binary')} ;;"
     assert_not_includes response.body, "linux-arm64)"
     assert_includes response.body, Resource::Machine::Downloads::PACKAGES.join(" ")
-    assert_includes response.body, "xixo-link up"
+    assert_includes response.body, '"$work/xixo-link" up'
     assert_not_includes response.body, "enroll-"
   end
 
@@ -67,6 +67,8 @@ class LinkingTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "useradd --system --user-group --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin xixo-link-update"
     assert_includes response.body, "install -m 0755 -o xixo-link-update -g xixo-link-update \"$work/xixo-link\" /usr/local/lib/xixo-link/xixo-link"
     assert_includes response.body, "ln -sfn /usr/local/lib/xixo-link/xixo-link /usr/local/bin/xixo-link"
+    assert_includes response.body, 'as_root "$work/xixo-link" setup'
+    assert_not_includes response.body, "/usr/local/bin/xixo-link setup"
     assert_includes response.body, "systemctl enable --now --quiet xixo-link-update.path"
     assert_includes response.body, 'rm -rf "$dir/releases"'
     assert_includes response.body, "reader_sum=''"

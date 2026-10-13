@@ -94,9 +94,9 @@ class Resource
               say "This system has no apt. Install poppler, tesseract, ffmpeg, vips, and LibreOffice to read more kinds of files here."
             fi
 
-            as_root /usr/local/bin/xixo-link setup --xixo "$xixo" --issuer "$issuer" "$@"
+            as_root "$work/xixo-link" setup --xixo "$xixo" --issuer "$issuer" "$@"
             curl -fsSL -o "$work/xixo-link.service" "$xixo/link/download/xixo-link.service" || fail "the service did not download."
-            /usr/local/bin/xixo-link unit --template "$work/xixo-link.service" --user "$user" > "$work/unit"
+            "$work/xixo-link" unit --template "$work/xixo-link.service" --user "$user" > "$work/unit"
             as_root install -m 0644 "$work/unit" /etc/systemd/system/xixo-link.service
             for file in xixo-link-update.service xixo-link-update.path; do
               curl -fsSL -o "$work/$file" "$xixo/link/download/$file" || fail "the updater did not download."
@@ -104,7 +104,7 @@ class Resource
             done
             as_root install -d -m 0700 -o "$user" -g "$group" /var/lib/xixo-link
 
-            /usr/local/bin/xixo-link up
+            "$work/xixo-link" up
 
             as_root systemctl daemon-reload
             as_root systemctl enable --quiet xixo-link
