@@ -8,7 +8,7 @@ module ReferencePages
 
     SOURCES = [
       [ %w[app config lib db/seeds.rb Gemfile dev test/test_helper.rb], RUBY ],
-      [ %w[bin/docker-entrypoint compose.yml compose.multi.yml], SHELL ],
+      [ %w[bin/docker-entrypoint compose.yml compose.multi.yml compose.embedded.yml], SHELL ],
       [ %w[vite.config.ts docs/astro.config.mjs], NODE ]
     ].freeze
 

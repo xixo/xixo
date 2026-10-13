@@ -19,6 +19,14 @@ else
   gem "masks", "~> 0.10"
 end
 
+masks_server = ENV["MASKS_SERVER_PATH"].to_s
+
+if File.file?(File.join(masks_server, "masks-server.gemspec"))
+  gem "masks-server", path: masks_server, require: false
+else
+  gem "masks-server", "~> 0.7", require: false
+end
+
 gem "vite_rails"
 
 gem "opensearch-ruby"

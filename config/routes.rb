@@ -5,6 +5,12 @@ Rails.application.routes.draw do
 
   mount Masks::Rails::Engine, at: "/auth", as: :masks
 
+  if EmbeddedIssuer.on?
+    mount Masks::Server::Engine, at: EmbeddedIssuer::PATH
+
+    EmbeddedIssuer::INSERTED.each { |path| get "#{path}#{EmbeddedIssuer::PATH}", to: EmbeddedIssuer.inserted }
+  end
+
   post "/graphql", to: "graphql#execute"
 
   post "/uploads", to: "uploads#create"

@@ -6,8 +6,10 @@ x-app: &app
     dockerfile: Dockerfile.dev
     additional_contexts:
       masks-client: ${MASKS_CLIENT_DIR:-../masks/client}
+      masks-server: ${MASKS_SERVER_DIR:-../masks/engine}
     args:
       MASKS_CLIENT_PATH: /masks/client
+      MASKS_SERVER_PATH: /masks/engine
   image: xixo-dev
   pull_policy: never
   shm_size: 1gb
@@ -20,6 +22,7 @@ x-app: &app
   volumes:
     - .:/rails
     - ${MASKS_CLIENT_DIR:-../masks/client}:/masks/client
+    - ${MASKS_SERVER_DIR:-../masks/engine}:/masks/engine
     - ./compose/no-dotenv:/rails/.env:ro
     - modules:/rails/node_modules
     - storage:/rails/storage

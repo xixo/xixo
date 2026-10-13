@@ -13,7 +13,7 @@ APP_PORT = ENV.fetch("XIXO_PORT", "8180")
 DOCS_PORT = ENV.fetch("XIXO_DOCS_PORT", "8181")
 
 USAGE = <<~TEXT
-  usage: dev [command] [--multi]
+  usage: dev [command] [--multi] [--embedded]
 
     up             build and run the stack in the foreground
     down           stop it, keeping the volumes
@@ -24,7 +24,7 @@ USAGE = <<~TEXT
     console        a rails console
     seed           re-run the seeds
     corpus [group] index the reference corpus in its own tenant, then ask it cases.yaml and score the answers
-    test [suite]   unit, server, client, corpus
+    test [suite]   unit, server, embedded, client, corpus
     reference      regenerate the reference pages under docs/ from the code
     delegation     connect an MCP server through masks and put the whole flow through its paces
     fmt [--check]  format everything, or check it
@@ -32,6 +32,9 @@ USAGE = <<~TEXT
   One tenant answers at http://xixo.localhost:#{APP_PORT}, its docs at
   http://xixo.localhost:#{DOCS_PORT}. It authenticates against masks, which
   MASKS_ISSUER names and which has to be running for sign-in to work.
+
+  With --embedded, xixo serves its own masks at /id, the way a self-hosted
+  install does, and the masks stack is not needed.
 TEXT
 
 def die(message)
@@ -53,7 +56,8 @@ def run!(*command, chdir: ROOT)
 end
 
 def compose(*args, multi: false)
-  files = [ "compose.yml", *("compose.multi.yml" if multi) ]
+  files = [ "compose.yml", *("compose.multi.yml" if multi), *("compose.embedded.yml" if EMBEDDED) ]
+  ENV["XIXO_LINK_HOST"] ||= "demo.xixo.localhost" if EMBEDDED && multi
 
   [ "docker", "compose", *files.flat_map { |file| [ "-f", file ] }, *args ]
 end
@@ -63,16 +67,28 @@ def announce(multi)
 
   puts
   hosts.each { |host| puts "  xixo    http://#{host}:#{APP_PORT}" }
+  hosts.each { |host| puts "  masks   http://#{host}:#{APP_PORT}/id" } if EMBEDDED
   puts "  docs    http://xixo.localhost:#{DOCS_PORT}"
   puts
 end
 
+def masks_assets!
+  engine = File.expand_path(ENV.fetch("MASKS_SERVER_DIR", "../masks/engine"), ROOT)
+
+  return unless File.file?(File.join(engine, "masks-server.gemspec"))
+  return if File.file?(File.join(engine, "public/masks-assets/.vite/manifest.json"))
+
+  die("The masks engine at #{engine} has no built assets, so the built-in masks cannot render a page. " \
+      "Build them with:\n\n  (cd #{File.join(File.dirname(engine), 'server')} && bin/rake masks:engine_assets)")
+end
+
 def up(multi)
+  masks_assets! if EMBEDDED
   announce(multi)
   run!(*compose("up", "--build", "--abort-on-container-failure", multi: multi))
 end
 
-SUITES = %w[unit server corpus].freeze
+SUITES = %w[unit server embedded corpus].freeze
 
 UNPINNED = [ "-e", "XIXO_TENANT=", "-e", "XIXO_TENANTS=" ].freeze
 
@@ -92,6 +108,7 @@ end
 def test(names, multi)
   names = SUITES + [ "client" ] if names.empty?
   names.each { |name| usage unless SUITES.include?(name) || name == "client" }
+  masks_assets! if names.include?("embedded")
 
   run!(*compose("up", "-d", "--wait", "xixo", multi: multi))
   run!(*compose("exec", "-T", *UNPINNED, "xixo", "bin/rails", "db:test:prepare", multi: multi))
@@ -247,8 +264,9 @@ def fmt(args)
   exit(ok.all? ? 0 : 1)
 end
 
-command = ARGV.first == "--multi" ? "up" : ARGV.shift || "up"
+command = ARGV.first.to_s.start_with?("--") ? "up" : ARGV.shift || "up"
 multi = !ARGV.delete("--multi").nil?
+EMBEDDED = !ARGV.delete("--embedded").nil?
 
 case command
 when "up" then up(multi)

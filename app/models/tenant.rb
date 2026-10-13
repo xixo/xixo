@@ -45,10 +45,7 @@ class Tenant < ApplicationRecord
   end
 
   def origin
-    override = ENV["XIXO_PUBLIC_ORIGIN"].presence
-    raise Unconfigured, "XIXO_PUBLIC_ORIGIN is not set, so #{subdomain} has no address outside a request" if override.nil?
-
-    format(override, subdomain: subdomain)
+    self.class.origin_for(subdomain)
   end
 
   def disconnect!
@@ -120,15 +117,26 @@ class Tenant < ApplicationRecord
       format(override, subdomain: subdomain_for(request.host))
     end
 
+    def origin_for(subdomain)
+      override = ENV["XIXO_PUBLIC_ORIGIN"].presence
+      raise Unconfigured, "XIXO_PUBLIC_ORIGIN is not set, so #{subdomain} has no address outside a request" if override.nil?
+
+      format(override, subdomain: subdomain)
+    end
+
     def resource_url(request)
       "#{origin(request)}/mcp"
     end
 
     def issuer_url(request)
+      return EmbeddedIssuer.url(origin(request)) if EmbeddedIssuer.on?
+
       issuer_for(subdomain_for(request.host))
     end
 
     def issuer_for(subdomain)
+      return EmbeddedIssuer.url(origin_for(subdomain)) if EmbeddedIssuer.on?
+
       template = ENV["MASKS_ISSUER_TEMPLATE"].presence
       raise Unconfigured, "MASKS_ISSUER_TEMPLATE is not set" if template.nil?
 

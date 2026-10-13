@@ -115,8 +115,8 @@ analysis as it runs. xixo refuses an upload that no active resource can accept, 
 ## Run it with Docker
 
 xixo ships as a container image, `ghcr.io/xixo/xixo`. The same image runs the web process and the
-worker. It needs Postgres, OpenSearch, and a masks server to sign in against, and it migrates itself
-on boot.
+worker. It needs Postgres and OpenSearch, serves its own masks at `/id` to sign people in, and
+migrates itself on boot.
 
 ```sh
 docker pull ghcr.io/xixo/xixo:latest

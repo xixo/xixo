@@ -93,9 +93,16 @@ shows them under **Settings**, then **Account**. See the [GraphQL reference](/re
 
 ## Signing in
 
-Each xixo tenant is a client of a masks tenant. `MASKS_ISSUER_TEMPLATE` sets the issuer URL, with
-`%{subdomain}` taken from the request's host, so `demo.xixo.example` can sign in against
-`demo.masks.example`.
+Each xixo tenant is a client of a masks tenant. By default xixo serves masks itself, at `/id` on
+each tenant's origin, so `demo.xixo.example` signs in against `demo.xixo.example/id`. The masks
+tenant has the same name as the xixo tenant. `MASKS_ISSUER_TEMPLATE` names a masks server run apart
+from xixo instead, with `%{subdomain}` taken from the request's host, so `demo.xixo.example` can
+sign in against `demo.masks.example`.
+
+The built-in masks runs in xixo's processes, with its own database, session cookie, and keys. xixo
+reaches it the same way it reaches a masks server: discovery, the token endpoint, and registration
+go through OpenID Connect. Those calls stay inside the process and never leave it as network
+requests.
 
 A new tenant has no client, so the first visit shows **Connect a sign-in server**. This starts the
 handshake at `/auth/handshake`:
@@ -112,7 +119,7 @@ xixo stores `client_id`, `client_secret`, `registration_access_token`, `registra
 and `connected_at` on the tenant, with the secret and the registration token encrypted.
 Disconnecting deletes the registration in masks and clears these columns.
 
-The masks engine is mounted at `/auth`. `GET /auth/session` returns the signed-in account, or a 401
+The masks client engine is mounted at `/auth`. `GET /auth/session` returns the signed-in account, or a 401
 whose `error` is `handshake_required` or `login_required`, which tells the browser which button to
 show. Signing in requests `openid profile email offline_access` and every `xixo:` scope except
 `xixo:settings:admin`. That scope is the `admin` privilege in `config.privileges`, so

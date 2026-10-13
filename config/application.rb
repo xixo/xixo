@@ -4,8 +4,11 @@ require "rails/all"
 
 Bundler.require(*Rails.groups)
 
+require "masks/server" if ENV["MASKS_ISSUER_TEMPLATE"].blank?
+
 require_relative "../lib/tenancy/middleware"
 require_relative "../lib/switch"
+require_relative "../lib/embedded_issuer"
 
 Switch.check!
 
@@ -20,7 +23,7 @@ module Xixo
     ]
     config.load_defaults 8.1
 
-    config.autoload_lib(ignore: %w[assets tasks tenancy switch.rb])
+    config.autoload_lib(ignore: %w[assets tasks tenancy switch.rb embedded_issuer.rb])
 
     config.middleware.use Tenancy::Middleware
 
@@ -42,6 +45,15 @@ module Xixo
     config.xixo.audit_retention = ENV.fetch("XIXO_AUDIT_RETENTION_DAYS", 90).to_i.days
     config.xixo.run_retention = ENV.fetch("XIXO_RUN_RETENTION_DAYS", 14).to_i.days
     config.xixo.run_deadline = ENV.fetch("XIXO_RUN_DEADLINE_HOURS", 6).to_i.hours
+    config.xixo.embedded = defined?(Masks::Server::Engine).present?
+
+    if config.xixo.embedded
+      config.masks.mode = :engine
+      config.masks.database = :masks
+      config.masks.tenant = config.xixo.tenant
+      config.masks.tenants = config.xixo.tenants
+      config.masks.public_origin_template = EmbeddedIssuer.template(ENV["XIXO_PUBLIC_ORIGIN"])
+    end
 
     config.active_record.encryption.primary_key = ENV["ENCRYPTION_PRIMARY_KEY"]
     config.active_record.encryption.deterministic_key = ENV["ENCRYPTION_DETERMINISTIC_KEY"]

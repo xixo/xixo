@@ -1,0 +1,16 @@
+x-embedded: &embedded
+  MASKS_ISSUER_TEMPLATE: ""
+
+services:
+  xixo:
+    environment: *embedded
+
+  xixo-vite:
+    environment: *embedded
+
+  xixo-worker:
+    environment: *embedded
+
+  xixo-link:
+    environment:
+      XIXO_LINK_ISSUER: http://${XIXO_LINK_HOST:-xixo.localhost}:${XIXO_PORT:-8180}/id

@@ -18,3 +18,5 @@ Rails.application.config.to_prepare do
     config.delegation_redirect_uri = ->(request) { "#{Tenant.origin(request)}#{Delegations::CALLBACK_PATH}" }
   end
 end
+
+Masks::Client.embed(EmbeddedIssuer) { |uri| EmbeddedIssuer.serves?(uri) } if EmbeddedIssuer.on?

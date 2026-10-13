@@ -17,7 +17,8 @@ docs/             the site above      Astro + Starlight
 
 xixo signs people in through [masks](https://github.com/masksrb/masks). Each xixo tenant is a client
 of a masks tenant, and every request to `/graphql`, `/mcp`, and `/uploads` carries a masks access
-token.
+token. xixo serves its own masks at `/id` by default. Setting `MASKS_ISSUER_TEMPLATE` points it at a
+masks server run apart from it instead.
 
 ## Interfaces
 
@@ -39,7 +40,7 @@ an MCP server. Each type is a subclass of `Resource` in `app/models/resource/`.
 ## Running it
 
 The server ships as a container image. Every push to main is published as `:main`, `:latest`, and
-`:sha-<commit>`. It needs Postgres, OpenSearch, and a masks server, and it migrates itself on boot.
+`:sha-<commit>`. It needs Postgres and OpenSearch, and it migrates itself on boot.
 
 ```sh
 docker pull ghcr.io/xixo/xixo:latest
@@ -52,7 +53,7 @@ secrets, and tenants.
 
 ```sh
 ./dev       # http://xixo.localhost:8180, docs on :8181
-./dev test  # unit, server, corpus, and client suites, in containers
+./dev test  # unit, server, embedded, corpus, and client suites, in containers
 ```
 
 `./dev` needs Docker with Compose, and Ruby. It runs Rails, Vite, the worker, the documentation
@@ -62,7 +63,8 @@ instead, at `demo.xixo.localhost:8180` and `acme.xixo.localhost:8180`. `*.localh
 resolves, so there is no `/etc/hosts` to edit.
 
 Sign-in needs masks running too. From a masks checkout beside this one, run `../masks/dev`.
-`MASKS_ISSUER` names the masks server. Models run on the host through Ollama, which `brew bundle`
+`MASKS_ISSUER` names the masks server. `./dev --embedded` serves masks inside xixo at `/id`
+instead, the way a self-hosted install does, and needs no masks checkout running. Models run on the host through Ollama, which `brew bundle`
 installs. The [quickstart](https://docs.xixo.network/quickstart/) lists the models to pull.
 
 `./dev test server` runs one suite. The Rails suites clear `XIXO_TENANT` and `XIXO_TENANTS`, so

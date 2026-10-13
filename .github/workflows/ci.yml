@@ -113,6 +113,15 @@ jobs:
     needs: [format, actions, lint, lint_js]
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - auth: embedded
+            issuer: ""
+          - auth: separate
+            issuer: https://%{subdomain}.auth.example
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -122,8 +131,9 @@ jobs:
         with:
           bundler-cache: true
 
-      - name: Eager load the way production does
+      - name: Eager load the way production does, with ${{ matrix.auth }} masks
         env:
+          MASKS_ISSUER_TEMPLATE: ${{ matrix.issuer }}
           RAILS_ENV: production
           SECRET_KEY_BASE: boot_check_secret_key_base_not_for_deployments
           ENCRYPTION_PRIMARY_KEY: boot_check_primary_key_not_for_credentials
@@ -240,7 +250,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [unit, server, corpus, client]
+        suite: [unit, server, embedded, corpus, client]
 
     steps:
       - name: Checkout code
@@ -249,6 +259,7 @@ jobs:
       - name: ${{ matrix.suite }}, in the container it ships in
         env:
           MASKS_CLIENT_DIR: ./compose/masks-client
+          MASKS_SERVER_DIR: ./compose/masks-server
         run: ./dev test ${{ matrix.suite }}
 
   image:

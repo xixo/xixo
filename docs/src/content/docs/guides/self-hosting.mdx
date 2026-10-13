@@ -1,10 +1,10 @@
 ---
 title: Self-hosting
-description: Run xixo in production with Postgres, OpenSearch, storage, and a masks issuer.
+description: Run xixo in production with Postgres, OpenSearch, storage, and sign-in through masks.
 ---
 
-xixo ships as a container image. Point it at Postgres, OpenSearch, and a masks server, and it
-migrates itself on boot.
+xixo ships as a container image. Point it at Postgres and OpenSearch, and it migrates itself on
+boot. Sign-in is built in: xixo serves its own [masks](https://github.com/masksrb/masks) at `/id`.
 
 ```sh
 docker pull ghcr.io/xixo/xixo:latest
@@ -17,14 +17,15 @@ docker pull ghcr.io/xixo/xixo:latest
 | Web process | The image's default command, `./bin/thrust ./bin/rails server`, listening on port 80 |
 | Worker process | `./bin/jobs`, from the same image |
 | xixo link beside the server | `ghcr.io/xixo/xixo-link`, which reads every file and holds no database or keys |
-| Postgres | Four databases: `xixo_production`, `xixo_production_cache`, `xixo_production_queue`, and `xixo_production_cable` |
+| Postgres | Five databases: `xixo_production`, `xixo_production_cache`, `xixo_production_queue`, `xixo_production_cable`, and `xixo_production_masks` |
 | OpenSearch | The search index, at `OPENSEARCH_URL` |
-| masks | One issuer per tenant, named by `MASKS_ISSUER_TEMPLATE` |
+| masks | Built in, at `/id` on each tenant's origin. A masks server of your own instead, when `MASKS_ISSUER_TEMPLATE` names it |
 
 When the container runs the web command, `bin/docker-entrypoint` runs `bin/rails db:prepare`,
 `bin/rails xixo:tenants`, and `bin/rails xixo:resources` before it starts the server. Those create
-or migrate the four databases, create every declared [tenant](/concepts/tenants/), and declare the
-resources in `config/resources.yml` in every tenant. Any other command starts without them.
+or migrate the databases, create every declared [tenant](/concepts/tenants/) in xixo and in the
+built-in masks, and declare the resources in `config/resources.yml` in every tenant. Any other
+command starts without them.
 
 xixo stores where each file lives and what its analysis found. The bytes stay in the
 [resources](/concepts/resources/) they came from, or in the storage a file was placed in.
@@ -62,7 +63,10 @@ x-xixo: &xixo
     XIXO_TENANTS: acme
     XIXO_HOST_SUFFIX: xixo.example.com
     XIXO_PUBLIC_ORIGIN: https://%{subdomain}.xixo.example.com
-    MASKS_ISSUER_TEMPLATE: https://%{subdomain}.auth.example.com
+    MASKS_MAIL_FROM: xixo@example.com
+    MASKS_SMTP_ADDRESS: smtp.example.com
+    MASKS_SMTP_USERNAME: ...
+    MASKS_SMTP_PASSWORD: ...
     XIXO_LOCAL_LINK: /handoff
   volumes:
     - storage:/rails/storage
@@ -109,7 +113,7 @@ services:
     restart: unless-stopped
     environment:
       XIXO_LINK_XIXO: https://acme.xixo.example.com
-      XIXO_LINK_ISSUER: https://acme.auth.example.com
+      XIXO_LINK_ISSUER: https://acme.xixo.example.com/id
       XIXO_LINK_HANDOFF: /handoff/acme
       XIXO_LINK_WRITABLE: /data/files/acme
     volumes:
@@ -204,6 +208,9 @@ What the file does:
   in with `OPENSEARCH_USERNAME` and `OPENSEARCH_PASSWORD`. Traffic between the containers stays plain
   HTTP, so keep Postgres and OpenSearch on a network that only xixo can reach, and publish no port
   for either.
+- **masks sends mail through your SMTP server.** Invitations, password resets, and sign-in codes
+  go out from `MASKS_MAIL_FROM`. The built-in masks reads the same `MASKS_SMTP_*` variables as a
+  masks server. Without them, masks cannot send mail.
 - **The worker starts after the web container is healthy.** The web container migrates the
   databases before it answers `/up`, so the worker never runs against a schema it does not know.
 - **Every service restarts** unless it was stopped by hand.
@@ -212,7 +219,8 @@ What the file does:
 - **xixo link reads every file, and holds nothing else.** It has no database password, no keys, and
   no access to `storage`. It holds the `files` volume, where uploads land, because it is the only
   container that writes a tenant's files. It dials xixo at its public address, so give `XIXO_LINK_XIXO` the tenant's
-  origin and `XIXO_LINK_ISSUER` its masks issuer. On first boot it leaves a request in
+  origin and `XIXO_LINK_ISSUER` its masks issuer, which is the origin followed by `/id` with the
+  built-in masks. On first boot it leaves a request in
   `/handoff/<tenant>`, the worker answers it with a single-use enrollment token, and xixo link
   registers its own key with masks. Its state volume holds that key; deleting the volume enrolls it
   again. Run one xixo link for each tenant, each with its own `XIXO_LINK_HANDOFF` and state volume.
@@ -245,7 +253,7 @@ password comes from `XIXO_DATABASE_PASSWORD`.
    CREATE ROLE xixo WITH LOGIN PASSWORD 'change-me' CREATEDB;
    ```
 
-   `CREATEDB` lets `db:prepare` create the four databases on first boot. To create them yourself
+   `CREATEDB` lets `db:prepare` create the databases on first boot. To create them yourself
    instead, create each one with `OWNER xixo` and leave `CREATEDB` off.
 
 2. Confirm the role holds neither `SUPERUSER` nor `BYPASSRLS`:
@@ -255,7 +263,8 @@ password comes from `XIXO_DATABASE_PASSWORD`.
    ```
 
    Both must be `f`. Row-level security keeps each tenant's rows apart, and a role holding either
-   attribute is exempt from it. xixo refuses to enter any tenant when it connects as such a role.
+   attribute is exempt from it. xixo and the built-in masks both refuse to enter any tenant when they
+   connect as such a role.
 
 The official Postgres image makes `POSTGRES_USER` a superuser, so xixo cannot use it. The
 development stack creates the `xixo` role in `db/docker-entrypoint-initdb.d/01-app-role.sql`, with a
@@ -267,9 +276,13 @@ Per tenant, the database holds the masks client's secret and registration token,
 credentials. xixo encrypts those columns with Active Record Encryption (AES-256-GCM). Reading them
 needs the keys as well as the database.
 
+The built-in masks signs its sessions and encrypts its own columns with keys derived from
+`SECRET_KEY_BASE`, under labels of its own. Changing `SECRET_KEY_BASE` signs everyone out of masks
+and makes its encrypted columns unreadable.
+
 | Secret | Protects |
 | --- | --- |
-| `SECRET_KEY_BASE` | The session cookie. Anyone holding it can forge one. |
+| `SECRET_KEY_BASE` | The session cookies, and every key the built-in masks uses. Anyone holding it can forge a session. |
 | `ENCRYPTION_PRIMARY_KEY` | The encrypted columns. |
 | `ENCRYPTION_DETERMINISTIC_KEY` | Columns looked up by value. Rails requires it. |
 | `ENCRYPTION_KEY_DERIVATION_SALT` | The per-column keys derived from the two above. |
@@ -335,6 +348,43 @@ original `Host` header, because xixo resolves the tenant from the host.
 
 ## Signing in through masks
 
+xixo signs people in through masks. Each xixo tenant is a client of a masks tenant with the same
+name. By default xixo serves that masks itself. Set `MASKS_ISSUER_TEMPLATE` to sign in through a
+masks server you run apart from xixo.
+
+### The built-in masks
+
+The built-in masks needs no variables of its own. It serves each tenant at `/id` on that tenant's
+origin, such as `https://acme.xixo.example.com/id`, and keeps its tables in its own database,
+`xixo_production_masks`.
+
+1. Start xixo. `bin/rails xixo:tenants` prints a setup token for each masks tenant that has no
+   account yet:
+
+   ```sh
+   docker compose logs xixo | grep "masks:"
+   ```
+
+   To choose the token yourself, set `MASKS_SETUP_TOKEN` to a value of at least 24 characters.
+2. Open the tenant in a browser. xixo sends you to masks, which asks for the setup token and
+   creates the first account. That account owns the masks tenant.
+3. Approve **xixo** when masks asks. xixo stores the credentials it receives, and you are signed in.
+
+On the first sign-in after it connects, xixo asks masks for the administrator privilege. The account
+that owns the masks tenant holds it, so that person becomes xixo's administrator. Invite everyone
+else from masks at `/id/manage`.
+
+The built-in masks reads the other `MASKS_` variables a masks server reads, such as
+`MASKS_MAIL_FROM` and `MASKS_SMTP_ADDRESS`. See the
+[masks ENV vars](https://masks.pages.dev/reference/environment/). xixo sets its tenants and its
+public origin from `XIXO_TENANT`, `XIXO_TENANTS`, and `XIXO_PUBLIC_ORIGIN`, so masks ignores
+`MASKS_TENANT`, `MASKS_TENANTS`, and `MASKS_PUBLIC_ORIGIN_TEMPLATE`.
+
+### A masks server of your own
+
+Run masks apart from xixo to sign several apps in through one masks, or to keep accounts on a host
+of their own.
+
 1. Set `MASKS_ISSUER_TEMPLATE` to the issuer URL of the masks tenant each xixo tenant signs in
    through. `%{subdomain}` works as it does in `XIXO_PUBLIC_ORIGIN`:
 
@@ -342,6 +392,8 @@ original `Host` header, because xixo resolves the tenant from the host.
    MASKS_ISSUER_TEMPLATE=https://%{subdomain}.auth.example.com
    ```
 
+   With it set, xixo does not load the built-in masks, does not route `/id`, and creates no
+   `xixo_production_masks` database.
 2. After xixo is running, open each tenant in a browser and choose **Connect a sign-in server**. A
    masks account allowed to approve connections approves it, and xixo stores the credentials it
    receives. See [signing in](/concepts/tenants/#signing-in).
@@ -419,7 +471,8 @@ production deployment sets at least these:
 | Search | `OPENSEARCH_URL` |
 | Secrets | `SECRET_KEY_BASE`, `ENCRYPTION_PRIMARY_KEY`, `ENCRYPTION_DETERMINISTIC_KEY`, `ENCRYPTION_KEY_DERIVATION_SALT` |
 | Tenancy | `XIXO_TENANT` or `XIXO_TENANTS`, `XIXO_HOST_SUFFIX`, `XIXO_PUBLIC_ORIGIN` |
-| Sign-in | `MASKS_ISSUER_TEMPLATE` |
+| Sign-in | Nothing for the built-in masks. `MASKS_ISSUER_TEMPLATE` for a masks server of your own |
+| Mail | `MASKS_MAIL_FROM`, `MASKS_SMTP_ADDRESS` |
 | Storage | On xixo link: `XIXO_LINK_WRITABLE` |
 
 ## The worker
@@ -549,8 +602,10 @@ the `files` resource, and needs **Connect a sign-in server** once.
 - **The container exits with `XIXO_PUBLIC_ORIGIN is not set`**: set it to the origin browsers use.
 - **The container exits with `Switch::Invalid`**: a switch holds a value other than `true` or
   `false`. The error names it.
-- **`MASKS_ISSUER_TEMPLATE is not set`**: sign-in and the `/mcp` metadata cannot name an issuer.
-  Set the variable.
+- **The container exits with `masks in engine mode needs a database of its own`**: the built-in masks
+  found no `masks` entry in `config/database.yml`. Use the image's own configuration.
+- **No setup token in the logs**: the masks tenant already has an account. Sign in with it, or set
+  `MASKS_RECOVER` as the masks docs describe.
 - **Requests answer `403`**: the request's host is outside `XIXO_HOST_SUFFIX`.
 - **Uploads stage but never land**: the worker is not running, or it cannot read the web
   container's `/rails/storage`. Check `docker compose ps` and `docker compose logs worker`.
@@ -567,5 +622,5 @@ curl https://acme.xixo.example.com/.well-known/oauth-protected-resource
 ```
 
 The metadata names the tenant's resource URL, its masks issuer, and every `xixo:` scope. Then open the
-tenant in a browser, choose **Connect a sign-in server**, and
+tenant in a browser, set up the first account, and
 [attach a resource](/guides/attach-a-resource/).

@@ -1,4 +1,5 @@
 ENV["RAILS_ENV"] ||= "test"
+ENV["MASKS_ISSUER_TEMPLATE"] = "http://127.0.0.1/%{subdomain}" if ENV["MASKS_ISSUER_TEMPLATE"].blank?
 require_relative "../config/environment"
 require "rails/test_help"
 

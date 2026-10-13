@@ -14,6 +14,10 @@ default: &default
       processes: <%= ENV.fetch("ANALYSIS_CONCURRENCY", 1) %>
       polling_interval: 2
 
+    - queues: [mailers, logout, streams, maintenance]
+      threads: 2
+      polling_interval: 1
+
 development:
   <<: *default
 

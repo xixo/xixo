@@ -77,6 +77,36 @@ shared: &shared
     queue: sync
     schedule: every 10 minutes
 
+  masks_cleanup:
+    command: "Masks::Server::CleanupJob.perform_later if EmbeddedIssuer.on?"
+    queue: maintenance
+    schedule: every day at 4:10am
+
+  masks_authenticators:
+    command: "Masks::Server::RefreshAuthenticatorsJob.perform_later if EmbeddedIssuer.on?"
+    queue: maintenance
+    schedule: every day at 3am
+
+  masks_saml_metadata:
+    command: "Masks::Server::RefreshSamlMetadataJob.perform_later if EmbeddedIssuer.on?"
+    queue: maintenance
+    schedule: every day at 2am
+
+  masks_idle_accounts:
+    command: "Masks::Server::IdleAccountsJob.perform_later if EmbeddedIssuer.on?"
+    queue: maintenance
+    schedule: every day at 5am
+
+  masks_signing_keys:
+    command: "Masks::Server::RotateSigningKeysJob.perform_later if EmbeddedIssuer.on?"
+    queue: maintenance
+    schedule: every day at 1am
+
+  masks_domain_claims:
+    command: "Masks::Server::CheckDomainClaimsJob.perform_later if EmbeddedIssuer.on?"
+    queue: maintenance
+    schedule: every hour
+
 development:
   <<: *shared
 
