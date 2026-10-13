@@ -8,6 +8,7 @@ require_relative "../lib/tenancy/middleware"
 require_relative "../lib/switch"
 require_relative "../lib/embedded_issuer"
 require_relative "../lib/browser_access"
+require_relative "../lib/public_cache"
 
 require "masks/server" if EmbeddedIssuer.chosen?
 
@@ -24,10 +25,11 @@ module Xixo
     ]
     config.load_defaults 8.1
 
-    config.autoload_lib(ignore: %w[assets tasks tenancy switch.rb embedded_issuer.rb browser_access.rb])
+    config.autoload_lib(ignore: %w[assets tasks tenancy switch.rb embedded_issuer.rb browser_access.rb public_cache.rb])
 
     config.middleware.use Tenancy::Middleware
     config.middleware.insert_before Tenancy::Middleware, BrowserAccess
+    config.middleware.insert_before ActionDispatch::Static, PublicCache
 
     config.active_record.schema_format = :sql
 
