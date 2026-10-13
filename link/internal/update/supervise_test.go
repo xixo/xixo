@@ -196,3 +196,43 @@ func TestStagingRefusesAMismatchedMacReader(t *testing.T) {
 		t.Fatalf("warnings %v", warned)
 	}
 }
+
+func TestAReleaseIsGoodAsSoonAsItConnects(t *testing.T) {
+	held := supervisor(t, script("exit 9"))
+	good := filepath.Join(held.Releases, Good)
+	release(t, held.Releases, "eeeeeeeeeeeeeeee", connects(held.State, fmt.Sprintf(`i=0
+while [ "$i" -lt 200 ]; do
+  [ "$(readlink %q)" = eeeeeeeeeeeeeeee ] && exit 5
+  i=$((i + 1))
+  sleep 0.01
+done
+exit 6`, good)))
+	Point(held.Releases, Current, "eeeeeeeeeeeeeeee")
+
+	if status := supervised(t, held); status != 5 {
+		t.Fatalf("the release was not good while it ran: status %d", status)
+	}
+}
+
+func TestStagingKeepsTheReleaseItRunsFrom(t *testing.T) {
+	fresh := script("echo 0.3.0")
+	server, _ := served(t, map[string][]byte{"xixo-link-darwin-arm64": fresh})
+	root := t.TempDir()
+	releases := filepath.Join(root, "releases")
+	release(t, releases, "ffffffffffffffff", script("exit 0"))
+	Point(releases, Current, "ffffffffffffffff")
+
+	staging := &Stager{
+		Xixo: server.URL, Releases: releases, State: root,
+		Self: Self{Version: "0.2.0", SHA256: strings.Repeat("1", 64)}, Client: server.Client(),
+		OS: "darwin", Arch: "arm64", Restart: func() {},
+	}
+
+	if err := staging.Offer(context.Background(), Target{Version: "0.3.0", SHA256: sum(fresh)}); err != nil {
+		t.Fatal(err)
+	}
+
+	if !regular(filepath.Join(releases, "ffffffffffffffff", Binary)) {
+		t.Fatal("staging removed the release xixo link runs from before the new one connected")
+	}
+}

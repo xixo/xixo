@@ -640,9 +640,11 @@ newest update as a child and never changes itself:
 1. The child downloads and checks the build into a new folder under
    `releases/`, named by the start of its SHA-256, with the mac reader beside
    it. When xixo holds no mac reader, it copies the one it has.
-2. It points `releases/current` at the folder, and exits with status 75.
-3. The parent starts `releases/current/xixo-link`. When the child writes
-   `state/running.json` within three minutes, the parent points
+2. It points `releases/current` at the folder, removes the releases that
+   neither `current`, `good`, nor its own folder holds, and exits with status
+   75.
+3. The parent starts `releases/current/xixo-link`. As soon as the child writes
+   `state/running.json`, within three minutes, the parent points
    `releases/good` at the folder. When it does not, or stops first, the parent
    points `current` back at `good`, or at nothing, and starts that one.
 

@@ -127,6 +127,7 @@ func (s *Stager) stage(ctx context.Context, target Target) error {
 
 	name := ReleaseName(target)
 	placed := filepath.Join(s.Releases, name)
+	running := Pointed(s.Releases, Current)
 
 	if err := os.RemoveAll(placed); err != nil {
 		return err
@@ -140,7 +141,7 @@ func (s *Stager) stage(ctx context.Context, target Target) error {
 		return err
 	}
 
-	Prune(s.Releases)
+	Prune(s.Releases, running)
 
 	return nil
 }
@@ -236,8 +237,11 @@ func Unpoint(releases, pointer string) error {
 	return nil
 }
 
-func Prune(releases string) {
+func Prune(releases string, keep ...string) {
 	kept := map[string]bool{Pointed(releases, Current): true, Pointed(releases, Good): true}
+	for _, name := range keep {
+		kept[name] = true
+	}
 
 	entries, err := os.ReadDir(releases)
 	if err != nil {

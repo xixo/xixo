@@ -59,7 +59,7 @@ func (s *Supervisor) Run(ctx context.Context) int {
 		}
 
 		trial := release != good
-		status, connected, err := s.child(ctx, path, trial)
+		status, connected, err := s.child(ctx, path, release, trial)
 
 		switch {
 		case ctx.Err() != nil:
@@ -67,8 +67,6 @@ func (s *Supervisor) Run(ctx context.Context) int {
 		case trial && !connected:
 			s.Log.Warn("the new xixo link did not connect, so xixo link goes back to the one before it", "release", release, "error", err)
 			s.rollback(release, good, err)
-		case trial:
-			Point(s.Releases, Good, release)
 		}
 
 		if trial && !connected {
@@ -112,7 +110,17 @@ func (s *Supervisor) sha(release string) string {
 	return held
 }
 
-func (s *Supervisor) child(ctx context.Context, path string, trial bool) (int, bool, error) {
+func (s *Supervisor) promote(release string) {
+	if release == "" {
+		return
+	}
+
+	if err := Point(s.Releases, Good, release); err != nil {
+		s.Log.Warn("xixo link could not keep the release that connected as the good one", "release", release, "error", err)
+	}
+}
+
+func (s *Supervisor) child(ctx context.Context, path, release string, trial bool) (int, bool, error) {
 	args := append([]string{"run"}, s.Args...)
 	args = append(args, "--supervised", "--releases", s.Releases)
 
@@ -147,7 +155,10 @@ func (s *Supervisor) child(ctx context.Context, path string, trial bool) (int, b
 	for {
 		select {
 		case err := <-done:
-			connected = connected || s.heard(command.Process.Pid, started)
+			if trial && !connected && s.heard(command.Process.Pid, started) {
+				connected = true
+				s.promote(release)
+			}
 
 			return exited(err), connected, describe(err)
 		case <-ctx.Done():
@@ -157,6 +168,7 @@ func (s *Supervisor) child(ctx context.Context, path string, trial bool) (int, b
 		case <-polled:
 			if s.heard(command.Process.Pid, started) {
 				connected = true
+				s.promote(release)
 				poll.Stop()
 				polled = nil
 				deadline = nil
