@@ -86,7 +86,7 @@ func Up(ctx context.Context, config *state.Config, held state.State, version str
 
 		switch {
 		case err == nil:
-			fmt.Fprintf(out, "   Already linked up as %s. It keeps the approval it has.\n", style.Bold(linked.Name))
+			fmt.Fprintf(out, "   Already linked up as %s, so there is nothing to approve.\n", style.Bold(linked.Name))
 
 			return nil
 		case errors.Is(err, ErrUnknown), errors.Is(err, ErrRevoked), masks.HasCode(err, "invalid_client"):

@@ -174,7 +174,7 @@ func TestUpAsksXixoWaitsForApprovalEnrollsAndLinks(t *testing.T) {
 	}
 
 	again := &bytes.Buffer{}
-	if err := Up(context.Background(), config, held, "1.2.3", again); err != nil || again.String() != "   Already linked up as nas. It keeps the approval it has.\n" || xixo.started != 1 {
+	if err := Up(context.Background(), config, held, "1.2.3", again); err != nil || again.String() != "   Already linked up as nas, so there is nothing to approve.\n" || xixo.started != 1 {
 		t.Fatalf("up again printed %q, started %d, %v", again, xixo.started, err)
 	}
 }

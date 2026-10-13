@@ -92,7 +92,38 @@ class LinkingTest < ActionDispatch::IntegrationTest
 
     assert_includes script, %(xixo='https://x.example/'\\''; rm -rf ~; '\\'''\n)
     assert_includes script, "reader=''\n"
-    assert_includes script, '*) fail "this xixo has no xixo link for $os on $arch." ;;'
+    assert_includes script, '*) fail "this xixo has no xixo link for $system on $arch. Ask the administrator of xixo to add that build." ;;'
+  end
+
+  test "the script parses, reads nothing from standard input, and says what each step does before it starts" do
+    get "/link.sh", headers: { "HOST" => host }
+    script = response.body
+
+    Tempfile.create([ "link", ".sh" ]) do |file|
+      file.write(script)
+      file.flush
+      assert system("sh", "-n", file.path), "the script does not parse"
+    end
+
+    assert_no_match(/(?:^|[;|&(]) *read\s|<&0|\bcat -/, script)
+    assert_includes script, 'step "Downloading xixo link for $system on $arch."'
+    assert_includes script, "sudo asks for your password to write to /usr/local/lib/xixo-link, /etc/xixo-link, and /etc/systemd/system."
+    assert_includes script, "with apt. This can take a few minutes."
+    assert_includes script, 'note "The whole log is in $log."'
+    assert_includes script, 'step "Restarting xixo link with the new version. This can take up to a minute."'
+    assert_includes script, '"$work/xixo-link" status || true'
+    assert_includes script, 'if [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != dumb ]; then'
+    assert_operator script.index("sudo asks for your password"), :<, script.index("sudo -v")
+    assert_operator script.index("with apt. This can take"), :<, script.index("apt_get update")
+  end
+
+  test "a Mac whose xixo link can update itself gets the new build as an update, so Full Disk Access stays" do
+    get "/link.sh", headers: { "HOST" => host }
+
+    assert_includes response.body, %("$dir/bin/xixo-link" run -h 2>&1 | grep -q -- '-supervised')
+    assert_includes response.body, '"$work/xixo-link" stage --releases "$dir/releases"'
+    assert_includes response.body, "Full Disk Access stays as it was"
+    assert_includes response.body, 'say "     $dir/bin/xixo-link"'
   end
 
   test "the builds, the service, and the launch agent download without a secret, and nothing else does" do

@@ -25,7 +25,7 @@ func unshareable(path string) error {
 	}
 
 	if !filepath.IsAbs(path) {
-		return fmt.Errorf("the folder %q is not an absolute path", path)
+		return fmt.Errorf("the folder %q is not a full path. Name it from /, or with ~/ for a folder in your home folder", path)
 	}
 
 	return nil
@@ -41,12 +41,16 @@ func Folder(arg string) (folders.Shared, error) {
 	path = filepath.Clean(path)
 
 	info, err := os.Stat(path)
-	if err != nil {
-		return folders.Shared{}, fmt.Errorf("the folder %s cannot be shared: %w", path, err)
-	}
 
-	if !info.IsDir() {
-		return folders.Shared{}, fmt.Errorf("%s is not a folder", path)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return folders.Shared{}, fmt.Errorf("the folder %s does not exist. Check its path, then run the command again", path)
+	case errors.Is(err, fs.ErrPermission):
+		return folders.Shared{}, fmt.Errorf("this account cannot open the folder %s. Run the command as the account that owns it", path)
+	case err != nil:
+		return folders.Shared{}, fmt.Errorf("xixo link cannot share the folder %s: %w", path, err)
+	case !info.IsDir():
+		return folders.Shared{}, fmt.Errorf("%s is a file. Name the folder that holds it instead", path)
 	}
 
 	return folders.Shared{Path: path, Writable: writable}, nil

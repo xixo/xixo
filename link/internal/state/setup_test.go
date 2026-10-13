@@ -66,6 +66,11 @@ func TestSetupRefusesFoldersItCannotShare(t *testing.T) {
 		t.Error("nested folders were shared")
 	}
 
+	missing := filepath.Join(root, "missing")
+	if _, err := Setup(path, "https://xixo.example", "https://id.example", []string{missing}); err == nil || err.Error() != "the folder "+missing+" does not exist. Check its path, then run the command again" {
+		t.Errorf("a missing folder gave %v", err)
+	}
+
 	if _, err := Setup(path, "http://xixo.example", "https://id.example", nil); err == nil {
 		t.Error("a plain http xixo was written")
 	}
