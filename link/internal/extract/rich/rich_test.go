@@ -397,9 +397,10 @@ func TestMediaSamplesFramesFromVideo(t *testing.T) {
 
 func TestMediaMeasuresSilenceFromFfmpegOutput(t *testing.T) {
 	said := "  I:         -23.5 LUFS\n  LRA:         4.2 LU\n    Peak:       -1.0 dBFS\nsilence_start: 1.5\nsilence_end: 2.75 | silence_duration: 1.25\nsilence_start: 9\n"
-	found := measured(said, []string{"lavfi.aspectralstats.1.centroid=1200", "lavfi.aspectralstats.1.flatness=0.25"}, 10, 3600)
+	frames := spectral(strings.NewReader("frame:0    pts:0       pts_time:0\nlavfi.aspectralstats.1.centroid=1200\nlavfi.aspectralstats.1.flatness=0.25\nlavfi.aspectralstats.1.centroid=nan\n"))
+	found := measured(said, frames, 10, 3600)
 
-	if *found.Loudness != -23.5 || *found.Range != 4.2 || *found.Peak != -1 || found.Silent != 2.25 || *found.Centroid != 1200 {
+	if *found.Loudness != -23.5 || *found.Range != 4.2 || *found.Peak != -1 || found.Silent != 2.25 || *found.Centroid != 1200 || *found.Flatness != 0.25 {
 		t.Fatalf("%+v", found)
 	}
 

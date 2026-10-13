@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -246,7 +247,7 @@ func signal(ctx context.Context, in extract.Input, probe *Probe) (*Signal, error
 		return nil, fmt.Errorf("ffmpeg could not measure %s: %w", in.Name, err)
 	}
 
-	return measured(string(said), spectralLines(spectral), probe.Duration, span), nil
+	return measured(string(said), spectrumIn(spectral), probe.Duration, span), nil
 }
 
 func escapedFilter(path string) string {
@@ -255,24 +256,49 @@ func escapedFilter(path string) string {
 	return replacer.Replace(path)
 }
 
-func spectralLines(path string) []string {
+type spectrum struct {
+	centroid []float64
+	flatness []float64
+}
+
+var spectralMeasure = regexp.MustCompile(`\.(centroid|flatness)=(\S+)`)
+
+func spectrumIn(path string) spectrum {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil
+		return spectrum{}
 	}
 	defer file.Close()
 
-	lines := []string{}
-	scanner := bufio.NewScanner(file)
-
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
-
-	return lines
+	return spectral(file)
 }
 
-func measured(said string, frames []string, duration float64, span int) *Signal {
+func spectral(from io.Reader) spectrum {
+	held := spectrum{}
+	scanner := bufio.NewScanner(from)
+
+	for scanner.Scan() {
+		match := spectralMeasure.FindSubmatch(scanner.Bytes())
+		if match == nil {
+			continue
+		}
+
+		value, err := strconv.ParseFloat(string(match[2]), 64)
+		if err != nil || !finite(value) {
+			continue
+		}
+
+		if string(match[1]) == "centroid" {
+			held.centroid = append(held.centroid, value)
+		} else {
+			held.flatness = append(held.flatness, value)
+		}
+	}
+
+	return held
+}
+
+func measured(said string, frames spectrum, duration float64, span int) *Signal {
 	heard := float64(span)
 	if duration > 0 {
 		heard = math.Min(duration, heard)
@@ -307,12 +333,12 @@ func measured(said string, frames []string, duration float64, span int) *Signal 
 
 	found.Silent = round(silent, 2)
 
-	if centroid := middle(series(frames, "centroid")); centroid != nil {
+	if centroid := middle(frames.centroid); centroid != nil {
 		rounded := math.Round(*centroid)
 		found.Centroid = &rounded
 	}
 
-	if flatness := middle(series(frames, "flatness")); flatness != nil {
+	if flatness := middle(frames.flatness); flatness != nil {
 		rounded := round(*flatness, 4)
 		found.Flatness = &rounded
 	}
@@ -335,24 +361,6 @@ func number(pattern *regexp.Regexp, said string) *float64 {
 	}
 
 	return &value
-}
-
-func series(lines []string, measure string) []float64 {
-	pattern := regexp.MustCompile(`\.` + measure + `=(\S+)`)
-	values := []float64{}
-
-	for _, line := range lines {
-		match := pattern.FindStringSubmatch(line)
-		if match == nil {
-			continue
-		}
-
-		if value, err := strconv.ParseFloat(match[1], 64); err == nil && finite(value) {
-			values = append(values, value)
-		}
-	}
-
-	return values
 }
 
 func middle(values []float64) *float64 {
