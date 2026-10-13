@@ -6,6 +6,7 @@ class Resource
       SETTLES_WITHIN = 10.minutes
       POLLED_EVERY = 0.1
       MOVED_AT_ONCE = 64
+      KEPT_ALIVE_EVERY = 1.minute
 
       def initialize(from:, folder:, path:, size:, to:, into:, target:, modified_at: nil, window: WINDOW, waiting: nil)
         @from = from
@@ -146,11 +147,20 @@ class Resource
         def waited!(stalled)
           raise Resource::Failed, "#{stalled} for #{STALLS_AFTER.inspect}" if Time.current - @moved_at > STALLS_AFTER
 
+          kept_alive!
           @waiting.call
         end
 
+        def kept_alive!
+          return if @kept_at && @kept_at > KEPT_ALIVE_EVERY.ago
+
+          @kept_at = Time.current
+          LinkExchange.where(id: [ @upload, @write ].compact.map(&:id)).update_all(updated_at: @kept_at)
+        end
+
         def fresh(exchange)
-          LinkExchange.uncached { LinkExchange.find(exchange.id) }
+          LinkExchange.uncached { LinkExchange.find_by(id: exchange.id) } ||
+            raise(Resource::Failed, "xixo forgot the exchange that carried #{@path}")
         end
 
         def forget(*exchanges)

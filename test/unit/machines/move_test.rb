@@ -185,6 +185,11 @@ class MoveTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { assert_equal 0, LinkChunk.count }
   end
 
+  test "a long transfer touches its exchanges well before the sweeper would take them" do
+    assert_operator Resource::Machine::Relay::KEPT_ALIVE_EVERY * 10, :<, LinkExchange::KEPT_FOR
+    assert_operator Resource::Machine::Relay::STALLS_AFTER, :<, LinkExchange::KEPT_FOR
+  end
+
   private
 
     def writing(machine, folder)
