@@ -21,6 +21,7 @@ type About struct {
 	User      string    `json:"user"`
 	System    string    `json:"system"`
 	Model     string    `json:"model"`
+	Kind      string    `json:"kind"`
 	CPUs      int       `json:"cpus"`
 	Memory    uint64    `json:"memory"`
 	Disks     []Disk    `json:"disks"`
@@ -39,10 +40,13 @@ func (m *Machine) About(ctx context.Context, version string, folders []string) A
 		}
 	}
 
+	named := clipped(model())
+
 	return About{
 		User:      runsAs(),
 		System:    clipped(system()),
-		Model:     clipped(model()),
+		Model:     named,
+		Kind:      kind(named),
 		CPUs:      runtime.NumCPU(),
 		Memory:    health.Memory.Total,
 		Disks:     disks,

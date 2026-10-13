@@ -35,9 +35,10 @@ type Health struct {
 }
 
 type Service struct {
-	Kind    string `json:"kind"`
-	Port    int    `json:"port"`
-	Address string `json:"address"`
+	Kind      string `json:"kind"`
+	Port      int    `json:"port"`
+	Address   string `json:"address"`
+	LocalOnly bool   `json:"local_only,omitempty"`
 }
 
 type Hello struct {
@@ -63,10 +64,11 @@ type Machine struct {
 	Proc    string
 	Probe   func(ctx context.Context, port int) bool
 	Tailnet func(ctx context.Context) string
+	Answers func(ctx context.Context, host string, port int) bool
 }
 
 func New() *Machine {
-	return &Machine{Proc: procRoot, Probe: listening, Tailnet: tailnetAddress}
+	return &Machine{Proc: procRoot, Probe: listening, Tailnet: tailnetAddress, Answers: answers}
 }
 
 func (m *Machine) Hello(ctx context.Context, version string, folders []string) Hello {
@@ -95,6 +97,12 @@ func (m *Machine) Services(ctx context.Context) []Service {
 		if !asked {
 			address = m.Tailnet(ctx)
 			asked = true
+		}
+
+		if address != "" && m.Answers != nil && !m.Answers(ctx, address, known.Port) {
+			found = append(found, Service{Kind: known.Kind, Port: known.Port, LocalOnly: true})
+
+			continue
 		}
 
 		found = append(found, Service{Kind: known.Kind, Port: known.Port, Address: address})
@@ -173,9 +181,13 @@ func memory(raw []byte) Memory {
 }
 
 func listening(ctx context.Context, port int) bool {
+	return answers(ctx, "127.0.0.1", port)
+}
+
+func answers(ctx context.Context, host string, port int) bool {
 	dialer := net.Dialer{Timeout: time.Second}
 
-	conn, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
+	conn, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 	if err != nil {
 		return false
 	}

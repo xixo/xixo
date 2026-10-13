@@ -75,3 +75,21 @@ func TestServicesNameTheTailnetAddress(t *testing.T) {
 		t.Fatalf("services %+v", got)
 	}
 }
+
+func TestAServerThatAnswersOnlyOnTheMachineHasNoAddress(t *testing.T) {
+	held := &Machine{
+		Probe:   func(context.Context, int) bool { return true },
+		Tailnet: func(context.Context) string { return "100.64.0.9" },
+		Answers: func(_ context.Context, _ string, port int) bool { return port == 1234 },
+	}
+
+	got := held.Services(context.Background())
+	want := []Service{
+		{Kind: "ollama", Port: 11434, LocalOnly: true},
+		{Kind: "lmstudio", Port: 1234, Address: "100.64.0.9"},
+	}
+
+	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("services %+v", got)
+	}
+}

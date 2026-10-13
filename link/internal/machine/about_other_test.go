@@ -37,3 +37,24 @@ func TestSystemAndModelReadTheFilesLinuxKeeps(t *testing.T) {
 		t.Fatalf("fallback %q", got)
 	}
 }
+
+func TestTheChassisNamesWhatKindOfMachineItIs(t *testing.T) {
+	cases := []struct {
+		chassis string
+		battery bool
+		want    string
+	}{
+		{"10", false, "laptop"},
+		{"3", false, "desktop"},
+		{"13", false, "all-in-one"},
+		{"23", false, "server"},
+		{"1", true, "laptop"},
+		{"", false, "server"},
+	}
+
+	for _, held := range cases {
+		if got := chassisKind(held.chassis, held.battery); got != held.want {
+			t.Errorf("chassisKind(%q, %v) = %q, want %q", held.chassis, held.battery, got, held.want)
+		}
+	}
+}

@@ -14,6 +14,8 @@ var tailscaleApps []string
 var (
 	osReleases  = []string{"/etc/os-release", "/usr/lib/os-release"}
 	productName = "/sys/devices/virtual/dmi/id/product_name"
+	chassisType = "/sys/devices/virtual/dmi/id/chassis_type"
+	powerSupply = "/sys/class/power_supply"
 )
 
 func native(*Health) {}
@@ -43,4 +45,44 @@ func model() string {
 	}
 
 	return held
+}
+
+func kind(string) string {
+	raw, _ := os.ReadFile(chassisType)
+
+	return chassisKind(strings.TrimSpace(string(raw)), hasBattery())
+}
+
+func chassisKind(chassis string, battery bool) string {
+	switch chassis {
+	case "8", "9", "10", "14", "30", "31", "32":
+		return "laptop"
+	case "13":
+		return "all-in-one"
+	case "3", "4", "5", "6", "7", "15", "16", "35", "36":
+		return "desktop"
+	case "17", "23", "28", "29":
+		return "server"
+	}
+
+	if battery {
+		return "laptop"
+	}
+
+	return "server"
+}
+
+func hasBattery() bool {
+	held, err := os.ReadDir(powerSupply)
+	if err != nil {
+		return false
+	}
+
+	for _, entry := range held {
+		if strings.HasPrefix(entry.Name(), "BAT") {
+			return true
+		}
+	}
+
+	return false
 }

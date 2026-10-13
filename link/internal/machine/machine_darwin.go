@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
@@ -93,11 +94,66 @@ func swVers(flag string) string {
 	return strings.TrimSpace(string(out))
 }
 
+var productName = regexp.MustCompile(`"product-name" = <"([^"]+)">`)
+
 func model() string {
+	if named := productNameIn(ioreg()); named != "" {
+		return named
+	}
+
 	held, err := unix.Sysctl("hw.model")
 	if err != nil {
 		return ""
 	}
 
 	return held
+}
+
+func ioreg() []byte {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	out, err := exec.CommandContext(ctx, "/usr/sbin/ioreg", "-rd1", "-c", "IOPlatformExpertDevice").Output()
+	if err != nil {
+		return nil
+	}
+
+	return out
+}
+
+func productNameIn(raw []byte) string {
+	matched := productName.FindSubmatch(raw)
+	if matched == nil {
+		return ""
+	}
+
+	return strings.TrimSpace(string(matched[1]))
+}
+
+func kind(model string) string {
+	return macKind(model, hasBattery())
+}
+
+func macKind(model string, battery bool) string {
+	switch {
+	case strings.HasPrefix(model, "MacBook"):
+		return "laptop"
+	case strings.HasPrefix(model, "iMac"):
+		return "all-in-one"
+	case strings.HasPrefix(model, "Mac mini"), strings.HasPrefix(model, "Mac Studio"), strings.HasPrefix(model, "Mac Pro"):
+		return "desktop"
+	case battery:
+		return "laptop"
+	default:
+		return "desktop"
+	}
+}
+
+func hasBattery() bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	out, err := exec.CommandContext(ctx, "/usr/bin/pmset", "-g", "batt").Output()
+
+	return err == nil && strings.Contains(string(out), "InternalBattery")
 }

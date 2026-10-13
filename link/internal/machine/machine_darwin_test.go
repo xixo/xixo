@@ -52,3 +52,33 @@ func TestSystemAndModelOnMacOS(t *testing.T) {
 		t.Error("no model")
 	}
 }
+
+func TestAMacNamesItsModelAndKind(t *testing.T) {
+	raw := []byte(`  "model" = <"Mac14,6">` + "\n" + `  "product-name" = <"MacBook Pro (16-inch, 2023)">`)
+
+	if got := productNameIn(raw); got != "MacBook Pro (16-inch, 2023)" {
+		t.Fatalf("product name = %q", got)
+	}
+
+	cases := map[string]string{
+		"MacBook Pro (16-inch, 2023)": "laptop",
+		"MacBook Air (M2, 2022)":      "laptop",
+		"iMac (24-inch, M3, 2023)":    "all-in-one",
+		"Mac mini (2023)":             "desktop",
+		"Mac Studio (2023)":           "desktop",
+	}
+
+	for named, want := range cases {
+		if got := macKind(named, false); got != want {
+			t.Errorf("macKind(%q) = %q, want %q", named, got, want)
+		}
+	}
+
+	if got := macKind("Mac14,6", true); got != "laptop" {
+		t.Errorf("a bare identifier falls back to the battery, got %q", got)
+	}
+
+	if got := macKind("", true); got != "laptop" {
+		t.Errorf("an unnamed Mac with a battery reads as a laptop, got %q", got)
+	}
+}
