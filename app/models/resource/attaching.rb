@@ -5,6 +5,8 @@ class Resource
     def initialize(type, grant:)
       @klass = Resource.attachable.find { |held| held.sti_name == type.to_s } ||
                raise(Refused, "#{type} is not a type that can be attached")
+      raise Refused, "a machine links itself up with the command on the Resources page" if @klass == Resource::Machine
+
       @grant = grant
     end
 

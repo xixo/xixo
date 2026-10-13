@@ -13,9 +13,13 @@ Rails.application.routes.draw do
   get "/references/:id/content", to: "content#show", as: :reference_content
 
   get "/link/uploads/:request", to: "link_uploads#show", as: :link_upload
+  get "/link.sh", to: "links#script", as: :link_script, format: false
   get "/link/download/xixo-link.service", to: "links#unit", as: :link_unit
   get "/link/download/xixo-link.plist", to: "links#plist", as: :link_plist
   get "/link/download/:file", to: "links#download", as: :link_download, constraints: { file: /xixo-link-[a-z0-9]+-[a-z0-9]+/ }
+  post "/link/requests", to: "links#start", as: :link_requests
+  post "/link/requests/token", to: "links#token", as: :link_request_token
+  get "/link", to: "links#show", as: :link_status, constraints: ->(req) { req.authorization.present? }
   post "/link", to: "links#create", as: :link_up
   get "/resources/:id/connect", to: "resource_connections#show", as: :resource_connect
   get "/connect/callback", to: "resource_connections#callback", as: :resource_connect_callback

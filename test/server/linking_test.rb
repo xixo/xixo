@@ -2,24 +2,31 @@ require "test_helper"
 require_relative "../support/machines"
 
 class LinkingTest < ActionDispatch::IntegrationTest
-  include ActiveJob::TestHelper
   include Machines
 
-  LINK = <<~GQL.freeze
-    mutation($key: String, $id: ID) {
-      linkMachine(input: { key: $key, id: $id }) {
-        resource { id key machine { linked selfLinked linkingUntil } }
-        code
-        expiresAt
+  APPROVE = <<~GQL.freeze
+    mutation($id: ID!) { approveLinkRequest(input: { id: $id }) { request { id status hostname code } } }
+  GQL
+  DENY = <<~GQL.freeze
+    mutation($id: ID!) { denyLinkRequest(input: { id: $id }) { request { id status } } }
+  GQL
+  REQUESTS = "{ linkRequests { id code status hostname os arch folders writable remoteIp machine { key } } }".freeze
+  ACCESS = <<~GQL.freeze
+    mutation($id: ID!, $access: String, $helpsOthers: Boolean) {
+      setMachineAccess(input: { id: $id, access: $access, helpsOthers: $helpsOthers }) {
+        resource { machine { access helpsOthers lends tools extractsForOthers } }
       }
     }
   GQL
+  ASKED = { "hostname" => "Studio.local", "os" => "darwin", "arch" => "arm64",
+            "folders" => [ "/Users/jon/Documents", "/Users/jon/Desktop", "relative" ], "writable" => [ "/Users/jon/Desktop", "/etc" ] }.freeze
 
   setup do
     @tenant = Tenant.create!(subdomain: "linking-#{SecureRandom.hex(4)}", name: "Linking")
     connect!(@tenant)
     @binaries = Dir.mktmpdir
     File.binwrite(File.join(@binaries, "xixo-link-linux-amd64"), "x86 binary")
+    File.binwrite(File.join(@binaries, "xixo-link-darwin-arm64"), "mac binary")
     File.binwrite(File.join(@binaries, "notes.txt"), "not a build")
     FileUtils.cp(Rails.root.join("link/xixo-link.service"), File.join(@binaries, "xixo-link.service"))
     FileUtils.cp(Rails.root.join("link/xixo-link.plist"), File.join(@binaries, "xixo-link.plist"))
@@ -31,227 +38,258 @@ class LinkingTest < ActionDispatch::IntegrationTest
     FileUtils.rm_rf(@binaries)
   end
 
-  test "only an administrator links a machine" do
-    body = graphql(Grant::SIGN_IN, LINK, key: "studio")
+  test "the link-up script is public, carries no secret, and pins each build's checksum" do
+    get "/link.sh", headers: { "HOST" => host }
 
-    assert_match(/only an administrator links a machine/, body.dig("errors", 0, "message"))
-    Tenant.switch(@tenant) { assert_not Resource::Machine.exists? }
-    assert_not issuer.enrollments.any? { |asked| asked["subdomain"] == @tenant.subdomain }
+    assert_response :ok
+    assert_equal "no-store", response.headers["Cache-Control"]
+    assert_match %r{\A#!/bin/sh\nset -eu\n}, response.body
+    assert_includes response.body, "xixo='http://#{host}'"
+    assert_includes response.body, "issuer='#{@tenant.issuer}'"
+    assert_includes response.body, "linux-amd64) sum=#{Digest::SHA256.hexdigest('x86 binary')} ;;"
+    assert_includes response.body, "darwin-arm64) sum=#{Digest::SHA256.hexdigest('mac binary')} ;;"
+    assert_not_includes response.body, "linux-arm64)"
+    assert_includes response.body, Resource::Machine::Downloads::PACKAGES.join(" ")
+    assert_includes response.body, "xixo-link up"
+    assert_not_includes response.body, "enroll-"
   end
 
-  test "linking names a machine with no key, asks masks for a code, and keeps only its digest" do
-    linked = nil
+  test "the script quotes what it is given so a value cannot break out" do
+    script = Resource::Machine::Script.new(xixo: "https://x.example/'; rm -rf ~; '", issuer: "https://id.example", builds: [], mac_reader: nil).to_s
 
-    assert_no_enqueued_jobs(only: InstallLinkJob) do
-      linked = graphql(Grant::SCOPES, LINK, key: "studio").dig("data", "linkMachine")
-    end
-
-    assert_match(/\Aenroll-/, linked["code"])
-    assert_in_delta 10.minutes.from_now, Time.iso8601(linked["expiresAt"]), 5
-    assert_equal({ "linked" => false, "selfLinked" => true, "linkingUntil" => linked["expiresAt"] },
-                 linked.dig("resource", "machine"))
-    assert_equal "studio", issuer.enrollments.last["client_name"]
-
-    Tenant.switch(@tenant) do
-      machine = Resource::Machine.find_by!(key: "studio")
-      assert_not_includes machine.details.to_json, linked["code"]
-      assert machine.credentials.to_h.empty?
-      assert_equal [ "bob" ], machine.operators
-      assert machine.valid?
-      error = assert_raises(Resource::Failed) { machine.check! }
-      assert_match(/waiting for the machine to link up/, error.message)
-    end
+    assert_includes script, %(xixo='https://x.example/'\\''; rm -rf ~; '\\'''\n)
+    assert_includes script, "reader=''\n"
+    assert_includes script, '*) fail "this xixo has no xixo link for $os on $arch." ;;'
   end
 
-  test "the code fetches xixo link and its service, and nothing else on the server" do
-    code = link("studio")
-
-    get "/link/download/xixo-link-linux-amd64", headers: bearer(code)
+  test "the builds, the service, and the launch agent download without a secret, and nothing else does" do
+    get "/link/download/xixo-link-linux-amd64", headers: { "HOST" => host }
     assert_response :ok
     assert_equal "x86 binary", response.body
-    assert_equal "no-store", response.headers["Cache-Control"]
-    Tenant.switch(@tenant) do
-      assert_equal({ "file" => "xixo-link-linux-amd64" }, AuditEvent.where(channel: "link", action: "download", status: "ok").sole.arguments)
-    end
 
-    get "/link/download/xixo-link-linux-amd64", headers: bearer("enroll-#{'x' * 40}")
-    assert_response :unauthorized
+    get "/link/download/xixo-link.service", headers: { "HOST" => host }
+    assert_response :ok
+    assert_includes response.body, "User=@USER@"
 
-    get "/link/download/xixo-link-linux-amd64", headers: { "HOST" => host }
-    assert_response :unauthorized
-
-    get "/link/download/xixo-link.plist", headers: bearer(code)
+    get "/link/download/xixo-link.plist", headers: { "HOST" => host }
     assert_response :ok
     assert_includes response.body, "<string>network.xixo.link</string>"
 
-    get "/link/download/xixo-link.plist", headers: { "HOST" => host }
-    assert_response :unauthorized
-
-    get "/link/download/xixo-link-darwin-arm64", headers: bearer(code)
+    get "/link/download/xixo-link-linux-arm64", headers: { "HOST" => host }
     assert_response :not_found
 
     [ "/link/download/notes.txt", "/link/download/..%2Fxixo-link.service", "/link/download/xixo-link-linux-amd64%2F..%2F..%2Fpasswd" ].each do |path|
-      get path, headers: bearer(code)
-      assert_includes [ 401, 404 ], response.status, path
-      assert_not_equal "not a build", response.body
+      get path, headers: { "HOST" => host }
+      assert_not_equal "not a build", response.body, path
     end
   end
 
-  test "the service comes filled in with the account and the folders, which are checked" do
-    code = link("studio")
+  test "a machine asks to link up and gets a short code to show and a separate secret to poll with" do
+    started = start
 
-    get "/link/download/xixo-link.service", params: { user: "jon", folders: [ "/srv/media", "/data/My Photos" ] },
-                                              headers: bearer(code)
+    assert_response :created
+    assert_match(/\A[BCDFGHJKLMNPQRSTVWXZ]{4}-[BCDFGHJKLMNPQRSTVWXZ]{4}\z/, started["user_code"])
+    assert_equal "http://#{host}/link/#{started['user_code']}", started["verification_uri_complete"]
+    assert_equal 600, started["expires_in"]
+    assert_equal 5, started["interval"]
+    assert_operator started["device_code"].length, :>=, 43
 
-    assert_response :ok
-    assert_includes response.body, "User=jon\n"
-    assert_includes response.body, %(BindReadOnlyPaths="-/srv/media" "-/data/My Photos"\n)
-
-    get "/link/download/xixo-link.service", params: { user: "jon", folders: [ "/srv/media", "/srv/inbox:rw" ] },
-                                              headers: bearer(code)
-
-    assert_response :ok
-    assert_includes response.body, %(BindReadOnlyPaths="-/srv/media"\nBindPaths="-/srv/inbox"\n)
-
-    get "/link/download/xixo-link.service", params: { user: "jon; rm -rf /", folders: [ "/srv" ] }, headers: bearer(code)
-    assert_response :unprocessable_content
-
-    get "/link/download/xixo-link.service", params: { user: "jon", folders: [ "/srv/../etc" ] }, headers: bearer(code)
-    assert_response :unprocessable_content
+    Tenant.switch(@tenant) do
+      held = LinkRequest.sole
+      assert_equal [ "studio.local", "darwin", "arm64" ], [ held.hostname, held.os, held.arch ]
+      assert_equal [ "/Users/jon/Desktop", "/Users/jon/Documents" ], held.folders
+      assert_equal [ "/Users/jon/Desktop" ], held.writable
+      assert_not_includes held.attributes.to_json, started["device_code"]
+      assert_not Resource::Machine.exists?
+    end
   end
 
-  test "the machine names its client with the code once, and xixo lets that client in" do
-    code = link("studio")
+  test "one address waits on at most three machines at a time" do
+    3.times { start }
+    start
 
-    link_up(code, client_id: "client-studio")
+    assert_response :too_many_requests
+    assert_equal "slow_down", response.parsed_body["error"]
+  end
+
+  test "polling waits for an administrator, slows down a machine that asks too often, and hands the token once" do
+    started = start
+
+    poll(started)
+    assert_response :bad_request
+    assert_equal "authorization_pending", response.parsed_body["error"]
+
+    poll(started)
+    assert_equal "slow_down", response.parsed_body["error"]
+
+    assert_match(/only an administrator approves a machine/, graphql(Grant::SIGN_IN, APPROVE, id: request_id).dig("errors", 0, "message"))
+    approved = graphql(Grant::SCOPES, APPROVE, id: request_id).dig("data", "approveLinkRequest", "request")
+    assert_equal "approved", approved["status"]
+    assert_equal "studio.local", issuer.enrollments.last["client_name"]
+
+    travel 6.seconds do
+      poll(started)
+      assert_response :ok
+      assert_match(/\Aenroll-/, response.parsed_body["enrollment_token"])
+      assert_equal "studio.local", response.parsed_body["name"]
+      Tenant.switch(@tenant) { assert_nil LinkRequest.sole.enrollment_token }
+    end
+
+    travel 12.seconds do
+      poll(started)
+      assert_equal "expired_token", response.parsed_body["error"]
+    end
+  end
+
+  test "a denied machine hears so, and a request runs out after ten minutes" do
+    denied = start
+    graphql(Grant::SCOPES, DENY, id: request_id)
+    poll(denied)
+    assert_equal "access_denied", response.parsed_body["error"]
+
+    waiting = start
+    travel LinkRequest::LASTS + 1.second do
+      poll(waiting)
+      assert_equal "expired_token", response.parsed_body["error"]
+    end
+
+    post "/link/requests/token", params: { device_code: "made-up" }, headers: { "HOST" => host }
+    assert_equal "expired_token", response.parsed_body["error"]
+  end
+
+  test "only an administrator sees who is asking to link up" do
+    started = start
+
+    assert_empty graphql(Grant::SIGN_IN, REQUESTS).dig("data", "linkRequests")
+    listed = graphql(Grant::SCOPES, REQUESTS).dig("data", "linkRequests").sole
+    assert_equal [ "studio.local", "pending", started["user_code"], "127.0.0.1" ], listed.values_at("hostname", "status", "code", "remoteIp")
+
+    by_code = graphql(Grant::SCOPES, "query($code: String!) { linkRequest(code: $code) { hostname } }",
+                      code: started["user_code"].downcase.delete("-"))
+    assert_equal "studio.local", by_code.dig("data", "linkRequest", "hostname")
+    assert_nil graphql(Grant::SIGN_IN, "query($code: String!) { linkRequest(code: $code) { hostname } }",
+                       code: started["user_code"]).dig("data", "linkRequest")
+  end
+
+  test "the approved machine binds its own client once, and shows up named from its hostname" do
+    started = approved_and_handed
+
+    bind(started, client_id: "client-studio")
     assert_response :ok
-    assert_match(/Linked up as studio/, response.body)
-    Tenant.switch(@tenant) do
-      linked = AuditEvent.where(channel: "link", action: "link").sole
-      assert_equal [ "ok", "client", "client-studio" ], [ linked.status, linked.actor, linked.actor_name ]
-    end
+    assert_equal "Linked up as studio.\n", response.body
 
     Tenant.switch(@tenant) do
-      machine = Resource::Machine.find_by!(key: "studio")
-      assert_equal machine, Resource::Machine.enrolled("client-studio")
-      assert_nil machine.details["linking"]
+      machine = Resource::Machine.enrolled("client-studio")
+      assert_equal [ "studio", "studio.local" ], [ machine.key, machine.name ]
+      assert_equal "search", machine.access
+      assert machine.helps_others?
+      assert_equal [ "bob" ], machine.operators
+      assert_equal "linked", LinkRequest.sole.status
+      assert_equal machine, LinkRequest.sole.resource
+      assert_equal [ "ok", "client", "client-studio" ], AuditEvent.where(channel: "link", action: "link").sole.values_at(:status, :actor, :actor_name)
     end
 
-    link_up(code, client_id: "client-other")
-    assert_response :unauthorized
+    bind(started, client_id: "client-other")
+    assert_response :unprocessable_content
     Tenant.switch(@tenant) { assert_nil Resource::Machine.enrolled("client-other") }
 
-    get "/link/download/xixo-link-linux-amd64", headers: bearer(code)
-    assert_response :unauthorized
-    Tenant.switch(@tenant) { assert_equal 2, AuditEvent.where(channel: "link", status: "denied").count }
-  end
-
-  test "a machine linked again as the client it already is uses up its code" do
-    machine = machine_on(@tenant, key: "box", client_id: "client-box")
-    code = graphql(Grant::SCOPES, LINK, id: machine.id).dig("data", "linkMachine", "code")
-
-    link_up(code, client_id: "client-box")
+    get "/link", headers: signed("client-studio", method: "GET")
     assert_response :ok
-    Tenant.switch(@tenant) { assert_nil machine.reload.details["linking"] }
+    assert_equal "Linked up as studio.\n", response.body
 
-    link_up(code, client_id: "client-box")
-    assert_response :unauthorized
+    get "/link", headers: signed("client-unknown", method: "GET")
+    assert_response :not_found
   end
 
-  test "a code links only its own machine and never takes a client another machine holds" do
-    machine_on(@tenant, key: "box", client_id: "client-box")
-    code = link("studio")
+  test "a request binds only once handed, only with the machine's own token, and never a client another machine holds" do
+    started = start
+    bind(started, client_id: "client-studio")
+    assert_response :unprocessable_content
 
-    link_up(code, client_id: "client-box")
+    machine_on(@tenant, key: "box", client_id: "client-box")
+    started = approved_and_handed
+    bind(started, client_id: "client-box")
     assert_response :unprocessable_content
     assert_match(/Another machine is linked as that client/, response.body)
 
-    post "/link", params: { code: code, client_id: "client-studio" }, headers: bearer(code)
-    assert_response :unauthorized
-    assert_match(/takes the machine's own token/, response.body)
-
-    Tenant.switch(@tenant) do
-      assert_equal "client-box", Resource::Machine.find_by!(key: "box").client_id
-      assert_nil Resource::Machine.find_by!(key: "studio").client_id
-    end
-  end
-
-  test "a code runs out, and a fresh one replaces it" do
-    first = link("studio")
-    id = Tenant.switch(@tenant) { Resource::Machine.find_by!(key: "studio").id }
-    second = graphql(Grant::SCOPES, LINK, id: id).dig("data", "linkMachine", "code")
-
-    link_up(first, client_id: "client-studio")
+    post "/link", params: { device_code: started["device_code"] }, headers: { "HOST" => host }
     assert_response :unauthorized
 
-    travel Resource::Machine::Linking::LINKED_WITHIN + 1.minute do
-      link_up(second, client_id: "client-studio")
-      assert_response :unauthorized
+    bind({ "device_code" => "made-up" }, client_id: "client-studio")
+    assert_response :unauthorized
 
-      Tenant.switch(@tenant) do
-        error = assert_raises(Resource::Failed) { Resource::Machine.find(id).check! }
-        assert_match(/has not linked up yet. Get a fresh code/, error.message)
-      end
-    end
+    Tenant.switch(@tenant) { assert_equal [ "box" ], Resource::Machine.pluck(:key) }
   end
 
-  test "linking a machine again replaces its client once the new one names itself" do
-    machine = machine_on(@tenant, key: "box", client_id: "client-old")
-    revoked = []
-    code = graphql(Grant::SCOPES, LINK, id: machine.id).dig("data", "linkMachine", "code")
+  test "a second machine with the same hostname gets a key of its own" do
+    machine_on(@tenant, key: "studio", client_id: "client-first")
 
-    Tenant.switch(@tenant) { assert_equal "client-old", machine.reload.client_id }
+    bind(approved_and_handed, client_id: "client-second")
 
-    held = Resource::Machine::Enrollment.method(:revoke)
-    Resource::Machine::Enrollment.define_singleton_method(:revoke) { |_tenant, client_id| revoked << client_id }
-    link_up(code, client_id: "client-new")
-    assert_response :ok
-    assert_equal [ "client-old" ], revoked
-    Tenant.switch(@tenant) { assert_equal "client-new", machine.reload.client_id }
-  ensure
-    Resource::Machine::Enrollment.define_singleton_method(:revoke, held) if held
+    Tenant.switch(@tenant) { assert_equal "studio-2", Resource::Machine.enrolled("client-second").key }
   end
 
-  test "an administrator sees where a machine dials and the builds this server hands out" do
-    body = graphql(Grant::SCOPES, "{ linkUp { xixo issuer builds { os arch file sha256 } } }")
+  test "an administrator changes what xixo may do with a machine, and nobody else does" do
+    machine = machine_on(@tenant, key: "box")
 
-    held = body.dig("data", "linkUp")
-    assert_equal "http://#{host}", held["xixo"]
-    assert_equal @tenant.issuer, held["issuer"]
-    assert_equal [ { "os" => "linux", "arch" => "amd64", "file" => "xixo-link-linux-amd64",
-                     "sha256" => Digest::SHA256.hexdigest("x86 binary") } ], held["builds"]
+    assert_match(/only an administrator changes what xixo may do/,
+                 graphql(Grant::SIGN_IN, ACCESS, id: machine.id, access: "files").dig("errors", 0, "message"))
+    assert_match(/everything is not search, files, or writing/,
+                 graphql(Grant::SCOPES, ACCESS, id: machine.id, access: "everything").dig("errors", 0, "message"))
 
+    held = graphql(Grant::SCOPES, ACCESS, id: machine.id, access: "writing", helpsOthers: false)
+    assert_equal({ "access" => "writing", "helpsOthers" => false }, held.dig("data", "setMachineAccess", "resource", "machine").slice("access", "helpsOthers"))
+    Tenant.switch(@tenant) { assert_equal "set_machine_access", AuditEvent.where(channel: "graphql").last.action }
+  end
+
+  test "an administrator sees where the command fetches the script and which systems it serves" do
+    held = graphql(Grant::SCOPES, "{ linkUp { xixo systems } }").dig("data", "linkUp")
+
+    assert_equal({ "xixo" => "http://#{host}", "systems" => %w[darwin linux] }, held)
     assert_nil graphql(Grant::SIGN_IN, "{ linkUp { xixo } }").dig("data", "linkUp")
   end
 
-  test "a Mac is pointed at the mac reader of the GitHub release of this server's version" do
-    version = JSON.parse(Rails.root.join(".release-please-manifest.json").read)["."]
+  test "a machine is not attached by hand" do
+    body = graphql(Grant::SCOPES, <<~GQL, settings: {})
+      mutation($settings: JSON) { attachResource(input: { type: "machine", key: "box", settings: $settings }) { resource { id } } }
+    GQL
 
-    held = graphql(Grant::SCOPES, "{ linkUp { macReader } }").dig("data", "linkUp")
-
-    assert_equal "https://github.com/xixo/xixo/releases/download/server-v#{version}/xixo-mac-reader", held["macReader"]
+    assert_match(/a machine links itself up/, body.dig("errors", 0, "message"))
   end
 
   private
 
-    def link(key)
-      graphql(Grant::SCOPES, LINK, key: key).dig("data", "linkMachine", "code")
+    def start(said = ASKED)
+      post "/link/requests", params: said.to_json, headers: { "HOST" => host, "Content-Type" => "application/json" }
+      response.parsed_body
+    end
+
+    def poll(started)
+      post "/link/requests/token", params: { device_code: started["device_code"] }, headers: { "HOST" => host }
+    end
+
+    def request_id
+      Tenant.switch(@tenant) { LinkRequest.order(:id).last.id }
+    end
+
+    def approved_and_handed
+      started = start
+      graphql(Grant::SCOPES, APPROVE, id: request_id)
+      poll(started)
+      started
+    end
+
+    def bind(started, client_id:)
+      post "/link", params: { device_code: started["device_code"] }, headers: signed(client_id)
+    end
+
+    def signed(client_id, method: "POST")
+      token = machine_token(@tenant, client_id: client_id)
+      { "HOST" => host, "Authorization" => "DPoP #{token}", "DPoP" => dpop_proof(token, url: "http://#{host}/link", method: method) }
     end
 
     def host
       "#{@tenant.subdomain}.xixo.test"
-    end
-
-    def link_up(code, client_id:)
-      token = machine_token(@tenant, client_id: client_id)
-      post "/link", params: { code: code }, headers: {
-        "HOST" => host, "Authorization" => "DPoP #{token}",
-        "DPoP" => dpop_proof(token, url: "http://#{host}/link", method: "POST")
-      }
-    end
-
-    def bearer(code)
-      { "HOST" => host, "Authorization" => "Bearer #{code}" }
     end
 
     def graphql(scopes, query, **variables)

@@ -4,18 +4,12 @@ module Types
   class LinkUpType < Types::BaseObject
     grants "xixo:resources:read"
 
-    description "What a machine needs to install xixo link itself and link up."
+    description "What the command that links up a machine needs."
 
-    field :xixo, String, null: false, description: "The address xixo link dials."
-    field :issuer, String, null: false, description: "The masks issuer xixo link enrolls with."
-    field :builds, [ Types::LinkBuildType ], null: false,
-          description: "The xixo link builds this server hands out, by system and architecture."
-    field :packages, [ String ], null: false,
-          description: "The Debian and Ubuntu packages that hold the programs xixo link reads PDFs, images, audio, " \
-                       "video, and office documents with."
-    field :mac_reader, String,
-          description: "Where a Mac gets the mac reader: the asset of the GitHub release of this server's version, " \
-                       "with its SHA-256 beside it at the same address ending .sha256. Empty when the server's " \
-                       "version is unknown."
+    field :xixo, String, null: false,
+          description: "The address of this xixo. The command is curl -fsSL <xixo>/link.sh | sh, followed by the " \
+                       "folders the machine shares."
+    field :systems, [ String ], null: false,
+          description: "The systems this server holds a build of xixo link for: linux, darwin, or both."
   end
 end

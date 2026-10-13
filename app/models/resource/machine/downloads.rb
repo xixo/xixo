@@ -2,7 +2,11 @@ class Resource
   class Machine
     module Downloads
       BUILD = /\Axixo-link-(linux|darwin)-(amd64|arm64)\z/
-      UNIT = Installer::UNIT_FILE
+      UNIT = "xixo-link.service".freeze
+      PACKAGES = %w[
+        ca-certificates libvips-tools libraw-bin libimage-exiftool-perl libarchive-zip-perl poppler-utils
+        tesseract-ocr ffmpeg libreoffice-writer libreoffice-calc fonts-liberation
+      ].freeze
       PLIST = "xixo-link.plist".freeze
       MAC_READER = "xixo-mac-reader".freeze
       RELEASES = "https://github.com/xixo/xixo/releases/download".freeze
@@ -37,7 +41,15 @@ class Resource
       end
 
       def plist
-        path = Machine.binaries + PLIST
+        held(PLIST)
+      end
+
+      def unit
+        held(UNIT)
+      end
+
+      def held(file)
+        path = Machine.binaries + file
         path if File.lstat(path).file?
       rescue SystemCallError
         nil

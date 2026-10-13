@@ -74,7 +74,7 @@ class Resource
       end
 
       def offered_tools
-        NAMES & Array(machine["tools"])
+        NAMES & Array(machine["tools"]) & policy["tools"]
       end
 
       def offers?(tool)
@@ -228,6 +228,7 @@ class Resource
         end
 
         def unoffered(tool)
+          return "its access in xixo leaves #{tool} out. An administrator changes it on the machine's card" unless policy["tools"].include?(tool)
           return "its config leaves #{tool} out of tools" unless offers?(tool)
           return "it shares no folder writable" if tool == "write"
 

@@ -70,7 +70,10 @@ class LinkChannelTest < ActionCable::Channel::TestCase
     assert_equal 500, held.warnings.second.size
     assert_equal 16, held.warnings.size
     assert_equal %w[browse read], held.offered_tools
-    assert held.lends?
+    assert_not held.lends?
+
+    Tenant.switch(@tenant) { held.set_access!(access: "files") }
+    assert fresh.lends?
 
     perform :health, HEALTH.merge("warnings" => [ "the shared folder /srv/photos does not exist" ])
     assert_equal [ "the shared folder /srv/photos does not exist" ], fresh.warnings
@@ -201,11 +204,22 @@ class LinkChannelTest < ActionCable::Channel::TestCase
     assert_raises(Resource::Failed) { Tenant.switch(@tenant) { machine.read("/srv/media", "big.bin") } }
   end
 
+  test "hello is answered with what xixo asks the machine to allow" do
+    connected
+    stream = LinkChannel.broadcasting_for(@machine)
+
+    perform :hello, HELLO.merge("services" => [ { "kind" => "ollama", "port" => 11_434 } ])
+
+    told = ActionCable.server.pubsub.broadcasts(stream).map { |held| JSON.parse(held) }
+    assert_equal [ { "settings" => { "tools" => %w[browse search read models], "lend" => false, "extracts_for_others" => true } } ], told
+  end
+
   test "an upload is held for the machine to fetch and never goes out on the stream" do
     connected
     perform :hello, HELLO
     body = SecureRandom.random_bytes(Resource::Machine::MOST_CHUNKED + 10)
     stream = LinkChannel.broadcasting_for(@machine)
+    ActionCable.server.pubsub.clear_messages(stream)
 
     staged = Tenant.switch(@tenant) { fresh.upload(StringIO.new(body)) }
 

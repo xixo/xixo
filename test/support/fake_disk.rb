@@ -64,7 +64,8 @@ module FakeDisk
       folders = folders.map(&:to_s)
       writable = writable.map(&:to_s)
       held = Resource::Machine.find_by(key: key)
-      machine = { "hostname" => key, "connected" => true, "session" => "disk", "seen_at" => Time.current.utc.iso8601 }
+      machine = { "hostname" => key, "connected" => true, "session" => "disk", "seen_at" => Time.current.utc.iso8601,
+                  "tools" => Resource::Machine::Tools::NAMES, "lend" => true, "extracts_for_others" => true }
 
       if held
         known = held.machine
@@ -76,7 +77,7 @@ module FakeDisk
 
       Resource::Machine.create!(
         key: key, name: key.titleize,
-        details: { MARK => true, "client_id" => "disk-#{SecureRandom.hex(4)}",
+        details: { MARK => true, "client_id" => "disk-#{SecureRandom.hex(4)}", "access" => "writing",
                    "machine" => machine.merge("folders" => folders.sort, "writable" => writable.sort) }
       )
     end

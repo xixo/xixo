@@ -24,28 +24,33 @@ module Types
           description: "The kinds of file xixo link cannot read, because the machine lacks their programs. " \
                        "Such a file on this machine is read by a machine that reads for others when this one lends " \
                        "its files, and otherwise waits until this one can read it."
+    field :access, String, null: false,
+          description: "What xixo may do with the machine: search, files, or writing. An administrator changes it " \
+                       "with setMachineAccess."
+    field :helps_others, Boolean, null: false,
+          description: "Whether xixo asks the machine to help read files from elsewhere."
+    field :held_back, [ String ], null: false,
+          description: "What its access asks for that the machine's own config holds back: tool names, lend, or " \
+                       "extracts_for_others."
     field :lends, Boolean, null: false,
-          description: "Whether xixo link on it lets the bytes of its files leave the machine: to be opened or " \
-                       "downloaded, and to be read by another machine when it lacks the program itself."
+          description: "Whether the bytes of its files may leave the machine: to be opened or downloaded, and to " \
+                       "be read by another machine when it lacks the program itself. Its access and its own " \
+                       "config both have to allow it."
     field :warnings, [ String ], null: false,
           description: "What xixo link last said is keeping it from working fully, such as a shared folder it " \
                        "may not read, each as a sentence to show a person."
     field :tools, [ String ], null: false,
-          description: "The tools the machine offers to MCP clients through xixo, as its config names them: " \
-                       "browse, search, read, write, extract, and models."
-    field :extracts_for_others, Boolean,
-          description: "Whether the machine's own config lets it read files from other places for xixo: uploads, " \
-                       "mail attachments, cloud files, web pages, and files other machines lend. Empty when xixo " \
-                       "link on it does not say."
+          description: "The tools the machine offers to MCP clients through xixo: browse, search, read, write, " \
+                       "extract, and models. Its access and its own config both have to allow each one."
+    field :extracts_for_others, Boolean, null: false,
+          description: "Whether the machine reads files from other places for xixo: uploads, mail attachments, " \
+                       "cloud files, web pages, and files other machines lend. Its access and its own config both " \
+                       "have to allow it."
     field :waiting, [ Types::WaitingFilesType ], null: false,
           description: "Files on this machine whose reading waits for it, by kind: it is offline, or it lacks " \
                        "their program and lends none of its files."
     field :linked, Boolean, null: false,
           description: "Whether xixo link is enrolled as this machine, whether or not it is connected now."
-    field :self_linked, Boolean, null: false,
-          description: "Whether the machine installed xixo link itself, with a code, instead of xixo installing it over SSH."
-    field :linking_until, GraphQL::Types::ISO8601DateTime,
-          description: "When the code handed out to link the machine stops working. Empty when none is waiting."
     field :services, [ Types::MachineServiceType ], null: false,
           description: "Model servers listening on the machine, with its tailnet address when it has one."
 
@@ -76,8 +81,9 @@ module Types
     def extracts_for_others = object.extracts_for_others
     def waiting = Types::WaitingFilesType.on(context, object.id)
     def linked = object.client_id.present?
-    def self_linked = object.self_linked?
-    def linking_until = object.link_expires_at
+    def access = object.access
+    def helps_others = object.helps_others?
+    def held_back = object.held_back
 
     private
 

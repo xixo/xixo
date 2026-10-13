@@ -95,8 +95,46 @@ class MachineToolsTest < ActiveSupport::TestCase
     end
   end
 
+  test "the access an administrator sets narrows what the machine offers, and xixo tells xixo link at once" do
+    offering(ALL, writable: [ "/srv/notes" ], services: [ { "kind" => "ollama", "port" => 11_434 } ], lend: true, access: "search")
+
+    as_member do
+      @machine.reload
+      assert_equal %w[health discover browse search read chat], @machine.commands.keys.map(&:to_s)
+      assert_not @machine.lends?
+      assert_empty @machine.writable_folders
+      assert_equal({ "tools" => %w[browse search read models], "lend" => false, "extracts_for_others" => true }, @machine.policy)
+
+      told = []
+      held = LinkChannel.method(:broadcast_to)
+      LinkChannel.define_singleton_method(:broadcast_to) { |machine, message| told << [ machine.id, message ] }
+      begin
+        @machine.set_access!(access: "files", helps_others: false)
+      ensure
+        LinkChannel.define_singleton_method(:broadcast_to, held)
+      end
+
+      assert_equal [ [ @machine.id, { "settings" => { "tools" => %w[browse search read extract models], "lend" => true,
+                                                      "extracts_for_others" => false } } ] ], told
+      assert @machine.reload.lends?
+      assert_not @machine.reads_for_others?
+      assert_equal %w[health discover browse search read extract chat], @machine.commands.keys.map(&:to_s)
+    end
+  end
+
+  test "the machine's own config holds back what its access asks for" do
+    offering(%w[browse search], lend: false, access: "files")
+
+    as_member do
+      @machine.reload
+      assert_equal %w[browse search], @machine.offered_tools
+      assert_not @machine.lends?
+      assert_equal %w[read extract lend], @machine.held_back
+    end
+  end
+
   test "browse lists the shared folders, then the files of one, and refuses a folder the machine does not share" do
-    offering(%w[browse], writable: [ "/srv/notes" ])
+    offering(%w[browse write], writable: [ "/srv/notes" ])
     @answers["browse"] = { "entries" => [ { "path" => "a.txt", "size" => 3, "modified_at" => "2026-10-12T10:00:00Z" } ], "cursor" => "a.txt" }
 
     as_member do
@@ -368,9 +406,9 @@ class MachineToolsTest < ActiveSupport::TestCase
 
   private
 
-    def offering(tools, writable: [], services: [], lend: false)
+    def offering(tools, writable: [], services: [], lend: false, access: "writing")
       Tenant.switch(@tenant) do
-        @machine.reload.update!(details: @machine.details.merge("machine" => @machine.machine.merge(
+        @machine.reload.update!(details: @machine.details.merge("access" => access, "machine" => @machine.machine.merge(
           "tools" => tools, "writable" => writable, "services" => services, "lend" => lend
         )))
       end

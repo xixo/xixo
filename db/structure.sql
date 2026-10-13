@@ -479,6 +479,54 @@ ALTER SEQUENCE public.link_exchanges_id_seq OWNED BY public.link_exchanges.id;
 
 
 --
+-- Name: link_requests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.link_requests (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    resource_id bigint,
+    device_digest character varying NOT NULL,
+    user_code character varying NOT NULL,
+    status character varying DEFAULT 'pending'::character varying NOT NULL,
+    hostname character varying NOT NULL,
+    os character varying,
+    arch character varying,
+    folders jsonb DEFAULT '[]'::jsonb NOT NULL,
+    writable jsonb DEFAULT '[]'::jsonb NOT NULL,
+    remote_ip character varying,
+    enrollment_token text,
+    decided_by character varying,
+    decided_at timestamp(6) without time zone,
+    polled_at timestamp(6) without time zone,
+    expires_at timestamp(6) without time zone NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+ALTER TABLE ONLY public.link_requests FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: link_requests_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.link_requests_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: link_requests_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.link_requests_id_seq OWNED BY public.link_requests.id;
+
+
+--
 -- Name: passages; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -867,6 +915,13 @@ ALTER TABLE ONLY public.link_exchanges ALTER COLUMN id SET DEFAULT nextval('publ
 
 
 --
+-- Name: link_requests id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.link_requests ALTER COLUMN id SET DEFAULT nextval('public.link_requests_id_seq'::regclass);
+
+
+--
 -- Name: passages id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1009,6 +1064,14 @@ ALTER TABLE ONLY public.link_chunks
 
 ALTER TABLE ONLY public.link_exchanges
     ADD CONSTRAINT link_exchanges_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: link_requests link_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.link_requests
+    ADD CONSTRAINT link_requests_pkey PRIMARY KEY (id);
 
 
 --
@@ -1469,6 +1532,41 @@ CREATE INDEX index_link_exchanges_on_tenant_id_and_created_at ON public.link_exc
 
 
 --
+-- Name: index_link_requests_on_device_digest; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_link_requests_on_device_digest ON public.link_requests USING btree (device_digest);
+
+
+--
+-- Name: index_link_requests_on_resource_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_link_requests_on_resource_id ON public.link_requests USING btree (resource_id);
+
+
+--
+-- Name: index_link_requests_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_link_requests_on_tenant_id ON public.link_requests USING btree (tenant_id);
+
+
+--
+-- Name: index_link_requests_on_tenant_id_and_expires_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_link_requests_on_tenant_id_and_expires_at ON public.link_requests USING btree (tenant_id, expires_at);
+
+
+--
+-- Name: index_link_requests_on_tenant_id_and_user_code; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_link_requests_on_tenant_id_and_user_code ON public.link_requests USING btree (tenant_id, user_code);
+
+
+--
 -- Name: index_passages_on_feed_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1712,6 +1810,14 @@ ALTER TABLE ONLY public.gates
 
 
 --
+-- Name: link_requests fk_rails_1775dc663c; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.link_requests
+    ADD CONSTRAINT fk_rails_1775dc663c FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: feed_references fk_rails_2dbee6c560; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1837,6 +1943,14 @@ ALTER TABLE ONLY public.active_storage_variant_records
 
 ALTER TABLE ONLY public.analyses
     ADD CONSTRAINT fk_rails_9c589bf702 FOREIGN KEY (reference_id) REFERENCES public.feed_references(id) ON DELETE SET NULL;
+
+
+--
+-- Name: link_requests fk_rails_9fcac51d5a; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.link_requests
+    ADD CONSTRAINT fk_rails_9fcac51d5a FOREIGN KEY (resource_id) REFERENCES public.resources(id) ON DELETE SET NULL;
 
 
 --
@@ -2042,6 +2156,12 @@ ALTER TABLE public.link_chunks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.link_exchanges ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: link_requests; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.link_requests ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: passages; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -2155,6 +2275,13 @@ CREATE POLICY tenant_isolation ON public.link_exchanges USING ((tenant_id = (NUL
 
 
 --
+-- Name: link_requests tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.link_requests USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
+
+
+--
 -- Name: passages tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -2203,6 +2330,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261012230000'),
 ('20261012210000'),
 ('20261012200000'),
 ('20261012190000'),

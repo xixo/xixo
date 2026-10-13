@@ -127,17 +127,47 @@ module Types
     end
 
     field :link_up, Types::LinkUpType, grants: "xixo:resources:read",
-          description: "What a machine needs to link up by installing xixo link itself. Empty for anyone " \
-                       "but an administrator, who alone links machines."
+          description: "What the command that links up a machine needs. Empty for anyone but an administrator, " \
+                       "who alone approves machines."
 
     def link_up
       return nil unless context[:grant].administers?
 
-      { xixo: context[:origin] || context[:tenant].origin, issuer: context[:tenant].issuer,
-        builds: Resource::Machine::Downloads.builds, mac_reader: Resource::Machine::Downloads.mac_reader,
-        packages: Resource::Machine::Installer::PACKAGES }
+      { xixo: context[:origin] || context[:tenant].origin,
+        systems: Resource::Machine::Downloads.builds.map(&:os).uniq & Resource::Machine::Script::SYSTEMS.keys }
     rescue Tenant::Unconfigured
       nil
+    end
+
+    field :link_requests, [ Types::LinkRequestType ], null: false, grants: "xixo:resources:read",
+          description: "The machines asking to link up, and those approved in the last ten minutes. Empty for " \
+                       "anyone but an administrator."
+
+    def link_requests
+      return [] unless context[:grant].administers?
+
+      LinkRequest.shown.includes(:resource)
+    end
+
+    field :link_request, Types::LinkRequestType, grants: "xixo:resources:read",
+          description: "The machine asking to link up with the code it shows. Empty for anyone but an administrator." do
+      argument :code, String, required: true
+    end
+
+    def link_request(code:)
+      return nil unless context[:grant].administers?
+
+      LinkRequest.by_code(code)
+    end
+
+    field :unlinked_machines, [ Types::DiscoveredNodeType ], null: false, grants: "xixo:resources:read",
+          description: "The machines a tailnet reaches that are not linked up, each with the model servers that " \
+                       "answered on it. Empty for anyone but an administrator."
+
+    def unlinked_machines
+      return [] unless context[:grant].administers?
+
+      Resource::Machine.unlinked_peers(context[:grant])
     end
 
     field :resource_types, [ Types::AttachingType ], null: false, grants: "xixo:resources:read",

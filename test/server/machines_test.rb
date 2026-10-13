@@ -2,51 +2,11 @@ require "test_helper"
 require_relative "../support/machines"
 
 class MachinesTest < ActionDispatch::IntegrationTest
-  include ActiveJob::TestHelper
   include Machines
-
-  ATTACH = <<~GQL.freeze
-    mutation($settings: JSON, $personal: Boolean) {
-      attachResource(input: { type: "machine", key: "box", name: "Box", settings: $settings, personal: $personal }) {
-        resource { key settings heldCredentials machine { connected folders } }
-      }
-    }
-  GQL
-
-  SETTINGS = {
-    "host" => "100.64.0.9", "user" => "jon", "host_key" => "SHA256:#{'A' * 43}", "private_key" => "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n-----END OPENSSH PRIVATE KEY-----",
-    "folders" => "/srv/media\n/srv/My Photos\n"
-  }.freeze
 
   setup do
     @tenant = Tenant.create!(subdomain: "machines-#{SecureRandom.hex(4)}", name: "Machines")
     connect!(@tenant)
-  end
-
-  test "only an administrator attaches a machine, and never as only theirs" do
-    member = graphql(Grant::SIGN_IN, ATTACH, settings: SETTINGS)
-    assert_match(/only an administrator/, member.dig("errors", 0, "message"))
-
-    personal = graphql(Grant::SCOPES, ATTACH, settings: SETTINGS, personal: true)
-    assert_match(/an administrator attaches for everyone/, personal.dig("errors", 0, "message"))
-
-    Tenant.switch(@tenant) { assert_not Resource::Machine.exists? }
-    assert_no_enqueued_jobs(only: InstallLinkJob)
-  end
-
-  test "attaching a machine with a key starts an install, keeps the key out of sight, and splits folders by line" do
-    attached = nil
-
-    assert_enqueued_with(job: InstallLinkJob) do
-      attached = graphql(Grant::SCOPES, ATTACH, settings: SETTINGS).dig("data", "attachResource", "resource")
-    end
-
-    assert_equal [ "/srv/media", "/srv/My Photos" ], attached.dig("settings", "folders")
-    assert_not attached["settings"].key?("private_key")
-    assert_equal [ "private_key" ], attached["heldCredentials"]
-    assert_equal false, attached.dig("machine", "connected")
-
-    Tenant.switch(@tenant) { assert_equal [ "install" ], Run.where(resource: Resource.find_by!(key: "box")).pluck(:kind) }
   end
 
   test "a machine says what it shares, and its folders are offered to attach" do
@@ -68,7 +28,7 @@ class MachinesTest < ActionDispatch::IntegrationTest
   test "a machine says which kinds of file it reads, which it cannot, whether it lends its files, and which tools it offers" do
     machine = machine_on(@tenant, folders: [ "/srv/media" ])
     Tenant.switch(@tenant) do
-      machine.update_columns(details: machine.details.deep_merge("machine" => { "extractors" => %w[text pdf], "tools" => %w[read shell browse], "lend" => true }))
+      machine.update_columns(details: machine.details.deep_merge("access" => "files", "machine" => { "extractors" => %w[text pdf], "tools" => %w[read shell browse], "lend" => true }))
     end
 
     body = graphql(Grant::SCOPES, "{ resources { key machine { extractors unread lends tools } } }")
@@ -94,19 +54,19 @@ class MachinesTest < ActionDispatch::IntegrationTest
     assert_equal [ { "kind" => "media", "count" => 2 } ], held["waiting"]
   end
 
-  test "an admin turns lending on for a machine's next install without touching what it learned at install" do
+  test "an admin renames a machine and lists its operators without touching what xixo link said" do
     machine = machine_on(@tenant, folders: [ "/srv/media" ])
 
-    body = graphql(Grant::SCOPES, <<~GQL)
-      mutation { updateResource(input: { id: "#{machine.id}", settings: { lend: true } }) { resource { key } } }
+    body = graphql(Grant::SCOPES, <<~GQL, settings: { "operators" => "alice\ncarol" })
+      mutation($settings: JSON) { updateResource(input: { id: "#{machine.id}", name: "Studio", settings: $settings }) { resource { key name } } }
     GQL
 
     assert_nil body["errors"]
     Tenant.switch(@tenant) do
       held = machine.reload
-      assert_equal true, held.details["lend"]
-      assert_not held.lends?
-      assert_equal [ "/srv/media" ], held.details["folders"]
+      assert_equal [ "box", "Studio" ], [ held.key, held.name ]
+      assert_equal %w[alice carol], held.operators
+      assert_equal [ "/srv/media" ], held.offered_folders
       assert held.client_id.present?
     end
   end

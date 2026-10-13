@@ -14,7 +14,6 @@ class Resource
     MOST_WARNINGS = 16
     MOST_WARNING = 500
     MOST_PATH = 4096
-    TAILNET = [ IPAddr.new("100.64.0.0/10"), IPAddr.new("fd7a:115c:a1e0::/48") ].freeze
     MOST_RESULT = 4.megabytes
     SERVICE_KINDS = %w[ollama lmstudio].freeze
     PUT_AWAY_TRIES = 3
@@ -26,6 +25,14 @@ class Resource
     }.freeze
     LOCAL = "local".freeze
     MINTED = "minted_at".freeze
+    CLIENT_ID = /\A[A-Za-z0-9._:-]{1,200}\z/
+    ACCESS = %w[search files writing].freeze
+    DEFAULT_ACCESS = "search".freeze
+    ASKED_TOOLS = {
+      "search" => %w[browse search read],
+      "files" => %w[browse search read extract],
+      "writing" => %w[browse search read extract write]
+    }.freeze
 
     include Tools
 
@@ -34,62 +41,66 @@ class Resource
     before_validation(on: :create) { operated_by!(Current.grant) }
 
     validate :shared_by_everyone
-    validate :host_key_is_a_fingerprint
-    validate :host_key_given, if: -> { credentials.to_h["private_key"].present? }
+    validates :access, inclusion: { in: ACCESS }
 
-    after_commit :install_later, on: %i[create update], if: :key_given?
     after_commit :hang_up, on: %i[update destroy], if: -> { put_away_now? || client_replaced? }
 
     class << self
       def attaching
         {
-          label: "A Linux machine xixo sets up",
-          blurb: "xixo signs in to the machine once over SSH, installs xixo link, and links it up. The key is " \
-                 "used for that one install and then dropped. From then on xixo link on the machine dials xixo, " \
-                 "shares the folders listed here, and reads the files in them on the machine.",
+          label: "A machine running xixo link",
+          blurb: "A machine links itself up with one command from the Resources page, and an administrator " \
+                 "approves it.",
           names: "A name for the machine",
           fields: [
-            field("host", "Address", required: true, placeholder: "100.64.0.5",
-                  help: "Where xixo reaches its SSH server. Through a tailnet, its address on the tailnet."),
-            field("port", "SSH port", kind: "integer", value: "22"),
-            field("user", "SSH user", required: true, placeholder: "jon",
-                  help: "xixo link runs as this user and reads only what it can read. The user needs sudo " \
-                        "without a password to install it."),
-            field("private_key", "SSH private key", kind: "text", secret: true,
-                  help: "Used once to install xixo link and then dropped, whether the install worked or not. " \
-                        "Paste it again to install again."),
-            field("host_key", "Host key", placeholder: "SHA256:…",
-                  help: "The SHA256 fingerprint that ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub prints on " \
-                        "the machine. Needed unless the machine is reached through a tailnet, which vouches for " \
-                        "its address. Left empty there, the key seen on the first install is kept, and every " \
-                        "later install must meet the same one."),
-            field("folders", "Folders it shares", kind: "lines", placeholder: "/srv/media",
-                  help: "Absolute paths, one per line. End a line with :rw for a folder xixo may also write " \
-                        "into. xixo link reads nothing outside them, and only an install or the machine's own " \
-                        "config changes them."),
-            field("programs", "Extract on the machine", kind: "boolean", value: "true",
-                  help: "Installs the programs that read PDFs, office documents, images, audio, and video with " \
-                        "apt on Debian or Ubuntu, so only text leaves the machine. Left off, the machine reads " \
-                        "only plain text, data, calendars, contacts, email, books, and spreadsheets."),
-            field("lend", "Lend its files", kind: "boolean", value: "false",
-                  help: "Lets the bytes of its files leave the machine: to be opened or downloaded through xixo, " \
-                        "and to be read by another machine that reads for others when this one lacks the " \
-                        "program. Left off, nothing on this machine leaves it but text, and a file it cannot " \
-                        "read waits until it can."),
-            field("extracts_for_others", "Read files for other machines", kind: "boolean", value: "false",
-                  help: "Lets this machine read files that live elsewhere: uploads, mail attachments, cloud " \
-                        "files, web pages, and files other machines lend."),
-            field("keep_tools", "Keep write and models on a reinstall", kind: "boolean", value: "false",
-                  help: "A reinstall keeps browse, search, read, and extract from the config already on the " \
-                        "machine. Turned on, it keeps write and models too, which let xixo write into the " \
-                        "machine's folders and ask its model server."),
             field("operators", "Who operates it", kind: "lines",
                   help: "The masks subjects, one per line, whose clients may browse its folders, read its files' " \
-                        "bytes, write into them, run its extractors, and ask its model server. The administrator " \
-                        "who attaches or links the machine is listed on their own. Anyone else reaches only what " \
-                        "xixo drew out of its files.")
+                        "bytes, write into them, run its readers, and ask its model server. The administrator " \
+                        "who approves the machine is listed on their own. Anyone else reaches only what xixo " \
+                        "drew out of its files.")
           ]
         }
+      end
+
+      def approved!(request, client_id)
+        create!(
+          key: free_key(request.hostname), name: request.hostname,
+          details: {
+            "client_id" => client_id, "access" => DEFAULT_ACCESS, "helps_others" => true,
+            "operators" => [ request.decided_by ].compact,
+            "approved" => { "by" => request.decided_by, "at" => request.decided_at&.utc&.iso8601 }.compact
+          }
+        )
+      end
+
+      def unlinked_peers(grant)
+        linked = active.to_a
+        names = linked.flat_map { |machine| [ machine.machine["hostname"], machine.key ] }.compact_blank.map { |name| short(name) }
+        addresses = linked.flat_map(&:answers_at)
+
+        Tailnet.visible_to(grant).active.order(:key).flat_map do |tailnet|
+          tailnet.discovered(services: true).filter_map do |node|
+            next unless node["online"]
+            next if names.include?(short(node["host_name"])) || (node["addresses"] & addresses).any?
+
+            node.merge("via" => tailnet.key)
+          end
+        rescue Resource::Failed, Resource::Unusable
+          []
+        end
+      end
+
+      def short(name)
+        name.to_s.downcase.split(".").first
+      end
+
+      def free_key(hostname)
+        base = hostname.to_s.split(".").first.to_s.gsub(/[^a-z0-9-]+/, "-").delete_prefix("-").delete_suffix("-").presence || "machine"
+        taken = where("resources.key = ? OR resources.key LIKE ?", base, "#{sanitize_sql_like(base)}-%").pluck(:key)
+
+        ([ base ] + (2..).lazy.map { |n| "#{base}-#{n}" }.first(taken.size + 1)).find do |key|
+          key != LOCAL && !taken.include?(key)
+        end
       end
 
       def command_schema
@@ -122,7 +133,7 @@ class Resource
       end
 
       def pool
-        active.where("resources.details -> 'machine' ->> 'extracts_for_others' = 'true'").order(:id).select(&:connected?)
+        active.order(:id).select { |machine| machine.connected? && machine.reads_for_others? }
       end
 
       def holding(resources)
@@ -165,16 +176,6 @@ class Resource
       details.to_h["client_id"]
     end
 
-    def host_key
-      details.to_h["host_key"].to_s.strip.presence
-    end
-
-    def on_tailnet?(address)
-      via.is_a?(Tailnet) && TAILNET.any? { |range| range.include?(IPAddr.new(address.to_s)) }
-    rescue IPAddr::Error
-      false
-    end
-
     def answers_at
       [ target_host, *Array(machine["services"]).map { |service| service["address"] } ].compact_blank.uniq
     end
@@ -190,7 +191,7 @@ class Resource
     end
 
     def writable_folders
-      Array(machine["writable"]) & offered_folders
+      writes? ? Array(machine["writable"]) & offered_folders : []
     end
 
     def heard_from?
@@ -213,16 +214,51 @@ class Resource
       details.to_h["local"] == true
     end
 
-    def programs?
-      details.to_h["programs"] != false
+    def access
+      held = details.to_h["access"]
+      return held if held.present?
+
+      local? ? "writing" : DEFAULT_ACCESS
+    end
+
+    def helps_others?
+      details.to_h["helps_others"] != false
+    end
+
+    def policy
+      tools = ASKED_TOOLS.fetch(access, ASKED_TOOLS[DEFAULT_ACCESS])
+      tools += [ "models" ] if model_kinds.any?
+
+      { "tools" => Tools::NAMES & tools, "lend" => access != "search", "extracts_for_others" => helps_others? }
     end
 
     def lends?
-      machine["lend"] == true
+      machine["lend"] == true && policy["lend"]
     end
 
-    def keeps_tools?
-      details.to_h["keep_tools"] == true
+    def writes?
+      offers?("write")
+    end
+
+    def held_back
+      ceiling = Array(machine["tools"])
+      tools = policy["tools"] - ceiling
+      tools += [ "lend" ] if policy["lend"] && machine["lend"] == false
+      tools += [ "extracts_for_others" ] if policy["extracts_for_others"] && machine["extracts_for_others"] == false
+      heard_from? ? tools : []
+    end
+
+    def set_access!(access: nil, helps_others: nil)
+      held = details.to_h
+      held = held.merge("access" => access) unless access.nil?
+      held = held.merge("helps_others" => helps_others) unless helps_others.nil?
+      update!(details: held)
+      tell!
+      announce!
+    end
+
+    def tell!
+      LinkChannel.broadcast_to(self, { "settings" => policy })
     end
 
     def seen_at
@@ -235,25 +271,12 @@ class Resource
       machine["connected"] == true && seen_at.present? && seen_at > QUIET_AFTER.ago
     end
 
-    def self_linked?
-      !local? && details.to_h["host"].blank?
-    end
-
-    def linking?
-      Linking.waiting?(self)
-    end
-
-    def link_expires_at
-      Linking.expires_at(self)
-    end
-
     def extracts_for_others
-      held = machine["extracts_for_others"]
-      held if [ true, false ].include?(held)
+      machine["extracts_for_others"] == true && policy["extracts_for_others"]
     end
 
     def reads_for_others?
-      extracts_for_others == true
+      extracts_for_others
     end
 
     def announce!
@@ -263,17 +286,11 @@ class Resource
       Rails.logger.warn "machine #{id} could not announce: #{e.message}"
     end
 
-    def installing?
-      Run.open.exists?(resource_id: id, kind: "install")
-    end
-
     def check!
       reload unless new_record? || changed?
-      return true if installing? || connected?
+      return true if connected?
       raise Resource::Failed, "#{key}: xixo link beside the server has not enrolled yet" if client_id.blank? && local?
-      raise Resource::Failed, "#{key}: waiting for the machine to link up" if client_id.blank? && linking?
-      raise Resource::Failed, "#{key}: the machine has not linked up yet. Get a fresh code to link it" if client_id.blank? && self_linked?
-      raise Resource::Failed, "#{key}: xixo link is not installed yet. Paste an SSH key to install it" if client_id.blank?
+      raise Resource::Failed, "#{key}: the machine is not linked. Run the link-up command on it again" if client_id.blank?
       raise Resource::Failed, "#{key}: xixo link has never connected" if seen_at.nil?
 
       raise Resource::Failed, "#{key}: xixo link was last heard from #{seen_at.utc.iso8601}"
@@ -366,6 +383,8 @@ class Resource
     def greeted!(said, session:)
       merge_machine!(Hello.from(said).merge("session" => session, "connected" => true, "seen_at" => now_stamp))
       update_columns(offline_host: nil, offline_last_seen_at: nil, checked_at: Time.current, check_error: nil)
+      reload
+      tell!
       restate_folders!
       ResumeParkedJob.perform_later(id) if Analysis.parked.exists?
       announce!
@@ -406,38 +425,14 @@ class Resource
     end
 
     def bound!(client_id, revoker: Enrollment.method(:revoke))
-      if self.client_id == client_id
-        update!(details: details.to_h.except(Linking::KEY)) if details.to_h.key?(Linking::KEY)
-        return
-      end
+      return if self.client_id == client_id
 
       revoker.call(tenant, self.client_id) if self.client_id.present?
-      self.details = details.to_h.merge("client_id" => client_id).except("machine", MINTED, Linking::KEY)
+      self.details = details.to_h.merge("client_id" => client_id).except("machine", MINTED)
       self.check_error = nil
       self.checked_at = nil
       save!
       announce!
-    end
-
-    def enrolled!(client_id:, host_key:, installed: nil, revoker: Enrollment.method(:revoke))
-      put_away = transaction do
-        held = Machine.lock.find(id)
-        next true if held.archived_at.present?
-
-        held.details = held.details.to_h.merge(
-          { "client_id" => client_id, "host_key" => host_key,
-            "installed" => installed&.merge("at" => now_stamp)&.compact }.compact
-        )
-        held.save!
-        false
-      end
-      reload
-
-      return unless put_away
-
-      revoker.call(tenant, client_id)
-      forgotten!(client_id)
-      raise Resource::Failed, "#{key} was put away while xixo link installed, so masks unenrolled its new client #{client_id}"
     end
 
     def unenroll!(revoker: Enrollment.method(:revoke))
@@ -464,7 +459,6 @@ class Resource
 
           held.archived_at = Time.current
           held.details = held.unenrolled_details if client.present?
-          held.credentials = held.credentials.to_h.except("private_key")
           held.save
         end
         next if done.nil?
@@ -495,35 +489,10 @@ class Resource
       details.to_h.except("client_id").merge("unenrolled" => { "client_id" => client_id, "at" => now_stamp })
     end
 
-    def forget_key!
-      return if credentials.to_h["private_key"].blank?
-
-      self.credentials = credentials.to_h.except("private_key")
-      save!
-    end
-
-    def install_later
-      run = Run.start!(kind: "install", resource: self)
-      InstallLinkJob.perform_later(id, run.id)
-    end
-
     private
 
       def shared_by_everyone
         errors.add(:owner_subject, "cannot be set on a machine, which an administrator attaches for everyone") if personal?
-      end
-
-      def host_key_is_a_fingerprint
-        return if host_key.nil? || host_key.match?(Installer::FINGERPRINT)
-
-        errors.add(:host_key, "must be a SHA256 fingerprint such as ssh-keygen -lf prints, starting SHA256:")
-      end
-
-      def host_key_given
-        return if host_key.present? || via.is_a?(Tailnet)
-
-        errors.add(:host_key, "is needed for a machine reached outside a tailnet. Run ssh-keygen -lf " \
-                              "/etc/ssh/ssh_host_ed25519_key.pub on the machine and paste the SHA256 fingerprint")
       end
 
       def put_away_now?
@@ -544,10 +513,6 @@ class Resource
           ActionCable.server.remote_connections.where(tenant: tenant, grant: nil, machine: self, client_id: client)
                      .disconnect(reconnect: false)
         end
-      end
-
-      def key_given?
-        saved_change_to_credentials? && credentials.to_h["private_key"].present?
       end
 
       def asked(verb, args)
