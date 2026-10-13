@@ -35,6 +35,7 @@ class Resource
     }.freeze
 
     include Tools
+    include Updates
 
     serves :transport
 
@@ -394,6 +395,7 @@ class Resource
       update_columns(offline_host: nil, offline_last_seen_at: nil, checked_at: Time.current, check_error: nil)
       reload
       tell!
+      offer_update!
       restate_folders!
       ResumeParkedJob.perform_later(id) if Analysis.parked.exists?
       announce!

@@ -171,6 +171,23 @@ Active Storage's own routes are not drawn. Staged bytes are reached only through
 
 See [staging](/concepts/adding/#staging) and [where resources come from](/concepts/resources/#where-they-come-from).
 
+## Updating xixo link
+
+xixo tells xixo link to update over its authenticated connection, with the version and the build's
+SHA-256. The rest happens on the machine:
+
+- xixo link builds the download address from the xixo address in its own config and the name of
+  its build, so the message cannot point it at another host. It follows no redirect.
+- A download that does not match the SHA-256 is deleted. The new binary must start and name the
+  version xixo sent before it replaces the old one.
+- xixo link refuses an older version unless xixo says it is rolling back.
+- On Linux, xixo link runs as the user who owns its folders and cannot change its own binary. The
+  system user `xixo-link-update` owns the binary and runs the updater, which reads only the
+  request xixo link leaves in `/run/xixo-link`, downloads from the configured address, and writes
+  only the binary's folder. It cannot read xixo link's keys. A file that takes over an extraction
+  program can ask for an update, and gets only the build xixo serves.
+- No step runs as root after the install.
+
 ## Models and prompt injection
 
 A file, a page, or an email can contain text written to steer a model. xixo limits what that text

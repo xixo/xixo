@@ -7,11 +7,16 @@ class Resource
         "'#{value.to_s.gsub("'", %q('\\\\''))}'"
       end
 
-      def initialize(xixo:, issuer:, builds: Downloads.builds, mac_reader: Downloads.mac_reader)
+      UPDATER = "xixo-link-update".freeze
+      LIB = "/usr/local/lib/xixo-link".freeze
+
+      def initialize(xixo:, issuer:, builds: Downloads.builds, mac_reader: Downloads.mac_reader,
+                     mac_reader_build: Downloads.mac_reader_build)
         @xixo = xixo
         @issuer = issuer
         @builds = builds.select { |build| SYSTEMS.key?(build.os) }
         @mac_reader = mac_reader
+        @mac_reader_sum = mac_reader_build&.sha256
       end
 
       def to_s
@@ -22,6 +27,7 @@ class Resource
           xixo=#{q(@xixo)}
           issuer=#{q(@issuer)}
           reader=#{q(@mac_reader)}
+          reader_sum=#{q(@mac_reader_sum)}
 
           say() { printf 'xixo link: %s\\n' "$*"; }
           fail() { printf 'xixo link: %s\\n' "$*" >&2; exit 1; }
@@ -71,7 +77,13 @@ class Resource
 
             user="$(id -un)"
             group="$(id -gn)"
-            as_root install -m 0755 "$work/xixo-link" /usr/local/bin/xixo-link
+            if ! id -u #{UPDATER} > /dev/null 2>&1; then
+              as_root useradd --system --user-group --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin #{UPDATER}
+            fi
+            as_root install -d -m 0755 -o #{UPDATER} -g #{UPDATER} #{LIB}
+            as_root install -m 0755 -o #{UPDATER} -g #{UPDATER} "$work/xixo-link" #{LIB}/xixo-link
+            as_root rm -f #{LIB}/xixo-link.previous
+            as_root ln -sfn #{LIB}/xixo-link /usr/local/bin/xixo-link
 
             if [ -r /etc/os-release ] && grep -Eqi '^(ID|ID_LIKE)=.*(debian|ubuntu)' /etc/os-release; then
               say "Installing the programs that read files, with apt."
@@ -86,12 +98,17 @@ class Resource
             curl -fsSL -o "$work/xixo-link.service" "$xixo/link/download/xixo-link.service" || fail "the service did not download."
             /usr/local/bin/xixo-link unit --template "$work/xixo-link.service" --user "$user" > "$work/unit"
             as_root install -m 0644 "$work/unit" /etc/systemd/system/xixo-link.service
+            for file in xixo-link-update.service xixo-link-update.path; do
+              curl -fsSL -o "$work/$file" "$xixo/link/download/$file" || fail "the updater did not download."
+              as_root install -m 0644 "$work/$file" "/etc/systemd/system/$file"
+            done
             as_root install -d -m 0700 -o "$user" -g "$group" /var/lib/xixo-link
 
             /usr/local/bin/xixo-link up
 
             as_root systemctl daemon-reload
             as_root systemctl enable --quiet xixo-link
+            as_root systemctl enable --now --quiet xixo-link-update.path
             as_root systemctl restart xixo-link
             say "xixo link is running."
           }
@@ -100,9 +117,17 @@ class Resource
             dir="$HOME/Library/Application Support/xixo-link"
             agent="$HOME/Library/LaunchAgents/network.xixo.link.plist"
             mkdir -p "$dir/bin" "$HOME/Library/LaunchAgents"
+            rm -rf "$dir/releases"
             install -m 0755 "$work/xixo-link" "$dir/bin/xixo-link"
 
-            if [ -n "$reader" ]; then
+            if [ -n "$reader_sum" ]; then
+              if curl -fsSL -o "$work/xixo-mac-reader" "$xixo/link/download/xixo-mac-reader" &&
+                checked "$reader_sum" "$work/xixo-mac-reader"; then
+                install -m 0755 "$work/xixo-mac-reader" "$dir/bin/xixo-mac-reader"
+              else
+                say "The mac reader did not download, so this Mac reads files with the Homebrew programs it has."
+              fi
+            elif [ -n "$reader" ]; then
               if curl -fsL --proto =https -o "$work/xixo-mac-reader" "$reader" &&
                 curl -fsL --proto =https -o "$work/xixo-mac-reader.sha256" "$reader.sha256" &&
                 (cd "$work" && shasum -a 256 -c xixo-mac-reader.sha256 > /dev/null 2>&1); then

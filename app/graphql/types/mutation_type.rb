@@ -20,6 +20,7 @@ module Types
     field :approve_link_request, mutation: Mutations::ApproveLinkRequest, grants: "xixo:resources:command"
     field :deny_link_request, mutation: Mutations::DenyLinkRequest, grants: "xixo:resources:command"
     field :set_machine_access, mutation: Mutations::SetMachineAccess, grants: "xixo:resources:command"
+    field :set_machine_updates, mutation: Mutations::SetMachineUpdates, grants: "xixo:resources:command"
     field :update_resource, mutation: Mutations::UpdateResource, grants: "xixo:resources:command"
     field :archive_resource, mutation: Mutations::ArchiveResource, grants: "xixo:resources:command"
     field :delete_resource, mutation: Mutations::DeleteResource, grants: "xixo:resources:command"

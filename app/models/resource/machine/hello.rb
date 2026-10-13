@@ -1,6 +1,9 @@
 class Resource
   class Machine
     module Hello
+      UPDATES = %w[systemd self].freeze
+      SHA256 = /\A[0-9a-f]{64}\z/
+
       module_function
 
       def from(said)
@@ -17,9 +20,16 @@ class Resource
           "extractors" => extractors(said["extractors"]),
           "tools" => tools(said["tools"]),
           "warnings" => warnings(said["warnings"]),
+          "sha256" => digest(said["sha256"]),
+          "mac_reader" => digest(said["mac_reader"]),
+          "updates" => (said["updates"] if UPDATES.include?(said["updates"])),
           "lend" => said["lend"] == true,
           "extracts_for_others" => [ true, false ].include?(said["extracts_for_others"]) ? said["extracts_for_others"] : nil
         }
+      end
+
+      def digest(value)
+        value if value.is_a?(String) && value.match?(SHA256)
       end
 
       def text(value)

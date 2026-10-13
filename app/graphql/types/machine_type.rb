@@ -13,6 +13,16 @@ module Types
     field :model, String, description: "The hardware model it reported when it linked up, such as MacBook Pro (16-inch, 2023)."
     field :kind, String, description: "What kind of machine it is: laptop, desktop, all-in-one, or server. Empty when it cannot tell."
     field :version, String, description: "The version of xixo link."
+    field :release, String, description: "The version of xixo link this xixo ships."
+    field :current, Boolean,
+          description: "Whether xixo link runs the build this xixo ships. Empty when xixo ships none for the machine's " \
+                       "system and processor."
+    field :updates, Boolean, null: false,
+          description: "Whether xixo updates xixo link on the machine to the build it ships. An administrator turns it " \
+                       "off with setMachineUpdates."
+    field :updates_itself, Boolean, null: false,
+          description: "Whether xixo link on the machine can update itself. It cannot when it runs in a container, which " \
+                       "updates with its image, or when it was installed before xixo link updated itself."
     field :connected, Boolean, null: false, description: "Whether xixo link is connected to xixo now."
     field :seen_at, GraphQL::Types::ISO8601DateTime, description: "When xixo link last said anything."
     field :folders, [ String ], null: false, description: "The folders xixo link shares, as its own config lists them."
@@ -64,6 +74,10 @@ module Types
     def model = object.about["model"]
     def kind = object.about["kind"]
     def version = object.machine["version"]
+    def release = object.release
+    def current = object.current?
+    def updates = object.updates?
+    def updates_itself = object.updates_itself?
     def connected = object.connected?
     def seen_at = object.seen_at
     def folders = object.offered_folders

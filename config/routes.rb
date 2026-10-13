@@ -22,7 +22,10 @@ Rails.application.routes.draw do
   get "/link.sh", to: "links#script", as: :link_script, format: false
   get "/link/download/xixo-link.service", to: "links#unit", as: :link_unit
   get "/link/download/xixo-link.plist", to: "links#plist", as: :link_plist
-  get "/link/download/:file", to: "links#download", as: :link_download, constraints: { file: /xixo-link-[a-z0-9]+-[a-z0-9]+/ }
+  get "/link/download/xixo-link-update.service", to: "links#update_unit", as: :link_update_unit
+  get "/link/download/xixo-link-update.path", to: "links#update_path", as: :link_update_path
+  get "/link/download/:file", to: "links#download", as: :link_download,
+                              constraints: { file: /xixo-link-[a-z0-9]+-[a-z0-9]+|xixo-mac-reader/ }
   post "/link/requests", to: "links#start", as: :link_requests
   post "/link/requests/token", to: "links#token", as: :link_request_token
   get "/link", to: "links#show", as: :link_status, constraints: ->(req) { req.authorization.present? }

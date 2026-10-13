@@ -20,10 +20,10 @@ class LinksController < ActionController::API
   end
 
   def download
-    build = Resource::Machine::Downloads.builds.find { |held| held.file == params[:file].to_s }
+    build = Resource::Machine::Downloads.served(params[:file])
     return plain("There is no such build here.\n", :not_found) if build.nil?
 
-    send_file build.path, type: "application/octet-stream", disposition: "attachment", filename: "xixo-link"
+    send_file build.path, type: "application/octet-stream", disposition: "attachment", filename: build.name
   end
 
   def plist
@@ -32,6 +32,14 @@ class LinksController < ActionController::API
 
   def unit
     served(Resource::Machine::Downloads.unit, Resource::Machine::Downloads::UNIT, "text/plain")
+  end
+
+  def update_unit
+    served(Resource::Machine::Downloads.update_unit, Resource::Machine::Downloads::UPDATE_UNIT, "text/plain")
+  end
+
+  def update_path
+    served(Resource::Machine::Downloads.update_path, Resource::Machine::Downloads::UPDATE_PATH, "text/plain")
   end
 
   def start

@@ -46,9 +46,12 @@ RUN version=$(sed -n 's/.*"\.": *"\([^"]*\)".*/\1/p' .release-please-manifest.js
       CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath \
         -ldflags "-s -w -X main.version=${version:-dev}" -o /opt/xixo-link/xixo-link-$os-$arch . || exit 1; \
     done; done && \
-    cp xixo-link.service xixo-link.plist /opt/xixo-link/
+    cp xixo-link.service xixo-link-update.service xixo-link-update.path xixo-link.plist /opt/xixo-link/
 
 FROM scratch AS masks-client
+COPY vendor/.keep /
+
+FROM scratch AS mac-reader
 COPY vendor/.keep /
 
 # Throw-away build stage to reduce size of final image
@@ -124,6 +127,7 @@ COPY --chown=rails:rails --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"
 COPY --chown=rails:rails --from=build /masks /masks
 COPY --chown=rails:rails --from=build /rails /rails
 COPY --from=link /opt/xixo-link /opt/xixo-link
+COPY --from=mac-reader / /opt/xixo-link/mac/
 
 # Entrypoint prepares the database.
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]

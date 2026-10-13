@@ -49,17 +49,21 @@ The script holds no secret. It finds the machine's system and processor, downloa
 this xixo, and checks it against the SHA-256 that xixo wrote into the script. A download that does
 not match installs nothing. Then:
 
-- **On Linux** it installs xixo link at `/usr/local/bin/xixo-link`. On Debian or Ubuntu it installs
-  the programs that read PDFs, images, audio, video, and office documents with apt. On other
-  systems it names the programs to install by hand. It writes `/etc/xixo-link/config.json` with
-  the folders, and writes the systemd service to `/etc/systemd/system/xixo-link.service`. The
-  service mounts each folder read-only, or read-write for a `:rw` folder. Last, it enables and
-  starts the service.
+- **On Linux** it installs xixo link at `/usr/local/lib/xixo-link/xixo-link`, owned by the system
+  user `xixo-link-update`, which it creates, and links `/usr/local/bin/xixo-link` to it. On Debian
+  or Ubuntu it installs the programs that read PDFs, images, audio, video, and office documents
+  with apt. On other systems it names the programs to install by hand. It writes
+  `/etc/xixo-link/config.json` with the folders, and writes the systemd service to
+  `/etc/systemd/system/xixo-link.service` and the updater to `xixo-link-update.service` and
+  `xixo-link-update.path` beside it. The service mounts each folder read-only, or read-write for a
+  `:rw` folder. Last, it enables and starts the service and the updater.
 - **On macOS** it installs xixo link in `~/Library/Application Support/xixo-link/bin/`. Beside it
-  goes the mac reader, `xixo-mac-reader`, from the GitHub release of the server's version, installed
-  only when it matches the `.sha256` file published with it. The mac reader reads PDFs, images,
-  audio, and video with what macOS ships. The script writes the config with mode 0600, then
-  installs and starts the launch agent `~/Library/LaunchAgents/network.xixo.link.plist`.
+  goes the mac reader, `xixo-mac-reader`, which reads PDFs, images, audio, and video with what
+  macOS ships. The script downloads it from this xixo and checks it against the SHA-256 in the
+  script. When this xixo holds no mac reader, the script takes it from the GitHub release of the
+  server's version, installed only when it matches the `.sha256` file published with it. The
+  script writes the config with mode 0600, then installs and starts the launch agent
+  `~/Library/LaunchAgents/network.xixo.link.plist`.
 
 Each folder must exist, or the command stops before it links up. A folder cannot hold a quotation
 mark, an apostrophe, a backslash, a colon, or a control character.
@@ -130,7 +134,8 @@ holds back, and how many files wait for it. An offline machine says **offline** 
 last seen, and the rows under it stay quiet.
 
 The card lists the folders and model servers attached on it, or reached at its tailnet address.
-**Details** shows its hostname, system, xixo link version, folders, the kinds of file it cannot
+The same line names the version of xixo link and says whether it is up to date, updating, or
+paused. **Details** shows its hostname, system, xixo link version, folders, the kinds of file it cannot
 read, the tools it offers MCP clients, whether xixo may fetch whole files, the model servers it
 found, and its uptime, memory, and disks.
 
@@ -161,6 +166,28 @@ The machine's own config can narrow the choice. xixo link does only what both xi
 allow, and the folders in the config stay the limit. When the config holds something back, the card
 says "Its own config holds back" and names it. See
 [what xixo may do](/concepts/resources/#what-xixo-may-do-with-a-machine) for the config keys.
+
+## Keep xixo link up to date
+
+xixo keeps xixo link on each machine at the build the server ships. Each time xixo link connects,
+xixo compares the build it runs with that one. When they differ, xixo tells it to update, and the
+card says "updating to" and the version. xixo link downloads the new build from this xixo, checks
+its SHA-256, and restarts into it. When the new build does not connect within three minutes, xixo
+link goes back to the one before it, the card shows a warning, and it tries again after six hours.
+
+xixo link moves to an older build only when the server ships an older one, such as after the server
+itself was rolled back.
+
+To hold a machine at the build it runs, turn off **Update xixo link automatically** on its card.
+Turn it on again to update at once. Only an administrator sees the switch.
+
+xixo link beside the server runs in a container and updates with its image. A machine linked up
+before xixo link updated itself says "Run the link-up command again". Running the
+[link-up command](#link-up-a-machine) once more installs xixo link the way that updates itself, and
+keeps the link.
+
+[Updates](https://github.com/xixo/xixo/tree/main/link#updates) in xixo link's README says how each
+system swaps the binary.
 
 ## Files a machine cannot read
 
@@ -276,10 +303,12 @@ could still sign in. Try again once masks answers.
 xixo link stays on the machine, stopped. To remove it from a Linux machine:
 
 ```sh
-sudo systemctl disable --now xixo-link
+sudo systemctl disable --now xixo-link xixo-link-update.path
 sudo rm -rf /etc/systemd/system/xixo-link.service /etc/systemd/system/xixo-link.service.d
-sudo rm -f /usr/local/bin/xixo-link
+sudo rm -f /etc/systemd/system/xixo-link-update.service /etc/systemd/system/xixo-link-update.path
+sudo rm -rf /usr/local/bin/xixo-link /usr/local/lib/xixo-link
 sudo rm -rf /etc/xixo-link /var/lib/xixo-link /var/cache/xixo-link
+sudo userdel xixo-link-update
 sudo systemctl daemon-reload
 ```
 

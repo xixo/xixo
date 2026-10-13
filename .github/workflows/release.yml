@@ -111,8 +111,15 @@ jobs:
           TAG: ${{ needs.release-please.outputs.server_tag }}
         run: gh release upload "$TAG" link/macos/build/xixo-mac-reader link/macos/build/xixo-mac-reader.sha256 --clobber
 
+      - name: Hand it to the image build
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-reader
+          path: link/macos/build/xixo-mac-reader
+          if-no-files-found: error
+
   server:
-    needs: release-please
+    needs: [release-please, mac_reader]
     if: needs.release-please.outputs.server == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -123,6 +130,12 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release-please.outputs.server_tag }}
+
+      - name: Fetch the mac reader the image serves
+        uses: actions/download-artifact@v4
+        with:
+          name: mac-reader
+          path: ${{ runner.temp }}/mac-reader
 
       - name: Set up QEMU, for the link's arm64 image
         uses: docker/setup-qemu-action@v3
@@ -150,6 +163,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
+          build-contexts: mac-reader=${{ runner.temp }}/mac-reader
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}

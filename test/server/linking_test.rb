@@ -18,6 +18,11 @@ class LinkingTest < ActionDispatch::IntegrationTest
       }
     }
   GQL
+  UPDATES = <<~GQL.freeze
+    mutation($id: ID!, $automatic: Boolean!) {
+      setMachineUpdates(input: { id: $id, automatic: $automatic }) { resource { machine { updates } } }
+    }
+  GQL
   ASKED = { "hostname" => "Studio.local", "os" => "darwin", "arch" => "arm64",
             "folders" => [ "/Users/jon/Documents", "/Users/jon/Desktop", "relative" ], "writable" => [ "/Users/jon/Desktop", "/etc" ] }.freeze
 
@@ -30,6 +35,8 @@ class LinkingTest < ActionDispatch::IntegrationTest
     File.binwrite(File.join(@binaries, "notes.txt"), "not a build")
     FileUtils.cp(Rails.root.join("link/xixo-link.service"), File.join(@binaries, "xixo-link.service"))
     FileUtils.cp(Rails.root.join("link/xixo-link.plist"), File.join(@binaries, "xixo-link.plist"))
+    FileUtils.cp(Rails.root.join("link/xixo-link-update.service"), File.join(@binaries, "xixo-link-update.service"))
+    FileUtils.cp(Rails.root.join("link/xixo-link-update.path"), File.join(@binaries, "xixo-link-update.path"))
     ENV["XIXO_LINK_DIR"] = @binaries
   end
 
@@ -54,6 +61,29 @@ class LinkingTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "enroll-"
   end
 
+  test "the script installs a binary only the updater may replace, and the units that update it" do
+    get "/link.sh", headers: { "HOST" => host }
+
+    assert_includes response.body, "useradd --system --user-group --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin xixo-link-update"
+    assert_includes response.body, "install -m 0755 -o xixo-link-update -g xixo-link-update \"$work/xixo-link\" /usr/local/lib/xixo-link/xixo-link"
+    assert_includes response.body, "ln -sfn /usr/local/lib/xixo-link/xixo-link /usr/local/bin/xixo-link"
+    assert_includes response.body, "systemctl enable --now --quiet xixo-link-update.path"
+    assert_includes response.body, 'rm -rf "$dir/releases"'
+    assert_includes response.body, "reader_sum=''"
+  end
+
+  test "a mac reader xixo holds is served from xixo with its checksum in the script" do
+    FileUtils.mkdir_p(File.join(@binaries, "mac"))
+    File.binwrite(File.join(@binaries, "mac", "xixo-mac-reader"), "mac reader")
+
+    get "/link.sh", headers: { "HOST" => host }
+    assert_includes response.body, "reader_sum='#{Digest::SHA256.hexdigest('mac reader')}'"
+
+    get "/link/download/xixo-mac-reader", headers: { "HOST" => host }
+    assert_response :ok
+    assert_equal "mac reader", response.body
+  end
+
   test "the script quotes what it is given so a value cannot break out" do
     script = Resource::Machine::Script.new(xixo: "https://x.example/'; rm -rf ~; '", issuer: "https://id.example", builds: [], mac_reader: nil).to_s
 
@@ -75,7 +105,18 @@ class LinkingTest < ActionDispatch::IntegrationTest
     assert_response :ok
     assert_includes response.body, "<string>network.xixo.link</string>"
 
+    get "/link/download/xixo-link-update.service", headers: { "HOST" => host }
+    assert_response :ok
+    assert_includes response.body, "User=xixo-link-update"
+
+    get "/link/download/xixo-link-update.path", headers: { "HOST" => host }
+    assert_response :ok
+    assert_includes response.body, "PathChanged=/run/xixo-link/update.json"
+
     get "/link/download/xixo-link-linux-arm64", headers: { "HOST" => host }
+    assert_response :not_found
+
+    get "/link/download/xixo-mac-reader", headers: { "HOST" => host }
     assert_response :not_found
 
     [ "/link/download/notes.txt", "/link/download/..%2Fxixo-link.service", "/link/download/xixo-link-linux-amd64%2F..%2F..%2Fpasswd" ].each do |path|
@@ -279,6 +320,20 @@ class LinkingTest < ActionDispatch::IntegrationTest
     held = graphql(Grant::SCOPES, ACCESS, id: machine.id, access: "writing", helpsOthers: false)
     assert_equal({ "access" => "writing", "helpsOthers" => false }, held.dig("data", "setMachineAccess", "resource", "machine").slice("access", "helpsOthers"))
     Tenant.switch(@tenant) { assert_equal "set_machine_access", AuditEvent.where(channel: "graphql").last.action }
+  end
+
+  test "an administrator pauses updates of xixo link on a machine, and nobody else does" do
+    machine = machine_on(@tenant, key: "box")
+
+    assert_match(/only an administrator turns updates of xixo link on or off/,
+                 graphql(Grant::SIGN_IN, UPDATES, id: machine.id, automatic: false).dig("errors", 0, "message"))
+
+    held = graphql(Grant::SCOPES, UPDATES, id: machine.id, automatic: false)
+    assert_equal false, held.dig("data", "setMachineUpdates", "resource", "machine", "updates")
+    Tenant.switch(@tenant) do
+      assert_not Resource::Machine.find(machine.id).updates?
+      assert_equal "set_machine_updates", AuditEvent.where(channel: "graphql").last.action
+    end
   end
 
   test "an administrator sees where the command fetches the script and which systems it serves" do

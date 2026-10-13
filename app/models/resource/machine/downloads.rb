@@ -3,18 +3,22 @@ class Resource
     module Downloads
       BUILD = /\Axixo-link-(linux|darwin)-(amd64|arm64)\z/
       UNIT = "xixo-link.service".freeze
+      UPDATE_UNIT = "xixo-link-update.service".freeze
+      UPDATE_PATH = "xixo-link-update.path".freeze
       PACKAGES = %w[
         ca-certificates libvips-tools libraw-bin libimage-exiftool-perl libarchive-zip-perl poppler-utils
         tesseract-ocr ffmpeg libreoffice-writer libreoffice-calc fonts-liberation
       ].freeze
       PLIST = "xixo-link.plist".freeze
       MAC_READER = "xixo-mac-reader".freeze
+      MAC_DIR = "mac".freeze
       RELEASES = "https://github.com/xixo/xixo/releases/download".freeze
       MANIFEST = ".release-please-manifest.json".freeze
       RELEASED = /\A\d+\.\d+\.\d+\z/
 
       Build = Data.define(:os, :arch, :file, :path) do
         def sha256 = Downloads.digest(path)
+        def name = file == MAC_READER ? MAC_READER : "xixo-link"
       end
 
       module_function
@@ -29,6 +33,23 @@ class Resource
         end
       rescue SystemCallError
         []
+      end
+
+      def served(file)
+        return mac_reader_build if file.to_s == MAC_READER
+
+        builds.find { |held| held.file == file.to_s }
+      end
+
+      def build_for(os, arch)
+        builds.find { |held| held.os == os.to_s && held.arch == arch.to_s }
+      end
+
+      def mac_reader_build
+        path = Machine.binaries + MAC_DIR + MAC_READER
+        Build.new(os: "darwin", arch: "universal", file: MAC_READER, path: path) if File.lstat(path).file?
+      rescue SystemCallError
+        nil
       end
 
       def binary(file)
@@ -48,6 +69,14 @@ class Resource
         held(UNIT)
       end
 
+      def update_unit
+        held(UPDATE_UNIT)
+      end
+
+      def update_path
+        held(UPDATE_PATH)
+      end
+
       def held(file)
         path = Machine.binaries + file
         path if File.lstat(path).file?
@@ -65,6 +94,14 @@ class Resource
       def mac_reader
         held = version
         "#{RELEASES}/server-v#{held}/#{MAC_READER}" if held
+      end
+
+      def released?(value)
+        value.to_s.match?(RELEASED)
+      end
+
+      def older?(version, than)
+        released?(version) && released?(than) && Gem::Version.new(version) < Gem::Version.new(than)
       end
 
       def digest(path)
