@@ -125,4 +125,16 @@ class TenantSwitchingTest < ActiveSupport::TestCase
       assert job.across_tenants, "#{job} is reached by the scheduler, which holds no tenant"
     end
   end
+
+  test "the recurring commands are enqueued outside a tenant, as their schedule reaches them" do
+    commands = Rails.application.config_for(:recurring, env: "production").select { |_, task| task[:command] }
+
+    assert_includes commands.keys, :clear_solid_queue_finished_jobs
+
+    commands.each do |key, task|
+      assert_enqueued_with(job: SolidQueue::RecurringJob, args: [ task[:command] ]) do
+        assert SolidQueue::RecurringTask.from_configuration(key, **task).enqueue(at: Time.current), key
+      end
+    end
+  end
 end
