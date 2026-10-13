@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.6.0](https://github.com/xixo/xixo/compare/client-v0.5.1...client-v0.6.0) (2026-10-13)
+
+
+### Features
+
+* a linked machine offers its files, its extractors, and its model to MCP clients through xixo, and only the tools its own config names ([93956e9](https://github.com/xixo/xixo/commit/93956e9ed9067c19a405045d461591480af8dd3d))
+* **server:** a machine is attached over SSH, xixo installs and enrolls its agent, and the agent's folders sync through a broker that asks it anything and streams bytes both ways ([e558c67](https://github.com/xixo/xixo/commit/e558c67d3ad2c50ea7bee894badb87c2a7cabfd4))
+* **server:** a machine's install puts the extraction programs on it with apt, a machine can lend files it cannot read to the server, and its card says which kinds it cannot read ([372b5df](https://github.com/xixo/xixo/commit/372b5df84817771df256b8262e6c0f6740ffa1f6))
+* **server:** each resource names the machine it lives on, and a machine's model servers say where xixo reaches them ([af9ba49](https://github.com/xixo/xixo/commit/af9ba494d7f0427ac2bf6db438ea6a45abd3c462))
+* **web:** a Linux machine that links itself up installs the programs that read files with apt, unless asked not to ([7736273](https://github.com/xixo/xixo/commit/77362739bdd38a4584b71340c00bb694c0d8abee))
+* **web:** a parked pass says what it waits for, and each machine's card counts the files waiting for it ([d8ec043](https://github.com/xixo/xixo/commit/d8ec043bc4452ffaec553e55ce06489aa7f432bf))
+* **web:** each machine's icon shows what kind of machine it is with its system's badge, and a model server that answers only on its machine says so instead of offering Add ([fb2e903](https://github.com/xixo/xixo/commit/fb2e903dfff5620f421ad20f9fb31cf48c14a4b5))
+* **web:** each step of getting set up names what took care of it and links there ([7897914](https://github.com/xixo/xixo/commit/7897914868d3a2b29b03762f8eb85fb40754647e))
+* **web:** linking up a machine is one line to copy and an Approve button, and each machine's card sets what xixo may do with it ([5dee61b](https://github.com/xixo/xixo/commit/5dee61b438e7e6937892f1457cddfec93c4b319f))
+* **web:** Resources leads with machines and a Link up panel, and every card says what a resource does for you ([8cdcf2f](https://github.com/xixo/xixo/commit/8cdcf2fffa9db61869d31d8b9ee27ff2bb7ee5e8))
+* **web:** the approval page is titled with the machine's name and leads with its system, then lists its folders, account, hardware, addresses, and where it asked from ([ff150bb](https://github.com/xixo/xixo/commit/ff150bb362c012d6396a8d4de5bb3f458e8908b3))
+
+
+### Fixes
+
+* **server:** a full sync that finds nothing where it found files calls nothing gone, and a folder its machine stopped sharing says so on its card ([e412eb8](https://github.com/xixo/xixo/commit/e412eb8da4b4b8c24eca6915042ec54467207264))
+* **web:** a Mac that links itself up gets the mac reader of the server's own release, checked against its SHA-256 ([fb41472](https://github.com/xixo/xixo/commit/fb4147290858f8a5d608fee27899d226517db84d))
+* **web:** the link-up commands ask for the code without leaving it in shell history and link up through xixo link, and subscriptions skip empty results and pass errors on ([7ed0088](https://github.com/xixo/xixo/commit/7ed00881c15ffebb5a61575b768e85bb867d2abc))
+
 ## [0.5.1](https://github.com/xixo/xixo/compare/client-v0.5.0...client-v0.5.1) (2026-10-11)
 
 
