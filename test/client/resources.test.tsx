@@ -59,6 +59,10 @@ const notes = resource({
 const machineSaid = (overrides: Record<string, unknown>) => ({
   hostname: 'xixo',
   version: '0.4.0',
+  release: '0.4.0',
+  current: true,
+  updates: true,
+  updatesItself: false,
   connected: true,
   seenAt: new Date().toISOString(),
   uptime: 90000,
@@ -254,7 +258,9 @@ describe('Resources', () => {
     const server = screen.getByRole('region', { name: 'This server' })
     expect(within(server).getByText('Where xixo runs')).toBeTruthy()
     expect(
-      within(server).getByText('Shares 1 folder · Reads every kind of file'),
+      within(server).getByText(
+        'Shares 1 folder · Reads every kind of file · xixo link 0.4.0, up to date',
+      ),
     ).toBeTruthy()
     expect(within(server).getByText('Found Ollama on This server')).toBeTruthy()
     expect(within(server).getByText('Household')).toBeTruthy()
@@ -577,6 +583,48 @@ describe('Resources', () => {
       { id: '7', access: 'files' },
       { id: '7', helpsOthers: false },
     ])
+  })
+
+  test('a machine card shows its xixo link version, and an administrator pauses its updates', async () => {
+    const behind = resource({
+      ...studio,
+      machine: machineSaid({
+        ...studio.machine,
+        version: '0.3.0',
+        current: false,
+        updatesItself: true,
+      }),
+    })
+    const { client, asked } = fakeClient({
+      ...QUIET,
+      Resources: () => ({ administrator: true, resources: [local, behind] }),
+      SetMachineUpdates: () => ({
+        setMachineUpdates: {
+          resource: { id: '7', machine: { updates: false, current: false } },
+        },
+      }),
+    })
+
+    show(<Resources />, client, '/settings/resources')
+
+    const card = await screen.findByRole('region', { name: 'Studio' })
+    expect(
+      within(card).getByText(/xixo link 0\.3\.0, updating to 0\.4\.0/),
+    ).toBeTruthy()
+
+    const server = await screen.findByRole('region', { name: 'This server' })
+    expect(within(server).queryByText(/updating to/)).toBeNull()
+    expect(
+      within(server).queryByLabelText('Update xixo link automatically'),
+    ).toBeNull()
+
+    await userEvent.click(
+      within(card).getByLabelText('Update xixo link automatically'),
+    )
+
+    expect(
+      asked.find((ask) => ask.name === 'SetMachineUpdates')?.variables,
+    ).toEqual({ id: '7', automatic: false })
   })
 
   test('a tailnet machine that is not linked shows a model server to add in one click', async () => {

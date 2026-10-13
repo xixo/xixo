@@ -46,6 +46,7 @@ import {
   SetDefaultInferenceDocument,
   SetDefaultStorageDocument,
   SetMachineAccessDocument,
+  SetMachineUpdatesDocument,
   SetSyncIntervalDocument,
   SyncResourceDocument,
   UnlinkedMachinesDocument,
@@ -131,6 +132,10 @@ interface Resource {
   machine?: {
     hostname?: string | null
     version?: string | null
+    release?: string | null
+    current?: boolean | null
+    updates: boolean
+    updatesItself: boolean
     connected: boolean
     seenAt?: string | null
     uptime?: number | null
@@ -288,7 +293,28 @@ function facts(machine: NonNullable<Resource['machine']>, place: Place) {
     reads(machine.extractors, machine.unread),
     heldBack(machine.heldBack),
     waitingOn(machine.waiting, machine.connected),
+    linkVersion(machine, place),
   ].filter((line): line is string => Boolean(line))
+}
+
+function linkVersion(machine: NonNullable<Resource['machine']>, place: Place) {
+  if (!machine.version) return null
+
+  const running = `xixo link ${machine.version}`
+  if (machine.current === true) return `${running}, up to date`
+  if (machine.current !== false) return running
+
+  const target =
+    machine.release && machine.release !== machine.version
+      ? machine.release
+      : 'the build xixo ships'
+
+  if (place.local) return `${running}, updated with xixo`
+  if (!machine.updatesItself)
+    return `${running}. Run the link-up command again to update to ${target}`
+  if (!machine.updates) return `${running}, updates paused`
+
+  return `${running}, updating to ${target}`
 }
 
 const HELD_BACK: Record<string, string> = {
@@ -1037,6 +1063,10 @@ function Access({
   onChanged: () => void
 }) {
   const set = useAloud(SetMachineAccessDocument, 'That could not be changed.')
+  const pause = useAloud(
+    SetMachineUpdatesDocument,
+    'That could not be changed.',
+  )
   const machine = resource.machine
   if (!machine) return null
 
@@ -1075,6 +1105,21 @@ function Access({
           change({ helpsOthers: event.currentTarget.checked })
         }
       />
+      {machine.updatesItself && (
+        <Switch
+          size="xs"
+          label="Update xixo link automatically"
+          checked={machine.updates}
+          disabled={pause.loading}
+          onChange={async (event) => {
+            const answered = await pause.execute({
+              id: resource.id,
+              automatic: event.currentTarget.checked,
+            })
+            if (answered) onChanged()
+          }}
+        />
+      )}
     </div>
   )
 }

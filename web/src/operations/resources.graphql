@@ -50,6 +50,10 @@ query Resources($archived: Boolean) {
       model
       kind
       version
+      release
+      current
+      updates
+      updatesItself
       connected
       seenAt
       uptime
@@ -180,6 +184,18 @@ mutation SetMachineAccess($id: ID!, $access: String, $helpsOthers: Boolean) {
         lends
         tools
         extractsForOthers
+      }
+    }
+  }
+}
+
+mutation SetMachineUpdates($id: ID!, $automatic: Boolean!) {
+  setMachineUpdates(input: { id: $id, automatic: $automatic }) {
+    resource {
+      id
+      machine {
+        updates
+        current
       }
     }
   }
