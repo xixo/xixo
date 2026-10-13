@@ -23,16 +23,39 @@ class McpSessionTest < ActionDispatch::IntegrationTest
     assert_match(/session/i, response.parsed_body.dig("error", "message"))
   end
 
-  test "GET is a stream now rather than a 405" do
+  test "GET is refused, so no stream holds a server thread open" do
     held, session = session_for(@tenant, ALL)
 
     get "/mcp", headers: host_for(@tenant).merge(held)
                                           .merge("HTTP_ACCEPT" => "text/event-stream",
                                                  McpTransports::SESSION_HEADER => session)
 
+    assert_response :method_not_allowed
+    assert_equal "POST, DELETE", response.headers["Allow"]
+
+    send_rpc(@tenant, held, "tools/list", nil, session: session)
+
     assert_response :success
-    assert_equal "text/event-stream", response.headers["content-type"]
-    assert_equal "no-cache", response.headers["cache-control"]
+  end
+
+  test "a listen request is answered as a method xixo does not have, where it used to fail with a 500" do
+    send_modern(@tenant, bearer(@tenant, ALL), "subscriptions/listen",
+                { notifications: { toolsListChanged: true } })
+
+    assert_response :not_found
+    assert_equal "application/json", response.media_type
+    assert_equal(-32601, response.parsed_body.dig("error", "code"))
+  end
+
+  test "discovery promises no notifications, since xixo serves no listen stream" do
+    send_modern(@tenant, bearer(@tenant, ALL), "server/discover")
+
+    assert_response :success
+
+    capabilities = response.parsed_body.dig("result", "capabilities")
+
+    assert capabilities.key?("tools")
+    assert_not capabilities.values.grep(Hash).any? { |flags| flags.key?("listChanged") || flags.key?("subscribe") }
   end
 
   test "DELETE ends the session, and it is not usable afterwards" do

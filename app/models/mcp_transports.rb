@@ -72,6 +72,7 @@ module McpTransports
         MCP::Server::Transports::StreamableHTTPTransport.new(
           server(tenant, grant),
           enable_json_response: true,
+          serve_subscriptions_listen: false,
           dns_rebinding_protection: false,
           session_request_validator: ->(_request, session_id) {
             holds?(session_id, Current.grant&.subject)

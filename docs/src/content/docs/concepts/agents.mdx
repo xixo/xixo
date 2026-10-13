@@ -16,6 +16,12 @@ Calls are rate-limited per token, or per IP address when there is no token, to `
 minute (120 by default). An `Mcp-Session-Id` belongs to the subject that opened it, and xixo refuses
 it from anyone else.
 
+xixo answers every call with one JSON reply and keeps no stream open, so a client that waits for
+news never holds one of the server's threads. A `GET /mcp` gets `405 Method Not Allowed`. A
+`subscriptions/listen` request gets the JSON-RPC error `-32601`, which means the method is not found,
+and `server/discover` lists no `listChanged` or `subscribe` capability. xixo sends no notifications
+for a client to wait for.
+
 ## Four tools
 
 | Tool | Scope to see it | Purpose |

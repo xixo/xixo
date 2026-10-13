@@ -1,5 +1,6 @@
 module McpClient
   PROTOCOL = "2025-06-18".freeze
+  MODERN_PROTOCOL = "2026-07-28".freeze
 
   def origin_for(tenant)
     "http://#{tenant.subdomain}.xixo.test"
@@ -28,6 +29,17 @@ module McpClient
     headers[McpTransports::SESSION_HEADER] = session if session
 
     post "/mcp", headers: headers, params: rpc(method, params), as: :json
+
+    response
+  end
+
+  def send_modern(tenant, held, method, params = {})
+    envelope = { "io.modelcontextprotocol/protocolVersion" => MODERN_PROTOCOL,
+                 "io.modelcontextprotocol/clientCapabilities" => {} }
+    headers = host_for(tenant).merge(held)
+                              .merge("MCP-Protocol-Version" => MODERN_PROTOCOL, "Mcp-Method" => method)
+
+    post "/mcp", headers: headers, params: rpc(method, params.merge(_meta: envelope)), as: :json
 
     response
   end
