@@ -239,7 +239,7 @@ func TestHashAnswersWithTheDigestAndSendsNoBytes(t *testing.T) {
 		}
 
 		result := got.done["r-hash"]["result"].(map[string]any)
-		if result["sha256"] != sum(body) || fmt.Sprint(result["size"]) != fmt.Sprint(len(body)) {
+		if result["sha256"] != sum(body) || fmt.Sprint(result["size"]) != fmt.Sprint(len(body)) || result["file"] == "" || result["file"] == nil {
 			t.Errorf("hash answered %v", result)
 		}
 

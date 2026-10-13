@@ -104,6 +104,11 @@ type Read struct {
 	Length int64  `json:"length,omitempty"`
 }
 
+type Hashed struct {
+	Digest
+	File string `json:"file,omitempty"`
+}
+
 type Ranged struct {
 	Size   int64 `json:"size"`
 	Offset int64 `json:"offset"`
@@ -537,7 +542,7 @@ func (a *Link) hash(ctx context.Context, request string, wanted Read) {
 		return
 	}
 
-	a.reply(ctx, request, digest)
+	a.reply(ctx, request, Hashed{Digest: digest, File: opened.Identity})
 }
 
 func (a *Link) read(ctx context.Context, request string, wanted Read) {

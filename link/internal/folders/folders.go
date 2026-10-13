@@ -419,7 +419,8 @@ func compare(a, b string) int {
 
 type Opened struct {
 	io.ReadSeekCloser
-	Size int64
+	Size     int64
+	Identity string
 }
 
 func (f *Folders) Open(folder, name string) (*Opened, error) {
@@ -468,7 +469,7 @@ func (f *Folders) Open(folder, name string) (*Opened, error) {
 		return nil, err
 	}
 
-	return &Opened{ReadSeekCloser: opened, Size: info.Size()}, nil
+	return &Opened{ReadSeekCloser: opened, Size: info.Size(), Identity: identity(info)}, nil
 }
 
 func confined(name string) (string, error) {
@@ -555,10 +556,7 @@ func (f *Folders) WriteModified(folder, name string, body io.Reader, size int64,
 		return nil, err
 	}
 
-	if held, err := root.Open(path.Dir(relative)); err == nil {
-		held.Sync()
-		held.Close()
-	}
+	synced(root, path.Dir(relative))
 
 	info, err := root.Lstat(relative)
 	if err != nil {
@@ -608,6 +606,8 @@ func made(root *os.Root, dir string) error {
 				return err
 			}
 
+			synced(root, path.Dir(walked))
+
 			info, err = root.Lstat(walked)
 			if err != nil {
 				return err
@@ -626,6 +626,13 @@ func made(root *os.Root, dir string) error {
 	}
 
 	return nil
+}
+
+func synced(root *os.Root, dir string) {
+	if held, err := root.Open(dir); err == nil {
+		held.Sync()
+		held.Close()
+	}
 }
 
 func writable(root *os.Root, relative string, replace bool) error {

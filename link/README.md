@@ -374,7 +374,7 @@ xixo sends a request as the `message` of a broadcast on the subscription:
 | `health` | none | The fields of a `health` message. |
 | `list` | `folder`, `cursor`, `prefix`, `limit`, `skip` | `{"entries":[{"path","size","modified_at"}],"cursor"}` |
 | `read` | `folder`, `path`, `offset`, `length` | `chunk` messages, then `{"size"}`, or `{"size","offset","total"}` for a part |
-| `hash` | `folder`, `path` | `{"sha256","size"}` |
+| `hash` | `folder`, `path` | `{"sha256","size","file"}` |
 | `extract` | `source`, `size`, `mime`, `filename`, `skip`, `settings` | each made file's `chunk` messages, then the steps and the list of files |
 | `derive` | as `extract` | the thumbnail and preview alone |
 | `write` | `folder`, `path`, `upload`, `size`, `replace`, `modified_at`, `relayed` | `{"path","size","modified_at"}` |
@@ -432,7 +432,8 @@ that holds only `.DS_Store`, `Thumbs.db`, or `desktop.ini` counts as empty, and
 those files go with it. `pruned` lists the folders it removed.
 
 `hash` reads the file where it lies and answers with its SHA-256 in hex and its
-size, sending none of its bytes.
+size, sending none of its bytes. `file` names the file on its disk by its device
+and inode numbers, so xixo can tell when two paths reach the same file.
 
 `browse`, `find`, `peek`, `place`, `examine`, and `model` answer MCP clients,
 and each is refused unless the configuration names its tool: `browse`, `search`,

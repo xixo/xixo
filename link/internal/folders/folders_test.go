@@ -183,6 +183,32 @@ func TestAFolderMayBeALink(t *testing.T) {
 	}
 }
 
+func TestOpenNamesTheFileItReached(t *testing.T) {
+	shared, _ := tree(t)
+	linked := filepath.Join(t.TempDir(), "linked")
+
+	if err := os.Symlink(shared, linked); err != nil {
+		t.Fatal(err)
+	}
+
+	held := New(ReadOnly(shared, linked))
+	identities := []string{}
+
+	for _, reached := range [][2]string{{shared, "a.txt"}, {linked, "a.txt"}, {shared, "a/b.txt"}} {
+		opened, err := held.Open(reached[0], reached[1])
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		identities = append(identities, opened.Identity)
+		opened.Close()
+	}
+
+	if identities[0] == "" || identities[0] != identities[1] || identities[0] == identities[2] {
+		t.Fatalf("identities %v", identities)
+	}
+}
+
 func TestOpenReadsAFile(t *testing.T) {
 	shared, _ := tree(t)
 	held := New(ReadOnly(shared))
