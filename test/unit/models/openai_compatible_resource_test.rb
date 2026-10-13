@@ -69,13 +69,24 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
     end
   end
 
-  test "a resource declaring nothing is unusable rather than vacuously healthy" do
-    Tenant.switch(@tenant) do
-      bare = Resource::OpenaiCompatible.create!(
-        key: "bare", details: { "base_url" => @server.base_url }
-      )
+  test "a server with no models picked answers with the first chat model it serves" do
+    @server.serves(%w[nomic-embed-text gemma3:4b llama3.1])
 
-      assert_match(/no models are picked yet/, assert_raises(Resource::Unusable) { bare.check! }.message)
+    Tenant.switch(@tenant) do
+      bare = Resource::OpenaiCompatible.create!(key: "bare", details: { "base_url" => @server.base_url })
+
+      assert bare.check!
+      assert_equal({ "default" => "gemma3:4b" }, bare.reload.models)
+    end
+  end
+
+  test "a server with no models picked and only embedding models has nothing to answer with" do
+    @server.serves(%w[nomic-embed-text])
+
+    Tenant.switch(@tenant) do
+      bare = Resource::OpenaiCompatible.create!(key: "bare", details: { "base_url" => @server.base_url })
+
+      assert_match(/no model to answer with/, assert_raises(Resource::Unusable) { bare.check! }.message)
     end
   end
 

@@ -200,9 +200,7 @@ class Resource
     end
 
     def answers!
-      if models.empty?
-        raise Resource::Unusable, "#{key}: no models are picked yet. Choose a model for each job it does, such as the fast model"
-      end
+      pick_default! if models.empty?
 
       wanted = models.except(TRANSCRIPTION_ROLE).values.uniq
       return true if wanted.empty?
@@ -217,6 +215,15 @@ class Resource
       end
 
       true
+    end
+
+    NOT_FOR_CHAT = /embed|whisper|rerank|tts/i
+
+    def pick_default!
+      chat = model_names.find { |name| !name.match?(NOT_FOR_CHAT) }
+      raise Resource::Unusable, "#{name} answers, but it has no model to answer with. Download one in it, then check again" if chat.nil?
+
+      update!(details: details.merge("models" => { DEFAULT_ROLE => chat }))
     end
 
     def probes?

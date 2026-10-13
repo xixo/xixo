@@ -74,12 +74,15 @@ class ModelRelayTest < ActiveSupport::TestCase
     assert_equal "qwen3:8b", JSON.parse(args["body"])["model"]
   end
 
-  test "a server with no models picked says what to do, in plain words" do
+  test "a server with only embedding models says what to do, in plain words" do
+    @answers["/v1/models"] = { "status" => 200, "content_type" => "application/json",
+                               "body" => { data: [ { id: "nomic-embed-text" } ] }.to_json }
+
     Tenant.switch(@tenant) do
       error = assert_raises(Resource::Unusable) { server_at("http://100.64.0.9:11434/v1", {}).answers! }
 
       assert_no_match(/details|—/, error.message)
-      assert_match(/Choose a model for each job/, error.message)
+      assert_match(/Download one in it/, error.message)
     end
   end
 
