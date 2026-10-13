@@ -67,6 +67,12 @@ class FeedAnalyzedTest < ActionCable::Channel::TestCase
     assert_no_broadcasts(theirs) { analyze(@feed) }
   end
 
+  test "a delivery loads the changed record inside the subscriber's tenant" do
+    message = GraphQL::Subscriptions::Serialize.dump(@feed)
+
+    assert_equal @feed, XixoSchema.subscriptions.send(:load_action_cable_message, message, { tenant: @tenant })
+  end
+
   private
 
     def analyze(feed)

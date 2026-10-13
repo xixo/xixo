@@ -5,7 +5,7 @@ class XixoSchema < GraphQL::Schema
   mutation(Types::MutationType)
   subscription(Types::SubscriptionType)
 
-  use GraphQL::Subscriptions::ActionCableSubscriptions
+  use TenantSubscriptions
   use GraphQL::Dataloader
 
   max_depth(15)
