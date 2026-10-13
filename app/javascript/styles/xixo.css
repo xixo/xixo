@@ -3591,8 +3591,34 @@ a.tag:hover {
   cursor: pointer;
 }
 
+.linkup-approval {
+  justify-items: center;
+  width: 100%;
+  max-width: 34rem;
+  margin-inline: auto;
+  padding-block: var(--s6);
+  text-align: center;
+}
+
+.linkup-approval .settings-intro {
+  justify-content: center;
+}
+
 .linkup-approval .linkup-request {
-  max-width: 44rem;
+  justify-content: center;
+  width: 100%;
+  padding: var(--s5);
+}
+
+.linkup-approval .linkup-request-name,
+.linkup-approval .linkup-request-code {
+  flex-basis: 100%;
+  justify-items: center;
+}
+
+.linkup-approval .linkup-request-acts,
+.linkup-approval .linkup-steps {
+  justify-content: center;
 }
 
 .quiet-note {
