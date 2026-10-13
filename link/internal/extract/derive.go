@@ -24,6 +24,7 @@ const (
 	waveWide    = 2000
 	rawWidest   = 1024
 	deriveTime  = 5 * time.Minute
+	saved       = "[Q=80,strip]"
 )
 
 var ErrUnrendered = errors.New("nothing could be rendered")
@@ -122,7 +123,7 @@ func (d *deriving) fromImage() (string, error) {
 		source = viewable
 	}
 
-	if err := d.run("vipsthumbnail", source, "--size", d.bounds(), "-o", d.out()+"[Q=80]"); err != nil {
+	if err := d.run("vipsthumbnail", source, "--size", d.bounds(), "--export-profile", "srgb", "-o", d.out()+saved); err != nil {
 		return "", err
 	}
 
@@ -138,7 +139,7 @@ func (d *deriving) fromPage() (string, error) {
 		args = append(args, fmt.Sprintf("%dx%d", d.width, d.width), "--smartcrop", "low")
 	}
 
-	if err := d.run("vipsthumbnail", append(args, "-o", d.out()+"[Q=80]")...); err != nil {
+	if err := d.run("vipsthumbnail", append(args, "-o", d.out()+saved)...); err != nil {
 		return "", err
 	}
 
@@ -160,7 +161,7 @@ func (d *deriving) fromVideo() (string, error) {
 		return "", fmt.Errorf("ffmpeg rendered no frame of %s", d.in.Name)
 	}
 
-	if err := d.run("vipsthumbnail", frame, "--size", d.bounds(), "-o", d.out()+"[Q=80]"); err != nil {
+	if err := d.run("vipsthumbnail", frame, "--size", d.bounds(), "-o", d.out()+saved); err != nil {
 		return "", err
 	}
 

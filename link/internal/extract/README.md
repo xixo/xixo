@@ -72,7 +72,9 @@ A thumbnail is `settings.thumbnail` pixels wide. A preview fits within
 `settings.preview` pixels on its longest edge, except a page capture's, which
 keeps its full length at that width. Video takes the frame one second in,
 audio draws its waveform, a PDF renders its first page, and a camera raw uses
-its embedded preview when that is at least 1,024 pixels wide.
+its embedded preview when that is at least 1,024 pixels wide. Neither file
+keeps the original's metadata, so the EXIF tags and the location a camera
+writes stay in the original alone. Both are converted to sRGB.
 
 ## text
 

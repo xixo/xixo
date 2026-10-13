@@ -113,6 +113,52 @@ func TestEveryRenderableKindGetsAThumbnailAndAPreview(t *testing.T) {
 	}
 }
 
+func TestARenderedImageCarriesNoneOfTheOriginalsMetadata(t *testing.T) {
+	needs(t, "vipsthumbnail", "vipsheader")
+
+	photo, err := os.ReadFile(corpusFile(t, "image/photo.jpg"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tiff := []byte("MM\x00\x2a\x00\x00\x00\x08\x00\x01\x01\x0e\x00\x02\x00\x00\x00\x07\x00\x00\x00\x1a\x00\x00\x00\x00SECRET\x00")
+	app1 := append([]byte("Exif\x00\x00"), tiff...)
+	segment := append([]byte{0xFF, 0xE1, byte((len(app1) + 2) >> 8), byte(len(app1) + 2)}, app1...)
+	tagged := filepath.Join(t.TempDir(), "tagged.jpg")
+
+	if err := os.WriteFile(tagged, append(append(photo[:2:2], segment...), photo[2:]...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	before, _ := Limited{}.Run(context.Background(), 0, "vipsheader", "-a", tagged)
+	if !strings.Contains(string(before), "SECRET") {
+		t.Fatalf("the source carries no metadata to strip: %s", before)
+	}
+
+	out := &Output{}
+	if err := Common(context.Background(), Input{
+		Path: tagged, Name: "tagged.jpg", MIME: JPEG, Work: t.TempDir(), Run: Limited{},
+		Set: Settings{Thumbnail: 160, Preview: 1024},
+	}, out); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(out.Files) != 2 {
+		t.Fatalf("files %+v", out.Files)
+	}
+
+	for _, file := range out.Files {
+		held, err := Limited{}.Run(context.Background(), 0, "vipsheader", "-a", file.Path)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if strings.Contains(string(held), "exif") || strings.Contains(string(held), "SECRET") {
+			t.Fatalf("the %s kept the original's metadata: %s", file.Role, held)
+		}
+	}
+}
+
 func TestARawGetsItsFullPreviewAndNotItsHeaderThumbnail(t *testing.T) {
 	needs(t, "simple_dcraw", "vipsheader", "vipsthumbnail")
 
