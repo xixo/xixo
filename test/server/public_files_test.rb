@@ -16,4 +16,11 @@ class PublicFilesTest < ActionDispatch::IntegrationTest
       assert_equal "public, max-age=3600", response.headers["cache-control"], path
     end
   end
+
+  test "the web app manifest is served as a manifest" do
+    get "/manifest.webmanifest"
+
+    assert_response :success
+    assert_equal "application/manifest+json", response.media_type
+  end
 end
