@@ -4,11 +4,11 @@ require "rails/all"
 
 Bundler.require(*Rails.groups)
 
-require "masks/server" if ENV["MASKS_ISSUER_TEMPLATE"].blank?
-
 require_relative "../lib/tenancy/middleware"
 require_relative "../lib/switch"
 require_relative "../lib/embedded_issuer"
+
+require "masks/server" if EmbeddedIssuer.chosen?
 
 Switch.check!
 
@@ -45,7 +45,7 @@ module Xixo
     config.xixo.audit_retention = ENV.fetch("XIXO_AUDIT_RETENTION_DAYS", 90).to_i.days
     config.xixo.run_retention = ENV.fetch("XIXO_RUN_RETENTION_DAYS", 14).to_i.days
     config.xixo.run_deadline = ENV.fetch("XIXO_RUN_DEADLINE_HOURS", 6).to_i.hours
-    config.xixo.embedded = defined?(Masks::Server::Engine).present?
+    config.xixo.embedded = EmbeddedIssuer.chosen?
 
     if config.xixo.embedded
       config.masks.mode = :engine

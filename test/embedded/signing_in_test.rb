@@ -3,10 +3,10 @@ require_relative "test_helper"
 class SigningInTest < EmbeddedTest
   setup { tenant.disconnect! }
 
-  def follow!(limit: 10)
+  def follow!
     seen = []
 
-    while response.redirect? && seen.size < limit
+    while response.redirect? && seen.size < 10
       location = response.location
       seen << location
 
@@ -14,7 +14,7 @@ class SigningInTest < EmbeddedTest
 
       break if URI.parse(location).path == "/"
 
-      get path_of(location)
+      get URI.parse(location).request_uri
     end
 
     seen
@@ -53,6 +53,6 @@ class SigningInTest < EmbeddedTest
     get "/auth/session"
 
     assert_response :success
-    assert_equal "owner", json.dig("claims", "nickname") || json["nickname"], json.inspect
+    assert_equal "owner", response.parsed_body["nickname"]
   end
 end

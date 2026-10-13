@@ -4,12 +4,18 @@ module EmbeddedIssuer
 
   module_function
 
+  def chosen?
+    return @chosen if defined?(@chosen)
+
+    @chosen = ENV["MASKS_ISSUER_TEMPLATE"].blank?
+  end
+
   def on?
-    Rails.configuration.xixo.embedded == true
+    Rails.configuration.xixo.embedded
   end
 
   def migrations
-    on? ? Masks::Server::Engine.root.join("db/migrate").to_s : "db/masks_migrate"
+    File.join(Gem.loaded_specs.fetch("masks-server").full_gem_path, "db/migrate")
   end
 
   def url(origin)
@@ -22,34 +28,26 @@ module EmbeddedIssuer
 
   def serves?(uri)
     return false unless uri.path == PATH || uri.path.start_with?("#{PATH}/")
+    return Rails.env.local? if ENV["XIXO_PUBLIC_ORIGIN"].blank?
 
-    public_origin = ENV["XIXO_PUBLIC_ORIGIN"].presence
-    return Rails.env.local? if public_origin.nil?
-
-    port = ":#{uri.port}" unless uri.port == uri.default_port
-    format(public_origin, subdomain: Tenant.subdomain_for(uri.host)).chomp("/") == "#{uri.scheme}://#{uri.host}#{port}"
+    Masks::Client::Nonces.origin(Tenant.origin_for(Tenant.subdomain_for(uri.host)).chomp("/")) == Masks::Client::Nonces.origin(uri)
   end
 
   def call(env)
     Rails.application.executor.wrap do
-      inside(env.merge("SCRIPT_NAME" => PATH, "PATH_INFO" => env["PATH_INFO"].delete_prefix(PATH)))
+      status, headers, body = engine(env.merge("SCRIPT_NAME" => PATH, "PATH_INFO" => env["PATH_INFO"].delete_prefix(PATH)))
+
+      [ status, headers, body.to_enum(:each).to_a ]
+    ensure
+      body.close if body.respond_to?(:close)
     end
   end
 
   def inserted
-    lambda do |env|
-      inside(env.merge("SCRIPT_NAME" => "#{env['SCRIPT_NAME']}#{PATH}", "PATH_INFO" => env["PATH_INFO"].delete_suffix(PATH)))
-    end
+    ->(env) { engine(env.merge("SCRIPT_NAME" => "#{env['SCRIPT_NAME']}#{PATH}", "PATH_INFO" => env["PATH_INFO"].delete_suffix(PATH))) }
   end
 
-  def inside(env)
-    status, headers, body = Masks::Server::Engine.call(Rails.application.env_config.merge(env))
-    held = []
-
-    body.each { |chunk| held << chunk }
-
-    [ status, headers, held ]
-  ensure
-    body.close if body.respond_to?(:close)
+  def engine(env)
+    Masks::Server::Engine.call(Rails.application.env_config.merge(env))
   end
 end

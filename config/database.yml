@@ -1,3 +1,8 @@
+masks: &masks
+  migrations_paths: <%= EmbeddedIssuer.migrations %>
+  database_tasks: <%= EmbeddedIssuer.on? %>
+  schema_dump: false
+
 default: &default
   adapter: postgresql
   encoding: unicode
@@ -25,11 +30,8 @@ development:
     database: xixo_development_cable
     migrations_paths: db/cable_migrate
   masks:
-    <<: *primary_development
+    <<: [*primary_development, *masks]
     database: xixo_development_masks
-    migrations_paths: <%= EmbeddedIssuer.migrations %>
-    database_tasks: <%= EmbeddedIssuer.on? %>
-    schema_dump: false
 
 test:
   primary:
@@ -48,11 +50,8 @@ test:
     database: xixo_test_cable
     migrations_paths: db/cable_migrate
   masks:
-    <<: *primary_development
+    <<: [*primary_development, *masks]
     database: xixo_test_masks
-    migrations_paths: <%= EmbeddedIssuer.migrations %>
-    database_tasks: <%= EmbeddedIssuer.on? %>
-    schema_dump: false
 
 production:
   primary: &primary_production
@@ -75,8 +74,5 @@ production:
     database: xixo_production_cable
     migrations_paths: db/cable_migrate
   masks:
-    <<: *primary_production
+    <<: [*primary_production, *masks]
     database: xixo_production_masks
-    migrations_paths: <%= EmbeddedIssuer.migrations %>
-    database_tasks: <%= EmbeddedIssuer.on? %>
-    schema_dump: false

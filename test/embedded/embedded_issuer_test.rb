@@ -5,8 +5,8 @@ class EmbeddedIssuerTest < EmbeddedTest
     get "/id/.well-known/openid-configuration"
 
     assert_response :success
-    assert_equal ISSUER, json["issuer"]
-    assert_equal "#{ISSUER}/token", json["token_endpoint"]
+    assert_equal ISSUER, response.parsed_body["issuer"]
+    assert_equal "#{ISSUER}/token", response.parsed_body["token_endpoint"]
   end
 
   test "the authorization server metadata is also found where RFC 8414 puts it" do
@@ -14,7 +14,7 @@ class EmbeddedIssuerTest < EmbeddedTest
       get "#{path}/id"
 
       assert_response :success
-      assert_equal ISSUER, json["issuer"], path
+      assert_equal ISSUER, response.parsed_body["issuer"], path
     end
   end
 
@@ -22,14 +22,14 @@ class EmbeddedIssuerTest < EmbeddedTest
     get "/.well-known/oauth-protected-resource"
 
     assert_response :success
-    assert_equal [ ISSUER ], json["authorization_servers"]
-    assert_equal "#{ORIGIN}/mcp", json["resource"]
+    assert_equal [ ISSUER ], response.parsed_body["authorization_servers"]
+    assert_equal "#{ORIGIN}/mcp", response.parsed_body["resource"]
   end
 
   test "xixo names the same issuer masks does" do
     get "/id/.well-known/openid-configuration"
 
-    assert_equal json["issuer"], Tenant.issuer_url(request)
+    assert_equal response.parsed_body["issuer"], Tenant.issuer_url(request)
   end
 
   test "xixo reads its issuer inside the process, with no socket" do

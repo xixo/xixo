@@ -111,10 +111,9 @@ class Tenant < ApplicationRecord
     end
 
     def origin(request)
-      override = ENV["XIXO_PUBLIC_ORIGIN"].presence
-      return request.base_url if override.nil?
+      return request.base_url if ENV["XIXO_PUBLIC_ORIGIN"].blank?
 
-      format(override, subdomain: subdomain_for(request.host))
+      origin_for(subdomain_for(request.host))
     end
 
     def origin_for(subdomain)

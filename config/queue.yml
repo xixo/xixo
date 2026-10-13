@@ -16,6 +16,7 @@ default: &default
 
     - queues: [mailers, logout, streams, maintenance]
       threads: 2
+      processes: <%= EmbeddedIssuer.on? ? 1 : 0 %>
       polling_interval: 1
 
 development:
