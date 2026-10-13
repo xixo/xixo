@@ -57,6 +57,9 @@ without `XIXO_PUBLIC_ORIGIN`, so the audience never comes from a request's `Host
   `Origin` it sends is this tenant's origin. A browser that sends no `Sec-Fetch-Site` must send this
   origin as `Origin`. A post from another site, including another tenant's subdomain, is refused.
 - An `Mcp-Session-Id` belongs to the subject that opened it. xixo refuses it from anyone else.
+- A page on another site may read `/.well-known/oauth-protected-resource` and call `/mcp`, so an MCP
+  client that runs in a browser can connect. The answer is open to any origin but never to a request
+  that carries cookies, so such a page acts only with a token it holds.
 - `xixo:settings:admin` is never requested at sign-in. It is asked for only by **Sign in as an
   administrator**, and masks grants it only to a person whose scopes there cover it. Without it, a
   token changes only its own personal resources and none of the shared ones or the defaults.
