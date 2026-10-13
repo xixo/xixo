@@ -6,8 +6,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"os"
+	"os/exec"
 	"os/signal"
 	osuser "os/user"
 	"path/filepath"
@@ -15,6 +17,7 @@ import (
 	"slices"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/xixo/xixo/link/internal/extract"
 	_ "github.com/xixo/xixo/link/internal/extract/documents"
@@ -29,6 +32,11 @@ import (
 var version = "dev"
 
 const revoked = 78
+
+const (
+	accessGranted      = 75
+	accessCheckedEvery = 15 * time.Second
+)
 
 var revokedStatus = revoked
 
@@ -212,16 +220,69 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 			Tools:             config.ToolCeiling(),
 		}
 
+		if runtime.GOOS == "darwin" {
+			go awaitAccess(ctx, shared, running.Log)
+		}
+
 		err = running.Run(ctx)
 		if errors.Is(err, context.Canceled) {
 			return nil
 		}
 
 		return err
+	case "readable":
+		if len(args) != 2 {
+			return errors.New("readable takes one folder")
+		}
+
+		return readable(args[1])
 	default:
 		fmt.Fprint(stdout, usage)
 
 		return fmt.Errorf("%q is not a command", args[0])
+	}
+}
+
+func readable(folder string) error {
+	dir, err := os.Open(folder)
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+
+	if _, err := dir.ReadDir(1); err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+
+	return nil
+}
+
+func awaitAccess(ctx context.Context, shared *folders.Folders, log *slog.Logger) {
+	self, err := os.Executable()
+	if err != nil {
+		return
+	}
+
+	ticker := time.NewTicker(accessCheckedEvery)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+
+		for folder, err := range shared.Unreadable() {
+			if !errors.Is(err, fs.ErrPermission) {
+				continue
+			}
+
+			if exec.CommandContext(ctx, self, "readable", folder).Run() == nil {
+				log.Info("macOS now lets xixo link read a shared folder, so it restarts to read it", "folder", folder)
+				os.Exit(accessGranted)
+			}
+		}
 	}
 }
 
