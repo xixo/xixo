@@ -23,6 +23,7 @@ import (
 const (
 	mostLinkAnswer = 4096
 	mostAsked      = 64 << 10
+	mostTold       = 300
 	slowedBy       = 5
 	pollEvery      = 5
 )
@@ -159,7 +160,7 @@ func start(ctx context.Context, config *state.Config, asking Asking) (*Started, 
 	answer, _ := io.ReadAll(io.LimitReader(response.Body, mostAsked))
 
 	if response.StatusCode != http.StatusCreated {
-		return nil, fmt.Errorf("xixo did not take the request to link up (%d): %s", response.StatusCode, described(answer))
+		return nil, failed("xixo did not take the request to link up", response, answer)
 	}
 
 	started := &Started{}
@@ -248,12 +249,20 @@ func poll(ctx context.Context, config *state.Config, device string) (*Approved, 
 		}
 	}
 
-	return nil, "", fmt.Errorf("xixo did not answer whether this machine is approved (%d): %s", response.StatusCode, described(answer))
+	return nil, "", failed("xixo did not answer whether this machine is approved", response, answer)
 }
 
-func described(answer []byte) string {
+func failed(what string, response *http.Response, answer []byte) error {
+	if told := described(response, answer); told != "" {
+		return fmt.Errorf("%s (%d): %s", what, response.StatusCode, told)
+	}
+
+	return fmt.Errorf("%s (%d)", what, response.StatusCode)
+}
+
+func described(response *http.Response, answer []byte) string {
 	held := said{}
-	if json.Unmarshal(answer, &held) == nil && (held.Description != "" || held.Error != "") {
+	if json.Unmarshal(answer, &held) == nil {
 		if held.Description != "" {
 			return held.Description
 		}
@@ -261,7 +270,12 @@ func described(answer []byte) string {
 		return held.Error
 	}
 
-	return strings.TrimSpace(string(answer))
+	told := strings.TrimSpace(string(answer))
+	if !strings.HasPrefix(response.Header.Get("Content-Type"), "text/plain") || len(told) > mostTold || strings.ContainsAny(told, "<\n") {
+		return ""
+	}
+
+	return told
 }
 
 func linkedAs(ctx context.Context, config *state.Config, held state.State, options ...masks.Option) (string, error) {
@@ -311,8 +325,8 @@ func signed(ctx context.Context, config *state.Config, held state.State, method,
 	case method == http.MethodGet && response.StatusCode == http.StatusNotFound:
 		return "", errUnknown
 	case method == http.MethodGet:
-		return "", fmt.Errorf("xixo did not say whether it knows this machine (%d): %s", response.StatusCode, told)
+		return "", failed("xixo did not say whether it knows this machine", response, answer)
 	}
 
-	return "", fmt.Errorf("xixo did not link this machine up (%d): %s", response.StatusCode, told)
+	return "", failed("xixo did not link this machine up", response, answer)
 }

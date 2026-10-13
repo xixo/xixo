@@ -232,3 +232,19 @@ func TestUpStopsWhenItsContextEnds(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestUpNamesOnlyTheStatusWhenXixoAnswersWithAPage(t *testing.T) {
+	xixo := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "text/html")
+		response.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(response, "<!DOCTYPE html><html><body>Action Controller: Exception caught</body></html>")
+	}))
+	t.Cleanup(xixo.Close)
+
+	config := &state.Config{Xixo: xixo.URL, Issuer: "https://id.example"}
+
+	err := Up(context.Background(), config, state.State{Dir: t.TempDir()}, "1.2.3", io.Discard)
+	if err == nil || err.Error() != "xixo did not take the request to link up (500)" {
+		t.Fatalf("got %v", err)
+	}
+}
