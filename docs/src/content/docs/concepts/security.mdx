@@ -60,9 +60,9 @@ without `XIXO_PUBLIC_ORIGIN`, so the audience never comes from a request's `Host
 - A page on another site may read `/.well-known/oauth-protected-resource` and call `/mcp`, so an MCP
   client that runs in a browser can connect. The answer is open to any origin but never to a request
   that carries cookies, so such a page acts only with a token it holds.
-- `xixo:settings:admin` is never requested at sign-in. It is asked for only by **Sign in as an
-  administrator**, and masks grants it only to a person whose scopes there cover it. Without it, a
-  token changes only its own personal resources and none of the shared ones or the defaults.
+- `xixo:settings:admin` is never requested at sign-in. masks grants it only to a person whose scopes
+  there cover it. Without it, a token changes only its own personal resources and none of the shared
+  ones or the defaults.
 
 See [signing in](/concepts/tenants/#signing-in) and [agents and MCP](/concepts/agents/).
 
@@ -78,7 +78,7 @@ the secret fields that have a value, and the audit log records which fields were
 values. Rails filters secrets, tokens, and passwords from the request log. See
 [encryption & secrets](/guides/self-hosting/#encryption--secrets).
 
-A resource connected through masks, such as Google Drive, holds no provider token. masks keeps the
+For a resource connected through masks, such as Google Drive, masks keeps the
 provider's tokens, and xixo holds a delegation secret that masks revokes if it is ever used twice.
 See [resources connected through masks](/concepts/resources/#resources-connected-through-masks).
 
@@ -101,10 +101,9 @@ resources other than search, and still refuses other schemes. See
 [outbound connections](/reference/environment/#outbound-connections).
 
 xixo reads every response as it arrives and stops at a limit, so an answer that never ends is cut
-off before it fills memory. The limit is 5 MB, with 60 seconds to send it, for a fetch on someone's
-behalf. It is 8 MB for the APIs of GitHub, Notion, Slack, Google Drive, and Microsoft Graph, and 16 MB
-for a model backend, a streamed answer included. A response over its limit fails with the host and
-the limit in the error.
+off before it fills memory. The limit is 8 MB for the APIs of GitHub, Notion, Slack, Google Drive,
+and Microsoft Graph, and 16 MB for a model backend, a streamed answer included. A response over its
+limit fails with the host and the limit in the error.
 
 A resource reached through a transport, such as a tailnet, connects only to addresses the transport
 covers. None of the settings above widen that. See
@@ -230,13 +229,12 @@ See [the agent](/concepts/agents/#the-agent) and [asking](/concepts/agents/#aski
 | `XIXO_RUN_DEADLINE_HOURS` | A queued analysis, before it is cancelled | 6 |
 
 The server never parses a file's bytes. [xixo link](/concepts/analysis/#extraction) does, in a
-container or a systemd sandbox with no database, no keys, and read-only access to the folders it
-shares, so a file built to exploit a parser reaches nothing of the catalog. Every program xixo link
-runs on a file, such as `soffice`, `ffmpeg`, `tesseract`, `pdftoppm`, and `exiftool`, runs in a
-process group of its own with at most 4 GiB of data memory, 6 for `exiftool`, and is killed with
-everything it started when it runs past its time. The server keeps only the steps it knows from xixo
-link's answer, and cuts long text itself. `git` still runs on the server through `Command`, with
-the same memory limit and 5 minutes.
+container or a systemd sandbox with no database, so a file built to exploit a parser reaches nothing
+of the catalog. Every program xixo link runs on a file, such as `soffice`, `ffmpeg`, `tesseract`,
+`pdftoppm`, and `exiftool`, runs in a process group of its own with at most 4 GiB of data memory, 6
+for `exiftool`, and is killed with everything it started when it runs past its time. The server
+keeps only the steps it knows from xixo link's answer, and cuts long text itself. `git` still runs
+on the server through `Command`, with the same memory limit and 5 minutes.
 
 A gate stops a kind of job for a tenant or a single record, and `XIXO_ITERATORS_DISABLED` stops
 every iterating job at once. See [budgets and gates](/concepts/agents/#budgets-and-gates).

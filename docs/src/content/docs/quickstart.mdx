@@ -28,11 +28,10 @@ resolves.
 ./dev          # build and run in the foreground
 ./dev down     # stop, keeping the volumes
 ./dev reset    # delete the volumes and start over
-./dev test     # unit, server, client, and corpus suites
+./dev test
 ```
 
-The other commands are `logs`, `ps`, `psql`, `console`, `seed`, `corpus`, `reference`, and `fmt`.
-`./dev help` describes each one.
+`./dev help` describes the other commands.
 
 | Port | Service | Override |
 | --- | --- | --- |
@@ -53,7 +52,7 @@ xixo has no accounts of its own. It signs people in through masks, which has to 
 `MASKS_ISSUER` names the masks server and defaults to `http://masks.localhost:12345`. The masks dev
 stack's setup token is `masks-dev`.
 
-1. Open `http://xixo.localhost:8180` and click **Connect a sign-in server**.
+1. Open `http://xixo.localhost:8180`.
 2. masks asks you to sign in with an account that is allowed to approve connections, and then to
    approve xixo. masks sends the client credentials to xixo directly, server to server.
 3. xixo then signs you in. On later visits the button reads **Sign in**.
@@ -61,7 +60,7 @@ stack's setup token is `masks-dev`.
 ### Resources
 
 The first time the stack starts, `bin/rails db:prepare` creates the database and runs
-`db/seeds.rb`. The seeds attach four resources to the tenant:
+`db/seeds.rb`. The seeds attach resources to the tenant:
 
 | | |
 | --- | --- |
@@ -93,8 +92,7 @@ ollama pull nomic-embed-text
 | `agent` | `qwen3:8b` |
 | `embedding` | `nomic-embed-text` |
 
-`XIXO_INFERENCE_ORIGINS` permits only `http://host.docker.internal:11434`, so an inference resource
-you attach in development has to use that origin. If Ollama was not running when the seeds ran, the
+If Ollama was not running when the seeds ran, the
 seeds print a warning and xixo skips summaries until the resource answers. After you start Ollama,
 click **Check** on **Local models**. The check fails and names the missing models until each one is
 pulled.

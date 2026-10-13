@@ -167,10 +167,9 @@ admin scope does all of these to its own personal resources, and checks or syncs
 see. `Resource#managed_by?` decides, and the `manageable` field on a resource answers it for the
 token asking.
 
-Signing in never asks for `xixo:settings:admin`. **Sign in as an administrator** on the **Resources**
-page signs in again asking for it as well. masks grants it only to a person whose own scopes in masks
-cover it, which the person who connected xixo to masks has from the start, and anyone else signs in
-with the usual scopes. The `administrator` query says whether the current token carries it.
+Signing in never asks for `xixo:settings:admin`. masks grants it only to a person whose own scopes
+in masks cover it, which the person who connected xixo to masks has from the start, and anyone else
+signs in with the usual scopes. The `administrator` query says whether the current token carries it.
 
 ## Syncing
 
@@ -221,7 +220,7 @@ has not changed costs one update.
 
 A resource can name a transport in its `via` column. A transport is a resource that serves
 `transport`. It lists the addresses it reaches in `covers`, and `reach!` can rewrite a URL before it
-is dialed. The shipped transport is `tailnet`, which covers the Tailscale ranges `100.64.0.0/10` and
+is dialed. The `tailnet` transport covers the Tailscale ranges `100.64.0.0/10` and
 `fd7a:115c:a1e0::/48`. See [reach a tailnet](/guides/tailnet/).
 
 A resource with a `via` connects only to addresses its transport covers. The address check runs as
@@ -232,7 +231,7 @@ checks the address of the peer that answers, since the AWS SDK resolves names on
 
 These types can name a `via`: `webdav`, `caldav`, `carddav`, `s3`, `mcp`, `search`, `curl`, `rss`,
 `imap`, `git`, `openai-compatible`, `machine`, and `filesystem`. Every other type refuses one. A
-`machine` reaches only `filesystem` resources, and a `filesystem` is reached only through a
+`filesystem` is reached only through a
 `machine`. A `git` resource behind a
 transport takes only an `http` or `https` URL, since the address check does not apply to `ssh`.
 
@@ -294,8 +293,7 @@ A machine links itself up, and an administrator approves it.
 
 Linking up follows the shape of the OAuth device authorization grant (RFC 8628). An administrator
 copies one command from **Resources** and runs it on the machine. `GET /link.sh` serves the script
-without a sign-in, and it holds no secret: only xixo's address, masks' issuer, and the SHA-256 of
-each build of xixo link in `XIXO_LINK_DIR`. The script downloads the build for the machine from
+without a sign-in, and it holds no secret. The script downloads the build for the machine from
 `GET /link/download/xixo-link-<os>-<arch>`, refuses one that does not match its SHA-256, writes the
 configuration and the service, and runs `xixo-link up`.
 
@@ -319,7 +317,7 @@ On approval xixo asks masks for an enrollment token, as described below, and han
 poll, once. xixo link registers with masks with its own key and posts the device code to
 `POST /link` with its own DPoP-bound token. Only then does xixo create the `machine`, bound to that
 client. Its key is the first label of the hostname, with `-2`, `-3`, and so on when that key is
-taken, and it never changes. Its name is the full hostname and can be changed. The approving
+taken, and it never changes. The approving
 administrator is its first operator. A client another machine holds already is refused.
 
 Limits keep a stranger from filling the list. A request runs out ten minutes after it starts, or

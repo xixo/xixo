@@ -64,7 +64,7 @@ A feed's `details` field turns the steps of its current analysis into labelled r
 the step that produced them, and the item page shows them under **Details**. Nested values
 are flattened into one row each, a list of records such as attachments or events numbers each
 record, and a row an earlier step already showed is not repeated. Embedded metadata comes last.
-Text, captions, scenes, tables, the summary, and the bookkeeping steps are left out.
+Text, tables, the summary, and the bookkeeping steps are left out.
 
 Some resources read only part of what the source holds. GitHub reads an issue's first 50 comments,
 Notion reads 2,000 blocks of each list and stops three levels down, and Slack reads one page of a
@@ -240,7 +240,7 @@ Every analyzer inherits the same sequence from `Analyzer::Base`:
    a reasoning model set to `none` summarizes without thinking first. The prompt fences the file's text and tells the model to treat it as data. It asks
    for tags the way a person would label a folder: a topic, the kind of thing the file is, or the
    name of a person, company, product, or place, and never an amount, a date, an address, or an
-   account or reference number. xixo reduces the model's answer to a summary, up to 40 entities,
+   account or reference number. xixo reduces the model's answer to a summary
    and up to 8 tags. It drops
    stopwords and tags longer than four words. When the analysis finishes, the feed is
    [filed under](/concepts/feeds/) the tags. If no resource
@@ -260,8 +260,7 @@ unless the feed is an address, and then three more steps:
 
 - **Filing.** xixo connects the feed to the `xixo:mime` feed for its content type.
 - **Considering.** For an address, and for a file that is still staged, the
-  [agent](/concepts/agents/) runs under the feed's own grant (`xixo:catalog:read`,
-  `xixo:catalog:write`, `xixo:web:read`, and `xixo:resources:read`) with the `search`, `feed`,
+  [agent](/concepts/agents/) runs under the feed's own grant with the `search`, `feed`,
   `connect`, and `resource` tools. For an address with a schedule, the prompt is the schedule's
   prompt. For a staged file, it is `FILE_PROMPT`, which asks the agent to connect the feed to the
   tags and feeds it belongs with and lists the places that would accept it. A file synced from a
@@ -282,7 +281,7 @@ for more time while it runs, up to one day from the start. The analysis is done 
 saved, and the title and the conversation's summary follow it. `ExpireOverdueJob` cancels an analysis that runs past its deadline.
 
 Analysis jobs run on the `analysis` queue, with at most `ANALYSIS_PER_TENANT` (2 by default) running
-per tenant. A `Resource::Failed` error is retried five times with increasing waits, and the analysis
+per tenant. A `Resource::Failed` error is retried with increasing waits, and the analysis
 fails if the last retry fails too. An analysis waiting for a machine is parked, as above. An `Analyzer::Failed` error, or a file with nowhere to go, is
 discarded and fails the analysis. Any other error fails the analysis and is raised again.
 

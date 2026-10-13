@@ -79,7 +79,7 @@ A setting that was never changed reads as its default.
 | **Most frames read from an animation** (`animation_frames`) | `shared` | 1, 2, 4, 6, 8, or 12 | 4 |
 | **Share of an animation's frames read** (`animation_frame_share`) | `shared` | 10, 25, 50, or 100 percent | 100 |
 
-The two image sizes decide how [analysis](/concepts/analysis/#the-analyzer) renders thumbnails and
+The two image sizes decide how [analysis](/concepts/analysis/#extraction) renders thumbnails and
 hi-res images. An item rendered before a change keeps its old images until it is analyzed again.
 
 The two animation settings decide how many frames of a GIF, WebP, or APNG the vision model is shown:
@@ -104,8 +104,7 @@ reaches it the same way it reaches a masks server: discovery, the token endpoint
 go through OpenID Connect. Those calls stay inside the process and never leave it as network
 requests.
 
-A new tenant has no client, so the first visit shows **Connect a sign-in server**. This starts the
-handshake at `/auth/handshake`:
+A new tenant has no client. Connecting one starts the handshake at `/auth/handshake`:
 
 1. xixo sends the browser to masks with its name, its resource URL, its redirect URIs, the scopes
    `openid profile email offline_access`, the `xixo:` scope namespace, and `masks:delegate:`. The

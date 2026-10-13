@@ -5,8 +5,8 @@ description: Add storage, a model backend, a mailbox, a web source, or another r
 
 At the end of this guide, a new [resource](/concepts/resources/) is attached, checked, and in use.
 You need to be signed in with `xixo:resources:command`, which the browser app asks for at sign-in.
-A resource everyone can use also needs `xixo:settings:admin`. Choose **Sign in as an administrator**
-on the **Resources** page to get it. See [who changes a resource](/concepts/resources/#who-changes-a-resource).
+A resource everyone can use also needs `xixo:settings:admin`. See [who changes a
+resource](/concepts/resources/#who-changes-a-resource).
 
 ## Where it goes
 
@@ -256,7 +256,7 @@ connected through masks, `connectUrl` is where to send the browser. `checkResour
 `setDefaultStorage`, `setDefaultInference`, `setSyncInterval`, `updateResource`, `archiveResource`,
 and `deleteResource` do what the buttons do. See the [GraphQL reference](/reference/graphql/).
 
-Over MCP, the `resource` tool lists and checks resources, but attaching one is a browser flow. See
+Over MCP, the `resource` tool lists and checks resources. See
 the [MCP reference](/reference/mcp/#resource).
 
 ## If it doesn't work
@@ -264,8 +264,8 @@ the [MCP reference](/reference/mcp/#resource).
 - **`no inference origins are permitted — set XIXO_INFERENCE_ORIGINS`** or **`... is not one of
   XIXO_INFERENCE_ORIGINS`**. A model backend's **Base URL** must use an origin listed in
   `XIXO_INFERENCE_ORIGINS`. Add it and restart xixo, then choose **Check**.
-- **`... does not serve ...`** or **`no models are picked yet`**. A model backend was given a model it
-  does not have, or no model at all. Pull the model into the backend, or correct the name with
+- **`... does not serve ...`**. A model backend was given a model it
+  does not have. Pull the model into the backend, or correct the name with
   **Change**.
 - **`... resolves to ..., which is not a public address`**. xixo refuses private and local addresses.
   For object storage on a private network, list its origin in `XIXO_S3_ORIGINS`. See the

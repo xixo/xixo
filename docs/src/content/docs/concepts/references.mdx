@@ -19,7 +19,7 @@ describes what they have in common.
 `preview` and `thumbnail` are derived. An analysis renders both once for images, video, audio,
 PDFs, and captured pages, and stores them in the internal `derived` store, keyed
 `<feed id>/<role>.jpg`. Audio renders as a picture of its waveform. See
-[derive](/concepts/analysis/#the-analyzer) for the sizes. That
+[derive](/concepts/analysis/#extraction) for the sizes. That
 store and the `children` store are listed in `Resource::INTERNAL`. xixo keeps them for itself and
 never offers them as a place to store a file. Serving a thumbnail reads the bytes of the thumbnail
 reference, so it passes the same grant check as any other bytes.

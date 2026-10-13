@@ -133,8 +133,7 @@ resources and never theirs.
 
 The grant's subject stays `feed:` and the key either way, so the audit trail and the run budget
 still name the feed. An agent's run reads only the feeds the person it speaks for can read, and a run
-that speaks for nobody reads only what everyone can. What the agent writes is cataloged for the whole tenant, including anything it
-read from a personal resource.
+that speaks for nobody reads only what everyone can.
 
 ## Asking
 
@@ -246,7 +245,7 @@ clock hour, 20 by default, and `0` removes the limit. A feed's agent spends from
 budget, which is separate from any person's.
 
 A gate is a row that stops a kind of job. The iterating jobs each name their gate: `sync`,
-`analyze`, `export`, `move`, or `reindex`. A gate applies to the whole key or to one record, such as a
+`export`, `move`, or `reindex`. A gate applies to the whole key or to one record, such as a
 single resource for `sync`, and the record's gate takes precedence over the key's. A disabled gate
 marks the run as gated and does nothing. A gate that is enabled but not live lets `sync` and
 `reindex` walk and count without writing anything. Jobs read their gates again every 50 iterations,

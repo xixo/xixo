@@ -29,8 +29,7 @@ The `path` analyzer splits on slashes, backslashes, dashes, underscores, dots, a
 then lowercases, so a search for `acme` finds `invoices/2026/acme-q3.pdf`. Only original references
 contribute a locator or a resource id. A preview or a thumbnail never does. The body leaves out the
 summary step, which has its own field, and the bookkeeping steps, such as `placement` and `derived`,
-whose results are paths and store names. The mapping is not dynamic, so a field that is not listed
-here is not indexed.
+whose results are paths and store names. The mapping is not dynamic.
 
 ## Lexical search
 
@@ -162,7 +161,7 @@ xixo refuses a search that has no tenant.
 ## Rebuilding
 
 xixo hashes the index's settings and mapping into a stamp and stores it in the index's metadata.
-`RebuildSearchIndexJob` runs daily at 3 a.m. and does nothing unless the stamp has changed or the index
+`RebuildSearchIndexJob` does nothing unless the stamp has changed or the index
 is missing. When either happens, the job builds a new versioned index and reindexes every tenant into
 it in pages of 200, under a run of kind `reindex`. It refuses to promote the new index if it holds
 fewer documents than there are feeds. Promotion moves the main alias and every tenant alias in one

@@ -41,7 +41,7 @@
 /public/vite-dev
 /public/vite-test
 
-# Generated from the Ruby schema by `npm run codegen` — never edited by hand.
+# Generated from the Ruby schema — never edited by hand.
 /web/schema.graphql
 /web/src/generated
 /web/dist

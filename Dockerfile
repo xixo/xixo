@@ -1,11 +1,8 @@
 # syntax=docker/dockerfile:1
 # check=error=true
 
-# This Dockerfile is designed for production, not development. Use with Kamal or build'n'run by hand:
+# This Dockerfile is designed for production, not development. Build by hand:
 # docker build -t xixo .
-# docker run -d -p 80:80 -e RAILS_MASTER_KEY=<value from config/master.key> --name xixo xixo
-
-# For a containerized dev environment, see Dev Containers: https://guides.rubyonrails.org/getting_started_with_devcontainer.html
 
 # Make sure RUBY_VERSION matches the Ruby version in .ruby-version,
 # and NODE_VERSION the one in .node-version.
@@ -103,7 +100,6 @@ RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails graphql:dump_schema && \
 # -j 1 disable parallel compilation to avoid a QEMU bug: https://github.com/rails/bootsnap/issues/495
 RUN bundle exec bootsnap precompile -j 1 app/ lib/
 
-# Precompiling assets for production without requiring secret RAILS_MASTER_KEY
 RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile && \
     rm -rf node_modules
 

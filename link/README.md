@@ -68,7 +68,7 @@ On Linux xixo link runs as a system service:
 | `/etc/xixo-link/config.json` | Where xixo and masks are, and the folders xixo link shares. |
 | `/var/lib/xixo-link/key.json` | The private key xixo link signs its client assertions with. |
 | `/var/lib/xixo-link/dpop.json` | The private key xixo link proves its tokens with. |
-| `/var/lib/xixo-link/registration.json` | The client masks registered for xixo link, and its registration access token. |
+| `/var/lib/xixo-link/registration.json` | The client masks registered for xixo link. |
 | `/var/cache/xixo-link/work/` | Each extraction's private work folder, emptied when xixo link starts. |
 | `/etc/systemd/system/xixo-link.service` | The unit, from `xixo-link.service` with `@USER@` and `@FOLDERS@` replaced. |
 | `/etc/systemd/system/xixo-link-update.service` | The updater, which runs as `xixo-link-update`. |
@@ -437,8 +437,7 @@ and inode numbers, so xixo can tell when two paths reach the same file.
 
 `browse`, `find`, `peek`, `place`, `examine`, and `model` answer MCP clients,
 and each is refused unless the configuration names its tool: `browse`, `search`,
-`read`, `write`, `extract`, and `models`. They refuse an argument they do not
-know.
+`read`, `write`, `extract`, and `models`.
 
 `find` walks every shared folder, or the one named, and keeps the paths that
 hold `query`, ignoring case. It stops at `limit` matches, 100 at most, after
