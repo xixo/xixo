@@ -968,21 +968,6 @@ function MachineCard({
       {found.map((service) => {
         const named = SERVERS[service.kind] ?? service.kind
 
-        if (service.localOnly)
-          return (
-            <p
-              key={`${service.kind}-${service.port}`}
-              className="machine-found"
-            >
-              <IconCpu size={15} stroke={1.8} />
-              <span>
-                Found {named} on {place.name}. It only answers on that machine,
-                so xixo cannot reach it. Let {named} listen on the network to
-                add it.
-              </span>
-            </p>
-          )
-
         const quick =
           administrator || place.local ? quickFor(place, service) : null
 

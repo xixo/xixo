@@ -74,6 +74,11 @@ module Types
     def disks = Array(health["disks"])
     def services
       Array(object.machine["services"]).map do |service|
+        if service["local_only"] && !object.local?
+          next service.merge("url" => Resource::OpenaiCompatible.address_on("127.0.0.1", port: service["port"]),
+                             "via" => object.key)
+        end
+
         url = object.reached_at(service)
 
         service.merge("url" => url, "via" => (tailnet if url))

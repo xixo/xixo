@@ -573,8 +573,8 @@ Resolves only for a token carrying `xixo:resources:read`.
 | `kind` | `String!` | ollama or lmstudio. |
 | `localOnly` | `Boolean!` | Whether the model server answers only on the machine itself, so xixo cannot reach it over the network. |
 | `port` | `Int!` |  |
-| `url` | `String` | The base URL xixo reaches the model server at, over the machine's tailnet address. Empty for a machine on no tailnet. |
-| `via` | `String` | The key of the tailnet xixo reaches the model server through. Empty when it has none to offer. |
+| `url` | `String` | The base URL to add the model server at. A server that answers only on its machine is reached through xixo link at 127.0.0.1. Empty when xixo cannot reach it. |
+| `via` | `String` | The key of the tailnet or machine xixo reaches the model server through. Empty when it has none to offer. |
 
 ### NoteFeedPayload
 
