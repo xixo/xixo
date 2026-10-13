@@ -22,7 +22,8 @@ The Go linker signs `darwin/arm64` binaries ad hoc, also when it builds them on
 Linux, so they run on Apple silicon without a separate signing step.
 
 The xixo image builds all four into `/opt/xixo-link`, next to
-`xixo-link.service` and `xixo-link.plist`.
+`xixo-link.service`, `xixo-link-update.service`, `xixo-link-update.path`, and
+`xixo-link.plist`.
 
 On macOS xixo link also uses the mac reader, `xixo-mac-reader`, a small Swift
 program that reads PDFs, images, audio, and video with the frameworks macOS
@@ -34,9 +35,17 @@ make -C macos
 ```
 
 The binary lands in `macos/build/xixo-mac-reader`, signed ad hoc. The xixo
-image cannot build it, so each release attaches it to the release on GitHub,
-built on a macOS runner. See [what a Mac reads](#what-a-mac-reads) for what it
-does.
+image cannot build it, so each release builds it on a macOS runner, attaches it
+to the release on GitHub, and hands it to the image build as the `mac-reader`
+build context:
+
+```sh
+docker build --build-context mac-reader=link/macos/build .
+```
+
+The image keeps it at `/opt/xixo-link/mac/xixo-mac-reader`, and xixo serves it
+at `/link/download/xixo-mac-reader`. An image built without the context holds no
+mac reader. See [what a Mac reads](#what-a-mac-reads) for what it does.
 
 `go test ./...` runs the tests. On macOS the tests also run real extraction
 programs under the sandbox when they are installed, and, once `make -C macos`
@@ -53,21 +62,28 @@ On Linux xixo link runs as a system service:
 
 | Path | Holds |
 | --- | --- |
-| `/usr/local/bin/xixo-link` | The binary. |
+| `/usr/local/lib/xixo-link/xixo-link` | The binary, owned by the `xixo-link-update` user. |
+| `/usr/local/lib/xixo-link/xixo-link.previous` | The binary before the last update. |
+| `/usr/local/bin/xixo-link` | A link to the binary. |
 | `/etc/xixo-link/config.json` | Where xixo and masks are, and the folders xixo link shares. |
 | `/var/lib/xixo-link/key.json` | The private key xixo link signs its client assertions with. |
 | `/var/lib/xixo-link/dpop.json` | The private key xixo link proves its tokens with. |
 | `/var/lib/xixo-link/registration.json` | The client masks registered for xixo link, and its registration access token. |
 | `/var/cache/xixo-link/work/` | Each extraction's private work folder, emptied when xixo link starts. |
 | `/etc/systemd/system/xixo-link.service` | The unit, from `xixo-link.service` with `@USER@` and `@FOLDERS@` replaced. |
+| `/etc/systemd/system/xixo-link-update.service` | The updater, which runs as `xixo-link-update`. |
+| `/etc/systemd/system/xixo-link-update.path` | Starts the updater when xixo link asks for an update. |
+| `/run/xixo-link/` | `update.json`, the update xixo link asks for, and `running.json`, the build that last connected. |
+| `/run/xixo-link-update/result.json` | How the last update went. |
 
 On macOS xixo link runs as the user whose files it shares:
 
 | Path | Holds |
 | --- | --- |
-| `~/Library/Application Support/xixo-link/bin/xixo-link` | The binary. |
+| `~/Library/Application Support/xixo-link/bin/xixo-link` | The binary the launch agent runs, which runs the newest update. |
+| `~/Library/Application Support/xixo-link/releases/` | The updates, one folder each, with `current` and `good` links to two of them. |
 | `~/Library/Application Support/xixo-link/config.json` | The configuration. |
-| `~/Library/Application Support/xixo-link/state/` | `key.json`, `dpop.json`, and `registration.json`. |
+| `~/Library/Application Support/xixo-link/state/` | `key.json`, `dpop.json`, and `registration.json`, and the update files `update.json`, `running.json`, and `result.json`. |
 | `~/Library/Caches/xixo-link/work/` | Each extraction's private work folder, emptied when xixo link starts. |
 | `~/Library/LaunchAgents/network.xixo.link.plist` | The launch agent, from `xixo-link.plist` with `@HOME@` replaced. |
 | `~/Library/Logs/xixo-link.log` | What xixo link logs. |
@@ -166,6 +182,13 @@ the machine, and defaults to the hostname. The container beside the server
 enrolls this way, with a token the server leaves it.
 
 `xixo-link run` connects to xixo and serves it until it is stopped.
+`--updates systemd` or `--updates self` lets it update itself, as described in
+[updates](#updates). Without the flag it ignores xixo's updates.
+
+`xixo-link update` is the Linux updater. It reads the request in
+`/run/xixo-link/update.json`, installs the build it names in place of its own
+binary, and waits for the new one to connect. `--requests DIR` and
+`--results DIR` move the two folders.
 
 `xixo-link version` prints the version.
 
@@ -208,7 +231,8 @@ no secret, and puts none in the process list or in shell history. It:
    machine.
 6. Starts the service.
 
-Running the command again upgrades xixo link and keeps the link.
+Running the command again installs the build xixo ships and keeps the link.
+After that, xixo link [updates itself](#updates).
 
 ## Linking up
 
@@ -269,7 +293,7 @@ xixo link speaks the Action Cable protocol and subscribes to
 
 | Action | Fields | When |
 | --- | --- | --- |
-| `hello` | `version`, `os`, `arch`, `hostname`, `folders`, `writable`, `services`, `extractors`, `lend`, `extracts_for_others`, `warnings`, `tools` | Once the subscription is confirmed. |
+| `hello` | `version`, `os`, `arch`, `hostname`, `folders`, `writable`, `services`, `extractors`, `lend`, `extracts_for_others`, `warnings`, `tools`, `sha256`, `mac_reader`, `updates` | Once the subscription is confirmed. |
 | `health` | `uptime`, `load`, `memory`, `disks`, `warnings` | After `hello`, and every minute. |
 | `reply` | `request`, `ok`, `result` or `error` | When a request is answered. |
 | `chunk` | `request`, `of`, `seq`, `data` | For each part of a file being read or made. |
@@ -279,6 +303,14 @@ xixo sends `{"settings":{"tools","lend","extracts_for_others"}}` as a broadcast
 on the subscription right after `hello`, and again whenever an administrator
 changes what the machine may do. xixo link does what both the settings and its
 configuration allow, as described in [what xixo may do](#what-xixo-may-do).
+
+xixo also sends `{"update":{"version","sha256","downgrade","mac_reader"}}` right
+after `hello` when xixo link can update itself and runs another build, as
+described in [updates](#updates).
+
+`sha256` is the SHA-256 of xixo link's own binary, and `mac_reader` that of the
+mac reader beside it, when there is one. `updates` is `systemd` or `self` when
+xixo link can update itself, and left out otherwise.
 
 `services` lists the model servers listening on the machine's loopback
 address: `{"kind":"ollama","port":11434,"address":"100.64.0.7"}`, and
@@ -443,7 +475,7 @@ xixo link never walks or reads symbolic links or these names: `.git`, `.hg`,
 
 ## The service
 
-`xixo-link.service` runs `xixo-link run` as the user named in place of
+`xixo-link.service` runs `xixo-link run --updates systemd` as the user named in place of
 `@USER@`, which is the user who owns the shared folders. systemd creates the
 state directory for that user, restarts xixo link when it stops, and keeps it
 from writing anywhere else, gaining privileges, or reaching devices. xixo link
@@ -491,12 +523,113 @@ retried with backoff.
 Removing xixo link from a machine is done on the machine:
 
 ```sh
-sudo systemctl disable --now xixo-link
+sudo systemctl disable --now xixo-link xixo-link-update.path
 sudo rm -rf /etc/systemd/system/xixo-link.service /etc/systemd/system/xixo-link.service.d
-sudo rm -f /usr/local/bin/xixo-link
+sudo rm -f /etc/systemd/system/xixo-link-update.service /etc/systemd/system/xixo-link-update.path
+sudo rm -rf /usr/local/bin/xixo-link /usr/local/lib/xixo-link
 sudo rm -rf /etc/xixo-link /var/lib/xixo-link /var/cache/xixo-link
+sudo userdel xixo-link-update
 sudo systemctl daemon-reload
 ```
+
+## Updates
+
+xixo keeps every machine on the build of xixo link the server ships. The
+server knows that build's version and the SHA-256 of each system's binary. When
+xixo link says `hello`, xixo compares the `sha256` it sent, and on a Mac the
+`mac_reader` too, with the build it ships. When they differ, the machine's
+updates are on, and xixo link said it can update itself, xixo sends:
+
+```json
+{"update": {"version": "0.3.0", "sha256": "…", "downgrade": false, "mac_reader": "…"}}
+```
+
+`mac_reader` is there only for a Mac, when xixo holds a mac reader.
+`downgrade` is true when the version is older than the one xixo link runs.
+xixo link refuses an older version without it, so only a server that ships an
+older build, such as after a rollback, moves a machine back.
+
+Each system then:
+
+1. Downloads `<xixo>/link/download/xixo-link-<os>-<arch>`, and on a Mac
+   `<xixo>/link/download/xixo-mac-reader`, from the xixo address in its own
+   config, following no redirect. The message names no address, so it cannot
+   send xixo link to another host.
+2. Checks each download against the SHA-256 in the message, and deletes one
+   that does not match.
+3. Runs the new binary's `version`, which must print the version xixo sent.
+4. Swaps the new binary in with a rename on the same file system, and keeps
+   the one before it.
+5. Restarts into it. When the new binary does not connect to xixo within three
+   minutes, or stops before it does, the one before it comes back.
+
+xixo link asks for a given build once. When the update failed, it says so in
+its `warnings` ten minutes later, and asks again six hours after it first asked.
+
+A build older than updates does not know `--updates` or `--supervised`. When
+a server rolled back that far sends it, it stops at once, and the machine goes
+back to the build it ran.
+
+An administrator turns updates off for one machine on its card. The container
+beside the server never updates itself. It runs without `--updates`, so it
+says nothing about updating in `hello` and ignores an `update` message. Its
+image is pinned like the server's, and updates when the image does.
+
+### On Linux
+
+xixo link runs as the user who owns the shared folders. It must not be able to
+change the binary it runs, or a program that a file took over during
+extraction could replace xixo link for good. So the binary lives in
+`/usr/local/lib/xixo-link`, which belongs to a second system user,
+`xixo-link-update`, and a separate unit swaps it:
+
+1. xixo link writes the request to `/run/xixo-link/update.json`, mode 0644, and
+   keeps serving.
+2. `xixo-link-update.path` sees the file change and starts
+   `xixo-link-update.service`, which runs `xixo-link update` as
+   `xixo-link-update`.
+3. The updater downloads and checks the build, keeps the old binary as
+   `xixo-link.previous`, and renames the new one into place.
+4. xixo link checks its binary every five seconds. When the file changes, it
+   finishes its work and exits with status 75, and systemd starts the new one.
+5. The new xixo link writes `/run/xixo-link/running.json` once it connects.
+   The updater waits for it for three minutes, and puts `xixo-link.previous`
+   back when it does not come. The waiting xixo link sees its binary change
+   again and restarts into the old one.
+6. The updater writes how it went to `/run/xixo-link-update/result.json`.
+
+The updater runs under the same systemd confinement as xixo link. It writes
+only `/usr/local/lib/xixo-link` and its own runtime folder, cannot see
+`/var/lib/xixo-link`, where the keys are, and holds no capabilities. It reads
+the request it is given and nothing else xixo link writes. A request can only
+name a build that xixo serves, since the updater downloads from the address in
+`/etc/xixo-link/config.json`, which root owns. It handles each request once,
+so a request that failed is not tried again until xixo link writes a new one.
+Nothing runs as root after the install.
+
+The other layout keeps the binary in xixo link's own state folder, where xixo
+link replaces it itself. That needs no second user or unit, and lets any
+program xixo link runs replace xixo link. xixo link takes the second user
+instead.
+
+### On macOS
+
+The launch agent runs `bin/xixo-link run --updates self`. That process runs the
+newest update as a child and never changes itself:
+
+1. The child downloads and checks the build into a new folder under
+   `releases/`, named by the start of its SHA-256, with the mac reader beside
+   it. When xixo holds no mac reader, it copies the one it has.
+2. It points `releases/current` at the folder, and exits with status 75.
+3. The parent starts `releases/current/xixo-link`. When the child writes
+   `state/running.json` within three minutes, the parent points
+   `releases/good` at the folder. When it does not, or stops first, the parent
+   points `current` back at `good`, or at nothing, and starts that one.
+
+macOS grants Full Disk Access to a binary by its code signature, which changes
+with every build. The child runs under the parent, and macOS checks the
+parent, so an update keeps the access. Running the install command again
+replaces `bin/xixo-link`, and the access has to be granted again.
 
 ## macOS
 
@@ -513,7 +646,7 @@ curl -fsSL https://xixo.example.com/link.sh | sh -s -- ~/Documents ~/Desktop
 ```
 
 It puts `xixo-link` and `xixo-mac-reader` side by side in
-`~/Library/Application Support/xixo-link/bin`, writes the configuration,
+`~/Library/Application Support/xixo-link/bin`, removes earlier updates, writes the configuration,
 installs the launch agent from `xixo-link.plist` with `@HOME@` replaced, links
 up, and starts the launch agent. xixo link looks for the mac reader beside its
 own binary first, then on `PATH`. Without it, a Mac reads PDFs, images, audio,
@@ -529,7 +662,7 @@ A folder in Documents, Desktop, Downloads, or iCloud Drive also needs
 
 ### The launch agent
 
-`xixo-link.plist` runs `xixo-link run` under the label `network.xixo.link`
+`xixo-link.plist` runs `xixo-link run --updates self` under the label `network.xixo.link`
 when the user logs in, at background priority with low-priority disk access,
 and with a umask of 0077. It sets `PATH` to the system folders, Homebrew's
 folders, and LibreOffice's.
@@ -578,8 +711,9 @@ path checks still keep xixo to the configured folders.
 
 macOS records the permission against the binary's code signature. An ad hoc
 signature changes with every build, so a new version of the binary is a new
-program to macOS. After an upgrade, remove the old `xixo-link` entry, add the
-binary again, and restart xixo link.
+program to macOS. An [update](#on-macos) keeps the permission, since the binary
+the launch agent runs stays the same. After running the install command again,
+remove the old `xixo-link` entry, add the binary again, and restart xixo link.
 
 ### The sandbox
 

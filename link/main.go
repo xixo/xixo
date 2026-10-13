@@ -27,6 +27,7 @@ import (
 	"github.com/xixo/xixo/link/internal/link"
 	"github.com/xixo/xixo/link/internal/machine"
 	"github.com/xixo/xixo/link/internal/state"
+	"github.com/xixo/xixo/link/internal/update"
 )
 
 var version = "dev"
@@ -46,7 +47,8 @@ const usage = `xixo-link connects this machine to xixo.
   xixo-link unit --template PATH [--user NAME] [--config PATH]
   xixo-link up [--config PATH] [--state DIR]
   xixo-link enroll --token - [--name NAME] [--config PATH] [--state DIR]
-  xixo-link run [--config PATH] [--state DIR] [--revoked-status N]
+  xixo-link run [--config PATH] [--state DIR] [--revoked-status N] [--updates systemd|self]
+  xixo-link update [--config PATH] [--requests DIR] [--results DIR]
   xixo-link version
 `
 
@@ -55,6 +57,11 @@ func main() {
 	defer stop()
 
 	if err := command(ctx, os.Args[1:], os.Stdin, os.Stdout); err != nil {
+		var held exitStatus
+		if errors.As(err, &held) {
+			os.Exit(int(held))
+		}
+
 		fmt.Fprintln(os.Stderr, "xixo-link:", err)
 
 		if errors.Is(err, link.ErrRevoked) {
@@ -179,14 +186,37 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 		}
 
 		return link.Up(ctx, config, state.State{Dir: *stateDir}, version, stdout)
+	case "update":
+		requests := set.String("requests", updateRequests, "the directory xixo link leaves update requests in")
+		results := set.String("results", runtimeDir(updateResults), "the directory this command leaves its result in")
+
+		if err := set.Parse(args[1:]); err != nil {
+			return err
+		}
+
+		return updated(ctx, *configPath, *requests, *results)
 	case "run":
 		stopped := set.Int("revoked-status", revoked, "the exit status when this machine was unenrolled")
+		updates := set.String("updates", "", "how xixo link updates itself: systemd, self, or not at all when empty")
+		supervised := set.Bool("supervised", false, "set by the process that runs xixo link and swaps in new versions")
+		releases := set.String("releases", "", "the directory that holds the versions xixo link updated to")
 
 		if err := set.Parse(args[1:]); err != nil {
 			return err
 		}
 
 		revokedStatus = *stopped
+
+		switch *updates {
+		case "", modeSystemd:
+		case modeSelf:
+			if !*supervised {
+				return supervise(ctx, args[1:], *stateDir)
+			}
+		default:
+			return fmt.Errorf("--updates takes %s or %s, not %q", modeSystemd, modeSelf, *updates)
+		}
+
 		searchPath()
 
 		config, err := state.LoadConfig(*configPath)
@@ -220,11 +250,23 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 			Tools:             config.ToolCeiling(),
 		}
 
+		ctx, restart := context.WithCancelCause(ctx)
+		defer restart(nil)
+
+		running.Identity = update.Identify(version)
+		running.Updates = updater(ctx, *updates, *releases, *stateDir, config, running, func() { restart(errRestart) })
+
 		if runtime.GOOS == "darwin" {
 			go awaitAccess(ctx, shared, running.Log)
 		}
 
 		err = running.Run(ctx)
+		if errors.Is(context.Cause(ctx), errRestart) {
+			running.Log.Info("xixo link restarts into its new version")
+
+			return exitStatus(update.Restart)
+		}
+
 		if errors.Is(err, context.Canceled) {
 			return nil
 		}

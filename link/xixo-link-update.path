@@ -1,0 +1,10 @@
+[Unit]
+Description=xixo link update requests
+Documentation=https://github.com/xixo/xixo/tree/main/link
+
+[Path]
+PathChanged=/run/xixo-link/update.json
+Unit=xixo-link-update.service
+
+[Install]
+WantedBy=multi-user.target

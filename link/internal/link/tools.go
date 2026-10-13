@@ -71,7 +71,10 @@ func (e *NotOffered) Error() string {
 
 type greeting struct {
 	machine.Hello
-	Tools []string `json:"tools"`
+	Tools     []string `json:"tools"`
+	Updates   string   `json:"updates,omitempty"`
+	SHA256    string   `json:"sha256,omitempty"`
+	MacReader string   `json:"mac_reader,omitempty"`
 }
 
 func (a *Link) offered() []string {

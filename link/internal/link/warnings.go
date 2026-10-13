@@ -27,6 +27,8 @@ func (a *Link) warnings() []string {
 		held = append(held, a.watching.Warnings()...)
 	}
 
+	held = append(held, a.updateWarnings()...)
+
 	unreadable := a.Folders.Unreadable()
 
 	for _, folder := range a.Folders.Names() {

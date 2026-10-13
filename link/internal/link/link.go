@@ -20,6 +20,7 @@ import (
 	"github.com/xixo/xixo/link/internal/extract"
 	"github.com/xixo/xixo/link/internal/folders"
 	"github.com/xixo/xixo/link/internal/machine"
+	"github.com/xixo/xixo/link/internal/update"
 	"github.com/xixo/xixo/link/internal/watch"
 )
 
@@ -61,6 +62,9 @@ type Link struct {
 	Tools             []string
 	ModelPorts        map[string]int
 	Unwatched         bool
+
+	Updates  Updater
+	Identity update.Self
 
 	policy   policy
 	once     sync.Once
@@ -313,6 +317,7 @@ func (a *Link) open(ctx context.Context) (*session, error) {
 	}
 
 	a.Log.Info("connected to xixo", "xixo", a.Xixo)
+	a.connected()
 
 	return held, nil
 }
@@ -325,7 +330,7 @@ func (s *session) greet(ctx context.Context) error {
 	hello.Lend = s.Lend
 	hello.ExtractsForOthers = s.ExtractsForOthers
 
-	if err := s.conn.Perform(ctx, "hello", greeting{Hello: hello, Tools: s.offered()}); err != nil {
+	if err := s.conn.Perform(ctx, "hello", s.greeting(hello)); err != nil {
 		return err
 	}
 
@@ -352,10 +357,17 @@ func (s *session) listen(ctx context.Context) {
 			}
 
 			told := struct {
-				Settings *Settings `json:"settings"`
+				Settings *Settings      `json:"settings"`
+				Update   *update.Target `json:"update"`
 			}{}
 			if json.Unmarshal(frame.Message, &told) == nil && told.Settings != nil {
 				s.Apply(*told.Settings)
+
+				continue
+			}
+
+			if told.Update != nil {
+				s.updateTo(ctx, *told.Update)
 
 				continue
 			}
