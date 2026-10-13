@@ -14,6 +14,10 @@ module EmbeddedIssuer
     Rails.configuration.xixo.embedded
   end
 
+  def processes
+    on? ? 1 : 0
+  end
+
   def migrations
     File.join(Gem.loaded_specs.fetch("masks-server").full_gem_path, "db/migrate")
   end
