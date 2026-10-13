@@ -62,7 +62,7 @@ describe('approving a machine', () => {
     expect(document.title).toBe('Approve studio · xixo')
     expect(screen.getByText('macOS 26.0 · Mac14,7 · arm64')).toBeTruthy()
     expect(screen.getByText('WDJB-MJHT')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Approve studio' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeTruthy()
     expect(
       screen.getByText('Read and write · 120 GB free of 500 GB'),
     ).toBeTruthy()

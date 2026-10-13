@@ -308,7 +308,7 @@ export function Decide({
               loading={approve.loading}
               onClick={() => decide(true)}
             >
-              Approve {name}
+              Approve
             </Button>
             <Button
               radius="xl"

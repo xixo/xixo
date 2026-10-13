@@ -528,7 +528,7 @@ describe('Resources', () => {
     expect(within(dialog).getByText('WDJB-MJHT')).toBeTruthy()
     expect(within(dialog).getByText(/from 192\.0\.2\.4/)).toBeTruthy()
     await userEvent.click(
-      within(dialog).getByRole('button', { name: 'Approve studio' }),
+      within(dialog).getByRole('button', { name: 'Approve' }),
     )
 
     expect(
