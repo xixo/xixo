@@ -106,7 +106,7 @@ class FakeLinks
       held = folder[args["path"]]
       return exchange.refuse!("no such file") if held.nil?
 
-      exchange.answer!("sha256" => Digest::SHA256.hexdigest(held.bytes), "size" => held.bytes.bytesize)
+      exchange.answer!("sha256" => Digest::SHA256.hexdigest(held.bytes), "size" => held.bytes.bytesize, "file" => "1:#{held.object_id}")
     end
 
     def sent(exchange, folder, args)

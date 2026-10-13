@@ -217,7 +217,7 @@ class Resource
       shared!
       said = machine.ask("hash", { "folder" => folder, "path" => relative!(path) }, within: hashing_within(size))
 
-      { "sha256" => Fingerprint.reported(said), "size" => said.to_h["size"] }
+      { "sha256" => Fingerprint.reported(said), "size" => said.to_h["size"], "file" => said.to_h["file"].presence }
     end
 
     def removed!(path, sha256:, size:, prune: false)

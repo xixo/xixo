@@ -204,6 +204,22 @@ class MoveTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { assert_equal "failed", run.reload.status }
   end
 
+  test "a file that two machines reach on one disk is never its own copy" do
+    beside = writing(machine_on(@tenant, key: "beside", folders: [ BACKUP ]), BACKUP)
+    @links.add(beside.id, BACKUP, @there)
+    besides = Tenant.switch(@tenant) { Resource::Filesystem.create!(key: "besides", details: { "folder" => BACKUP }, via: beside) }
+
+    run = Tenant.switch(@tenant) do
+      started = Move.start!(grant: @grant, destination: besides, source: Resource::Filesystem.find(@backup.id), path: "notes.txt")
+      performed
+      started.reload
+    end
+
+    assert_equal "failed", run.status
+    assert_equal "a note", @there["notes.txt"]&.bytes
+    assert_match(/notes.txt on besides is notes.txt on backup itself/, run.logs)
+  end
+
   test "a copy stays when its original is gone before xixo removes it" do
     @links.removing = ->(folder, args) { folder.delete(args["path"]) }
 

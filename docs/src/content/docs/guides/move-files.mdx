@@ -44,6 +44,8 @@ A move never overwrites a file:
 - When the file there holds other bytes, both stay, and the run lists the file as one that stayed.
 - When the copy's SHA-256 does not match the original's, the copy is removed and the original stays.
 - When the original is gone before xixo removes it, the copy stays.
+- When the file at the path is the original itself, reached by another machine on the same disk,
+  it stays.
 - Two moves never carry the same file, or write the same path, at the same time. A file another move
   is carrying stays where it is, and the run lists it.
 

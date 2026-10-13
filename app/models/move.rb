@@ -162,7 +162,14 @@ class Move < ApplicationRecord
     end
 
     def kept_if_same!(landed)
-      return if landed.size == size && destination.hashed(target, size: size)["sha256"] == source.hashed(path, size: size)["sha256"]
+      there = destination.hashed(target, size: size) if landed.size == size
+      here = source.hashed(path, size: size) if there
+
+      if there && there["file"] && there["file"] == here["file"]
+        raise Resource::Failed, "#{target} on #{destination.key} is #{path} on #{source.key} itself, so it stays where it is"
+      end
+
+      return if there && there["sha256"] == here["sha256"]
 
       raise Resource::Failed, "#{destination.key} already holds another file at #{target}, so #{path} stays where it is"
     end
