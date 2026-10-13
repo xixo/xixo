@@ -144,6 +144,13 @@ module Analyzer
            .sub("- entities:", "#{first.map { |key, said| "- #{key}: #{said}\n" }.join}- entities:")
     end
 
+    WORDS = { type: "array", items: { type: "string" } }.freeze
+
+    def summary_schema(first = {})
+      { type: "object", properties: first.merge(entities: WORDS, summary: { type: "string" }, tags: WORDS),
+        required: first.keys.map(&:to_s) + %w[entities summary tags] }
+    end
+
     STOPWORDS = %w[
       document file label page information data text image
       content item record report form message attachment
@@ -465,7 +472,7 @@ module Analyzer
              after: [ self.class.summary_after, inference.updated_at ].max,
              digest: Digest::SHA256.hexdigest([ inference.key, model, prompt ].to_json),
              about: { "resource" => inference.key, "model" => model, "role" => role.to_s }) do
-          shaped(inference.summarize(prompt, role: role, analysis: analysis, images: summary_images))
+          shaped(inference.summarize(prompt, role: role, analysis: analysis, images: summary_images, schema: summary_schema))
         end
       rescue Resource::Unusable => e
         raise Analyzer::Failed, e.message

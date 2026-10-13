@@ -270,13 +270,13 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
 
   test "an unknown role falls back only when a default model is declared" do
     Tenant.switch(@tenant) do
-      assert_not @resource.serves_role?(:vision)
-      assert_raises(Resource::Unusable) { @resource.model_for(:vision) }
+      assert_not @resource.serves_role?(:agent)
+      assert_raises(Resource::Unusable) { @resource.model_for(:agent) }
 
       @resource.update!(details: @resource.details.merge("models" => MODELS.merge("default" => "gemma3:4b")))
 
-      assert @resource.serves_role?(:vision)
-      assert_equal "gemma3:4b", @resource.model_for(:vision)
+      assert @resource.serves_role?(:agent)
+      assert_equal "gemma3:4b", @resource.model_for(:agent)
     end
   end
 

@@ -22,6 +22,8 @@ class Asking
 
   attr_reader :feed
 
+  TITLE = { type: "object", properties: { title: { type: "string" } }, required: %w[title] }.freeze
+
   def initialize(feed, analysis: nil)
     @feed = feed
     @analysis = analysis
@@ -38,7 +40,7 @@ class Asking
     return if inference.nil?
 
     prompt = format(ANSWERED_TITLE, question: question, answer: answer.to_s.truncate(Answering::EARLIER_ANSWER))
-    named = inference.summarize(prompt, role: role, analysis: @analysis)["title"]
+    named = inference.summarize(prompt, role: role, analysis: @analysis, schema: TITLE)["title"]
     named = Citation.stripped(named).delete_prefix('"').delete_suffix('"')
                  .sub(/[\s,:;-]+\z/, "").truncate_words(ANSWERED_TITLE_WORDS, omission: "")
     return if named.blank?

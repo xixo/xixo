@@ -336,6 +336,8 @@ class Resource < ApplicationRecord
     def default_inference! = default_for!(:inference)
 
     def for_role(role)
+      return best_inference(surely: :surely_sees?) { |resource| resource.serves_role?(role) } if role.to_s == "vision"
+
       best_inference { |resource| resource.serves_role?(role) }
     end
 
@@ -343,12 +345,13 @@ class Resource < ApplicationRecord
       best_inference(fall_back:) { |resource| resource.declares_role?(role) }
     end
 
-    def best_inference(fall_back: true)
+    def best_inference(fall_back: true, surely: nil)
       candidates = capable_of(:inference).shared.order(:id).select { |resource| yield(resource) }
-      chosen = candidates.find(&:default_inference?) || candidates.first
+      pool = (surely ? candidates.select { |resource| resource.public_send(surely) } : []).presence || candidates
+      chosen = pool.find(&:default_inference?) || pool.first
       return chosen unless fall_back && chosen&.down?
 
-      candidates.find { |resource| !resource.down? } || chosen
+      (pool + candidates).find { |resource| !resource.down? } || chosen
     end
   end
 

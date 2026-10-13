@@ -137,9 +137,14 @@ class DefaultInferenceTest < ActiveSupport::TestCase
     end
   end
 
-  test "a declared default model answers for any role" do
+  test "a declared default model answers for any role, and for images only when its server says it reads them" do
     Tenant.switch(@tenant) do
       @ollama.update!(details: @ollama.details.merge("models" => MODELS.merge("default" => "gemma3:4b")))
+
+      assert_equal @ollama, Resource.for_role(:agent)
+      assert_nil Resource.for_role(:vision)
+
+      @ollama.update_column(:details, @ollama.details.merge("model_capabilities" => { "gemma3:4b" => %w[completion vision] }))
 
       assert_equal @ollama, Resource.for_role(:vision)
     end

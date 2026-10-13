@@ -37,13 +37,21 @@ inference uses the first other resource serving the role that is not down, and r
 default once a check passes. Embeddings never move this way, because a different embedding model
 forgets every vector.
 
-A model backend's `default` model answers any role the backend names no model for, except
-`vision`, `embedding`, and `transcription`. It answers `vision` only when its server does not say
-that it cannot read images. Ollama says what each model can do at `/api/show`, so a check of an
-Ollama backend records that under `model_capabilities`. When no vision model is set, the same check
-picks one the server says reads images, preferring gemma3, then qwen2.5-vl, llava, and
-llama3.2-vision. A vision model that cannot read images fails the check, and the message names models that
-can. The backend's card says which model describes images, or why none does.
+A model backend's **Model** setting is its `default` model. It answers any role the backend names
+no model for, except `embedding` and `transcription`. It answers `vision` only when the server says
+the model reads images. Ollama says what each model can do at `/api/show`, and LM Studio says it at
+`/api/v0/models`, where a model of type `vlm` reads images. A check records what the server says
+under `model_capabilities`. A model on any other server is taken to read no images, unless it is
+named as the backend's **Vision model**.
+
+When no vision model is set, a check picks one the server says reads images from the families known
+to describe pictures well: gemma3, then qwen2.5-vl and qwen3-vl, minicpm-v, llava, and
+llama3.2-vision. A vision model the server says cannot read images fails the check, and the message
+names models that can. Images go to a backend whose vision model is known to read them before one
+whose server says nothing. The backend's card says which model describes images, or why none does.
+
+Every call that wants JSON back sends `response_format` with the JSON schema of the answer it
+expects. Ollama and LM Studio both follow it.
 
 ## Where they come from
 

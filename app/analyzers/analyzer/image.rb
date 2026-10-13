@@ -44,6 +44,10 @@ module Analyzer
     KINDS = %w[photo screenshot scan drawing diagram chart meme].freeze
     KIND = "what kind of picture it is, one word from: #{KINDS.join(', ')}.".freeze
 
+    def summary_schema
+      super(kind: { type: "string", enum: KINDS })
+    end
+
     def summary_images
       @summary_images ||= shown.filter_map { |bytes| Sight.prepared(bytes) }.presence ||
                           raise(Analyzer::Failed, "#{reference.filename} could not be made small enough to show the vision model")
@@ -116,10 +120,11 @@ module Analyzer
       end
 
       def unseen!
-        backend = Resource.default_inference || Resource.capable_of(:inference).shared.first
-        told = backend.try(:sight_said)
-        left_out("summary", [ "No model backend reads images, so it was not described.",
-                              ("#{backend.name.presence || backend.key}: #{told}" if told) ].compact.join(" "))
+        told = Resource.capable_of(:inference).shared.order(:id).filter_map do |backend|
+          said = backend.try(:sight_said)
+          "#{backend.name.presence || backend.key}: #{said}" if said
+        end
+        left_out("summary", [ "No model backend reads images, so it was not described.", *told.first(3) ].join(" "))
       end
 
       def read_text

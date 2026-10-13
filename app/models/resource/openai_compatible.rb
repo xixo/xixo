@@ -25,7 +25,8 @@ class Resource
     TRANSCRIPTION_ROLE = "transcription"
     VISION_ROLE = "vision"
     SEES = "vision"
-    SIGHTED = [ /\Agemma3/, /\Aqwen2\.5-?vl/, /\Allava/, /\Allama3\.2-vision/ ].freeze
+    SIGHTED = [ %r{(\A|/)gemma-?3}i, /qwen(2\.5|3)-?vl/i, /minicpm-v/i, %r{(\A|/)llava}i, /llama-?3\.2-vision/i ].freeze
+    STUDIO_KINDS = { "vlm" => %w[completion vision], "llm" => %w[completion], "embeddings" => %w[embedding] }.freeze
     TRANSCRIBE_TIMEOUT = 900
     HEARD_TYPE = "audio/wav"
     SAMPLE_RATE = 16_000
@@ -171,19 +172,29 @@ class Resource
     end
 
     def serves_role?(role)
+      return serves_vision? if role.to_s == VISION_ROLE
       return true if models.key?(role.to_s)
-      return false unless models.key?(DEFAULT_ROLE)
 
-      role.to_s != VISION_ROLE || sees?(models[DEFAULT_ROLE])
+      models.key?(DEFAULT_ROLE)
+    end
+
+    def serves_vision?
+      return !blind?(models[VISION_ROLE]) if models.key?(VISION_ROLE)
+
+      models.key?(DEFAULT_ROLE) && sees?(models[DEFAULT_ROLE])
+    end
+
+    def surely_sees?
+      serves_vision? && sees?(model_for(VISION_ROLE))
     end
 
     def sees?(model)
-      held = capabilities_known(model)
-      held.nil? || held.include?(SEES)
+      capabilities_known(model).to_a.include?(SEES)
     end
 
     def blind?(model)
-      !sees?(model)
+      held = capabilities_known(model)
+      !held.nil? && !held.include?(SEES)
     end
 
     def model_capabilities
@@ -201,13 +212,13 @@ class Resource
       seeing = chatting[VISION_ROLE]
       fallback = chatting[DEFAULT_ROLE]
       return "#{seeing} reads them." if seeing && sees?(seeing)
-      return "None are described. #{seeing} cannot read images. #{set_vision}" if seeing
+      return "None are described. #{seeing} cannot read images. #{set_vision}" if seeing && blind?(seeing)
+      return "#{seeing} gets them. Its server does not say whether it reads images." if seeing
       return "None are described. #{set_vision}" if fallback.nil?
+      return "The default model, #{fallback}, reads them, since no vision model is set." if sees?(fallback)
       return "None are described. The default model, #{fallback}, cannot read images. #{set_vision}" if blind?(fallback)
-      return "The default model, #{fallback}, reads them, since no vision model is set." if capabilities_known(fallback)
 
-      "The default model, #{fallback}, gets them, since no vision model is set. Its server does not say " \
-        "whether it reads images."
+      "None are described. Its server does not say whether the default model, #{fallback}, reads images. #{set_vision}"
     end
 
     def set_vision
@@ -278,14 +289,14 @@ class Resource
 
       remember_capabilities!(known)
       return pick_vision!(known) unless models.key?(VISION_ROLE)
-      return if sees?(models[VISION_ROLE])
+      return unless blind?(models[VISION_ROLE])
 
       raise Resource::Unusable, "#{key}: #{models[VISION_ROLE]} cannot read images. #{set_vision}"
     end
 
     def pick_vision!(known)
       sighted = known.select { |_, can| can.include?(SEES) }.keys
-      chosen = SIGHTED.lazy.filter_map { |pattern| sighted.find { |name| name.match?(pattern) } }.first || sighted.first
+      chosen = SIGHTED.lazy.filter_map { |pattern| sighted.find { |name| name.match?(pattern) } }.first
       return if chosen.nil?
 
       update!(details: details.merge("models" => models.merge(VISION_ROLE => chosen.delete_suffix(":latest"))))
@@ -475,14 +486,14 @@ class Resource
       Rails.logger.warn "#{key}: a turn could not be recorded — #{e.message}"
     end
 
-    def summarize(prompt, role:, analysis: nil, images: [], temperature: nil)
+    def summarize(prompt, role:, analysis: nil, images: [], temperature: nil, schema: nil)
       model = model_for(role)
       tries = attempts_for(role)
       last = nil
 
       tries.times do |index|
-        answer = complete(prompt, model: model, role: role, analysis: analysis,
-                          attempt: index + 1, images: images, temperature: temperature, effort: effort_for(role))
+        answer = complete(prompt, model: model, role: role, analysis: analysis, attempt: index + 1, images: images,
+                          temperature: temperature, effort: effort_for(role), schema: schema)
         parsed = self.class.extract_json(answer)
 
         return parsed if parsed.is_a?(Hash) && parsed.present?
@@ -601,12 +612,31 @@ class Resource
       end
 
       def capabilities_of(model)
-        uri = URI.parse("#{base_url.chomp('/').delete_suffix('/v1')}/api/show")
-        shown = answer(uri, OPEN_TIMEOUT) { |held| posting(held, { model: model }) }
+        shown_by_ollama(model) || listed_by_studio[model.to_s]
+      end
+
+      def shown_by_ollama(model)
+        shown = answer(rooted("/api/show"), OPEN_TIMEOUT) { |held| posting(held, { model: model }) }
         held = shown["capabilities"]
         held.is_a?(Array) ? held.map(&:to_s) : nil
       rescue Resource::Unusable, Resource::Failed, URI::InvalidURIError
         nil
+      end
+
+      def listed_by_studio
+        @listed_by_studio ||= begin
+          listed = answer(rooted("/api/v0/models"), OPEN_TIMEOUT) { |held| Net::HTTP::Get.new(held, headers) }
+          Array(listed["data"]).filter_map do |entry|
+            kind = STUDIO_KINDS[entry["type"].to_s]
+            [ entry["id"].to_s, (kind + Array(entry["capabilities"]).map(&:to_s)).uniq ] if kind && entry["id"].present?
+          end.to_h
+        rescue Resource::Unusable, Resource::Failed, URI::InvalidURIError
+          {}
+        end
+      end
+
+      def rooted(path)
+        URI.parse("#{base_url.chomp('/').delete_suffix('/v1')}#{path}")
       end
 
       def loaded_context(model)
@@ -626,12 +656,12 @@ class Resource
         get("/models").fetch("data", []).filter_map { |entry| entry["id"] }
       end
 
-      def complete(prompt, model:, role:, analysis:, attempt:, images:, temperature: nil, effort: nil)
+      def complete(prompt, model:, role:, analysis:, attempt:, images:, temperature: nil, effort: nil, schema: nil)
         body = scrub(prompt).truncate(MAX_PROMPT)
         started = Time.current
 
         begin
-          content = ask(body, model, images, temperature: temperature, effort: effort)
+          content = ask(body, model, images, temperature: temperature, effort: effort, schema: schema)
         rescue StandardError => e
           noted(analysis, role: role, model: model, number: attempt, request: body,
                 started_at: started,
@@ -644,7 +674,7 @@ class Resource
         content
       end
 
-      def ask(body, model, images, temperature: nil, effort: nil)
+      def ask(body, model, images, temperature: nil, effort: nil, schema: nil)
         messages = [
           { role: "system", content: JSON_SYSTEM },
           { role: "user", content: said(body, images) }
@@ -653,7 +683,7 @@ class Resource
         payload = { model: model, messages: messages, stream: true,
                     max_tokens: max_tokens, temperature: temperature || self.temperature,
                     reasoning_effort: effort }.compact
-        payload[:response_format] = { type: "json_object" } if json_mode?
+        payload[:response_format] = response_format(schema) if json_mode?
 
         content = streamed("/chat/completions", payload,
                            timeout: images.any? ? vision_timeout : read_timeout)["content"].to_s
@@ -661,6 +691,12 @@ class Resource
         raise Resource::Unusable, "#{key}: #{model} answered with nothing" if content.blank?
 
         without_reasoning(content)
+      end
+
+      def response_format(schema)
+        return { type: "text" } if schema.nil?
+
+        { type: "json_schema", json_schema: { name: "answer", schema: schema } }
       end
 
       def said(body, images)

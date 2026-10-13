@@ -31,6 +31,8 @@ class FakeModelServer
     @heard = []
     @busy = 0
     @shown = {}
+    @studio = nil
+    @formats = []
     @server = TCPServer.new("127.0.0.1", 0)
     @port = @server.addr[1]
     @thread = Thread.new { serve }
@@ -65,8 +67,19 @@ class FakeModelServer
       @heard = []
       @loaded = nil
       @shown = {}
+      @studio = nil
+      @formats = []
     end
     self
+  end
+
+  def studio(listed)
+    @lock.synchronize { @studio = listed.map { |id, type| { "id" => id.to_s, "type" => type.to_s } } }
+    self
+  end
+
+  def formats
+    @lock.synchronize { @formats.dup }
   end
 
   def shows(model, *capabilities)
@@ -238,6 +251,7 @@ class FakeModelServer
 
     def route(path, body)
       case path
+      when %r{\A/api/v0/models\z} then studio_payload
       when %r{/models\z} then rendered(200, JSON.generate(models_payload))
       when %r{/chat/completions\z} then completion(body)
       when %r{/embeddings\z} then embeddings(body)
@@ -292,6 +306,13 @@ class FakeModelServer
       return rendered(404, "") if held.nil?
 
       rendered(200, JSON.generate("models" => [ held ]))
+    end
+
+    def studio_payload
+      held = @lock.synchronize { @studio }
+      return rendered(404, "") if held.nil?
+
+      rendered(200, JSON.generate("object" => "list", "data" => held))
     end
 
     def shown_payload(body)
@@ -371,6 +392,7 @@ class FakeModelServer
         @prompts << spoken(content)
         @attachments << attached(content)
         @efforts << parsed["reasoning_effort"]
+        @formats << parsed["response_format"]
         @systems << Array(parsed["messages"]).find { |message| message["role"] == "system" }.to_h["content"]
       end
     rescue JSON::ParserError

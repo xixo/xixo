@@ -30,7 +30,8 @@ class ModelRelayTest < ActiveSupport::TestCase
       )))
     end
     @asked = []
-    @answers = { "/api/show" => { "status" => 404, "content_type" => "application/json", "body" => "{}" } }
+    missing = { "status" => 404, "content_type" => "application/json", "body" => "{}" }
+    @answers = { "/api/show" => missing, "/api/v0/models" => missing }
     RelayingMachine.script = lambda do |verb, args|
       @asked << [ verb, args ]
       raise "asked #{verb}" unless verb == "relay"
@@ -54,7 +55,7 @@ class ModelRelayTest < ActiveSupport::TestCase
     end
 
     assert_equal [ "relay", { "port" => 11434, "method" => "GET", "path" => "/v1/models", "within" => 120 } ], @asked.first
-    assert_equal [ "/api/show" ], @asked.drop(1).map { |_, args| args["path"] }.uniq
+    assert_equal [ "/api/show", "/api/v0/models" ], @asked.drop(1).map { |_, args| args["path"] }.uniq
   end
 
   test "a server added through the machine itself is asked on the machine's own loopback" do

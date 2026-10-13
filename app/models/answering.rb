@@ -50,6 +50,25 @@ class Answering
     money spent.
   TEXT
 
+  NOTHING = { type: "null" }.freeze
+  WORDS = { type: "string" }.freeze
+  SHAPE = {
+    type: "object",
+    properties: { answer: WORDS, world: { type: "boolean" }, wanted: { anyOf: [ NOTHING, WORDS ] } },
+    required: %w[answer world wanted]
+  }.freeze
+  COMPUTING = SHAPE.merge(properties: {
+    answer: WORDS,
+    compute: { anyOf: [ NOTHING, {
+      type: "object",
+      properties: { table: WORDS, op: { type: "string", enum: %w[sum count average min max] }, column: WORDS,
+                    where: { type: "array", items: { type: "array", items: WORDS } } },
+      required: %w[table op]
+    } ] },
+    world: { type: "boolean" },
+    wanted: { anyOf: [ NOTHING, WORDS ] }
+  }).freeze
+
   COMPUTE_SHAPE = '"compute": null or {"table": "...", "op": "sum, count, average, min or max", ' \
                   '"column": "...", "where": [["column", "contains", "value"]]}, '
 
@@ -100,7 +119,7 @@ class Answering
     raise Resource::Unusable, "no inference resource serves the #{ROLE} role" if @inference.nil?
 
     @analysis&.log_info("answer", "read #{evidence.pieces.size} part(s) of #{evidence.feeds.size} feed(s)")
-    replied = asked(prompt)
+    replied = asked(prompt, computing: evidence.tables.any?)
     computed = nil
 
     COMPUTES.times do |round|
@@ -109,7 +128,7 @@ class Answering
 
       last = round == COMPUTES - 1
       computed = computing(spec, again: last ? LAST : AGAIN)
-      replied = asked("#{prompt(compute: !last)}\n\n#{computed[:told]}")
+      replied = asked("#{prompt(compute: !last)}\n\n#{computed[:told]}", computing: !last)
     end
 
     said = said_in(replied)
@@ -186,8 +205,9 @@ class Answering
         "saying it as a table, is answered by saying that answer again as asked:\n---\n#{told.join("\n\n")}\n---\n\n"
     end
 
-    def asked(text)
-      @inference.summarize(text, role: ROLE, analysis: @analysis, temperature: STEADY)
+    def asked(text, computing: false)
+      @inference.summarize(text, role: ROLE, analysis: @analysis, temperature: STEADY,
+                                 schema: computing ? COMPUTING : SHAPE)
     end
 
     def computing(spec, again:)

@@ -16,6 +16,8 @@ module Analyzer
       Return ONLY valid JSON: {"caption": "..."}
     TEXT
 
+    CAPTION = { type: "object", properties: { caption: { type: "string" } }, required: %w[caption] }.freeze
+
     def self.handles?(feed)
       MimeType.audio?(feed.mime) || MimeType.video?(feed.mime)
     end
@@ -107,7 +109,7 @@ module Analyzer
         shown.filter_map do |frame|
           moment = stamped(frame.locator.to_h["at"].to_f)
           said = seeing.summarize(format(SCENE, at: moment), role: :vision, analysis: analysis,
-                                  images: [ frame.download.read ])["caption"].to_s.squish
+                                  images: [ frame.download.read ], schema: CAPTION)["caption"].to_s.squish
           { "at" => moment, "caption" => said } if said.present?
         end
       end
