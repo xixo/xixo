@@ -23,4 +23,11 @@ class PublicFilesTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal "application/manifest+json", response.media_type
   end
+
+  test "a browser that asks for /favicon.ico gets the xixo icon" do
+    get "/favicon.ico"
+
+    assert_response :success
+    assert_equal "image/vnd.microsoft.icon", response.media_type
+  end
 end
