@@ -492,7 +492,7 @@ func (a *Link) answer(ctx context.Context, asked *Request) {
 		a.extraction(ctx, asked, true)
 	case verbWrite:
 		a.write(ctx, asked)
-	case verbBrowse, verbFind, verbPeek, verbPlace, verbExamine, verbModel:
+	case verbBrowse, verbFind, verbPeek, verbPlace, verbExamine, verbModel, verbRelay:
 		a.tool(ctx, asked)
 	default:
 		a.refuse(ctx, asked.Request, fmt.Errorf("xixo link does not know the verb %q", asked.Verb))

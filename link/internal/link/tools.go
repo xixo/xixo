@@ -27,6 +27,7 @@ const (
 	verbPlace   = "place"
 	verbExamine = "examine"
 	verbModel   = "model"
+	verbRelay   = "relay"
 
 	MostBrowsed  = 200
 	MostFound    = 100
@@ -46,6 +47,7 @@ var toolFor = map[string]string{
 	verbPlace:   state.ToolWrite,
 	verbExamine: state.ToolExtract,
 	verbModel:   state.ToolModels,
+	verbRelay:   state.ToolModels,
 }
 
 var (
@@ -108,6 +110,8 @@ func (a *Link) tool(ctx context.Context, asked *Request) {
 		answered, err = a.examine(ctx, asked.Args)
 	case verbModel:
 		answered, err = a.model(ctx, asked.Args)
+	case verbRelay:
+		answered, err = a.relay(ctx, asked.Args)
 	}
 
 	if err != nil {

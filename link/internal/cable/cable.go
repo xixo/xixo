@@ -109,7 +109,7 @@ func Dial(ctx context.Context, xixo string, token *masks.Token, dpop *masks.Key,
 		})
 
 		if err == nil {
-			ws.SetReadLimit(4 << 20)
+			ws.SetReadLimit(24 << 20)
 			identifier, _ := json.Marshal(map[string]string{"channel": channel})
 
 			return &Conn{ws: ws, identifier: string(identifier)}, nil
