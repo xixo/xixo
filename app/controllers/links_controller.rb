@@ -2,7 +2,7 @@ class LinksController < ActionController::API
   UNSIGNED = "Linking up takes the machine's own token.\n".freeze
   UNKNOWN = "xixo knows no machine linked as this client.\n".freeze
   UNKNOWN_REQUEST = "xixo is not waiting on that request. Run the command again.\n".freeze
-  STARTED = %w[hostname os arch folders writable].freeze
+  STARTED = %w[hostname os arch folders writable details].freeze
 
   rate_limit to: 30, within: 1.minute, by: -> { request.remote_ip }, name: "minute",
              with: -> { plain("Too many tries from this address. Wait a minute.\n", :too_many_requests) }

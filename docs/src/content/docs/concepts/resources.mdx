@@ -284,7 +284,10 @@ each build of xixo link in `XIXO_LINK_DIR`. The script downloads the build for t
 configuration and the service, and runs `xixo-link up`.
 
 `xixo-link up` makes the machine's keys and posts its hostname, system, processor, and folders to
-`POST /link/requests`. xixo keeps them as a `LinkRequest` and answers with two codes:
+`POST /link/requests`, with details for the administrator to check: the account it runs as, its
+system version and hardware model, its processor cores and memory, the disks under its folders, its
+network addresses, its version, and the model servers it found. xixo clips each text and caps each
+list before it keeps them. xixo keeps them as a `LinkRequest` and answers with two codes:
 
 - The user code, eight letters from a 20-letter alphabet, such as `WDJB-MJHT`. xixo link prints it
   with the link `/link/<code>`, and xixo shows it beside the request.

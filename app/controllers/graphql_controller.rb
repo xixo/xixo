@@ -12,7 +12,8 @@ class GraphqlController < ApplicationController
         tenant: current_tenant,
         tenant_id: current_tenant.id,
         grant: grant,
-        origin: Tenant.origin(request)
+        origin: Tenant.origin(request),
+        remote_ip: request.remote_ip
       }
     )
 

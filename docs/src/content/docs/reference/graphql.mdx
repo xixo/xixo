@@ -468,17 +468,29 @@ A machine asking to link up. xixo link on the machine started it and shows its c
 
 | Field | Type | Description |
 | --- | --- | --- |
+| `addresses` | `[String!]!` | The machine's own network addresses. |
 | `arch` | `String` |  |
 | `code` | `String!` | The code the machine shows, such as WDJB-MJHT. |
+| `cpus` | `Int` | How many processor cores the machine has. |
 | `createdAt` | `ISO8601DateTime!` |  |
+| `disks` | [`[MachineDisk!]!`](#machinedisk) | The disk under each shared folder, with its size and free space in bytes. |
 | `expiresAt` | `ISO8601DateTime!` |  |
 | `folders` | `[String!]!` | The folders the machine's config shares. |
 | `hostname` | `String!` | The name the machine gives itself. |
 | `id` | `ID!` |  |
+| `linksAs` | `String!` | The key the machine has, or gets when it is approved. |
 | `machine` | [`Resource`](#resource) | The machine it linked up as, once it has. |
+| `memory` | `BigInt` | The machine's memory, in bytes. |
+| `model` | `String` | The hardware model the machine reports, such as Mac14,7. Empty when it names none. |
+| `namedLike` | `String` | The key of a linked machine with the same name, while this request waits. Approving adds a second machine. |
 | `os` | `String` |  |
 | `remoteIp` | `String` | The address the request came from. |
+| `sameAddress` | `Boolean` | Whether the request came from the same address as the browser asking. Empty when xixo cannot tell. |
+| `services` | [`[MachineService!]!`](#machineservice) | Model servers xixo link found on the machine. |
 | `status` | `String!` | pending, approved, handed (the machine took its enrollment token), linked, or denied. |
+| `system` | `String` | The system and its version, such as macOS 26.0 or Ubuntu 24.04 LTS. |
+| `user` | `String` | The account xixo link runs as on the machine. |
+| `version` | `String` | The version of xixo link asking. |
 | `writable` | `[String!]!` | The shared folders the machine marks writable. |
 
 ### LinkRequestChangedPayload

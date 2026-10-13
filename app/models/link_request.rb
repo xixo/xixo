@@ -10,6 +10,10 @@ class LinkRequest < ApplicationRecord
   MOST_PENDING = 20
   MOST_PENDING_FROM = 3
   MOST_HOSTNAME = 63
+  MOST_ADDRESSES = 8
+  MOST_DISKS = 16
+  MOST_CPUS = 4096
+  MOST_BYTES = 2**62
 
   class Refused < StandardError; end
 
@@ -74,8 +78,45 @@ class LinkRequest < ApplicationRecord
           os: Resource::Machine::Hello.text(said["os"])&.first(32),
           arch: Resource::Machine::Hello.text(said["arch"])&.first(32),
           folders: folders,
-          writable: Resource::Machine::Hello.folders(said["writable"]) & folders
+          writable: Resource::Machine::Hello.folders(said["writable"]) & folders,
+          details: details(said["details"], folders)
         }
+      end
+
+      def details(said, folders)
+        said = said.is_a?(Hash) ? said.to_h.stringify_keys : {}
+        hello = Resource::Machine::Hello
+
+        {
+          "user" => hello.text(said["user"])&.first(64),
+          "system" => hello.text(said["system"])&.first(80),
+          "model" => hello.text(said["model"])&.first(80),
+          "version" => hello.text(said["version"])&.first(32),
+          "cpus" => count(said["cpus"], MOST_CPUS),
+          "memory" => count(said["memory"], MOST_BYTES),
+          "disks" => disks(said["disks"], folders),
+          "addresses" => hello.listed(said["addresses"]).first(MOST_ADDRESSES * 4)
+                              .filter_map { |address| hello.address(address) }.uniq.first(MOST_ADDRESSES),
+          "services" => hello.services(said["services"])
+        }.compact
+      end
+
+      def disks(said, folders)
+        Resource::Machine::Hello.listed(said).first(MOST_DISKS).filter_map do |disk|
+          next unless disk.is_a?(Hash)
+
+          disk = disk.to_h.stringify_keys
+          path = Resource::Machine::Hello.folder(disk["path"])
+          next unless path && (path == "/" || folders.include?(path))
+
+          total = count(disk["total"], MOST_BYTES)
+          free = count(disk["free"], MOST_BYTES)
+          { "path" => path, "total" => total, "free" => [ free, total ].min } if total && free
+        end.uniq { |disk| disk["path"] }
+      end
+
+      def count(value, most)
+        value if value.is_a?(Integer) && value.between?(0, most)
       end
 
       def hostname(given)

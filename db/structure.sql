@@ -501,7 +501,8 @@ CREATE TABLE public.link_requests (
     polled_at timestamp(6) without time zone,
     expires_at timestamp(6) without time zone NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    details jsonb DEFAULT '{}'::jsonb NOT NULL
 );
 
 ALTER TABLE ONLY public.link_requests FORCE ROW LEVEL SECURITY;
@@ -2330,6 +2331,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261013010000'),
 ('20261012230000'),
 ('20261012210000'),
 ('20261012200000'),

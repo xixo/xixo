@@ -94,8 +94,12 @@ class Resource
         name.to_s.downcase.split(".").first
       end
 
+      def base_key(hostname)
+        hostname.to_s.split(".").first.to_s.gsub(/[^a-z0-9-]+/, "-").delete_prefix("-").delete_suffix("-").presence || "machine"
+      end
+
       def free_key(hostname)
-        base = hostname.to_s.split(".").first.to_s.gsub(/[^a-z0-9-]+/, "-").delete_prefix("-").delete_suffix("-").presence || "machine"
+        base = base_key(hostname)
         taken = where("resources.key = ? OR resources.key LIKE ?", base, "#{sanitize_sql_like(base)}-%").pluck(:key)
 
         ([ base ] + (2..).lazy.map { |n| "#{base}-#{n}" }.first(taken.size + 1)).find do |key|

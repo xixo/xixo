@@ -104,6 +104,45 @@ class LinkingTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a request carries what the machine says about itself, cleaned and bounded" do
+    details = {
+      "user" => "jon\u0007", "system" => "macOS 26.0", "model" => "Mac14,7", "version" => "0.2.0", "cpus" => 10,
+      "memory" => 17_179_869_184, "addresses" => [ "192.168.1.20", "100.64.0.1", "not an address" ] * 10,
+      "disks" => [ { "path" => "/Users/jon/Desktop", "total" => 100, "free" => 400 }, { "path" => "/etc", "total" => 1, "free" => 1 },
+                   { "path" => "/Users/jon/Documents", "total" => "lots", "free" => 1 } ],
+      "services" => [ { "kind" => "ollama", "port" => 11434 }, { "kind" => "shell", "port" => 22 } ],
+      "cpus_extra" => "ignored"
+    }
+    started = start(ASKED.merge("details" => details))
+    machine_on(@tenant, key: "studio", client_id: "client-first")
+
+    asked = graphql(Grant::SCOPES, <<~GQL, code: started["user_code"]).dig("data", "linkRequest")
+      query($code: String!) {
+        linkRequest(code: $code) {
+          user system model version cpus memory addresses disks { path total free } services { kind port }
+          sameAddress linksAs namedLike
+        }
+      }
+    GQL
+
+    assert_equal [ "jon", "macOS 26.0", "Mac14,7", "0.2.0", 10, "17179869184" ],
+                 asked.values_at("user", "system", "model", "version", "cpus", "memory")
+    assert_equal [ "192.168.1.20", "100.64.0.1" ], asked["addresses"]
+    assert_equal [ { "path" => "/Users/jon/Desktop", "total" => "100", "free" => "100" } ], asked["disks"]
+    assert_equal [ { "kind" => "ollama", "port" => 11434 } ], asked["services"]
+    assert asked["sameAddress"]
+    assert_equal [ "studio-2", "studio" ], asked.values_at("linksAs", "namedLike")
+  end
+
+  test "a request from an older xixo link without details still shows" do
+    started = start(ASKED.merge("details" => "nonsense"))
+
+    asked = graphql(Grant::SCOPES, "query($code: String!) { linkRequest(code: $code) { user disks { path } addresses linksAs namedLike } }",
+                    code: started["user_code"]).dig("data", "linkRequest")
+
+    assert_equal({ "user" => nil, "disks" => [], "addresses" => [], "linksAs" => "studio", "namedLike" => nil }, asked)
+  end
+
   test "one address waits on at most three machines at a time" do
     3.times { start }
     start
