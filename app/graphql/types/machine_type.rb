@@ -16,7 +16,8 @@ module Types
     field :release, String, description: "The version of xixo link this xixo ships."
     field :current, Boolean,
           description: "Whether xixo link runs the build this xixo ships. Empty when xixo ships none for the machine's " \
-                       "system and processor."
+                       "system and processor, and when xixo link is older than updates and does not say which build it " \
+                       "runs."
     field :updates, Boolean, null: false,
           description: "Whether xixo updates xixo link on the machine to the build it ships. An administrator turns it " \
                        "off with setMachineUpdates."

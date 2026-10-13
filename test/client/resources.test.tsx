@@ -627,6 +627,35 @@ describe('Resources', () => {
     ).toEqual({ id: '7', automatic: false })
   })
 
+  test('a machine linked before updates is told to run the link-up command once, even at the same version', async () => {
+    const early = resource({
+      ...studio,
+      machine: machineSaid({
+        ...studio.machine,
+        version: '0.4.0',
+        current: null,
+        updatesItself: false,
+      }),
+    })
+    const { client } = fakeClient({
+      ...QUIET,
+      Resources: () => ({ administrator: true, resources: [local, early] }),
+    })
+
+    show(<Resources />, client, '/settings/resources')
+
+    const card = await screen.findByRole('region', { name: 'Studio' })
+    expect(
+      within(card).getByText(
+        /xixo link 0\.4\.0\. Run the link-up command again so it updates itself/,
+      ),
+    ).toBeTruthy()
+    expect(within(card).queryByText(/up to date/)).toBeNull()
+    expect(
+      within(card).queryByLabelText('Update xixo link automatically'),
+    ).toBeNull()
+  })
+
   test('a tailnet machine that is not linked shows a model server to add in one click', async () => {
     const { client, asked } = fakeClient({
       ...QUIET,

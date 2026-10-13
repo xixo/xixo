@@ -523,7 +523,7 @@ What xixo link on a machine last said about it. Resolves only for a token carryi
 | `access` | `String!` | What xixo may do with the machine: search, files, or writing. An administrator changes it with setMachineAccess. |
 | `arch` | `String` |  |
 | `connected` | `Boolean!` | Whether xixo link is connected to xixo now. |
-| `current` | `Boolean` | Whether xixo link runs the build this xixo ships. Empty when xixo ships none for the machine's system and processor. |
+| `current` | `Boolean` | Whether xixo link runs the build this xixo ships. Empty when xixo ships none for the machine's system and processor, and when xixo link is older than updates and does not say which build it runs. |
 | `disks` | [`[MachineDisk!]!`](#machinedisk) |  |
 | `extractors` | `[String!]!` | The kinds of file xixo link can read, by the programs installed on the machine. |
 | `extractsForOthers` | `Boolean!` | Whether the machine reads files from other places for xixo: uploads, mail attachments, cloud files, web pages, and files other machines lend. Its access and its own config both have to allow it. |

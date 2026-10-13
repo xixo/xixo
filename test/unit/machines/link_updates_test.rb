@@ -84,6 +84,12 @@ class LinkUpdatesTest < ActionCable::Channel::TestCase
     assert_equal [ SHIPPED ], told.filter_map { |held| held.dig("update", "version") }
   end
 
+  test "a link from before updates names no build, so xixo cannot say it is current even at the same version" do
+    assert_empty greeted("version" => SHIPPED)
+    assert_nil fresh.current?
+    assert_not fresh.updates_itself?
+  end
+
   test "no build for the machine's system means no update, and the card cannot tell" do
     assert_empty greeted("arch" => "riscv64", "version" => "0.0.1", "sha256" => OLD, "updates" => "systemd")
     assert_nil fresh.current?

@@ -15,8 +15,7 @@ class Resource
 
       def current?
         build = Downloads.build_for(machine["os"], machine["arch"])
-        return nil if build.nil? || machine["version"].blank?
-        return machine["version"] == release if machine["sha256"].blank?
+        return nil if build.nil? || machine["sha256"].blank?
 
         machine["sha256"] == build.sha256 && current_mac_reader?
       end

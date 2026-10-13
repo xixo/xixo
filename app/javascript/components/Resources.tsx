@@ -305,6 +305,8 @@ function linkVersion(machine: NonNullable<Resource['machine']>, place: Place) {
   if (!machine.version) return null
 
   const running = `xixo link ${machine.version}`
+  if (!place.local && !machine.updatesItself)
+    return `${running}. Run the link-up command again so it updates itself`
   if (machine.current === true) return `${running}, up to date`
   if (machine.current !== false) return running
 
@@ -314,8 +316,6 @@ function linkVersion(machine: NonNullable<Resource['machine']>, place: Place) {
       : 'the build xixo ships'
 
   if (place.local) return `${running}, updated with xixo`
-  if (!machine.updatesItself)
-    return `${running}. Run the link-up command again to update to ${target}`
   if (!machine.updates) return `${running}, updates paused`
 
   return `${running}, updating to ${target}`
