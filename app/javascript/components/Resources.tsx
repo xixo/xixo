@@ -87,6 +87,7 @@ import {
   LinkUpTile,
   useLinkRequests,
 } from './LinkUp'
+import { MachineIcon } from './MachineIcon'
 import { LinkMark } from './Mark'
 import { RunsDialog } from './Runs'
 import { useAloud, useSay } from './Say'
@@ -143,6 +144,9 @@ interface Resource {
     tools: string[]
     warnings: string[]
     os?: string | null
+    system?: string | null
+    model?: string | null
+    kind?: string | null
     arch?: string | null
     extractsForOthers: boolean
     waiting: Waiting[]
@@ -151,6 +155,7 @@ interface Resource {
       kind: string
       port: number
       address?: string | null
+      localOnly?: boolean
       url?: string | null
       via?: string | null
     }[]
@@ -892,7 +897,6 @@ function MachineCard({
   const found = place.services.filter(
     (service) => !addedAs(place, service, group.rows),
   )
-  const Glyph = place.local ? IconServer : glyphFor(MACHINE)
   const addable = administrator || place.local
   const quickly = useQuickAdd(administrator, onChanged)
 
@@ -907,7 +911,15 @@ function MachineCard({
     >
       <header className="machine-head">
         <span className="machine-icon">
-          <Glyph size={20} stroke={1.6} />
+          {place.local ? (
+            <IconServer size={20} stroke={1.6} />
+          ) : (
+            <MachineIcon
+              os={machine?.os}
+              system={machine?.system}
+              kind={machine?.kind}
+            />
+          )}
         </span>
 
         <div className="machine-name">
@@ -954,6 +966,23 @@ function MachineCard({
       )}
 
       {found.map((service) => {
+        const named = SERVERS[service.kind] ?? service.kind
+
+        if (service.localOnly)
+          return (
+            <p
+              key={`${service.kind}-${service.port}`}
+              className="machine-found"
+            >
+              <IconCpu size={15} stroke={1.8} />
+              <span>
+                Found {named} on {place.name}. It only answers on that machine,
+                so xixo cannot reach it. Let {named} listen on the network to
+                add it.
+              </span>
+            </p>
+          )
+
         const quick =
           administrator || place.local ? quickFor(place, service) : null
 
@@ -961,7 +990,7 @@ function MachineCard({
           <p key={`${service.kind}-${service.port}`} className="machine-found">
             <IconCpu size={15} stroke={1.8} />
             <span>
-              Found {SERVERS[service.kind] ?? service.kind} on {place.name}
+              Found {named} on {place.name}
             </span>
             {quick && (
               <Button

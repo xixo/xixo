@@ -3952,3 +3952,21 @@ a.tag:hover {
   background: var(--brand);
   color: #fff;
 }
+
+.machine-glyph {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+
+.machine-glyph-os {
+  position: absolute;
+  right: -18%;
+  bottom: -14%;
+  display: grid;
+  place-items: center;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--lifted);
+  box-shadow: 0 0 0 1.5px var(--line);
+}

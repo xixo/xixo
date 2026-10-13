@@ -20,6 +20,7 @@ import { sized } from '../plain'
 import { ago } from '../when'
 import { Failed } from './Failed'
 import { Decide, type LinkRequest, nameOf } from './LinkUp'
+import { MachineIcon } from './MachineIcon'
 import { LinkMark, type LinkState, Mark } from './Mark'
 import { administratorSignIn } from './Resources'
 
@@ -112,18 +113,6 @@ function Heading({
   )
 }
 
-function SystemIcon({ request }: { request: LinkRequest }) {
-  const system = (request.system ?? '').toLowerCase()
-
-  if (request.os === 'darwin') return <IconBrandApple size={44} stroke={1.5} />
-  if (system.includes('ubuntu'))
-    return <IconBrandUbuntu size={44} stroke={1.5} />
-  if (system.includes('debian'))
-    return <IconBrandDebian size={44} stroke={1.5} />
-
-  return <IconServer size={44} stroke={1.5} />
-}
-
 function linkState(request: LinkRequest): LinkState {
   if (request.machine?.machine?.connected) return 'linked'
   if (request.status === 'pending' || request.status === 'denied')
@@ -153,7 +142,12 @@ function Approval({
         icon={
           <div className="linkup-pair">
             <span className="linkup-machine-icon">
-              <SystemIcon request={request} />
+              <MachineIcon
+                os={request.os}
+                system={request.system}
+                kind={request.kind}
+                size={44}
+              />
             </span>
             <span className="linkup-pair-link">
               <LinkMark size={40} state={linkState(request)} />

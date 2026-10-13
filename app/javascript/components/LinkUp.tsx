@@ -46,6 +46,7 @@ export interface LinkRequest {
   user?: string | null
   system?: string | null
   model?: string | null
+  kind?: string | null
   version?: string | null
   cpus?: number | null
   memory?: string | number | null

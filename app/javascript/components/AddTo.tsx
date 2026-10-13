@@ -20,6 +20,7 @@ export interface Place {
 export interface Service {
   kind: string
   port: number
+  localOnly?: boolean
   url?: string | null
   via?: string | null
 }
