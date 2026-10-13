@@ -33,10 +33,30 @@ type Config struct {
 	Xixo               string           `json:"xixo"`
 	Issuer             string           `json:"issuer"`
 	Folders            []folders.Shared `json:"folders"`
-	Lend               bool             `json:"lend"`
-	ExtractsForOthers  bool             `json:"extracts_for_others"`
+	Lend               *bool            `json:"lend"`
+	ExtractsForOthers  *bool            `json:"extracts_for_others"`
 	ExtractUnsandboxed bool             `json:"extract_unsandboxed"`
 	Tools              []string         `json:"tools"`
+}
+
+func (c *Config) ToolCeiling() []string {
+	held := []string{}
+
+	for _, tool := range Tools {
+		if c.Tools == nil || slices.Contains(c.Tools, tool) {
+			held = append(held, tool)
+		}
+	}
+
+	return held
+}
+
+func (c *Config) LendCeiling() bool {
+	return c.Lend == nil || *c.Lend
+}
+
+func (c *Config) OthersCeiling() bool {
+	return c.ExtractsForOthers == nil || *c.ExtractsForOthers
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -210,14 +230,22 @@ func (s State) Keep(held *masks.Registration) error {
 }
 
 func write(path string, data []byte) error {
+	return written(path, data, 0o600)
+}
+
+func written(path string, data []byte, mode os.FileMode) error {
 	temporary := path + ".tmp"
 
-	opened, err := os.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	opened, err := os.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
 	if err != nil {
 		return err
 	}
 
 	_, err = opened.Write(data)
+	if err == nil {
+		err = opened.Chmod(mode)
+	}
+
 	if err == nil {
 		err = opened.Sync()
 	}

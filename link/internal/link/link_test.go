@@ -19,6 +19,7 @@ import (
 	"github.com/xixo/xixo/link/internal/fake"
 	"github.com/xixo/xixo/link/internal/folders"
 	"github.com/xixo/xixo/link/internal/machine"
+	"github.com/xixo/xixo/link/internal/state"
 )
 
 const identifier = `{"channel":"LinkChannel"}`
@@ -51,7 +52,7 @@ func linkFor(t *testing.T, xixo, folder string, expiry time.Time) (*Link, *masks
 
 	token := &masks.Token{AccessToken: "link-token", TokenType: "DPoP", Expiry: expiry}
 
-	return &Link{
+	held := &Link{
 		Xixo:    xixo,
 		Version: "9.9.9",
 		Folders: folders.New(folders.ReadOnly(folder)),
@@ -64,7 +65,10 @@ func linkFor(t *testing.T, xixo, folder string, expiry time.Time) (*Link, *masks
 		DPoP:              dpop,
 		Lend:              true,
 		ExtractsForOthers: true,
-	}, dpop
+	}
+	held.Apply(Settings{Tools: state.Tools, Lend: true, ExtractsForOthers: true})
+
+	return held, dpop
 }
 
 type replies struct {

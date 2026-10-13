@@ -224,6 +224,12 @@ func TestPeekingNeedsTheMachineToLend(t *testing.T) {
 
 	held.Lend = true
 
+	if _, err := held.peek([]byte(`{"folder":"` + folder + `","path":"small.txt"}`)); err != ErrNotLentByXixo {
+		t.Fatalf("a machine xixo did not let lend peeked: %v", err)
+	}
+
+	held.Apply(Settings{Lend: true})
+
 	answered, err := held.peek([]byte(`{"folder":"` + folder + `","path":"small.txt","limit":1}`))
 	if err != nil || answered.(Peeked).Size != 1 || answered.(Peeked).Total != 2 {
 		t.Fatalf("peek answered %+v %v", answered, err)
@@ -255,4 +261,66 @@ func TestFindingStopsAtItsCaps(t *testing.T) {
 	if _, err := held.find([]byte(`{"query":"` + strings.Repeat("a", MostQuery+1) + `"}`)); err != ErrNoQuery {
 		t.Fatalf("a long query gave %v", err)
 	}
+}
+
+func TestXixoNarrowsWhatTheConfigAllowsAndTheConfigStaysTheLimit(t *testing.T) {
+	folder, _ := shared(t)
+	finished := make(chan struct{})
+
+	cable := fake.NewCable(t, "link-token", "", func(socket *fake.Socket) {
+		defer close(finished)
+
+		socket.Subscribe(identifier)
+
+		_, hello := socket.Next()
+		if tools, _ := hello["tools"].([]any); len(tools) != 5 || hello["lend"] != true || hello["extracts_for_others"] != true {
+			t.Errorf("hello said %v", hello)
+		}
+
+		socket.Next()
+
+		socket.Ask(identifier, map[string]any{"request": "before", "verb": "browse", "args": map[string]any{"folder": folder}})
+		before := gather(socket, 1)
+
+		if said, _ := before.done["before"]["error"].(string); !strings.Contains(said, "xixo has not turned on browse") {
+			t.Errorf("before settings: %v", before.done["before"])
+		}
+
+		socket.Ask(identifier, map[string]any{"settings": map[string]any{"tools": []string{"browse", "write", "models"}, "lend": false, "extracts_for_others": true}})
+		socket.Ask(identifier, map[string]any{"request": "browse", "verb": "browse", "args": map[string]any{"folder": folder}})
+		socket.Ask(identifier, map[string]any{"request": "read", "verb": "read", "args": map[string]any{"folder": folder, "path": "small.txt"}})
+		socket.Ask(identifier, map[string]any{"request": "find", "verb": "find", "args": map[string]any{"query": "small"}})
+		socket.Ask(identifier, map[string]any{"request": "model", "verb": "model", "args": map[string]any{"kind": "ollama", "messages": []any{map[string]any{"role": "user", "content": "hi"}}}})
+
+		got := gather(socket, 4)
+
+		if got.done["browse"]["ok"] != true {
+			t.Errorf("browse after settings: %v", got.done["browse"])
+		}
+
+		if said, _ := got.done["read"]["error"].(string); said != ErrNotLentByXixo.Error() {
+			t.Errorf("read: %v", got.done["read"])
+		}
+
+		if said, _ := got.done["find"]["error"].(string); !strings.Contains(said, "xixo has not turned on search") {
+			t.Errorf("find: %v", got.done["find"])
+		}
+
+		if said, _ := got.done["model"]["error"].(string); !strings.Contains(said, "its config leaves models out of tools") {
+			t.Errorf("model: %v", got.done["model"])
+		}
+
+		socket.Close()
+	})
+
+	held, dpop := linkFor(t, cable.URL, folder, time.Now().Add(time.Hour))
+	held.Tools = []string{state.ToolBrowse, state.ToolSearch, state.ToolRead, state.ToolWrite, state.ToolExtract}
+	held.Apply(Settings{})
+	cable.Thumbprint = dpop.Thumbprint()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	held.Session(ctx)
+	<-finished
 }

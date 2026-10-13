@@ -66,11 +66,13 @@ func TestAnUploadIsExtractedAndItsFilesComeBackFirst(t *testing.T) {
 		socket.Ask(identifier, map[string]any{"request": folderID, "verb": "extract", "args": map[string]any{
 			"source": map[string]any{"folder": folder, "path": "dentist.ics"}, "mime": "text/calendar",
 		}})
+		got := gather(socket, 3)
+
 		socket.Ask(identifier, map[string]any{"request": fileID, "verb": "extract", "args": map[string]any{
 			"source": map[string]any{"upload": uploadID}, "size": len(body), "mime": "text/plain", "filename": "again.txt",
 		}})
 
-		got := gather(socket, 4)
+		got.done[fileID] = gather(socket, 1).done[fileID]
 
 		steps := got.done[extractID]["result"].(map[string]any)["steps"].(map[string]any)
 		if text := steps["text"].(map[string]any)["result"]; text != string(body) {

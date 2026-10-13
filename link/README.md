@@ -81,35 +81,56 @@ The configuration looks like this:
 {
   "xixo": "https://xixo.example.com",
   "issuer": "https://id.example.com",
-  "folders": ["/srv/media", {"path": "/data/files", "writable": true}],
-  "lend": false,
-  "extracts_for_others": false,
-  "extract_unsandboxed": false,
-  "tools": ["browse", "search", "extract"]
+  "folders": ["/srv/media", {"path": "/data/files", "writable": true}]
 }
 ```
 
-Both addresses use https. Plain http is accepted only for a loopback host such
-as `localhost` or a `.localhost` name. Each folder is a clean absolute path,
-given alone for a folder xixo link only reads, or as `{"path", "writable"}`. The
-configuration on the machine is the only place the shared folders are named:
-xixo can read inside them and nowhere else, writes only inside the writable
-ones, and nothing xixo sends changes the list.
+`xixo-link setup` writes it. Both addresses use https. Plain http is accepted
+only for a loopback host such as `localhost` or a `.localhost` name. Each
+folder is a clean absolute path, given alone for a folder xixo link only reads,
+or as `{"path", "writable"}`. The configuration on the machine is the only
+place the shared folders are named: xixo can read inside them and nowhere
+else, writes only inside the writable ones, and nothing xixo sends changes the
+list.
 
-`lend` lets xixo read the bytes of a shared file, for a download, a preview, or
-an extraction on another machine. Left false, a file's bytes stay on the machine:
-xixo link still lists, hashes, and extracts its own files, and sends xixo only
-what extraction makes. `extracts_for_others` lets xixo link read uploads and
-files from other places that xixo sends it to extract. Both default to false.
+### What xixo may do
 
-`tools` names the tools the machine offers MCP clients through xixo: `browse`,
-`search`, `read`, `write`, `extract`, and `models`. Each is a verb below that
-xixo link answers only when its tool is named, and xixo offers a client only the
-tools xixo link names. `read` still needs `lend`, and `write` a writable
-folder. A name xixo link does not know stops it from starting. Left out, the
-list is empty, and xixo link answers only what xixo needs to sync and read its
-folders. The container beside the server sets it from `XIXO_LINK_TOOLS`, which
-defaults to `browse,search,read,extract`.
+xixo decides what the machine does for it, and the administrator changes that
+on the machine's card at any time. xixo sends the choice over the cable, in
+the [`settings` message](#the-conversation-with-xixo), and xixo link applies it
+at once. Until the first `settings` message arrives, xixo link lends nothing,
+reads nothing for other machines, and offers no tools.
+
+The configuration can set a ceiling. xixo link does what xixo asks only when
+the configuration also allows it, so xixo can narrow what the configuration
+allows and never widen it:
+
+| Key | Allows | Left out |
+| --- | --- | --- |
+| `lend` | xixo reading the bytes of a shared file, for a download, a preview, or an extraction on another machine | allowed |
+| `extracts_for_others` | reading uploads and files from other places that xixo sends it to extract | allowed |
+| `tools` | the tools named, out of `browse`, `search`, `read`, `write`, `extract`, and `models` | all of them |
+
+```json
+{
+  "xixo": "https://xixo.example.com",
+  "issuer": "https://id.example.com",
+  "folders": ["/srv/media"],
+  "lend": false,
+  "tools": ["browse", "search"]
+}
+```
+
+Without lending, a file's bytes stay on the machine: xixo link still lists,
+hashes, and extracts its own files, and sends xixo only what extraction makes.
+
+Each tool is a verb below that xixo link answers only when it is allowed both
+by the configuration and by xixo. An empty `tools` list allows none. `read`
+still needs lending, and `write` a writable folder; the `write` verb that
+places xixo's own files needs the `write` tool too. A tool name xixo link does
+not know stops it from starting. The container beside the server sets these
+keys from `XIXO_LINK_LEND`, `XIXO_LINK_EXTRACTS_FOR_OTHERS`, and
+`XIXO_LINK_TOOLS` when they are set, and leaves them out otherwise.
 
 `extract_unsandboxed` matters on macOS only. xixo link runs every extraction
 program under `sandbox-exec`, and when `sandbox-exec` is missing it runs none
@@ -118,26 +139,39 @@ link runs the programs without the sandbox instead. It defaults to false.
 
 ## Commands
 
+`xixo-link setup --xixo URL --issuer URL [FOLDER ...]` writes the
+configuration. Each folder is an absolute path to a folder that exists; end
+one with `:rw` to share it writable. A folder cannot hold a quotation mark, an
+apostrophe, a backslash, a colon, or a control character, and cannot lie
+inside another shared folder. Run again, `setup` keeps every other key in the
+configuration, and keeps the folders when none are given. It writes the file
+with mode 0644 on Linux, where the service's user reads a file root owns, and
+0600 on macOS.
+
+`xixo-link unit --template PATH [--user NAME]` prints the systemd unit: the
+template `xixo-link.service` with `@USER@` replaced by the user, this one by
+default, and `@FOLDERS@` by the folders the configuration shares, as described
+in [the service](#the-service).
+
+`xixo-link up` links the machine up, as described in
+[linking up](#linking-up). When the machine is already linked, it says so and
+does nothing else.
+
 `xixo-link enroll --token - [--name NAME]` reads an enrollment token from
 standard input, registers xixo link's public key with masks, and saves the
 registration. `--token` also takes the token itself, and the
 `XIXO_ENROLLMENT_TOKEN` variable is read when the flag is empty. Standard input
 keeps the token out of the process list. `--name` is the name masks shows for
-the machine, and defaults to the hostname. Enrolling again registers a new
-client with the same key and deletes the previous one.
-
-`xixo-link link --code -` reads the code xixo showed for the machine from
-standard input and tells xixo which machine this is: it asks masks for a token
-with its own key and posts the code to `/link` with that token and a DPoP
-proof. xixo takes the code only with a token for a client no other machine is
-linked as. Run it after `enroll`, with the same code.
+the machine, and defaults to the hostname. The container beside the server
+enrolls this way, with a token the server leaves it.
 
 `xixo-link run` connects to xixo and serves it until it is stopped.
 
 `xixo-link version` prints the version.
 
-`enroll`, `link`, and `run` take `--config PATH` and `--state DIR`. They default to
-`/etc/xixo-link/config.json` and `/var/lib/xixo-link` on Linux, and to
+The commands take `--config PATH`, and `up`, `enroll`, and `run` take
+`--state DIR`. They default to `/etc/xixo-link/config.json` and
+`/var/lib/xixo-link` on Linux, and to
 `~/Library/Application Support/xixo-link/config.json` and
 `~/Library/Application Support/xixo-link/state` on macOS.
 
@@ -148,6 +182,65 @@ On macOS, `run` adds `/opt/homebrew/bin`, `/usr/local/bin`, and
 `/Applications/LibreOffice.app/Contents/MacOS` to the end of `PATH`, so it finds
 programs installed with Homebrew. It finds `tailscale` on `PATH` or at
 `/Applications/Tailscale.app/Contents/MacOS/Tailscale`.
+
+## Installing
+
+One command installs xixo link and links the machine up. Run it on the
+machine, as the user who owns the shared folders:
+
+```sh
+curl -fsSL https://xixo.example.com/link.sh | sh -s -- ~/Documents ~/Desktop
+```
+
+The folders after `--` are the ones the machine shares. Leave them out to
+share none yet, or to keep the folders of an earlier install. The script needs
+no secret, and puts none in the process list or in shell history. It:
+
+1. Finds the system and the processor.
+2. Downloads xixo link from xixo and checks it against the SHA-256 that xixo
+   wrote into the script.
+3. On Debian or Ubuntu, installs the programs that read PDFs, images, audio,
+   video, and office documents with apt. On macOS, fetches the mac reader from
+   the release and checks it against the `.sha256` published beside it.
+4. Writes the configuration with `xixo-link setup`, and the systemd unit with
+   `xixo-link unit` or the launch agent.
+5. Runs `xixo-link up`, which waits for an administrator to approve the
+   machine.
+6. Starts the service.
+
+Running the command again upgrades xixo link and keeps the link.
+
+## Linking up
+
+`xixo-link up` follows the shape of the OAuth device authorization grant
+(RFC 8628):
+
+1. It makes its keys, then posts to `<xixo>/link/requests` the machine's
+   hostname, system, processor, and folders as JSON:
+   `{"hostname","os","arch","folders","writable"}`.
+2. xixo answers with `device_code`, `user_code`, `verification_uri`,
+   `verification_uri_complete`, `expires_in`, and `interval`. xixo link prints
+   "Open https://xixo.example.com/link/WDJB-MJHT to approve this machine" and
+   the code.
+3. It posts `device_code` to `<xixo>/link/requests/token` every `interval`
+   seconds. xixo answers 400 with the error `authorization_pending` while it
+   waits, `slow_down` when xixo link asks too often, which adds five seconds,
+   `access_denied` when an administrator denied the machine, and
+   `expired_token` when the request ran out, about ten minutes after it began.
+4. Once an administrator approves the machine, xixo answers with an
+   `enrollment_token`, once. xixo link enrolls with masks with it, as `enroll`
+   does.
+5. It posts `device_code` to `<xixo>/link` with its own DPoP-bound token, and
+   xixo links the new client to the machine.
+
+The `device_code` stays with xixo link and is never shown. The `user_code` is
+what the administrator sees, to match the machine they approve with the one
+asking.
+
+Before it asks, `up` checks a machine that is enrolled already with
+`GET <xixo>/link` and its own token. xixo answers 200 with the machine's name
+when it knows the client, and 404 when it does not, in which case `up` asks
+again.
 
 ## Signing in
 
@@ -182,6 +275,11 @@ xixo link speaks the Action Cable protocol and subscribes to
 | `chunk` | `request`, `of`, `seq`, `data` | For each part of a file being read or made. |
 | `changed` | `folder`, `paths`, `overflow` | When files in a shared folder change, two seconds after the last change and at most ten seconds after the first. |
 
+xixo sends `{"settings":{"tools","lend","extracts_for_others"}}` as a broadcast
+on the subscription right after `hello`, and again whenever an administrator
+changes what the machine may do. xixo link does what both the settings and its
+configuration allow, as described in [what xixo may do](#what-xixo-may-do).
+
 `services` lists the model servers listening on the machine's loopback
 address: `{"kind":"ollama","port":11434,"address":"100.64.0.7"}`, and
 `lmstudio` on port 1234. `address` is the machine's tailnet IPv4 address when
@@ -192,7 +290,9 @@ sends each file to a machine that can read it.
 
 `writable` names the shared folders the configuration marks writable.
 
-`tools` names the tools the configuration offers, in a fixed order.
+`tools`, `lend`, and `extracts_for_others` are the configuration's ceiling:
+the tools it allows, in a fixed order, and whether it allows lending and
+reading for others. xixo combines them with its own settings.
 
 `warnings` is a list of sentences for the person who runs the machine, empty
 when nothing is wrong. xixo link checks every shared folder each time it sends
@@ -337,7 +437,7 @@ from writing anywhere else, gaining privileges, or reaching devices. xixo link
 also runs in its own user namespace, sees no other process in `/proc`, and makes
 only the system calls an ordinary service makes.
 
-The installer writes a `BindReadOnlyPaths=` line in place of `@FOLDERS@`, one
+`xixo-link unit` writes a `BindReadOnlyPaths=` line in place of `@FOLDERS@`, one
 quoted entry per shared folder, and a `BindPaths=` line for the writable ones.
 `/home`, `/root`, `/srv`, `/mnt`, `/media`, `/opt`, and `/var/lib` are empty
 for xixo link apart from its state directory, and each shared folder is
@@ -393,68 +493,26 @@ silicon and on Intel Macs.
 
 ### Installing
 
-1. Get `xixo-link-darwin-arm64` for Apple silicon or `xixo-link-darwin-amd64`
-   for an Intel Mac, `xixo-link.plist`, and `xixo-mac-reader` from the
-   release, and check `xixo-mac-reader` with the `xixo-mac-reader.sha256`
-   beside it: `shasum -a 256 -c xixo-mac-reader.sha256`. Put the binaries in
-   place, side by side:
+The [install command](#installing) works on a Mac too:
 
-   ```sh
-   mkdir -p ~/Library/Application\ Support/xixo-link/bin
-   install -m 0755 xixo-link-darwin-arm64 ~/Library/Application\ Support/xixo-link/bin/xixo-link
-   install -m 0755 xixo-mac-reader ~/Library/Application\ Support/xixo-link/bin/xixo-mac-reader
-   ```
+```sh
+curl -fsSL https://xixo.example.com/link.sh | sh -s -- ~/Documents ~/Desktop
+```
 
-   xixo link looks for the mac reader beside its own binary first, then on
-   `PATH`. Without it, a Mac reads PDFs, images, audio, and video only with
-   the Homebrew programs in [what a Mac reads](#what-a-mac-reads).
+It puts `xixo-link` and `xixo-mac-reader` side by side in
+`~/Library/Application Support/xixo-link/bin`, writes the configuration,
+installs the launch agent from `xixo-link.plist` with `@HOME@` replaced, links
+up, and starts the launch agent. xixo link looks for the mac reader beside its
+own binary first, then on `PATH`. Without it, a Mac reads PDFs, images, audio,
+and video only with the Homebrew programs in [what a Mac reads](#what-a-mac-reads).
 
-2. A browser marks a downloaded file as quarantined, and macOS then refuses to
-   run a binary that Apple has not notarized. Remove the mark. The command
-   reports "No such xattr" when the file has none, which is fine.
+curl leaves no quarantine mark, so macOS runs the binaries without asking. The
+binary carries an ad hoc signature from the Go linker. `codesign -dv` on the
+binary shows it, and `codesign -f -s -` signs it ad hoc again after anything
+has changed it.
 
-   ```sh
-   xattr -d com.apple.quarantine ~/Library/Application\ Support/xixo-link/bin/xixo-link
-   xattr -d com.apple.quarantine ~/Library/Application\ Support/xixo-link/bin/xixo-mac-reader
-   ```
-
-   The binary carries an ad hoc signature from the Go linker. `codesign -dv`
-   on the binary shows it, and `codesign -f -s -` signs it ad hoc again after
-   anything has changed it.
-
-3. Write `~/Library/Application Support/xixo-link/config.json`, as described
-   in [files on the machine](#files-on-the-machine), and give it mode 0600:
-
-   ```json
-   {
-     "xixo": "https://xixo.example.com",
-     "issuer": "https://id.example.com",
-     "folders": ["/Users/you/Documents", "/Users/you/Desktop"]
-   }
-   ```
-
-4. Enroll the machine with the token xixo shows, pasted on standard input and
-   ended with Control-D:
-
-   ```sh
-   ~/Library/Application\ Support/xixo-link/bin/xixo-link enroll --token -
-   ```
-
-   Then link it up with the same code, pasted the same way:
-
-   ```sh
-   ~/Library/Application\ Support/xixo-link/bin/xixo-link link --code -
-   ```
-
-5. Install the launch agent and start it:
-
-   ```sh
-   sed "s|@HOME@|$HOME|g" xixo-link.plist > ~/Library/LaunchAgents/network.xixo.link.plist
-   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/network.xixo.link.plist
-   ```
-
-6. Give xixo link access to the protected folders it shares, as described in
-   [disk access](#disk-access).
+A folder in Documents, Desktop, Downloads, or iCloud Drive also needs
+[disk access](#disk-access).
 
 ### The launch agent
 

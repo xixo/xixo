@@ -111,19 +111,19 @@ func TestNestedFoldersAreRefused(t *testing.T) {
 	}
 }
 
-func TestLendAndExtractingForOthersDefaultOff(t *testing.T) {
+func TestLendAndExtractingForOthersHaveNoCeilingUntilTheConfigSetsOne(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example"}`), 0o600)
 
 	held, err := LoadConfig(path)
-	if err != nil || held.Lend || held.ExtractsForOthers {
+	if err != nil || !held.LendCeiling() || !held.OthersCeiling() {
 		t.Fatalf("%+v %v", held, err)
 	}
 
-	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example","lend":true,"extracts_for_others":true}`), 0o600)
+	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example","lend":false,"extracts_for_others":false}`), 0o600)
 
 	held, err = LoadConfig(path)
-	if err != nil || !held.Lend || !held.ExtractsForOthers {
+	if err != nil || held.LendCeiling() || held.OthersCeiling() {
 		t.Fatalf("%+v %v", held, err)
 	}
 }
@@ -145,19 +145,26 @@ func TestRegistrationKeepsNoRegistrationAccessToken(t *testing.T) {
 	}
 }
 
-func TestToolsDefaultToNoneAndNameOnlyKnownTools(t *testing.T) {
+func TestToolsHaveNoCeilingUntilTheConfigNamesThem(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example"}`), 0o600)
 
 	held, err := LoadConfig(path)
-	if err != nil || len(held.Tools) != 0 {
+	if err != nil || strings.Join(held.ToolCeiling(), ",") != strings.Join(Tools, ",") {
 		t.Fatalf("%+v %v", held, err)
 	}
 
-	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example","tools":["browse","models"]}`), 0o600)
+	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example","tools":[]}`), 0o600)
 
 	held, err = LoadConfig(path)
-	if err != nil || strings.Join(held.Tools, ",") != "browse,models" {
+	if err != nil || len(held.ToolCeiling()) != 0 {
+		t.Fatalf("%+v %v", held, err)
+	}
+
+	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example","tools":["models","browse"]}`), 0o600)
+
+	held, err = LoadConfig(path)
+	if err != nil || strings.Join(held.ToolCeiling(), ",") != "browse,models" {
 		t.Fatalf("%+v %v", held, err)
 	}
 

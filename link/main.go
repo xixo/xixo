@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	osuser "os/user"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -33,8 +34,10 @@ var revokedStatus = revoked
 
 const usage = `xixo-link connects this machine to xixo.
 
+  xixo-link setup --xixo URL --issuer URL [--config PATH] [FOLDER[:rw] ...]
+  xixo-link unit --template PATH [--user NAME] [--config PATH]
+  xixo-link up [--config PATH] [--state DIR]
   xixo-link enroll --token - [--name NAME] [--config PATH] [--state DIR]
-  xixo-link link --code - [--config PATH] [--state DIR]
   xixo-link run [--config PATH] [--state DIR] [--revoked-status N]
   xixo-link version
 `
@@ -105,8 +108,25 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 		fmt.Fprintln(stdout, registered.ClientID)
 
 		return nil
-	case "link":
-		code := set.String("code", "", "the code xixo showed for this machine, or - to read it from standard input")
+	case "setup":
+		xixo := set.String("xixo", "", "the address of xixo")
+		issuer := set.String("issuer", "", "the address of the masks issuer xixo link enrolls with")
+
+		if err := set.Parse(args[1:]); err != nil {
+			return err
+		}
+
+		config, err := state.Setup(*configPath, *xixo, *issuer, set.Args())
+		if err != nil {
+			return err
+		}
+
+		fmt.Fprintln(stdout, sharing(config))
+
+		return nil
+	case "unit":
+		template := set.String("template", "", "the service template xixo hands out")
+		user := set.String("user", "", "the account xixo link runs as, by default this one")
 
 		if err := set.Parse(args[1:]); err != nil {
 			return err
@@ -117,19 +137,40 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 			return err
 		}
 
-		held, err := given(*code, stdin)
+		read, err := os.ReadFile(*template)
 		if err != nil {
 			return err
 		}
 
-		told, err := link.LinkUp(ctx, config, state.State{Dir: *stateDir}, held)
+		named := *user
+		if named == "" {
+			current, err := osuser.Current()
+			if err != nil {
+				return err
+			}
+
+			named = current.Username
+		}
+
+		written, err := state.Unit(string(read), named, config.Folders)
 		if err != nil {
 			return err
 		}
 
-		fmt.Fprintln(stdout, told)
+		fmt.Fprint(stdout, written)
 
 		return nil
+	case "up":
+		if err := set.Parse(args[1:]); err != nil {
+			return err
+		}
+
+		config, err := state.LoadConfig(*configPath)
+		if err != nil {
+			return err
+		}
+
+		return link.Up(ctx, config, state.State{Dir: *stateDir}, stdout)
 	case "run":
 		stopped := set.Int("revoked-status", revoked, "the exit status when this machine was unenrolled")
 
@@ -166,9 +207,9 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 			Work:              workDir(),
 			Runner:            run,
 			Notices:           notices,
-			Lend:              config.Lend,
-			ExtractsForOthers: config.ExtractsForOthers,
-			Tools:             config.Tools,
+			Lend:              config.LendCeiling(),
+			ExtractsForOthers: config.OthersCeiling(),
+			Tools:             config.ToolCeiling(),
 		}
 
 		err = running.Run(ctx)
@@ -241,4 +282,21 @@ func workDir() string {
 	}
 
 	return work
+}
+
+func sharing(config *state.Config) string {
+	if len(config.Folders) == 0 {
+		return "Shares no folders yet."
+	}
+
+	paths := make([]string, 0, len(config.Folders))
+	for _, folder := range config.Folders {
+		paths = append(paths, folder.Path)
+	}
+
+	if len(paths) == 1 {
+		return "Shares " + paths[0] + "."
+	}
+
+	return "Shares " + strings.Join(paths[:len(paths)-1], ", ") + " and " + paths[len(paths)-1] + "."
 }

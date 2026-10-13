@@ -19,6 +19,12 @@ type Writing struct {
 }
 
 func (a *Link) write(ctx context.Context, asked *Request) {
+	if err := a.unoffered(toolFor[verbPlace]); err != nil {
+		a.refuse(ctx, asked.Request, err)
+
+		return
+	}
+
 	wanted := Writing{}
 	if err := decode(asked.Args, &wanted); err != nil {
 		a.refuse(ctx, asked.Request, err)

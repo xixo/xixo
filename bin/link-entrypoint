@@ -50,26 +50,35 @@ flag() {
   esac
 }
 
-lend="$(flag "${XIXO_LINK_LEND:-true}" "XIXO_LINK_LEND")"
-others="$(flag "${XIXO_LINK_EXTRACTS_FOR_OTHERS:-true}" "XIXO_LINK_EXTRACTS_FOR_OTHERS")"
+ceilings=""
 
-tools=""
-IFS=,
-for tool in ${XIXO_LINK_TOOLS-browse,search,read,extract}; do
-  case "$tool" in
-    "") continue ;;
-    browse | search | read | write | extract | models) ;;
-    *) refuse "XIXO_LINK_TOOLS names browse, search, read, write, extract, or models: $tool" ;;
-  esac
-  tools="${tools:+$tools, }\"$tool\""
-done
-IFS=$old_ifs
+if [ -n "${XIXO_LINK_LEND+set}" ]; then
+  ceilings="$ceilings, \"lend\": $(flag "$XIXO_LINK_LEND" "XIXO_LINK_LEND")"
+fi
+
+if [ -n "${XIXO_LINK_EXTRACTS_FOR_OTHERS+set}" ]; then
+  ceilings="$ceilings, \"extracts_for_others\": $(flag "$XIXO_LINK_EXTRACTS_FOR_OTHERS" "XIXO_LINK_EXTRACTS_FOR_OTHERS")"
+fi
+
+if [ -n "${XIXO_LINK_TOOLS+set}" ]; then
+  tools=""
+  IFS=,
+  for tool in $XIXO_LINK_TOOLS; do
+    case "$tool" in
+      "") continue ;;
+      browse | search | read | write | extract | models) ;;
+      *) refuse "XIXO_LINK_TOOLS names browse, search, read, write, extract, or models: $tool" ;;
+    esac
+    tools="${tools:+$tools, }\"$tool\""
+  done
+  IFS=$old_ifs
+  ceilings="$ceilings, \"tools\": [$tools]"
+fi
 
 umask 077
 mkdir -p "$state" "$handoff"
-printf '{"xixo": %s, "issuer": %s, "folders": [%s], "lend": %s, "extracts_for_others": %s, "tools": [%s]}\n' \
-  "$(quoted "$xixo" "XIXO_LINK_XIXO")" "$(quoted "$issuer" "XIXO_LINK_ISSUER")" "$folders" \
-  "$lend" "$others" "$tools" >"$config"
+printf '{"xixo": %s, "issuer": %s, "folders": [%s]%s}\n' \
+  "$(quoted "$xixo" "XIXO_LINK_XIXO")" "$(quoted "$issuer" "XIXO_LINK_ISSUER")" "$folders" "$ceilings" >"$config"
 
 registered() {
   sed -n 's/.*"client_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$state/registration.json" 2>/dev/null | head -n 1

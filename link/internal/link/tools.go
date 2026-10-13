@@ -55,10 +55,15 @@ var (
 )
 
 type NotOffered struct {
-	Tool string
+	Tool   string
+	ByXixo bool
 }
 
 func (e *NotOffered) Error() string {
+	if e.ByXixo {
+		return fmt.Sprintf("this machine does not offer the %s tool: xixo has not turned on %s for it", e.Tool, e.Tool)
+	}
+
 	return fmt.Sprintf("this machine does not offer the %s tool: its config leaves %s out of tools", e.Tool, e.Tool)
 }
 
@@ -79,14 +84,10 @@ func (a *Link) offered() []string {
 	return held
 }
 
-func (a *Link) offers(tool string) bool {
-	return slices.Contains(a.Tools, tool)
-}
-
 func (a *Link) tool(ctx context.Context, asked *Request) {
 	named := toolFor[asked.Verb]
-	if !a.offers(named) {
-		a.refuse(ctx, asked.Request, &NotOffered{Tool: named})
+	if err := a.unoffered(named); err != nil {
+		a.refuse(ctx, asked.Request, err)
 
 		return
 	}
@@ -235,8 +236,8 @@ type Peeked struct {
 }
 
 func (a *Link) peek(raw json.RawMessage) (any, error) {
-	if !a.Lend {
-		return nil, ErrNotLent
+	if err := a.lent(); err != nil {
+		return nil, err
 	}
 
 	wanted := Read{}

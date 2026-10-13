@@ -62,6 +62,7 @@ type Link struct {
 	ModelPorts        map[string]int
 	Unwatched         bool
 
+	policy   policy
 	once     sync.Once
 	watching *watch.Watcher
 	wire     wire
@@ -350,6 +351,15 @@ func (s *session) listen(ctx context.Context) {
 				continue
 			}
 
+			told := struct {
+				Settings *Settings `json:"settings"`
+			}{}
+			if json.Unmarshal(frame.Message, &told) == nil && told.Settings != nil {
+				s.Apply(*told.Settings)
+
+				continue
+			}
+
 			asked := &Request{}
 			if json.Unmarshal(frame.Message, asked) != nil || asked.Request == "" {
 				continue
@@ -509,8 +519,8 @@ func (a *Link) hash(ctx context.Context, request string, wanted Read) {
 }
 
 func (a *Link) read(ctx context.Context, request string, wanted Read) {
-	if !a.Lend {
-		a.refuse(ctx, request, ErrNotLent)
+	if err := a.lent(); err != nil {
+		a.refuse(ctx, request, err)
 
 		return
 	}

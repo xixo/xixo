@@ -3,10 +3,8 @@ package link
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -226,69 +224,5 @@ func TestEnrollRefusesWithoutAToken(t *testing.T) {
 
 	if _, _, err := Client(context.Background(), config, held); err == nil {
 		t.Fatal("an unenrolled machine has a client")
-	}
-}
-
-func TestLinkUpPostsTheCodeWithTheMachinesOwnToken(t *testing.T) {
-	masks := newIssuer(t)
-	var said url.Values
-	var authorization, proof string
-
-	xixo := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.Method != http.MethodPost || request.URL.Path != "/link" {
-			http.NotFound(response, request)
-
-			return
-		}
-
-		request.ParseForm()
-		said = request.PostForm
-		authorization = request.Header.Get("Authorization")
-		proof = request.Header.Get("DPoP")
-		io.WriteString(response, "Linked up as nas.\n")
-	}))
-	t.Cleanup(xixo.Close)
-
-	masks.resource = xixo.URL + "/mcp"
-	config := &state.Config{Xixo: xixo.URL, Issuer: masks.URL}
-	held := state.State{Dir: t.TempDir()}
-	ctx := context.Background()
-
-	if _, err := Enroll(ctx, config, held, "iat-1", "nas"); err != nil {
-		t.Fatal(err)
-	}
-
-	told, err := LinkUp(ctx, config, held, " the-code\n")
-	if err != nil || told != "Linked up as nas." {
-		t.Fatalf("told %q %v", told, err)
-	}
-
-	if said.Get("code") != "the-code" || authorization != "DPoP at" || proof == "" || said.Get("client_id") != "" {
-		t.Fatalf("posted %v with %q and proof %q", said, authorization, proof)
-	}
-}
-
-func TestLinkUpSaysWhatXixoRefused(t *testing.T) {
-	masks := newIssuer(t)
-
-	xixo := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
-		http.Error(response, "That code was used already. Get a fresh one.", http.StatusUnprocessableEntity)
-	}))
-	t.Cleanup(xixo.Close)
-
-	masks.resource = xixo.URL + "/mcp"
-	config := &state.Config{Xixo: xixo.URL, Issuer: masks.URL}
-	held := state.State{Dir: t.TempDir()}
-
-	if _, err := Enroll(context.Background(), config, held, "iat-1", "nas"); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := LinkUp(context.Background(), config, held, "the-code"); err == nil || !strings.Contains(err.Error(), "used already") {
-		t.Fatalf("got %v", err)
-	}
-
-	if _, err := LinkUp(context.Background(), config, held, " "); err == nil {
-		t.Fatal("an empty code linked up")
 	}
 }
