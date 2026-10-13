@@ -30,13 +30,12 @@ export class Fallen extends Component<Props, State> {
     return (
       <div className="fallen">
         <div className="fallen-word">
-          {this.props.what ?? 'This page fell over'}
+          {this.props.what ?? 'This page could not be shown'}
         </div>
 
         <Text c="dimmed" size="sm" mt="var(--s3)" maw="52ch">
-          Nothing was lost — the failure is in what you are looking at, not in
-          what you own. Try again, and if it keeps happening the message below
-          is the useful part.
+          Your files and catalog are safe. Only this page failed. Try again. If
+          it keeps failing, share the message below when you report it.
         </Text>
 
         <Code block mt="var(--s4)" className="fallen-why">
