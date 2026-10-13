@@ -64,7 +64,8 @@ class Resource
           port = service["port"]
           next unless port.is_a?(Integer) && port.between?(1, 65_535)
 
-          { "kind" => service["kind"], "port" => port, "address" => address(service["address"]) }
+          { "kind" => service["kind"], "port" => port, "address" => address(service["address"]),
+            "local_only" => (true if service["local_only"] == true) }.compact
         end
       end
 

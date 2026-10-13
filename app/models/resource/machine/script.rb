@@ -118,10 +118,21 @@ class Resource
 
             "$dir/bin/xixo-link" up
 
-            launchctl bootout "gui/$(id -u)/network.xixo.link" 2> /dev/null || true
+            service="gui/$(id -u)/network.xixo.link"
+            launchctl bootout "$service" 2> /dev/null || true
+            tries=0
+            while launchctl print "$service" > /dev/null 2>&1 && [ "$tries" -lt 20 ]; do
+              sleep 0.5
+              tries=$((tries + 1))
+            done
             install -m 0644 "$work/agent" "$agent"
-            launchctl bootstrap "gui/$(id -u)" "$agent"
-            launchctl kickstart "gui/$(id -u)/network.xixo.link"
+            tries=0
+            until launchctl bootstrap "gui/$(id -u)" "$agent" 2> /dev/null; do
+              tries=$((tries + 1))
+              [ "$tries" -lt 10 ] || fail "macOS did not load the xixo link service. Run the command again."
+              sleep 1
+            done
+            launchctl kickstart "$service"
             say "xixo link is running. To share Documents, Desktop, or Downloads, turn on Full Disk Access for xixo-link in System Settings, Privacy & Security."
           }
 

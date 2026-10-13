@@ -478,10 +478,11 @@ A machine asking to link up. xixo link on the machine started it and shows its c
 | `folders` | `[String!]!` | The folders the machine's config shares. |
 | `hostname` | `String!` | The name the machine gives itself. |
 | `id` | `ID!` |  |
+| `kind` | `String` | What kind of machine it is: laptop, desktop, all-in-one, or server. Empty when it cannot tell. |
 | `linksAs` | `String!` | The key the machine has, or gets when it is approved. |
 | `machine` | [`Resource`](#resource) | The machine it linked up as, once it has. |
 | `memory` | `BigInt` | The machine's memory, in bytes. |
-| `model` | `String` | The hardware model the machine reports, such as Mac14,7. Empty when it names none. |
+| `model` | `String` | The hardware model the machine reports, such as MacBook Pro (16-inch, 2023). Empty when it names none. |
 | `namedLike` | `String` | The key of a linked machine with the same name, while this request waits. Approving adds a second machine. |
 | `os` | `String` |  |
 | `remoteIp` | `String` | The address the request came from. |
@@ -526,14 +527,17 @@ What xixo link on a machine last said about it. Resolves only for a token carryi
 | `heldBack` | `[String!]!` | What its access asks for that the machine's own config holds back: tool names, lend, or extracts_for_others. |
 | `helpsOthers` | `Boolean!` | Whether xixo asks the machine to help read files from elsewhere. |
 | `hostname` | `String` | The name the machine gives itself. |
+| `kind` | `String` | What kind of machine it is: laptop, desktop, all-in-one, or server. Empty when it cannot tell. |
 | `lends` | `Boolean!` | Whether the bytes of its files may leave the machine: to be opened or downloaded, and to be read by another machine when it lacks the program itself. Its access and its own config both have to allow it. |
 | `linked` | `Boolean!` | Whether xixo link is enrolled as this machine, whether or not it is connected now. |
 | `load` | `[Float!]!` | The load average over one, five, and fifteen minutes. |
 | `memoryAvailable` | `BigInt` |  |
 | `memoryTotal` | `BigInt` |  |
+| `model` | `String` | The hardware model it reported when it linked up, such as MacBook Pro (16-inch, 2023). |
 | `os` | `String` |  |
 | `seenAt` | `ISO8601DateTime` | When xixo link last said anything. |
 | `services` | [`[MachineService!]!`](#machineservice) | Model servers listening on the machine, with its tailnet address when it has one. |
+| `system` | `String` | The system and its version it reported when it linked up, such as macOS 26.0. |
 | `tools` | `[String!]!` | The tools the machine offers to MCP clients through xixo: browse, search, read, write, extract, and models. Its access and its own config both have to allow each one. |
 | `unread` | `[String!]!` | The kinds of file xixo link cannot read, because the machine lacks their programs. Such a file on this machine is read by a machine that reads for others when this one lends its files, and otherwise waits until this one can read it. |
 | `uptime` | `Float` | Seconds since the machine started. |
@@ -567,6 +571,7 @@ Resolves only for a token carrying `xixo:resources:read`.
 | --- | --- | --- |
 | `address` | `String` | The machine's tailnet address, when it is on one. |
 | `kind` | `String!` | ollama or lmstudio. |
+| `localOnly` | `Boolean!` | Whether the model server answers only on the machine itself, so xixo cannot reach it over the network. |
 | `port` | `Int!` |  |
 | `url` | `String` | The base URL xixo reaches the model server at, over the machine's tailnet address. Empty for a machine on no tailnet. |
 | `via` | `String` | The key of the tailnet xixo reaches the model server through. Empty when it has none to offer. |

@@ -10,6 +10,7 @@ class LinkRequest < ApplicationRecord
   MOST_PENDING = 20
   MOST_PENDING_FROM = 3
   MOST_HOSTNAME = 63
+  KINDS = %w[laptop desktop all-in-one server].freeze
   MOST_ADDRESSES = 8
   MOST_DISKS = 16
   MOST_CPUS = 4096
@@ -91,6 +92,7 @@ class LinkRequest < ApplicationRecord
           "user" => hello.text(said["user"])&.first(64),
           "system" => hello.text(said["system"])&.first(80),
           "model" => hello.text(said["model"])&.first(80),
+          "kind" => (said["kind"].to_s if KINDS.include?(said["kind"].to_s)),
           "version" => hello.text(said["version"])&.first(32),
           "cpus" => count(said["cpus"], MOST_CPUS),
           "memory" => count(said["memory"], MOST_BYTES),

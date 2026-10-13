@@ -64,11 +64,12 @@ class Resource
 
       def approved!(request, client_id)
         create!(
-          key: free_key(request.hostname), name: request.hostname,
+          key: free_key(request.hostname), name: short(request.hostname).presence || request.hostname,
           details: {
             "client_id" => client_id, "access" => DEFAULT_ACCESS, "helps_others" => true,
             "operators" => [ request.decided_by ].compact,
-            "approved" => { "by" => request.decided_by, "at" => request.decided_at&.utc&.iso8601 }.compact
+            "approved" => { "by" => request.decided_by, "at" => request.decided_at&.utc&.iso8601 }.compact,
+            "about" => request.details.to_h.slice("system", "model", "kind").compact
           }
         )
       end
@@ -234,6 +235,10 @@ class Resource
       tools += [ "models" ] if model_kinds.any?
 
       { "tools" => Tools::NAMES & tools, "lend" => access != "search", "extracts_for_others" => helps_others? }
+    end
+
+    def about
+      details["about"].to_h
     end
 
     def lends?

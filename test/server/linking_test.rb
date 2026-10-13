@@ -219,7 +219,7 @@ class LinkingTest < ActionDispatch::IntegrationTest
 
     Tenant.switch(@tenant) do
       machine = Resource::Machine.enrolled("client-studio")
-      assert_equal [ "studio", "studio.local" ], [ machine.key, machine.name ]
+      assert_equal [ "studio", "studio" ], [ machine.key, machine.name ]
       assert_equal "search", machine.access
       assert machine.helps_others?
       assert_equal [ "bob" ], machine.operators

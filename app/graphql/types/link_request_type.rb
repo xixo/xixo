@@ -22,7 +22,8 @@ module Types
     field :machine, Types::ResourceType, description: "The machine it linked up as, once it has.", method: :resource
     field :user, String, description: "The account xixo link runs as on the machine."
     field :system, String, description: "The system and its version, such as macOS 26.0 or Ubuntu 24.04 LTS."
-    field :model, String, description: "The hardware model the machine reports, such as Mac14,7. Empty when it names none."
+    field :model, String, description: "The hardware model the machine reports, such as MacBook Pro (16-inch, 2023). Empty when it names none."
+    field :kind, String, description: "What kind of machine it is: laptop, desktop, all-in-one, or server. Empty when it cannot tell."
     field :version, String, description: "The version of xixo link asking."
     field :cpus, Integer, description: "How many processor cores the machine has."
     field :memory, GraphQL::Types::BigInt, description: "The machine's memory, in bytes."
@@ -36,7 +37,7 @@ module Types
     field :named_like, String,
           description: "The key of a linked machine with the same name, while this request waits. Approving adds a second machine."
 
-    %w[user system model version cpus memory].each do |name|
+    %w[user system model kind version cpus memory].each do |name|
       define_method(name) { object.details[name] }
     end
 

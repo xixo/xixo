@@ -9,6 +9,9 @@ module Types
     field :hostname, String, description: "The name the machine gives itself."
     field :os, String
     field :arch, String
+    field :system, String, description: "The system and its version it reported when it linked up, such as macOS 26.0."
+    field :model, String, description: "The hardware model it reported when it linked up, such as MacBook Pro (16-inch, 2023)."
+    field :kind, String, description: "What kind of machine it is: laptop, desktop, all-in-one, or server. Empty when it cannot tell."
     field :version, String, description: "The version of xixo link."
     field :connected, Boolean, null: false, description: "Whether xixo link is connected to xixo now."
     field :seen_at, GraphQL::Types::ISO8601DateTime, description: "When xixo link last said anything."
@@ -57,6 +60,9 @@ module Types
     def hostname = object.machine["hostname"]
     def os = object.machine["os"]
     def arch = object.machine["arch"]
+    def system = object.about["system"]
+    def model = object.about["model"]
+    def kind = object.about["kind"]
     def version = object.machine["version"]
     def connected = object.connected?
     def seen_at = object.seen_at
