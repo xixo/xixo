@@ -44,4 +44,15 @@ describe('Passes', () => {
       screen.getByText('Waiting for a machine that can read audio and video.'),
     ).toBeTruthy()
   })
+
+  test('a pass stays on screen when an update arrives with nothing in it', async () => {
+    const { client } = fakeClient({ AnalysisProgressed: () => ({}) })
+
+    show(
+      <Passes passes={[pass({ status: 'running' })]} onSettled={() => {}} />,
+      client,
+    )
+
+    expect(await screen.findByText('running')).toBeTruthy()
+  })
 })

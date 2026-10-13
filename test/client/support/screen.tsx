@@ -51,7 +51,13 @@ export function fakeClient(answers: Record<string, Answer>) {
   const client = {
     query: ask,
     mutation: ask,
-    subscription: () => ({ subscribe: () => ({ unsubscribe() {} }) }),
+    subscription: (document: never, variables: Variables) => ({
+      subscribe: (sink: (result: unknown) => void) => {
+        const name = getOperationAST(document)?.name?.value ?? ''
+        if (answers[name]) sink(answer(document, variables))
+        return { unsubscribe() {} }
+      },
+    }),
   } as unknown as XixoClient
 
   return { client, asked }

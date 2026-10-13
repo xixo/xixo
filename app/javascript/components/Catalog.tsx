@@ -179,7 +179,7 @@ function Listing({
 
   const analyses = thinking.data?.feed?.analyses ?? []
 
-  const streamed = progressed?.analysisProgressed.analysis
+  const streamed = progressed?.analysisProgressed?.analysis
   const settled =
     streamed &&
     !OPEN.has(streamed.status) &&
