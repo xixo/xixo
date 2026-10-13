@@ -95,6 +95,26 @@ fragment LinkRequestFields on LinkRequest {
   writable
   remoteIp
   expiresAt
+  createdAt
+  user
+  system
+  model
+  version
+  cpus
+  memory
+  disks {
+    path
+    total
+    free
+  }
+  addresses
+  services {
+    kind
+    port
+  }
+  sameAddress
+  linksAs
+  namedLike
   machine {
     id
     key

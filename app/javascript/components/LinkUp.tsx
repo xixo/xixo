@@ -41,6 +41,23 @@ export interface LinkRequest {
   writable: string[]
   remoteIp?: string | null
   expiresAt: string
+  createdAt?: string
+  user?: string | null
+  system?: string | null
+  model?: string | null
+  version?: string | null
+  cpus?: number | null
+  memory?: string | number | null
+  disks?: {
+    path: string
+    total?: string | number | null
+    free?: string | number | null
+  }[]
+  addresses?: string[]
+  services?: { kind: string; port: number }[]
+  sameAddress?: boolean | null
+  linksAs?: string
+  namedLike?: string | null
   machine?: {
     id: string
     key: string
@@ -215,13 +232,44 @@ export function shortName(hostname: string) {
   return hostname.split('.')[0] || hostname
 }
 
-function folderNames(folders: string[]) {
+export function folderNames(folders: string[]) {
   return folders.map(
     (folder) => folder.split('/').filter(Boolean).pop() ?? folder,
   )
 }
 
+export function nameOf(request: LinkRequest) {
+  return request.machine?.key ?? shortName(request.hostname)
+}
+
 export function RequestCard({
+  request,
+  onChanged,
+}: {
+  request: LinkRequest
+  onChanged: () => void
+}) {
+  const about = [
+    request.system ?? systemOf(request.os, request.arch),
+    request.folders.length > 0
+      ? `shares ${folderNames(request.folders).join(', ')}`
+      : 'shares no folders',
+    request.remoteIp ? `from ${request.remoteIp}` : null,
+  ].filter(Boolean)
+
+  return (
+    <div className="linkup-request" data-status={request.status}>
+      <div className="linkup-request-name">
+        <strong>{nameOf(request)}</strong>
+        <span>{about.join(' · ')}</span>
+      </div>
+
+      <Decide request={request} onChanged={onChanged} />
+    </div>
+  )
+}
+
+export function Decide({
   request,
   onChanged,
 }: {
@@ -233,7 +281,7 @@ export function RequestCard({
   const [refused, setRefused] = useState<string | null>(null)
   const linked = request.machine
   const connected = Boolean(linked?.machine?.connected)
-  const name = linked?.key ?? shortName(request.hostname)
+  const name = nameOf(request)
 
   const decide = async (approving: boolean) => {
     setRefused(null)
@@ -245,25 +293,12 @@ export function RequestCard({
     onChanged()
   }
 
-  const about = [
-    systemOf(request.os, request.arch),
-    request.folders.length > 0
-      ? `shares ${folderNames(request.folders).join(', ')}`
-      : 'shares no folders',
-    request.remoteIp ? `from ${request.remoteIp}` : null,
-  ].filter(Boolean)
-
   return (
-    <div className="linkup-request" data-status={request.status}>
-      <div className="linkup-request-name">
-        <strong>{name}</strong>
-        <span>{about.join(' · ')}</span>
-      </div>
-
+    <>
       {request.status === 'pending' && (
         <>
           <div className="linkup-request-code">
-            <span>Check that the machine shows this code</span>
+            <span>Check that {name} shows this code</span>
             <code>{request.code}</code>
           </div>
           <div className="linkup-request-acts">
@@ -310,7 +345,7 @@ export function RequestCard({
       )}
 
       {refused && <div className="linkup-request-refused">{refused}</div>}
-    </div>
+    </>
   )
 }
 

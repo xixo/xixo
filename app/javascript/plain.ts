@@ -168,6 +168,11 @@ function size(value: number) {
     : `${gigabytes >= 10 ? Math.round(gigabytes) : gigabytes.toFixed(1)} GB`
 }
 
+export function sized(value?: number | string | null) {
+  const held = bytes(value)
+  return held ? size(held) : null
+}
+
 export function upFor(seconds?: number | null) {
   if (seconds == null) return null
 

@@ -85,11 +85,25 @@ A machine asking to link up shows in the open dialog at once. With the dialog cl
 the machine cards says so, such as "studio is asking to link up." Choose **Review** to open the
 dialog. The link the command printed opens a page with the same request.
 
-Each request shows the machine's hostname, its system, the folders it shares, the address it asked
-from, and the code it shows.
+In the dialog, each request shows the machine's name, its system, the folders it shares, the address
+it asked from, and the code it shows. The page the link opens is titled with the machine's name,
+such as **Approve studio**, and lists more about it:
 
-1. Check that the code under **It shows** matches the code the command printed on the machine.
-2. Choose **Approve**. Choose **Deny** for a machine you do not know.
+- **Shares**: each folder, whether xixo may only read it or also write into it, and the free space
+  on its disk.
+- **Runs as**: the account xixo link runs as on the machine.
+- **Hardware**: its processor cores and memory. The line under the name gives its system and model.
+- **Addresses**: the machine's own network addresses.
+- **Asked from**: the address the request came from, and whether it matches the address of the
+  browser you approve from.
+- **Found**: the model servers xixo link found on the machine.
+- **xixo link**: the version asking.
+- **Links up as**: the key the machine gets. When a machine with the same name is already linked, a
+  notice says that approving adds a second machine.
+- **Asked**: how long ago it asked, and when the request runs out.
+
+1. Check that the code on the page matches the code the command printed on the machine.
+2. Choose **Approve** followed by the machine's name. Choose **Deny** for a machine you do not know.
 
 :::caution
 Approve a machine only when it shows the same code. Anyone who can reach xixo can ask to link up a
