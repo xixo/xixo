@@ -133,7 +133,14 @@ class Resource
               sleep 1
             done
             launchctl kickstart "$service"
-            say "xixo link is running. To share Documents, Desktop, or Downloads, turn on Full Disk Access for xixo-link in System Settings, Privacy & Security."
+            say "xixo link is running."
+
+            if grep -Eq "$HOME/(Desktop|Documents|Downloads|Library/Mobile Documents)" "$dir/config.json" 2> /dev/null; then
+              say "macOS asks before xixo link reads Desktop, Documents, or Downloads."
+              say "Drag xixo-link from the Finder window into Full Disk Access, and turn it on. xixo link starts reading by itself."
+              open -R "$dir/bin/xixo-link" 2> /dev/null || true
+              open "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles" 2> /dev/null || true
+            fi
           }
 
           say "Downloading xixo link for $os on $arch."
