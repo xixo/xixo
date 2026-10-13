@@ -20,7 +20,8 @@ class LinksController < ActionController::API
   end
 
   def download
-    build = Resource::Machine::Downloads.served(params[:file])
+    file = Resource::Machine::Downloads::FILES.find { |held| held == params[:file] }
+    build = Resource::Machine::Downloads.served(file) if file
     return plain("There is no such build here.\n", :not_found) if build.nil?
 
     send_file build.path, type: "application/octet-stream", disposition: "attachment", filename: build.name

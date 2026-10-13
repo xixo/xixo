@@ -33,6 +33,7 @@ class LinkingTest < ActionDispatch::IntegrationTest
     File.binwrite(File.join(@binaries, "xixo-link-linux-amd64"), "x86 binary")
     File.binwrite(File.join(@binaries, "xixo-link-darwin-arm64"), "mac binary")
     File.binwrite(File.join(@binaries, "notes.txt"), "not a build")
+    File.binwrite(File.join(@binaries, "xixo-link-linux-riscv64"), "not a build")
     FileUtils.cp(Rails.root.join("link/xixo-link.service"), File.join(@binaries, "xixo-link.service"))
     FileUtils.cp(Rails.root.join("link/xixo-link.plist"), File.join(@binaries, "xixo-link.plist"))
     FileUtils.cp(Rails.root.join("link/xixo-link-update.service"), File.join(@binaries, "xixo-link-update.service"))
@@ -121,7 +122,8 @@ class LinkingTest < ActionDispatch::IntegrationTest
     get "/link/download/xixo-mac-reader", headers: { "HOST" => host }
     assert_response :not_found
 
-    [ "/link/download/notes.txt", "/link/download/..%2Fxixo-link.service", "/link/download/xixo-link-linux-amd64%2F..%2F..%2Fpasswd" ].each do |path|
+    [ "/link/download/notes.txt", "/link/download/..%2Fxixo-link.service", "/link/download/xixo-link-linux-amd64%2F..%2F..%2Fpasswd",
+      "/link/download/xixo-link-linux-riscv64" ].each do |path|
       get path, headers: { "HOST" => host }
       assert_not_equal "not a build", response.body, path
     end

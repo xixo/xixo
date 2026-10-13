@@ -15,6 +15,7 @@ class Resource
       RELEASES = "https://github.com/xixo/xixo/releases/download".freeze
       MANIFEST = ".release-please-manifest.json".freeze
       RELEASED = /\A\d+\.\d+\.\d+\z/
+      FILES = (%w[linux darwin].product(%w[amd64 arm64]).map { |os, arch| "xixo-link-#{os}-#{arch}" } + [ MAC_READER ]).freeze
 
       Build = Data.define(:os, :arch, :file, :path) do
         def sha256 = Downloads.digest(path)
