@@ -27,12 +27,16 @@ import (
 	"github.com/xixo/xixo/link/internal/link"
 	"github.com/xixo/xixo/link/internal/machine"
 	"github.com/xixo/xixo/link/internal/state"
+	"github.com/xixo/xixo/link/internal/terminal"
 	"github.com/xixo/xixo/link/internal/update"
 )
 
 var version = "dev"
 
-const revoked = 78
+const (
+	revoked     = 78
+	interrupted = 130
+)
 
 const (
 	accessGranted      = 75
@@ -40,17 +44,6 @@ const (
 )
 
 var revokedStatus = revoked
-
-const usage = `xixo-link connects this machine to xixo.
-
-  xixo-link setup --xixo URL --issuer URL [--config PATH] [FOLDER[:rw] ...]
-  xixo-link unit --template PATH [--user NAME] [--config PATH]
-  xixo-link up [--config PATH] [--state DIR]
-  xixo-link enroll --token - [--name NAME] [--config PATH] [--state DIR]
-  xixo-link run [--config PATH] [--state DIR] [--revoked-status N] [--updates systemd|self]
-  xixo-link update [--config PATH] [--requests DIR] [--results DIR]
-  xixo-link version
-`
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -62,7 +55,11 @@ func main() {
 			os.Exit(int(held))
 		}
 
-		fmt.Fprintln(os.Stderr, "xixo-link:", err)
+		if errors.Is(err, context.Canceled) {
+			os.Exit(interrupted)
+		}
+
+		fmt.Fprintf(os.Stderr, "%s %s\n", terminal.For(os.Stderr).Red("Error:"), err)
 
 		if errors.Is(err, link.ErrRevoked) {
 			os.Exit(revokedStatus)
@@ -73,26 +70,45 @@ func main() {
 }
 
 func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer) error {
-	if len(args) == 0 {
-		fmt.Fprint(stdout, usage)
+	if len(args) == 0 || slices.Contains([]string{"help", "-h", "-help", "--help"}, args[0]) {
+		help(stdout)
 
-		return errors.New("name a command")
+		return nil
 	}
 
 	set := flag.NewFlagSet("xixo-link "+args[0], flag.ContinueOnError)
+	set.SetOutput(io.Discard)
 	configPath := set.String("config", state.DefaultConfig, "the config file")
 	stateDir := set.String("state", state.DefaultState, "the directory holding this machine's keys")
+
+	parse := func() error {
+		return parsed(set, args, stdout)
+	}
 
 	switch args[0] {
 	case "version":
 		fmt.Fprintln(stdout, version)
 
 		return nil
+	case "status":
+		if err := parse(); err != nil {
+			return err
+		}
+
+		return status(ctx, *configPath, *stateDir, stdout)
+	case "stage":
+		releases := set.String("releases", filepath.Join(filepath.Dir(state.DefaultConfig), "releases"), "the directory that holds the versions the launch agent runs")
+
+		if err := parse(); err != nil {
+			return err
+		}
+
+		return staged(*releases)
 	case "enroll":
 		token := set.String("token", "", "the enrollment token, or - to read it from standard input")
 		name := set.String("name", "", "the name masks shows for this machine")
 
-		if err := set.Parse(args[1:]); err != nil {
+		if err := parse(); err != nil {
 			return err
 		}
 
@@ -127,23 +143,18 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 		xixo := set.String("xixo", "", "the address of xixo")
 		issuer := set.String("issuer", "", "the address of the masks issuer xixo link enrolls with")
 
-		if err := set.Parse(args[1:]); err != nil {
+		if err := parse(); err != nil {
 			return err
 		}
 
-		config, err := state.Setup(*configPath, *xixo, *issuer, set.Args())
-		if err != nil {
-			return err
-		}
+		_, err := state.Setup(*configPath, *xixo, *issuer, set.Args())
 
-		fmt.Fprintln(stdout, sharing(config))
-
-		return nil
+		return err
 	case "unit":
 		template := set.String("template", "", "the service template xixo hands out")
 		user := set.String("user", "", "the account xixo link runs as, by default this one")
 
-		if err := set.Parse(args[1:]); err != nil {
+		if err := parse(); err != nil {
 			return err
 		}
 
@@ -176,7 +187,7 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 
 		return nil
 	case "up":
-		if err := set.Parse(args[1:]); err != nil {
+		if err := parse(); err != nil {
 			return err
 		}
 
@@ -190,7 +201,7 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 		requests := set.String("requests", updateRequests, "the directory xixo link leaves update requests in")
 		results := set.String("results", runtimeDir(updateResults), "the directory this command leaves its result in")
 
-		if err := set.Parse(args[1:]); err != nil {
+		if err := parse(); err != nil {
 			return err
 		}
 
@@ -201,7 +212,7 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 		supervised := set.Bool("supervised", false, "set by the process that runs xixo link and swaps in new versions")
 		releases := set.String("releases", "", "the directory that holds the versions xixo link updated to")
 
-		if err := set.Parse(args[1:]); err != nil {
+		if err := parse(); err != nil {
 			return err
 		}
 
@@ -287,9 +298,7 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 
 		return readable(args[1])
 	default:
-		fmt.Fprint(stdout, usage)
-
-		return fmt.Errorf("%q is not a command", args[0])
+		return fmt.Errorf("%q is not a command. Run xixo-link help to see the commands", args[0])
 	}
 }
 
@@ -393,21 +402,4 @@ func workDir() string {
 	}
 
 	return work
-}
-
-func sharing(config *state.Config) string {
-	if len(config.Folders) == 0 {
-		return "Shares no folders yet."
-	}
-
-	paths := make([]string, 0, len(config.Folders))
-	for _, folder := range config.Folders {
-		paths = append(paths, folder.Path)
-	}
-
-	if len(paths) == 1 {
-		return "Shares " + paths[0] + "."
-	}
-
-	return "Shares " + strings.Join(paths[:len(paths)-1], ", ") + " and " + paths[len(paths)-1] + "."
 }

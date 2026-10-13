@@ -36,7 +36,7 @@ var (
 
 	pollUnit    = time.Second
 	remindEvery = 60
-	errUnknown  = errors.New("xixo knows no machine enrolled as this client")
+	ErrUnknown  = errors.New("xixo knows no machine enrolled as this client")
 	errAnswer   = errors.New("xixo answered with something xixo link cannot read")
 )
 
@@ -89,7 +89,7 @@ func Up(ctx context.Context, config *state.Config, held state.State, version str
 			fmt.Fprintf(out, "   Already linked up as %s. It keeps the approval it has.\n", style.Bold(linked.Name))
 
 			return nil
-		case errors.Is(err, errUnknown), errors.Is(err, ErrRevoked), masks.HasCode(err, "invalid_client"):
+		case errors.Is(err, ErrUnknown), errors.Is(err, ErrRevoked), masks.HasCode(err, "invalid_client"):
 			fmt.Fprintln(out, "   xixo no longer knows this machine, so it needs approval again.")
 		default:
 			return err
@@ -368,7 +368,7 @@ func signed(ctx context.Context, config *state.Config, held state.State, method,
 	case response.StatusCode == http.StatusOK:
 		return linkedFrom(config, answer)
 	case method == http.MethodGet && response.StatusCode == http.StatusNotFound:
-		return nil, errUnknown
+		return nil, ErrUnknown
 	case method == http.MethodGet:
 		return nil, failed("xixo did not say whether it knows this machine", response, answer)
 	}
