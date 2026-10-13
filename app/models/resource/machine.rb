@@ -306,7 +306,7 @@ class Resource
     end
 
     def carries?(resource)
-      resource.is_a?(Filesystem)
+      resource.is_a?(Filesystem) || resource.is_a?(OpenaiCompatible)
     end
 
     def reach!(_target)

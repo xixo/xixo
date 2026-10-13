@@ -4,6 +4,7 @@ require "json"
 class Resource
   class OpenaiCompatible < Resource
     include Draining
+    include Relaying
 
     DEFAULT_ROLE = "default"
     OPEN_TIMEOUT = 5
@@ -180,6 +181,8 @@ class Resource
     def json_mode? = details.fetch("json_mode", true)
 
     def base_url
+      return configured_url if relayed_by
+
       permitted!(reached(configured_url))
     end
 
@@ -197,12 +200,15 @@ class Resource
     end
 
     def answers!
-      raise Resource::Unusable, "#{key}: no models are declared — set details.models" if models.empty?
+      if models.empty?
+        raise Resource::Unusable, "#{key}: no models are picked yet. Choose a model for each job it does, such as the fast model"
+      end
 
       wanted = models.except(TRANSCRIPTION_ROLE).values.uniq
       return true if wanted.empty?
 
       served = model_names
+
       missing = wanted.reject { |name| served.include?(name) || served.include?("#{name}:latest") }
 
       if missing.any?
@@ -652,6 +658,9 @@ class Resource
       end
 
       def exchange(uri, timeout, reading: nil, &build)
+        machine = relayed_by
+        return relayed(machine, uri, timeout, reading, build.call(uri)) if machine
+
         http = Net::HTTP.new(uri.host, uri.port)
         http.ipaddr = transported_address!(uri.hostname) if via.present?
         http.use_ssl = uri.scheme == "https"
@@ -667,6 +676,17 @@ class Resource
         raise Resource::Failed, "#{key}: #{uri.host} did not answer in #{timeout}s"
       rescue SocketError, SystemCallError, OpenSSL::SSL::SSLError, IOError => e
         raise Resource::Failed, "#{key}: #{e.class} reaching #{uri.host}"
+      end
+
+      def through!
+        relayed_by ? nil : super
+      end
+
+      def away_peer
+        machine = relayed_by
+        return super if machine.nil?
+
+        machine.offline_peer(target_host)
       end
 
       def permitted!(target)

@@ -75,7 +75,7 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
         key: "bare", details: { "base_url" => @server.base_url }
       )
 
-      assert_match(/no models are declared/, assert_raises(Resource::Unusable) { bare.check! }.message)
+      assert_match(/no models are picked yet/, assert_raises(Resource::Unusable) { bare.check! }.message)
     end
   end
 
