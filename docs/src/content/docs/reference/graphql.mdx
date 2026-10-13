@@ -418,7 +418,7 @@ Resolves only for a token carrying `xixo:catalog:read`.
 | `schedule` | [`Schedule`](#schedule) |  |
 | `sentAt` | `ISO8601DateTime` | When an email says it was sent. |
 | `staged` | `Boolean!` | Uploaded, and still waiting for the pass to decide where it is stored. |
-| `summary` | `String` | What a model made of it, or until one has, the start of the text read out of it. |
+| `summary` | `String` | What a model made of it, or until one has, the start of its text. The text OCR reads off an image is never shown here. |
 | `tags` | [`[Feed!]!`](#feed) | The tags it is filed under: those a person or agent chose, and those its analysis found in it. The tags most items share come first. |
 | `thread` | [`[Feed!]!`](#feed) | The messages of an email's thread that this token can read, oldest first, this one included. Empty for anything that is not an email with others in its thread. |
 | `thumbnailUrl` | `String` |  |
@@ -426,6 +426,7 @@ Resolves only for a token carrying `xixo:catalog:read`.
 | `timeout` | `Int` | Seconds an analysis of it may run, when someone set it. Null gets the default. |
 | `title` | `String` |  |
 | `type` | `String!` | What it is, and how it renders: xixo:file, xixo:note, xixo:address, xixo:tag, xixo:mime. |
+| `unsummarized` | `String` | Why a model has not written its summary: the error its last try ended with, or what it lacked, such as a model that reads images. Empty once it has a summary. |
 
 ### FeedAnalyzedPayload
 

@@ -291,7 +291,7 @@ class AnalyzeFeedJob < ApplicationJob
     end
 
     def finish
-      analysis&.finished!
+      analysis&.finished!(error: analysis.summary_failure)
     end
 
     def gate_out

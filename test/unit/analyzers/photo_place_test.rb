@@ -14,7 +14,8 @@ class PhotoPlaceTest < ActiveSupport::TestCase
 
   def analyzed(location, name: "market.jpg")
     FakeLink.script = lambda do |*|
-      FakeLink.extracted({ "dimensions" => { "width" => 640, "height" => 480 }, "location" => location }, extractor: "image")
+      FakeLink.extracted({ "dimensions" => { "width" => 640, "height" => 480 }, "location" => location },
+                         files: [ { role: "preview", name: "preview.jpg" } ], extractor: "image")
     end
 
     Tenant.switch(@tenant) do

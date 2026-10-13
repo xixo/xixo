@@ -122,8 +122,8 @@ module Analyzer
       SAYS
     end
 
-    def summary_shape(says = SAYS)
-      <<~SHAPE
+    def summary_shape(says = SAYS, first: {})
+      shape = <<~SHAPE
         Return ONLY valid JSON, no markdown and no explanation:
         {"entities": ["..."], "summary": "...", "tags": ["...", "..."]}
 
@@ -138,6 +138,10 @@ module Analyzer
           account or reference number. Four words at most.
           No word that would match anything: not #{STOPWORDS.first(8).join(', ')}.
       SHAPE
+      return shape if first.empty?
+
+      shape.sub('{"entities"', "{#{first.keys.map { |key| %("#{key}": "...", ) }.join}\"entities\"")
+           .sub("- entities:", "#{first.map { |key, said| "- #{key}: #{said}\n" }.join}- entities:")
     end
 
     STOPWORDS = %w[

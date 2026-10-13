@@ -234,6 +234,14 @@ pre,
   flex: none;
 }
 
+.item-unsummarized {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--muted);
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+
 .item-summary {
   margin: 0;
   max-width: 68ch;

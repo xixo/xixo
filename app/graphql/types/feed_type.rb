@@ -22,7 +22,11 @@ module Types
     field :expires_at, GraphQL::Types::ISO8601DateTime,
           description: "When it is forgotten, unless it is kept. Null for a feed that lasts forever."
     field :summary, String,
-          description: "What a model made of it, or until one has, the start of the text read out of it."
+          description: "What a model made of it, or until one has, the start of its text. The text OCR " \
+                       "reads off an image is never shown here."
+    field :unsummarized, String,
+          description: "Why a model has not written its summary: the error its last try ended with, or " \
+                       "what it lacked, such as a model that reads images. Empty once it has a summary."
     field :details, [ Types::DetailType ], null: false,
           description: "Everything its last analysis read out of it that has a name and a value, " \
                        "such as embedded metadata, dimensions, and document info, grouped by where it came from."
@@ -70,7 +74,7 @@ module Types
 
     def excerpt
       passed = object.analysis
-      said = passed && (passed.step_result("text").presence || passed.step_result("ocr").presence)
+      said = passed&.step_result("text").presence
       said = object.note if said.blank?
 
       Citation.stripped(said).gsub(/[*`]+/, "").gsub(/[#>|\\]+/, " ").squish.truncate(SUMMARY).presence
@@ -78,6 +82,10 @@ module Types
 
     def details
       Details.of(object.analysis)
+    end
+
+    def unsummarized
+      object.analysis&.unsummarized
     end
 
     def connected_count = object.connected.readable_by(context[:grant]).count

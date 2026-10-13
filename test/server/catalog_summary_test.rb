@@ -1,7 +1,7 @@
 require "test_helper"
 
 class CatalogSummaryTest < ActionDispatch::IntegrationTest
-  FEED = "query($id: ID) { feed(id: $id) { summary } }".freeze
+  FEED = "query($id: ID) { feed(id: $id) { summary unsummarized } }".freeze
 
   setup do
     SearchIndex.reset!
@@ -43,14 +43,69 @@ class CatalogSummaryTest < ActionDispatch::IntegrationTest
     assert_nil summary_of(feed)
   end
 
+  test "the text OCR read off a screenshot is never offered as its summary" do
+    feed = Tenant.switch(@tenant) do
+      held = Feed.create!(type: Feed::FILE, key: "Screenshot.png", title: "Screenshot.png")
+      Analysis.open!(feed: held, cause: "upload").tap do |analysis|
+        analysis.write_step!("ocr", { "result" => "» Quickstart masks X fq All Search powere X masks" })
+        analysis.finished!
+      end
+      held
+    end
+
+    assert_nil summary_of(feed)
+  end
+
+  test "an image no model could read says why it has no summary" do
+    feed = Tenant.switch(@tenant) do
+      held = Feed.create!(type: Feed::FILE, key: "dog.jpeg", title: "dog.jpeg")
+      Analysis.open!(feed: held, cause: "upload").tap do |analysis|
+        analysis.write_step!("dropped", { "result" => { "summary" => "No model backend reads images, so it was not described." } })
+        analysis.finished!
+      end
+      held
+    end
+
+    assert_nil summary_of(feed)
+    assert_equal "No model backend reads images, so it was not described.", feed_field(feed, "unsummarized")
+  end
+
+  test "a summary that failed says what went wrong, and a written one clears it" do
+    feed = Tenant.switch(@tenant) do
+      held = Feed.create!(type: Feed::FILE, key: "dog.jpeg", title: "dog.jpeg")
+      Analysis.open!(feed: held, cause: "upload").tap do |analysis|
+        analysis.write_step!("summary", { "finished_at" => Time.current.iso8601(3),
+                                          "error" => { "class" => "Resource::Unusable", "message" => "ollama answered 400" } })
+        analysis.finished!
+      end
+      held
+    end
+
+    assert_equal "The summary failed. ollama answered 400", feed_field(feed, "unsummarized")
+
+    Tenant.switch(@tenant) do
+      Analysis.open!(feed: feed, cause: "manual").tap do |analysis|
+        analysis.write_step!("summary", { "result" => { "summary" => "A Pomeranian on a lawn." } })
+        analysis.finished!
+      end
+    end
+
+    assert_nil feed_field(feed, "unsummarized")
+    assert_equal "A Pomeranian on a lawn.", summary_of(feed)
+  end
+
   private
 
     def summary_of(feed)
+      feed_field(feed, "summary")
+    end
+
+    def feed_field(feed, name)
       post "/graphql",
            params: { query: FEED, variables: { id: feed.id.to_s }.to_json },
            headers: { "HOST" => "#{@tenant.subdomain}.xixo.test" }.merge(bearer)
 
-      response.parsed_body.dig("data", "feed", "summary")
+      response.parsed_body.dig("data", "feed", name)
     end
 
     def bearer

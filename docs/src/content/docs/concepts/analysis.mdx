@@ -186,7 +186,14 @@ included, and records them under the step `location`. A GPS block with no positi
 location. When a **Places** resource has **Name where photos were taken** on, `Image` asks that
 resource for the address, records it under the step `place`, and tells the summary where the photo
 was taken. The vision model's description of the image is its summary, and `Image` keeps it under
-`caption` too. A GIF, WebP, or APNG records how many frames it has under the step `frames`. With more
+`caption` too. Before the hi-res image goes to the vision model, the server shrinks it to fit 1,024
+pixels on its longest edge, lays a transparent one on white, and saves it as a JPEG with no metadata,
+so no EXIF tags or GPS position reach the model. The prompt asks for what the picture shows, and for
+a first tag that says what kind of picture it is: photo, screenshot, scan, drawing, diagram, chart,
+or meme. The text OCR read off the image goes along to help the model tell what the image is about,
+and the model is told not to copy it out. That text stays searchable, and it is never shown as the
+summary. With no model that reads images, the image gets no summary, and its item page says why and
+which model to set. A GIF, WebP, or APNG records how many frames it has under the step `frames`. With more
 than one, xixo link sends frames spread evenly across it, the server keeps them in the `derived`
 store, and the vision model is sent them in order and told it is looking at an animation. How many
 frames it is sent is set by two [settings](/concepts/tenants/#settings), four by default.
@@ -237,7 +244,10 @@ Every analyzer inherits the same sequence from `Analyzer::Base`:
    and up to 8 tags. It drops
    stopwords and tags longer than four words. When the analysis finishes, the feed is
    [filed under](/concepts/feeds/) the tags. If no resource
-   serves the role, there is no summary and no tags.
+   serves the role, there is no summary and no tags. When the call fails, the analysis ends as
+failed with the reason, and the item page shows it until a later analysis writes a summary. A
+change to an inference resource's settings analyzes again every file whose summary failed or was
+never written.
 
 If extract, analyze, or summarize fails, xixo skips that part and continues. The reference is marked
 analyzed either way.

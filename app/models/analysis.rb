@@ -213,6 +213,12 @@ class Analysis < ApplicationRecord
     held
   end
 
+  def earlier?(held)
+    Time.iso8601(held["finished_at"].to_s) < created_at
+  rescue ArgumentError
+    true
+  end
+
   def extracted
     steps.slice(*SOURCE).values.filter_map { |held| held["result"] }
   end
@@ -229,6 +235,23 @@ class Analysis < ApplicationRecord
 
   def summary
     step_result("summary").to_h["summary"].presence
+  end
+
+  def summary_failure
+    held = step("summary")
+    said = held.dig("error", "message").presence
+    return nil if said.nil? || held.key?("result") || earlier?(held)
+
+    "The summary failed. #{said}"
+  end
+
+  def unsummarized
+    return nil if summary
+
+    failed = step("summary").dig("error", "message").presence
+    return "The summary failed. #{failed}" if failed
+
+    step_result(Analyzer::Base::LEFT_OUT).to_h["summary"].presence
   end
 
   def tags

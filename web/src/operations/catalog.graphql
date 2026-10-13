@@ -85,6 +85,7 @@ query FeedDetail($id: ID!) {
     ...Row
     asked
     note
+    unsummarized
     expiresAt
     details {
       group

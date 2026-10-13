@@ -1,8 +1,14 @@
 module FakeLink
   RECORDED = Rails.root.join("test/fixtures/extractions")
   JPEG = Base64.decode64(
-    "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////" \
-    "wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA="
+    "/9j/2wBDABALDA4MChAODQ4SERATGCgaGBYWGDEjJR0oOjM9PDkzODdASFxOQERXRTc4UG1RV19iZ2hnPk1xeXBkeFxlZ2P/2wBDARESEhgVGC" \
+    "8aGi9jQjhCY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2P/wAARCAAIAAgDASIAAhEBAxEB/8QAHwAA" \
+    "AQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2" \
+    "JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKz" \
+    "tLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtR" \
+    "EAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElK" \
+    "U1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5e" \
+    "bn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwAooooA/9k="
   ).freeze
   WAV = ("RIFF".b + [ 36 ].pack("V") + "WAVEfmt ".b + [ 16, 1, 1, 16_000, 32_000, 2, 16 ].pack("VvvVVvv") +
          "data".b + [ 0 ].pack("V")).freeze
@@ -106,7 +112,16 @@ module FakeLink
     end
 
     def placeholder(file)
+      return shaded(file["name"].to_s) if file["role"].to_s == "frame"
+
       PLACEHOLDERS.fetch(file["role"].to_s, "".b) + file["name"].to_s.b
+    end
+
+    def shaded(name)
+      require "vips"
+
+      shade = Digest::SHA256.digest(name).bytes.first
+      (Vips::Image.black(8, 8, bands: 3) + shade).cast(:uchar).jpegsave_buffer(Q: 90)
     end
 
     private

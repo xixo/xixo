@@ -240,7 +240,86 @@ class VisionTest < ActiveSupport::TestCase
       assert steps.key?("ocr")
       assert_not steps.key?("summary")
       assert reference("poster.png").analyzed_at.present?
+      assert_match(/No model backend reads images/, analysis_at("poster.png").unsummarized)
+      assert_match(/Local models: None are described\. Set the Vision model/, analysis_at("poster.png").unsummarized)
     end
+  end
+
+  test "a default model whose server says it cannot read images is never sent one" do
+    @server.shows("llama3.1:8b", "completion", "tools").shows("gemma3:4b", "completion", "vision")
+
+    Tenant.switch(@tenant) do
+      Resource::OpenaiCompatible.create!(
+        key: "ollama", name: "Local models",
+        details: { "base_url" => @server.base_url, "models" => { "default" => "llama3.1:8b" } }
+      ).make_default_inference!
+    end
+
+    analyze "poster.png"
+
+    assert_equal 0, @server.count_for("/v1/chat/completions")
+
+    Tenant.switch(@tenant) do
+      said = analysis_at("poster.png").unsummarized
+
+      assert_includes said, "The default model, llama3.1:8b, cannot read images."
+      assert_includes said, "Set the Vision model to one that reads images, such as gemma3:4b."
+    end
+  end
+
+  test "a summary the model refuses ends the analysis as failed, with the reason" do
+    inference!
+    @server.refuse(400, body: '{"error":"Multimodal data provided, but model does not support multimodal requests"}')
+
+    analyze "poster.png"
+
+    Tenant.switch(@tenant) do
+      held = analysis_at("poster.png")
+
+      assert_equal "failed", held.status
+      assert_includes held.error, "does not support multimodal requests"
+      assert_includes held.unsummarized, "The summary failed."
+    end
+  end
+
+  test "the model is asked to describe the image and to leave its text alone, and to say what kind it is" do
+    inference!
+    @server.answer_json({ kind: "Photo", summary: "A sign about a pelican count.", tags: %w[sign pelican photo] })
+
+    analyze "poster.png"
+
+    asked = @server.prompts.last
+
+    assert_includes asked, "Do not copy out its text"
+    assert_includes asked, '{"kind": "...", "entities"'
+    assert_includes asked, "kind: what kind of picture it is, one word from: photo, screenshot, scan"
+    assert_not_includes asked, "transcribe"
+
+    Tenant.switch(@tenant) do
+      assert_equal %w[photo sign pelican], steps_at("poster.png").dig("summary", "result", "tags")
+    end
+  end
+
+  test "a kind the model made up is not filed as a tag" do
+    inference!
+    @server.answer_json({ kind: "selfie of doom", summary: "A sign.", tags: %w[sign] })
+
+    analyze "poster.png"
+
+    Tenant.switch(@tenant) { assert_equal %w[sign], steps_at("poster.png").dig("summary", "result", "tags") }
+  end
+
+  test "the image the model sees is a JPEG made for it" do
+    inference!
+    @server.answer_json({ summary: "A sign." })
+
+    analyze "poster.png"
+
+    require "vips"
+    sent = Vips::Image.new_from_file(decoded(@server.attachments.last.first))
+
+    assert_equal "jpegload", sent.get("vips-loader")
+    assert_not_includes sent.get_fields, "exif-data"
   end
 
   test "a second analysis does not send the image again" do

@@ -37,6 +37,8 @@ gem "nokogiri"
 
 gem "ferrum"
 
+gem "ruby-vips", require: false
+
 gem "job-iteration"
 
 gem "json", "~> 2.21"

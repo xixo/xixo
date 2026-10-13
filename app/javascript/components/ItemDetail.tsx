@@ -473,6 +473,10 @@ export function ItemDetail() {
         <p className="item-summary">{item.summary}</p>
       )}
 
+      {!facet && !item.asked && item.unsummarized && (
+        <p className="item-unsummarized">{item.unsummarized}</p>
+      )}
+
       {item.children.length > 0 && (
         <Stack gap="var(--s3)">
           <div className="label">Contents</div>
