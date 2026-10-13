@@ -170,7 +170,7 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 			return err
 		}
 
-		return link.Up(ctx, config, state.State{Dir: *stateDir}, stdout)
+		return link.Up(ctx, config, state.State{Dir: *stateDir}, version, stdout)
 	case "run":
 		stopped := set.Int("revoked-status", revoked, "the exit status when this machine was unenrolled")
 

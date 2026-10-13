@@ -1,7 +1,10 @@
 package machine
 
 import (
+	"context"
 	"encoding/binary"
+	"os/exec"
+	"strings"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -67,4 +70,34 @@ func available(total uint64) uint64 {
 	}
 
 	return min(pages*uint64(page), total)
+}
+
+func system() string {
+	name := swVers("-productName")
+	if name == "" {
+		name = "macOS"
+	}
+
+	return strings.TrimSpace(name + " " + swVers("-productVersion"))
+}
+
+func swVers(flag string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	out, err := exec.CommandContext(ctx, "/usr/bin/sw_vers", flag).Output()
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(string(out))
+}
+
+func model() string {
+	held, err := unix.Sysctl("hw.model")
+	if err != nil {
+		return ""
+	}
+
+	return held
 }

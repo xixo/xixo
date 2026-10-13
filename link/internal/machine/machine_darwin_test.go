@@ -2,6 +2,7 @@ package machine
 
 import (
 	"encoding/binary"
+	"strings"
 	"testing"
 )
 
@@ -39,5 +40,15 @@ func TestLoadsScalesTheKernelsFixedPoint(t *testing.T) {
 
 	if short := loads(raw[:12]); short[0] != 0 {
 		t.Fatalf("a short answer gave %v", short)
+	}
+}
+
+func TestSystemAndModelOnMacOS(t *testing.T) {
+	if got := system(); !strings.HasPrefix(got, "macOS ") {
+		t.Errorf("system %q", got)
+	}
+
+	if model() == "" {
+		t.Error("no model")
 	}
 }

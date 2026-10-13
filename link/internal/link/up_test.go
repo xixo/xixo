@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/xixo/xixo/link/internal/folders"
+	"github.com/xixo/xixo/link/internal/machine"
 	"github.com/xixo/xixo/link/internal/state"
 )
 
@@ -120,6 +121,12 @@ func upFor(t *testing.T, answers ...string) (*xixoFake, *issuer, *state.Config, 
 	pollUnit = time.Millisecond
 	t.Cleanup(func() { pollUnit = before })
 
+	beforeDescribe := Describe
+	Describe = func(_ context.Context, version string, folders []string) machine.About {
+		return machine.About{User: "media", System: "Ubuntu 24.04 LTS", CPUs: 4, Version: version, Disks: []machine.Disk{{Path: folders[0], Total: 2, Free: 1}}}
+	}
+	t.Cleanup(func() { Describe = beforeDescribe })
+
 	xixo := newXixo(t, answers...)
 	masks := newIssuer(t)
 	masks.resource = xixo.URL + "/mcp"
@@ -132,7 +139,7 @@ func TestUpAsksXixoWaitsForApprovalEnrollsAndLinks(t *testing.T) {
 	xixo, masks, config, held := upFor(t, "authorization_pending", "slow_down", "approved")
 	out := &bytes.Buffer{}
 
-	if err := Up(context.Background(), config, held, out); err != nil {
+	if err := Up(context.Background(), config, held, "1.2.3", out); err != nil {
 		t.Fatal(err)
 	}
 
@@ -149,6 +156,10 @@ func TestUpAsksXixoWaitsForApprovalEnrollsAndLinks(t *testing.T) {
 		t.Fatalf("asked %+v", xixo.asked)
 	}
 
+	if xixo.asked.Details.User != "media" || xixo.asked.Details.Version != "1.2.3" || xixo.asked.Details.Disks[0].Path != "/srv/media" {
+		t.Fatalf("described %+v", xixo.asked.Details)
+	}
+
 	if xixo.polled != 3 || xixo.bound != "device-secret" || xixo.signedBy != "DPoP at" {
 		t.Fatalf("polled %d bound %q signed %q", xixo.polled, xixo.bound, xixo.signedBy)
 	}
@@ -158,7 +169,7 @@ func TestUpAsksXixoWaitsForApprovalEnrollsAndLinks(t *testing.T) {
 	}
 
 	again := &bytes.Buffer{}
-	if err := Up(context.Background(), config, held, again); err != nil || again.String() != "Already linked up as nas.\n" || xixo.started != 1 {
+	if err := Up(context.Background(), config, held, "1.2.3", again); err != nil || again.String() != "Already linked up as nas.\n" || xixo.started != 1 {
 		t.Fatalf("up again printed %q, started %d, %v", again, xixo.started, err)
 	}
 }
@@ -170,7 +181,7 @@ func TestUpStartsAFreshRequestWhenXixoForgotTheMachine(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := Up(context.Background(), config, held, io.Discard); err != nil {
+	if err := Up(context.Background(), config, held, "1.2.3", io.Discard); err != nil {
 		t.Fatal(err)
 	}
 
@@ -182,13 +193,13 @@ func TestUpStartsAFreshRequestWhenXixoForgotTheMachine(t *testing.T) {
 func TestUpStopsWhenXixoDeniesOrTheRequestRunsOut(t *testing.T) {
 	_, _, config, held := upFor(t, "authorization_pending", "access_denied")
 
-	if err := Up(context.Background(), config, held, io.Discard); !errors.Is(err, ErrDenied) {
+	if err := Up(context.Background(), config, held, "1.2.3", io.Discard); !errors.Is(err, ErrDenied) {
 		t.Fatalf("denied gave %v", err)
 	}
 
 	_, _, config, held = upFor(t, "expired_token")
 
-	if err := Up(context.Background(), config, held, io.Discard); !errors.Is(err, ErrExpired) {
+	if err := Up(context.Background(), config, held, "1.2.3", io.Discard); !errors.Is(err, ErrExpired) {
 		t.Fatalf("expired gave %v", err)
 	}
 
@@ -206,7 +217,7 @@ func TestUpSaysWhyXixoRefusedTheRequest(t *testing.T) {
 
 	config := &state.Config{Xixo: xixo.URL, Issuer: "https://id.example"}
 
-	err := Up(context.Background(), config, state.State{Dir: t.TempDir()}, io.Discard)
+	err := Up(context.Background(), config, state.State{Dir: t.TempDir()}, "1.2.3", io.Discard)
 	if err == nil || !strings.Contains(err.Error(), "Too many requests") {
 		t.Fatalf("got %v", err)
 	}
@@ -217,7 +228,7 @@ func TestUpStopsWhenItsContextEnds(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	if err := Up(ctx, config, held, io.Discard); !errors.Is(err, context.DeadlineExceeded) {
+	if err := Up(ctx, config, held, "1.2.3", io.Discard); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("got %v", err)
 	}
 }

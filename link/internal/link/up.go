@@ -16,6 +16,7 @@ import (
 
 	masks "github.com/masksrb/masks/go"
 	"github.com/xixo/xixo/link/internal/dial"
+	"github.com/xixo/xixo/link/internal/machine"
 	"github.com/xixo/xixo/link/internal/state"
 )
 
@@ -35,11 +36,16 @@ var (
 )
 
 type Asking struct {
-	Hostname string   `json:"hostname"`
-	OS       string   `json:"os"`
-	Arch     string   `json:"arch"`
-	Folders  []string `json:"folders"`
-	Writable []string `json:"writable"`
+	Hostname string        `json:"hostname"`
+	OS       string        `json:"os"`
+	Arch     string        `json:"arch"`
+	Folders  []string      `json:"folders"`
+	Writable []string      `json:"writable"`
+	Details  machine.About `json:"details"`
+}
+
+var Describe = func(ctx context.Context, version string, folders []string) machine.About {
+	return machine.New().About(ctx, version, folders)
 }
 
 type Started struct {
@@ -61,7 +67,7 @@ type said struct {
 	Description string `json:"error_description"`
 }
 
-func Up(ctx context.Context, config *state.Config, held state.State, out io.Writer, options ...masks.Option) error {
+func Up(ctx context.Context, config *state.Config, held state.State, version string, out io.Writer, options ...masks.Option) error {
 	if _, err := held.Registration(); err == nil {
 		told, err := linkedAs(ctx, config, held, options...)
 
@@ -88,6 +94,8 @@ func Up(ctx context.Context, config *state.Config, held state.State, out io.Writ
 			asking.Writable = append(asking.Writable, folder.Path)
 		}
 	}
+
+	asking.Details = Describe(ctx, version, asking.Folders)
 
 	started, err := start(ctx, config, asking)
 	if err != nil {
