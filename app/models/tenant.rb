@@ -133,6 +133,10 @@ class Tenant < ApplicationRecord
       issuer_for(subdomain_for(request.host))
     end
 
+    def issuer_origin(request)
+      Masks::Client::Nonces.origin(issuer_url(request))
+    end
+
     def issuer_for(subdomain)
       return EmbeddedIssuer.url(origin_for(subdomain)) if EmbeddedIssuer.on?
 

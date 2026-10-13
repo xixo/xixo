@@ -48,6 +48,8 @@ without `XIXO_PUBLIC_ORIGIN`, so the audience never comes from a request's `Host
 - The scopes a token holds decide what it reaches. A GraphQL field that names a scope refuses a
   token without it, and an MCP tool the token cannot use is left out of `tools/list`. See
   [scopes](/reference/scopes/).
+- The session cookie is `HttpOnly`, `Secure` in production, and `SameSite=Lax`, so a request another
+  site starts does not carry it.
 - A browser request carrying the session cookie also needs the page's CSRF token. A request with a
   bearer token does not.
 - `POST /share` receives what a phone's share sheet sends, which carries no CSRF token. It accepts a
@@ -124,6 +126,16 @@ A snapshot renders an untrusted page in headless Chrome.
 - A render has 120 seconds, a height of 20,000 pixels, and 25 MB.
 
 See [snapshots](/concepts/adding/#snapshots).
+
+## The app's pages
+
+Every page xixo serves carries a `Content-Security-Policy`.
+
+- Script runs only from xixo's own origin, or inline with a nonce made fresh for each page.
+- Pictures load from xixo, `data:` and `blob:` addresses, and the tenant's masks issuer, which draws
+  avatars. Requests go only to xixo itself.
+- No plugin loads, `<base>` cannot move relative links, and no other site may frame a page.
+- Inline styles are allowed, since the interface library sets them.
 
 ## Serving files
 

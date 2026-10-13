@@ -1,6 +1,8 @@
 class ContentController < ApplicationController
   include Granted
 
+  content_security_policy false
+
   CHUNK = 64.kilobytes
   INLINE = %w[
     image/png image/jpeg image/gif image/webp image/avif image/bmp
