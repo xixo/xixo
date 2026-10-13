@@ -148,3 +148,64 @@ func TestAWriteStreamsIntoTheFolderAndKeepsItsTime(t *testing.T) {
 		t.Errorf("a write left %v behind", left)
 	}
 }
+
+func TestARelayedWriteFetchesTheUploadPartByPartAndWaitsForTheRest(t *testing.T) {
+	folder := t.TempDir()
+	body := make([]byte, 900<<10)
+	rand.Read(body)
+	finished := make(chan struct{})
+
+	var cable *fake.Cable
+	var dpop *masks.Key
+	var held *Link
+
+	cable = fake.NewCable(t, "link-token", "", func(socket *fake.Socket) {
+		defer close(finished)
+
+		socket.Subscribe(identifier)
+		socket.Next()
+		socket.Next()
+
+		cable.StageRelayed(uploadID, body, 300<<10)
+
+		socket.Ask(identifier, map[string]any{"request": writeID, "verb": "write", "args": map[string]any{
+			"folder": folder, "path": "big/clip.mov", "upload": uploadID, "size": len(body), "relayed": true,
+		}})
+
+		got := gather(socket, 1)
+
+		if got.done[writeID]["ok"] != true {
+			t.Errorf("write answered %v", got.done[writeID])
+		}
+
+		socket.Close()
+	})
+
+	held, dpop = linkFor(t, cable.URL, folder, time.Now().Add(time.Hour))
+	held.Folders = folders.New([]folders.Shared{{Path: folder, Writable: true}})
+	held.Tools = []string{state.ToolWrite}
+	cable.Thumbprint = dpop.Thumbprint()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	held.Session(ctx)
+	<-finished
+
+	written, err := os.ReadFile(filepath.Join(folder, "big", "clip.mov"))
+	if err != nil || !bytes.Equal(written, body) {
+		t.Fatalf("the written file holds %d bytes: %v", len(written), err)
+	}
+
+	asked := cable.Asked(uploadID)
+	want := []int64{0, 0, 300 << 10, 300 << 10, 600 << 10, 600 << 10}
+	if len(asked) != len(want) {
+		t.Fatalf("the upload was asked for from %v", asked)
+	}
+
+	for index := range want {
+		if asked[index] != want[index] {
+			t.Fatalf("the upload was asked for from %v", asked)
+		}
+	}
+}

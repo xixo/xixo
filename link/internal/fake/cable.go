@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -39,6 +40,14 @@ type Cable struct {
 	proofs  []Proof
 	refused int
 	uploads map[string][]byte
+	relays  map[string]*relay
+}
+
+type relay struct {
+	body  []byte
+	piece int
+	asked []int64
+	idle  bool
 }
 
 func NewCable(t *testing.T, token, thumbprint string, handle func(*Socket)) *Cable {
@@ -72,6 +81,53 @@ func (c *Cable) Stage(id string, body []byte) {
 	}
 
 	c.uploads[id] = body
+}
+
+func (c *Cable) StageRelayed(id string, body []byte, piece int) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if c.relays == nil {
+		c.relays = map[string]*relay{}
+	}
+
+	c.relays[id] = &relay{body: body, piece: piece}
+}
+
+func (c *Cable) Asked(id string) []int64 {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if held, ok := c.relays[id]; ok {
+		return append([]int64(nil), held.asked...)
+	}
+
+	return nil
+}
+
+func (c *Cable) part(response http.ResponseWriter, request *http.Request, held *relay) {
+	from, err := strconv.ParseInt(request.URL.Query().Get("from"), 10, 64)
+	if err != nil || from < 0 || from > int64(len(held.body)) {
+		http.Error(response, "from", http.StatusRequestedRangeNotSatisfiable)
+
+		return
+	}
+
+	c.lock.Lock()
+	held.asked = append(held.asked, from)
+	held.idle = !held.idle
+	idle := held.idle
+	c.lock.Unlock()
+
+	if idle || from == int64(len(held.body)) {
+		response.WriteHeader(http.StatusNoContent)
+
+		return
+	}
+
+	end := min(from+int64(held.piece), int64(len(held.body)))
+	response.Header().Set("Content-Length", fmt.Sprint(end-from))
+	response.Write(held.body[from:end])
 }
 
 func (c *Cable) serve(response http.ResponseWriter, request *http.Request) {
@@ -138,6 +194,16 @@ func (c *Cable) upload(response http.ResponseWriter, request *http.Request) {
 	}
 
 	id := strings.TrimPrefix(request.URL.Path, "/link/uploads/")
+
+	c.lock.Lock()
+	relayed, ok := c.relays[id]
+	c.lock.Unlock()
+
+	if ok {
+		c.part(response, request, relayed)
+
+		return
+	}
 
 	c.lock.Lock()
 	body, ok := c.uploads[id]

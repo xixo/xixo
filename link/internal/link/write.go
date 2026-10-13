@@ -2,6 +2,7 @@ package link
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/xixo/xixo/link/internal/folders"
@@ -21,6 +22,7 @@ type Writing struct {
 	Size       int64      `json:"size"`
 	Replace    bool       `json:"replace"`
 	ModifiedAt *time.Time `json:"modified_at,omitempty"`
+	Relayed    bool       `json:"relayed,omitempty"`
 }
 
 type Removing struct {
@@ -68,21 +70,47 @@ func (a *Link) written(ctx context.Context, wanted Writing) (any, error) {
 		return nil, ErrTooLarge
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, fetchedWithin(wanted.Size))
+	cancel := context.CancelFunc(func() {})
+	if !wanted.Relayed {
+		ctx, cancel = context.WithTimeout(ctx, fetchedWithin(wanted.Size))
+	}
 	defer cancel()
 
-	response, err := a.upload(ctx, wanted.Upload, wanted.Size)
+	body, err := a.body(ctx, wanted)
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer body.Close()
 
 	modified := time.Time{}
 	if wanted.ModifiedAt != nil {
 		modified = *wanted.ModifiedAt
 	}
 
-	return a.Folders.WriteModified(wanted.Folder, wanted.Path, response.Body, wanted.Size, wanted.Replace, modified)
+	return a.Folders.WriteModified(wanted.Folder, wanted.Path, body, wanted.Size, wanted.Replace, modified)
+}
+
+func (a *Link) body(ctx context.Context, wanted Writing) (io.ReadCloser, error) {
+	if !wanted.Relayed {
+		response, err := a.upload(ctx, wanted.Upload, wanted.Size)
+		if err != nil {
+			return nil, err
+		}
+
+		return response.Body, nil
+	}
+
+	if !uploadName.MatchString(wanted.Upload) {
+		return nil, ErrNoUpload
+	}
+
+	reader, writer := io.Pipe()
+
+	go func() {
+		writer.CloseWithError(a.relayed(ctx, wanted.Upload, wanted.Size, writer))
+	}()
+
+	return reader, nil
 }
 
 func (a *Link) remove(ctx context.Context, asked *Request) {

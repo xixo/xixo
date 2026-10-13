@@ -375,7 +375,7 @@ xixo sends a request as the `message` of a broadcast on the subscription:
 | `hash` | `folder`, `path` | `{"sha256","size"}` |
 | `extract` | `source`, `size`, `mime`, `filename`, `skip`, `settings` | each made file's `chunk` messages, then the steps and the list of files |
 | `derive` | as `extract` | the thumbnail and preview alone |
-| `write` | `folder`, `path`, `upload`, `size`, `replace`, `modified_at` | `{"path","size","modified_at"}` |
+| `write` | `folder`, `path`, `upload`, `size`, `replace`, `modified_at`, `relayed` | `{"path","size","modified_at"}` |
 | `remove` | `folder`, `path`, `sha256`, `size`, `prune` | `{"path","size","pruned"}` |
 | `browse` | `folder`, `prefix`, `cursor`, `limit` | as `list`, 200 files at most |
 | `find` | `query`, `folder`, `limit` | `{"matches":[{"folder","path","size","modified_at"}],"visited","complete"}` |
@@ -403,7 +403,16 @@ more than a few parts at once.
 `path` inside a writable folder. It streams the upload straight into a
 temporary `.xixo-*.part` file beside the target, syncs it, and moves it into
 place, so a reader never sees a partial file and the work folder needs no room
-for it. An upload to write holds at most 1 TiB. It creates the folders on the way inside the shared folder only.
+for it. An upload to write holds at most 1 TiB.
+
+With `relayed`, the upload is still arriving from another machine while xixo
+link writes it. xixo link asks for it part by part, as
+`<xixo>/link/uploads/<id>?from=N`, where `N` is the number of bytes it already
+has. xixo answers with the next bytes it holds, or with 204 when it holds none
+yet, and xixo link asks again after a pause that doubles from 50 milliseconds
+up to one second. Each request is short, so a slow machine at the other end
+never ties up xixo's web server. A write that gets no new bytes for two
+minutes fails. It creates the folders on the way inside the shared folder only.
 It refuses a read-only or unshared folder, a link anywhere on the path, a name
 a walk skips, and bytes that do not match `size`. Without `replace` it refuses
 to overwrite an existing file. With `modified_at`, an RFC 3339 time, the file
