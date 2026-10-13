@@ -23,6 +23,9 @@ class Resource
     TOOL_ROLES = [ AGENT_ROLE ].freeze
     EMBEDDING_ROLE = "embedding"
     TRANSCRIPTION_ROLE = "transcription"
+    VISION_ROLE = "vision"
+    SEES = "vision"
+    SIGHTED = [ /\Agemma3/, /\Aqwen2\.5-?vl/, /\Allava/, /\Allama3\.2-vision/ ].freeze
     TRANSCRIBE_TIMEOUT = 900
     HEARD_TYPE = "audio/wav"
     SAMPLE_RATE = 16_000
@@ -77,7 +80,10 @@ class Resource
           field("base_url", "Base URL", required: true, placeholder: "http://127.0.0.1:11434/v1"),
           field("models.fast", "Fast model", help: "Short summaries and titles."),
           field("models.smart", "Smart model", help: "Longer reasoning."),
-          field("models.vision", "Vision model", help: "Anything that has to look at an image."),
+          field("models.vision", "Vision model",
+                help: "What describes an image. It has to read images, as gemma3:4b does. " \
+                      "Left blank, xixo picks one the backend serves when its server says which can. " \
+                      "Otherwise images go to the default model, unless its server says it cannot read them."),
           field("models.agent", "Agent model", help: "What a feed drives. It has to call tools."),
           field("models.embedding", "Embedding model",
                 help: "What search compares meaning with. Its vectors have to be the width " \
@@ -162,7 +168,50 @@ class Resource
     end
 
     def serves_role?(role)
-      models.key?(role.to_s) || models.key?(DEFAULT_ROLE)
+      return true if models.key?(role.to_s)
+      return false unless models.key?(DEFAULT_ROLE)
+
+      role.to_s != VISION_ROLE || sees?(models[DEFAULT_ROLE])
+    end
+
+    def sees?(model)
+      held = capabilities_known(model)
+      held.nil? || held.include?(SEES)
+    end
+
+    def blind?(model)
+      !sees?(model)
+    end
+
+    def model_capabilities
+      details.to_h["model_capabilities"].to_h
+    end
+
+    def seeing_models
+      model_capabilities.select { |_, can| Array(can).include?(SEES) }.keys.map { |name| name.delete_suffix(":latest") }
+    end
+
+    def sight_said
+      chatting = models.except(TRANSCRIPTION_ROLE, EMBEDDING_ROLE)
+      return nil if chatting.empty?
+
+      seeing = chatting[VISION_ROLE]
+      fallback = chatting[DEFAULT_ROLE]
+      return "#{seeing} reads them." if seeing && sees?(seeing)
+      return "None are described. #{seeing} cannot read images. #{set_vision}" if seeing
+      return "None are described. #{set_vision}" if fallback.nil?
+      return "None are described. The default model, #{fallback}, cannot read images. #{set_vision}" if blind?(fallback)
+      return "The default model, #{fallback}, reads them, since no vision model is set." if capabilities_known(fallback)
+
+      "The default model, #{fallback}, gets them, since no vision model is set. Its server does not say " \
+        "whether it reads images."
+    end
+
+    def set_vision
+      offered = seeing_models.first(3)
+      return "Set the Vision model to one that reads images, such as gemma3:4b." if offered.empty?
+
+      "Set the Vision model to one that reads images: #{offered.to_sentence(two_words_connector: ' or ', last_word_connector: ', or ')}."
     end
 
     def declares_role?(role)
@@ -214,7 +263,29 @@ class Resource
               "#{key}: #{base_url} does not serve #{missing.join(', ')} — it serves #{served.first(8).join(', ').presence || 'nothing'}"
       end
 
+      sight!(served)
       true
+    end
+
+    def sight!(served = model_names)
+      asked = models.key?(VISION_ROLE) ? [] : served.reject { |name| name.match?(NOT_FOR_CHAT) }
+      named = (models.except(TRANSCRIPTION_ROLE, EMBEDDING_ROLE).values + asked).uniq
+      known = named.index_with { |name| capabilities_of(name) }.compact
+      return if known.empty?
+
+      remember_capabilities!(known)
+      return pick_vision!(known) unless models.key?(VISION_ROLE)
+      return if sees?(models[VISION_ROLE])
+
+      raise Resource::Unusable, "#{key}: #{models[VISION_ROLE]} cannot read images. #{set_vision}"
+    end
+
+    def pick_vision!(known)
+      sighted = known.select { |_, can| can.include?(SEES) }.keys
+      chosen = SIGHTED.lazy.filter_map { |pattern| sighted.find { |name| name.match?(pattern) } }.first || sighted.first
+      return if chosen.nil?
+
+      update!(details: details.merge("models" => models.merge(VISION_ROLE => chosen.delete_suffix(":latest"))))
     end
 
     NOT_FOR_CHAT = /embed|whisper|rerank|tts/i
@@ -505,6 +576,34 @@ class Resource
         return if routine_effort.nil? || EFFORTS.include?(routine_effort)
 
         errors.add(:details, "routine_effort is one of #{EFFORTS.join(', ')}")
+      end
+
+      def capabilities_known(model)
+        held = model_capabilities
+        name = [ model.to_s, "#{model}:latest" ].find { |candidate| held.key?(candidate) }
+        return held[name] if name
+
+        @probed ||= {}
+        return @probed[model.to_s] if @probed.key?(model.to_s)
+
+        @probed[model.to_s] = capabilities_of(model).tap do |found|
+          update_column(:details, details.merge("model_capabilities" => held.merge(model.to_s => found))) if found
+        end
+      end
+
+      def remember_capabilities!(known)
+        return if model_capabilities == known
+
+        update_column(:details, details.merge("model_capabilities" => known))
+      end
+
+      def capabilities_of(model)
+        uri = URI.parse("#{base_url.chomp('/').delete_suffix('/v1')}/api/show")
+        shown = answer(uri, OPEN_TIMEOUT) { |held| posting(held, { model: model }) }
+        held = shown["capabilities"]
+        held.is_a?(Array) ? held.map(&:to_s) : nil
+      rescue Resource::Unusable, Resource::Failed, URI::InvalidURIError
+        nil
       end
 
       def loaded_context(model)

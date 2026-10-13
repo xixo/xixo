@@ -667,6 +667,7 @@ Resolves only for a token carrying `xixo:resources:read`.
 | `personal` | `Boolean!` | Whether only the person who attached it can see and use it. |
 | `routable` | `Boolean!` | Whether it can be reached through a transport, such as a tailnet. |
 | `settings` | `JSON!` | What each field the type declares holds, for the fields kept in the clear. Nothing held encrypted is ever read back. |
+| `sight` | `String` | For a model backend, which of its models describes images, or why none does and which model to set. Empty for every other type. |
 | `syncInterval` | `Int` |  |
 | `syncable` | `Boolean!` | Whether it enumerates what it holds. One that does not, like a browser, can neither be synced nor kept on a schedule. |
 | `syncedAt` | `ISO8601DateTime` |  |

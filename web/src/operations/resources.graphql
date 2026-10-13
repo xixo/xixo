@@ -24,6 +24,7 @@ query Resources($archived: Boolean) {
     syncable
     checkedAt
     checkError
+    sight
     healthy
     checking
     offline
@@ -268,6 +269,7 @@ mutation CheckResource($id: ID!) {
       id
       checkedAt
       checkError
+      sight
       healthy
       checking
       offline

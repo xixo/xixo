@@ -37,6 +37,14 @@ inference uses the first other resource serving the role that is not down, and r
 default once a check passes. Embeddings never move this way, because a different embedding model
 forgets every vector.
 
+A model backend's `default` model answers any role the backend names no model for, except
+`vision`, `embedding`, and `transcription`. It answers `vision` only when its server does not say
+that it cannot read images. Ollama says what each model can do at `/api/show`, so a check of an
+Ollama backend records that under `model_capabilities`. When no vision model is set, the same check
+picks one the server says reads images, preferring gemma3, then qwen2.5-vl, llava, and
+llama3.2-vision. A vision model that cannot read images fails the check, and the message names models that
+can. The backend's card says which model describes images, or why none does.
+
 ## Where they come from
 
 `config/resources.yml` is ERB, keyed by environment, and reads every host and secret from the

@@ -30,6 +30,7 @@ class FakeModelServer
     @transcripts = []
     @heard = []
     @busy = 0
+    @shown = {}
     @server = TCPServer.new("127.0.0.1", 0)
     @port = @server.addr[1]
     @thread = Thread.new { serve }
@@ -63,7 +64,13 @@ class FakeModelServer
       @transcripts = []
       @heard = []
       @loaded = nil
+      @shown = {}
     end
+    self
+  end
+
+  def shows(model, *capabilities)
+    @lock.synchronize { @shown[model.to_s] = capabilities.flatten.map(&:to_s) }
     self
   end
 
@@ -236,6 +243,7 @@ class FakeModelServer
       when %r{/embeddings\z} then embeddings(body)
       when %r{/audio/transcriptions\z} then transcription(body)
       when %r{\A/api/ps\z} then loaded_payload
+      when %r{\A/api/show\z} then shown_payload(body)
       else rendered(404, "")
       end
     end
@@ -284,6 +292,16 @@ class FakeModelServer
       return rendered(404, "") if held.nil?
 
       rendered(200, JSON.generate("models" => [ held ]))
+    end
+
+    def shown_payload(body)
+      wanted = JSON.parse(body)["model"].to_s
+      held = @lock.synchronize { @shown[wanted] || @shown[wanted.delete_suffix(":latest")] }
+      return rendered(404, JSON.generate("error" => "model '#{wanted}' not found")) if held.nil?
+
+      rendered(200, JSON.generate("capabilities" => held))
+    rescue JSON::ParserError
+      rendered(400, "")
     end
 
     def models_payload

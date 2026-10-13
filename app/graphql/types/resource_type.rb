@@ -67,6 +67,9 @@ module Types
                        "link that shares it. One reached over a tailnet names the linked machine at the address it " \
                        "dials, when one is. Everything else names this server, the machine xixo runs on. Empty for " \
                        "a machine, and for anything when this server has no machine yet."
+    field :sight, String,
+          description: "For a model backend, which of its models describes images, or why none does and " \
+                       "which model to set. Empty for every other type."
     field :held_credentials, [ String ], null: false,
           description: "The names of the encrypted fields that hold something, so a form can say " \
                        "one is set without saying what it is."
@@ -91,6 +94,10 @@ module Types
 
     def machine
       object if object.is_a?(Resource::Machine)
+    end
+
+    def sight
+      object.try(:sight_said)
     end
 
     def manageable

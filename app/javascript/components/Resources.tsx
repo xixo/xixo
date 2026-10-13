@@ -104,6 +104,7 @@ interface Resource {
   checking: boolean
   checkedAt?: string | null
   checkError?: string | null
+  sight?: string | null
   offline: boolean
   offlineHost?: string | null
   offlineLastSeenAt?: string | null
@@ -1580,6 +1581,8 @@ function Details({ resource, acts }: { resource: Resource; acts: Acts }) {
       ])
     if (health) rows.push(['Health', health])
   }
+
+  if (resource.sight) rows.push(['Images', resource.sight])
 
   rows.push([
     'Checked',

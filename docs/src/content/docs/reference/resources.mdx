@@ -308,7 +308,7 @@ A model backend. Anything speaking the OpenAI chat API — ollama, LM Studio, ll
 | `base_url` | Base URL | string | yes |  |  |  |
 | `models.fast` | Fast model | string |  |  |  | Short summaries and titles. |
 | `models.smart` | Smart model | string |  |  |  | Longer reasoning. |
-| `models.vision` | Vision model | string |  |  |  | Anything that has to look at an image. |
+| `models.vision` | Vision model | string |  |  |  | What describes an image. It has to read images, as gemma3:4b does. Left blank, xixo picks one the backend serves when its server says which can. Otherwise images go to the default model, unless its server says it cannot read them. |
 | `models.agent` | Agent model | string |  |  |  | What a feed drives. It has to call tools. |
 | `models.embedding` | Embedding model | string |  |  |  | What search compares meaning with. Its vectors have to be the width the index was built for. |
 | `models.transcription` | Transcription model | string |  |  |  | What turns speech into text, through /audio/transcriptions. whisper.cpp's server, speaches, and OpenAI's whisper-1 all answer there. |
