@@ -25,7 +25,11 @@ const (
 	replacedEvery  = 5 * time.Second
 )
 
-var errRestart = errors.New("xixo link restarts into a new version")
+var (
+	errRestart     = errors.New("xixo link restarts into a new version")
+	errSystemdOnly = errors.New("--updates systemd works only when systemd runs xixo link on Linux")
+	errSelfOnly    = errors.New("--updates self works only on macOS")
+)
 
 type exitStatus int
 

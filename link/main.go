@@ -208,8 +208,16 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 		revokedStatus = *stopped
 
 		switch *updates {
-		case "", modeSystemd:
+		case "":
+		case modeSystemd:
+			if runtime.GOOS != "linux" || os.Getenv("INVOCATION_ID") == "" {
+				return errSystemdOnly
+			}
 		case modeSelf:
+			if runtime.GOOS != "darwin" {
+				return errSelfOnly
+			}
+
 			if !*supervised {
 				return supervise(ctx, args[1:], *stateDir)
 			}

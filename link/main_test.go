@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -26,6 +28,26 @@ func TestCommands(t *testing.T) {
 
 	if err := command(context.Background(), []string{"run", "--config", "/nonexistent/config.json"}, nil, out); err == nil {
 		t.Fatal("run started without a config")
+	}
+}
+
+func TestUpdatesOnlyWhereTheyWork(t *testing.T) {
+	t.Setenv("INVOCATION_ID", "")
+
+	run := func(mode string) error {
+		return command(context.Background(), []string{"run", "--config", "/nonexistent/config.json", "--updates", mode}, nil, &bytes.Buffer{})
+	}
+
+	if err := run("systemd"); !errors.Is(err, errSystemdOnly) {
+		t.Fatalf("xixo link outside systemd took --updates systemd: %v", err)
+	}
+
+	if runtime.GOOS == "darwin" {
+		return
+	}
+
+	if err := run("self"); !errors.Is(err, errSelfOnly) {
+		t.Fatalf("xixo link off macOS took --updates self: %v", err)
 	}
 }
 

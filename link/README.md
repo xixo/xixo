@@ -183,7 +183,9 @@ enrolls this way, with a token the server leaves it.
 
 `xixo-link run` connects to xixo and serves it until it is stopped.
 `--updates systemd` or `--updates self` lets it update itself, as described in
-[updates](#updates). Without the flag it ignores xixo's updates.
+[updates](#updates). Without the flag it ignores xixo's updates. `run` takes
+`--updates systemd` only on Linux when systemd started it, and `--updates self`
+only on macOS.
 
 `xixo-link update` is the Linux updater. It reads the request in
 `/run/xixo-link/update.json`, installs the build it names in place of its own
@@ -588,7 +590,10 @@ back to the build it ran.
 An administrator turns updates off for one machine on its card. The container
 beside the server never updates itself. It runs without `--updates`, so it
 says nothing about updating in `hello` and ignores an `update` message. Its
-image is pinned like the server's, and updates when the image does.
+entrypoint refuses to start xixo link with `--updates`, xixo sends no `update`
+to the machine beside the server whatever its `hello` says, and the binary in
+the image belongs to root while xixo link runs as another user. Its image is
+pinned like the server's, and updates when the image does.
 
 ### On Linux
 

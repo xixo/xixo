@@ -20,6 +20,14 @@ quoted() {
   printf '"%s"' "$1"
 }
 
+for arg in "$@"; do
+  case "$arg" in
+    -updates | -updates=* | --updates | --updates=* | -supervised* | --supervised*)
+      refuse "xixo link in this container updates with its image, so it runs without $arg"
+      ;;
+  esac
+done
+
 folders=""
 
 shared() {
