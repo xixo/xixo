@@ -44,7 +44,7 @@ class BrowserAccessTest < ActionDispatch::IntegrationTest
   end
 
   test "the app's own pages and requests with no origin carry no grant" do
-    get "/", headers: { "Origin" => ORIGIN }
+    get "/auth", headers: { "Origin" => ORIGIN }
     assert_nil response.headers["access-control-allow-origin"]
 
     post "/graphql", params: { query: "{ __typename }" }, headers: { "Origin" => ORIGIN }

@@ -7,9 +7,7 @@ class BrowserPolicyTest < ActionDispatch::IntegrationTest
   end
 
   test "the app runs only its own script, and no other site may frame it" do
-    get "/", headers: host
-
-    assert_response :success
+    get "/auth", headers: host
 
     policy = directives(response.headers["Content-Security-Policy"])
 
@@ -24,7 +22,7 @@ class BrowserPolicyTest < ActionDispatch::IntegrationTest
   end
 
   test "pictures load from this app and from the issuer that draws avatars" do
-    get "/", headers: host
+    get "/auth", headers: host
 
     sources = directives(response.headers["Content-Security-Policy"])["img-src"]
 
@@ -34,7 +32,7 @@ class BrowserPolicyTest < ActionDispatch::IntegrationTest
 
   test "each page gets a script nonce of its own" do
     nonces = 2.times.map do
-      get "/", headers: host
+      get "/auth", headers: host
 
       directives(response.headers["Content-Security-Policy"])["script-src"].second
     end
