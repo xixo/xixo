@@ -242,12 +242,18 @@ type Peeked struct {
 	Total int64  `json:"total"`
 }
 
+type Peeking struct {
+	Folder string `json:"folder"`
+	Path   string `json:"path"`
+	Limit  int64  `json:"limit,omitempty"`
+}
+
 func (a *Link) peek(raw json.RawMessage) (any, error) {
 	if err := a.lent(); err != nil {
 		return nil, err
 	}
 
-	wanted := Read{}
+	wanted := Peeking{}
 	if err := strictly(raw, &wanted); err != nil {
 		return nil, err
 	}

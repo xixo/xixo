@@ -418,7 +418,7 @@ func compare(a, b string) int {
 }
 
 type Opened struct {
-	io.ReadCloser
+	io.ReadSeekCloser
 	Size int64
 }
 
@@ -468,7 +468,7 @@ func (f *Folders) Open(folder, name string) (*Opened, error) {
 		return nil, err
 	}
 
-	return &Opened{ReadCloser: opened, Size: info.Size()}, nil
+	return &Opened{ReadSeekCloser: opened, Size: info.Size()}, nil
 }
 
 func confined(name string) (string, error) {

@@ -371,7 +371,7 @@ xixo sends a request as the `message` of a broadcast on the subscription:
 | --- | --- | --- |
 | `health` | none | The fields of a `health` message. |
 | `list` | `folder`, `cursor`, `prefix`, `limit`, `skip` | `{"entries":[{"path","size","modified_at"}],"cursor"}` |
-| `read` | `folder`, `path` | `chunk` messages, then `{"size"}` |
+| `read` | `folder`, `path`, `offset`, `length` | `chunk` messages, then `{"size"}`, or `{"size","offset","total"}` for a part |
 | `hash` | `folder`, `path` | `{"sha256","size"}` |
 | `extract` | `source`, `size`, `mime`, `filename`, `skip`, `settings` | each made file's `chunk` messages, then the steps and the list of files |
 | `derive` | as `extract` | the thumbnail and preview alone |
@@ -392,12 +392,18 @@ keeps the paths that start with it, and `skip` adds name patterns to the ones
 that are always skipped.
 
 `read` sends the file as `chunk` messages of at most 256 KiB, base64 encoded,
-numbered from 0, followed by a reply holding the number of bytes sent.
+numbered from 0, followed by a reply holding the number of bytes sent. With
+`offset`, it starts that many bytes into the file, and with `length` it sends
+at most that many bytes. The reply then also holds `offset` and `total`, the
+file's whole size. An offset past the end of the file is refused. xixo reads a
+large file part by part this way when it moves the file, so it never holds
+more than a few parts at once.
 
-`write` fetches the upload from xixo the way `extract` does, then places it at
-`path` inside a writable folder. It writes a temporary `.xixo-*.part` file
-beside the target, syncs it, and moves it into place, so a reader never sees a
-partial file. It creates the folders on the way inside the shared folder only.
+`write` fetches the upload from xixo the way `extract` does and places it at
+`path` inside a writable folder. It streams the upload straight into a
+temporary `.xixo-*.part` file beside the target, syncs it, and moves it into
+place, so a reader never sees a partial file and the work folder needs no room
+for it. An upload to write holds at most 1 TiB. It creates the folders on the way inside the shared folder only.
 It refuses a read-only or unshared folder, a link anywhere on the path, a name
 a walk skips, and bytes that do not match `size`. Without `replace` it refuses
 to overwrite an existing file. With `modified_at`, an RFC 3339 time, the file

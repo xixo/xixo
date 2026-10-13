@@ -45,7 +45,7 @@ func TestAnOpenedFileReadsBlocking(t *testing.T) {
 	}
 	defer opened.Close()
 
-	file := opened.ReadCloser.(*os.File)
+	file := opened.ReadSeekCloser.(*os.File)
 	raw, _ := file.SyscallConn()
 
 	raw.Control(func(fd uintptr) {

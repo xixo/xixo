@@ -2,8 +2,6 @@ package link
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/xixo/xixo/link/internal/folders"
@@ -11,8 +9,9 @@ import (
 )
 
 const (
-	verbWrite  = "write"
-	verbRemove = "remove"
+	verbWrite   = "write"
+	verbRemove  = "remove"
+	MostWritten = 1 << 40
 )
 
 type Writing struct {
@@ -65,33 +64,25 @@ func (a *Link) written(ctx context.Context, wanted Writing) (any, error) {
 		return nil, folders.ErrReadOnly
 	}
 
-	work, err := os.MkdirTemp(a.Work, "write-*")
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(work)
-
-	fetched, _, err := a.fetch(ctx, Extraction{
-		Source:   Source{Upload: wanted.Upload},
-		Filename: filepath.Base(wanted.Path),
-		Size:     wanted.Size,
-	}, work)
-	if err != nil {
-		return nil, err
+	if wanted.Size < 0 || wanted.Size > MostWritten {
+		return nil, ErrTooLarge
 	}
 
-	opened, err := os.Open(fetched)
+	ctx, cancel := context.WithTimeout(ctx, fetchedWithin(wanted.Size))
+	defer cancel()
+
+	response, err := a.upload(ctx, wanted.Upload, wanted.Size)
 	if err != nil {
 		return nil, err
 	}
-	defer opened.Close()
+	defer response.Body.Close()
 
 	modified := time.Time{}
 	if wanted.ModifiedAt != nil {
 		modified = *wanted.ModifiedAt
 	}
 
-	return a.Folders.WriteModified(wanted.Folder, wanted.Path, opened, wanted.Size, wanted.Replace, modified)
+	return a.Folders.WriteModified(wanted.Folder, wanted.Path, response.Body, wanted.Size, wanted.Replace, modified)
 }
 
 func (a *Link) remove(ctx context.Context, asked *Request) {

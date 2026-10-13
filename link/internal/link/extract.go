@@ -245,25 +245,45 @@ func digested(from io.Reader) (Digest, error) {
 }
 
 func (a *Link) fetch(ctx context.Context, wanted Extraction, work string) (string, Digest, error) {
-	if !uploadName.MatchString(wanted.Source.Upload) {
-		return "", Digest{}, ErrNoUpload
-	}
-
 	if wanted.Size < 0 || wanted.Size > MostUpload {
 		return "", Digest{}, ErrTooLarge
 	}
 
-	target := strings.TrimSuffix(a.Xixo, "/") + "/link/uploads/" + wanted.Source.Upload
 	kept := filepath.Join(work, "source"+safeExtension(wanted.Filename))
-	nonce := ""
 
 	ctx, cancel := context.WithTimeout(ctx, fetchedWithin(wanted.Size))
 	defer cancel()
 
+	response, err := a.upload(ctx, wanted.Source.Upload, wanted.Size)
+	if err != nil {
+		return "", Digest{}, err
+	}
+	defer response.Body.Close()
+
+	digest, err := copied(kept, io.LimitReader(response.Body, wanted.Size+1))
+	if err != nil {
+		return "", Digest{}, err
+	}
+
+	if digest.Size != wanted.Size {
+		return "", Digest{}, ErrUploadSize
+	}
+
+	return kept, digest, nil
+}
+
+func (a *Link) upload(ctx context.Context, upload string, size int64) (*http.Response, error) {
+	if !uploadName.MatchString(upload) {
+		return nil, ErrNoUpload
+	}
+
+	target := strings.TrimSuffix(a.Xixo, "/") + "/link/uploads/" + upload
+	nonce := ""
+
 	for attempt := 0; ; attempt++ {
 		response, err := a.fetched(ctx, target, nonce)
 		if err != nil {
-			return "", Digest{}, err
+			return nil, err
 		}
 
 		offered := response.Header.Get("DPoP-Nonce")
@@ -274,10 +294,19 @@ func (a *Link) fetch(ctx context.Context, wanted Extraction, work string) (strin
 			continue
 		}
 
-		digest, err := keep(response, kept, wanted.Size)
-		response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			response.Body.Close()
 
-		return kept, digest, err
+			return nil, fmt.Errorf("xixo answered the upload with %s", response.Status)
+		}
+
+		if response.ContentLength >= 0 && response.ContentLength != size {
+			response.Body.Close()
+
+			return nil, ErrUploadSize
+		}
+
+		return response, nil
 	}
 }
 
@@ -305,27 +334,6 @@ func (a *Link) fetched(ctx context.Context, target, nonce string) (*http.Respons
 
 func fetchedWithin(size int64) time.Duration {
 	return 2*time.Minute + time.Duration(size/fetchedPace)*time.Second
-}
-
-func keep(response *http.Response, kept string, size int64) (Digest, error) {
-	if response.StatusCode != http.StatusOK {
-		return Digest{}, fmt.Errorf("xixo answered the upload with %s", response.Status)
-	}
-
-	if response.ContentLength >= 0 && response.ContentLength != size {
-		return Digest{}, ErrUploadSize
-	}
-
-	digest, err := copied(kept, io.LimitReader(response.Body, size+1))
-	if err != nil {
-		return Digest{}, err
-	}
-
-	if digest.Size != size {
-		return Digest{}, ErrUploadSize
-	}
-
-	return digest, nil
 }
 
 func safeExtension(name string) string {

@@ -100,6 +100,14 @@ type Read struct {
 	Folder string `json:"folder"`
 	Path   string `json:"path"`
 	Limit  int64  `json:"limit,omitempty"`
+	Offset int64  `json:"offset,omitempty"`
+	Length int64  `json:"length,omitempty"`
+}
+
+type Ranged struct {
+	Size   int64 `json:"size"`
+	Offset int64 `json:"offset"`
+	Total  int64 `json:"total"`
 }
 
 type Glimpse struct {
@@ -553,9 +561,29 @@ func (a *Link) read(ctx context.Context, request string, wanted Read) {
 		return
 	}
 
+	ranged := wanted.Offset != 0 || wanted.Length != 0
+	if ranged && (wanted.Limit != 0 || wanted.Offset < 0 || wanted.Length < 0 || wanted.Offset > opened.Size) {
+		a.refuse(ctx, request, errors.New("a read's offset and length name a part of the file, and come without a limit"))
+
+		return
+	}
+
 	var source io.Reader = opened
 	if wanted.Limit > 0 {
 		source = io.LimitReader(opened, wanted.Limit)
+	}
+
+	if ranged {
+		if _, err := opened.Seek(wanted.Offset, io.SeekStart); err != nil {
+			a.refuse(ctx, request, err)
+
+			return
+		}
+
+		source = opened
+		if wanted.Length > 0 {
+			source = io.LimitReader(opened, wanted.Length)
+		}
 	}
 
 	buffer := make([]byte, a.Chunk)
@@ -574,7 +602,9 @@ func (a *Link) read(ctx context.Context, request string, wanted Read) {
 		}
 
 		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
-			if wanted.Limit > 0 {
+			if ranged {
+				a.reply(ctx, request, Ranged{Size: sent, Offset: wanted.Offset, Total: opened.Size})
+			} else if wanted.Limit > 0 {
 				a.reply(ctx, request, Glimpse{Size: sent, Total: opened.Size})
 			} else {
 				a.reply(ctx, request, Size{Size: sent})
