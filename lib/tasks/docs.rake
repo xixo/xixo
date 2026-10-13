@@ -1,5 +1,5 @@
 namespace :docs do
-  desc "Write the reference pages under docs/ from the code they describe, and check the ENV vars page against it"
+  desc "Write the reference pages under docs/ from the code they describe, and check the ENV vars pages against it"
   task reference: :environment do
     [
       ReferencePages::Graphql,
@@ -13,6 +13,6 @@ namespace :docs do
     drift = ReferencePages::Environment.new.drift
     abort drift.join("\n") if drift.any?
 
-    puts "checked #{ReferencePages::Environment::PAGE}"
+    ReferencePages::Environment::PAGES.each { |page| puts "checked #{page}" }
   end
 end

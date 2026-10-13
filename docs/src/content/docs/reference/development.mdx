@@ -1,0 +1,125 @@
+---
+title: Development
+description: The dev stack, its commands and test suites, and the ENV vars it reads.
+---
+
+`./dev` runs xixo for development. It needs Docker with Compose, and Ruby. It runs Rails, Vite, the
+worker, the documentation site, PostgreSQL, OpenSearch, and MinIO in the foreground, all reloading.
+
+## Commands
+
+| Command | |
+| --- | --- |
+| `./dev` or `./dev up` | Builds and runs the stack in the foreground. |
+| `./dev down` | Stops the stack and keeps its volumes. |
+| `./dev reset` | Deletes the volumes and starts over. |
+| `./dev logs [service]` | Follows one service, or all of them. |
+| `./dev ps` | Lists what is running. |
+| `./dev psql` | Opens a shell on PostgreSQL. |
+| `./dev console` | Opens a Rails console. |
+| `./dev seed` | Runs the seeds again. |
+| `./dev corpus [group]` | Indexes the reference corpus in a tenant of its own, then asks it `cases.yaml` and scores the answers. |
+| `./dev test [suite]` | Runs one test suite, or all of them. |
+| `./dev reference` | Writes the generated pages under `reference/` from the code, and checks the ENV vars on this page and on [ENV vars](/reference/environment/) against the code. |
+| `./dev delegation` | Connects an MCP server through masks and runs the whole delegation flow. |
+| `./dev fmt [--check]` | Formats everything, or checks it. |
+
+Every command takes these flags:
+
+| Flag | |
+| --- | --- |
+| `--multi` | Declares the tenants `demo` and `acme`, at `demo.xixo.localhost:8180` and `acme.xixo.localhost:8180`. Without it, one tenant named `xixo` answers at `xixo.localhost:8180`. |
+| `--embedded` | Serves masks inside xixo at `/id`, the way a self-hosted install does. Without it, xixo signs in through the masks dev stack at `http://masks.localhost:12345`, which `../masks/dev` runs. |
+
+`*.localhost` already resolves, so there is no `/etc/hosts` to edit.
+
+### Before `--embedded`
+
+The built-in masks comes from the masks checkout beside xixo, at `../masks/engine`. Its sign-in pages
+need assets that a checkout does not hold. Build them once, and again after masks' frontend changes:
+
+```sh
+(cd ../masks/server && bin/rake masks:engine_assets)
+```
+
+`./dev --embedded` and `./dev test embedded` stop with that command when the assets are missing.
+
+## Test suites
+
+| Suite | |
+| --- | --- |
+| `unit` | Models, jobs, channels, machines, tools, analyzers, and `lib`, under `test/unit`. |
+| `server` | Requests to the Rails app, under `test/server`, signing in through a fake masks issuer. |
+| `embedded` | The built-in masks, under `test/embedded`. It boots xixo with masks mounted at `/id` and walks a fresh install from masks' first-run setup to a signed-in session. |
+| `corpus` | The summary of the reference corpus, under `test/corpus`. |
+| `client` | The TypeScript client and the browser app, with `npm test`. |
+
+The Rails suites clear `XIXO_TENANT` and `XIXO_TENANTS`, so they run against several tenants whichever
+way the stack was started. CI runs each suite through `./dev test`.
+
+## ENV vars
+
+
+Read by `./dev`, the compose files, the seeds, and the test suite. A deployed server ignores them.
+
+### The dev stack
+
+`./dev` and the compose files read these from your shell. Compose also passes your shell's
+`XIXO_TENANT` to the containers, defaulting to `xixo`, and `compose.multi.yml` clears it and sets
+`XIXO_TENANTS=demo,acme`. `./dev --embedded` adds `compose.embedded.yml`, which clears
+`MASKS_ISSUER_TEMPLATE` so xixo serves its own masks at `/id`.
+
+| Variable | Default | |
+| --- | --- | --- |
+| `XIXO_PORT` | `8180` | The host port of the app, at `http://xixo.localhost:8180`. |
+| `XIXO_DOCS_PORT` | `8181` | The host port of the docs site. |
+| `XIXO_VITE_PORT` | `8182` | The host port of the Vite dev server. |
+| `XIXO_POSTGRES_PORT` | `5434` | The host port of PostgreSQL. |
+| `XIXO_OPENSEARCH_PORT` | `9201` | The host port of OpenSearch. |
+| `XIXO_MINIO_PORT` | `9000` | The host port of MinIO's S3 API. |
+| `XIXO_MINIO_CONSOLE_PORT` | `9001` | The host port of MinIO's console. |
+| `XIXO_MCP_OAUTH_PORT` | `8190` | The host port of the test MCP server that signs in with OAuth, at `http://mcp.localhost:8190`. Compose lists it in `XIXO_MCP_ORIGINS`. |
+| `XIXO_MCP_OAUTH_LIFETIME` | `120` | How many seconds the test MCP server's access tokens last. |
+| `XIXO_OLLAMA_PORT` | `11434` | The port of Ollama on the host. Compose points `OLLAMA_URL` and `XIXO_INFERENCE_ORIGINS` at it. |
+| `XIXO_WHISPER_PORT` | `11435` | The port of whisper.cpp's `whisper-server` on the host. Compose points `WHISPER_URL` and `XIXO_INFERENCE_ORIGINS` at it. |
+| `MASKS_ISSUER` | `http://masks.localhost:12345` | The masks issuer. Compose sets `MASKS_ISSUER_TEMPLATE` from it, and `compose.multi.yml` defaults it to `http://%{subdomain}.masks.localhost:12345`. |
+| `MASKS_CLIENT_DIR` | `../masks/client` | The masks client checkout that compose builds and mounts into the containers. |
+| `MASKS_CLIENT_PATH` | none | Where the `Gemfile` finds the masks client. When that directory holds a `masks.gemspec`, the gem comes from it. Otherwise the gem comes from RubyGems, or from `../masks/client` under `Gemfile.local`. Compose sets it to `/masks/client` as a build argument. |
+| `MASKS_SERVER_DIR` | `../masks/engine` | The masks engine checkout that compose builds and mounts into the containers, for the built-in masks. |
+| `MASKS_SERVER_PATH` | none | Where the `Gemfile` finds the masks engine for the built-in masks. When that directory holds a `masks-server.gemspec`, the gem comes from it, and its pages need the assets that `bin/rake masks:engine_assets` builds in masks' `server/`. Otherwise the gem comes from RubyGems. Compose sets it to `/masks/engine` as a build argument. |
+| `XIXO_LINK_HOST` | `xixo.localhost` | The host the dev stack's xixo link signs in through with `./dev --embedded`. `./dev --multi --embedded` sets it to `demo.xixo.localhost`. |
+| `MASKS_CONTAINER` | `masks-masks-1` | The masks container that `./dev delegation` runs its setup in. |
+| `MASKS_TENANT` | `masks` | The masks tenant that `./dev delegation` signs in through. |
+| `DEV_ALLOWED_HOSTS` | none | Hosts the Vite and Astro dev servers answer, separated by commas. Set by compose. |
+| `DEV_CLIENT_PORT` | none | The port the browser uses to reach the Vite or Astro dev server for live reload. Set by compose. |
+| `VITE_RUBY_HOST` | `localhost` | Where Rails finds the Vite dev server. Read by `vite_ruby`, and set by compose. |
+| `VITE_RUBY_SKIP_PROXY` | `false` | Read by `vite_ruby`, and set by compose. |
+| `DOCS_SITE` | `https://docs.xixo.network` | The docs site's published URL, for canonical links and the sitemap. The docs workflow sets it for preview deploys. |
+
+### Seeds
+
+`bin/rails db:seed` gives each tenant an `s3` resource when `S3_ENDPOINT` is set, and an
+`openai_compatible` resource when `OLLAMA_URL` is set, and another when `WHISPER_URL` is set.
+
+| Variable | Default | |
+| --- | --- | --- |
+| `S3_ENDPOINT` | none | The endpoint of the seeded `s3` resource. Set, the seeds attach it as `items-` and the tenant's subdomain. Compose sets it to `http://minio:9000`. |
+| `S3_REGION` | `us-east-1` | Its region. |
+| `S3_ACCESS_KEY_ID` | `items` | Its access key. Compose sets it to `xixo`. |
+| `S3_SECRET_ACCESS_KEY` | `xixoxixo` | Its secret key. |
+| `OLLAMA_URL` | none | The base URL of an OpenAI-compatible server, such as `http://host.docker.internal:11434/v1`. Set, the seeds attach it as `ollama` and make it the default inference resource. |
+| `OLLAMA_FAST_MODEL` | `gemma3:4b` | The model for the `fast` role. |
+| `OLLAMA_SMART_MODEL` | `llama3.1:8b` | The model for the `smart` role. |
+| `OLLAMA_VISION_MODEL` | `gemma3:4b` | The model for the `vision` role. |
+| `OLLAMA_AGENT_MODEL` | `qwen3:8b` | The model for the `agent` role. |
+| `OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text` | The model for the `embedding` role. Its vectors must have `XIXO_EMBEDDING_DIMENSIONS` dimensions. |
+| `WHISPER_URL` | none | The base URL of a server that answers `/audio/transcriptions`, such as `http://host.docker.internal:11435/v1`. Set, the seeds attach it as `whisper`, serving the `transcription` role. |
+| `WHISPER_MODEL` | `whisper-1` | The model the `whisper` resource names. whisper.cpp's server answers with the model it was started with, whatever is named. |
+
+### Tests
+
+| Variable | Default | |
+| --- | --- | --- |
+| `XIXO_TEST_SEARCH_ENGINE` | none | The URL of a real OpenSearch server for the tests. Unset, the tests use an in-process fake and skip the ones that assert what OpenSearch itself does. |
+| `TEST_ENV_NUMBER` | none | Added to the search index's alias, such as `xixo_test_2`, so parallel test workers do not share an index. The test suite sets it for each worker. |
+| `CI` | unset | Eager loads the application in tests, as production does. |

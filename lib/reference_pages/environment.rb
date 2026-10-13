@@ -1,6 +1,9 @@
 module ReferencePages
   class Environment
-    PAGE = "docs/src/content/docs/reference/environment.mdx".freeze
+    PAGES = %w[
+      docs/src/content/docs/reference/environment.mdx
+      docs/src/content/docs/reference/development.mdx
+    ].freeze
 
     RUBY = /(?:ENV(?:\.fetch)?[\[(]|Switch\.on\?\()\s*["']([A-Z][A-Z0-9_]*)["']/
     SHELL = /\$\{?([A-Z][A-Z0-9_]*)/
@@ -31,8 +34,8 @@ module ReferencePages
       found = read
       shown = listed
 
-      unlisted = found.except(*shown).map { |name, path| "#{name} is read by #{path} and missing from #{PAGE}" }
-      unread = (shown - found.keys - DEPENDENCIES).map { |name| "#{name} is listed in #{PAGE} and read by nothing" }
+      unlisted = found.except(*shown).map { |name, path| "#{name} is read by #{path} and missing from #{PAGES.join(' and ')}" }
+      unread = (shown - found.keys - DEPENDENCIES).map { |name| "#{name} is listed in #{PAGES.join(' or ')} and read by nothing" }
 
       unlisted + unread
     end
@@ -50,7 +53,7 @@ module ReferencePages
       end
 
       def listed
-        Rails.root.join(PAGE).read.scan(/^\| `([A-Z][A-Z0-9_]*)` \|/).flatten.uniq
+        PAGES.flat_map { |page| Rails.root.join(page).read.scan(/^\| `([A-Z][A-Z0-9_]*)` \|/).flatten }.uniq
       end
 
       def files(root)

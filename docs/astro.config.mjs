@@ -79,6 +79,7 @@ export default defineConfig({
             { label: "Resource types", slug: "reference/resources" },
             { label: "Scopes", slug: "reference/scopes" },
             { label: "ENV vars", slug: "reference/environment" },
+            { label: "Development", slug: "reference/development" },
           ],
         },
       ],
