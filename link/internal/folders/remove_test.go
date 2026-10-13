@@ -22,7 +22,7 @@ func TestWriteKeepsTheModifiedTimeAsked(t *testing.T) {
 	shared, _, held := writableTree(t)
 	modified := time.Date(2019, 7, 4, 12, 30, 15, 123456789, time.UTC)
 
-	written, err := held.WriteModified(shared, "photos/old.nef", strings.NewReader("raw"), 3, false, modified)
+	written, err := held.WriteModified(t.Context(), shared, "photos/old.nef", strings.NewReader("raw"), 3, false, modified)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,11 +40,11 @@ func TestWriteKeepsTheModifiedTimeAsked(t *testing.T) {
 func TestRemoveTakesOnlyTheFileWithTheBytesNamed(t *testing.T) {
 	shared, _, held := writableTree(t)
 
-	if _, err := held.Remove(shared, "a.txt", sum("not a"), 1, false); !errors.Is(err, ErrChanged) {
+	if _, err := held.Remove(t.Context(), shared, "a.txt", sum("not a"), 1, false); !errors.Is(err, ErrChanged) {
 		t.Fatalf("other bytes gave %v", err)
 	}
 
-	if _, err := held.Remove(shared, "a.txt", sum("a"), 2, false); !errors.Is(err, ErrChanged) {
+	if _, err := held.Remove(t.Context(), shared, "a.txt", sum("a"), 2, false); !errors.Is(err, ErrChanged) {
 		t.Fatalf("another size gave %v", err)
 	}
 
@@ -52,7 +52,7 @@ func TestRemoveTakesOnlyTheFileWithTheBytesNamed(t *testing.T) {
 		t.Fatalf("a file that did not match was removed: %v", err)
 	}
 
-	removed, err := held.Remove(shared, "a.txt", sum("a"), 1, false)
+	removed, err := held.Remove(t.Context(), shared, "a.txt", sum("a"), 1, false)
 	if err != nil || removed.Path != "a.txt" || removed.Size != 1 {
 		t.Fatalf("removed %+v %v", removed, err)
 	}
@@ -86,7 +86,7 @@ func TestRemoveRefusesWhatItMustNotTouch(t *testing.T) {
 	}
 
 	for _, refused := range cases {
-		_, err := held.Remove(refused.folder, refused.name, refused.sum, 1, false)
+		_, err := held.Remove(t.Context(), refused.folder, refused.name, refused.sum, 1, false)
 		if !errors.Is(err, refused.want) {
 			t.Errorf("%s in %s: got %v, want %v", refused.name, refused.folder, err, refused.want)
 		}
@@ -109,7 +109,7 @@ func TestRemovePrunesTheFoldersItEmptiedAndNoMore(t *testing.T) {
 	os.WriteFile(filepath.Join(shared, "trip", "day1", ".DS_Store"), []byte("ds"), 0o644)
 	os.WriteFile(filepath.Join(shared, "trip", "keep.txt"), []byte("keep"), 0o644)
 
-	removed, err := held.Remove(shared, "trip/day1/one.nef", sum("one"), 3, true)
+	removed, err := held.Remove(t.Context(), shared, "trip/day1/one.nef", sum("one"), 3, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +122,7 @@ func TestRemovePrunesTheFoldersItEmptiedAndNoMore(t *testing.T) {
 		t.Fatalf("a folder still holding a file was pruned: %v", err)
 	}
 
-	removed, err = held.Remove(shared, "trip/keep.txt", sum("keep"), 4, true)
+	removed, err = held.Remove(t.Context(), shared, "trip/keep.txt", sum("keep"), 4, true)
 	if err != nil || !slices.Equal(removed.Pruned, []string{"trip"}) {
 		t.Fatalf("pruned %+v %v", removed, err)
 	}
@@ -131,7 +131,7 @@ func TestRemovePrunesTheFoldersItEmptiedAndNoMore(t *testing.T) {
 		t.Fatalf("the shared folder itself was removed: %v", err)
 	}
 
-	removed, err = held.Remove(shared, "c/d/e.txt", sum("e"), 1, false)
+	removed, err = held.Remove(t.Context(), shared, "c/d/e.txt", sum("e"), 1, false)
 	if err != nil || len(removed.Pruned) != 0 {
 		t.Fatalf("pruned unasked %+v %v", removed, err)
 	}
@@ -147,7 +147,7 @@ func TestPruningKeepsAFolderThatHoldsANameNeverShared(t *testing.T) {
 	os.WriteFile(filepath.Join(shared, "project", "index.js"), []byte("js"), 0o644)
 	os.WriteFile(filepath.Join(shared, "project", "node_modules", "dep.js"), []byte("dep"), 0o644)
 
-	removed, err := held.Remove(shared, "project/index.js", sum("js"), 2, true)
+	removed, err := held.Remove(t.Context(), shared, "project/index.js", sum("js"), 2, true)
 	if err != nil || len(removed.Pruned) != 0 {
 		t.Fatalf("pruned %+v %v", removed, err)
 	}

@@ -248,7 +248,7 @@ func TestFindingStopsAtItsCaps(t *testing.T) {
 
 	held := &Link{Folders: folders.New(folders.ReadOnly(folder))}
 
-	answered, err := held.find([]byte(`{"query":"match","limit":500}`))
+	answered, err := held.find(t.Context(), []byte(`{"query":"match","limit":500}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +258,7 @@ func TestFindingStopsAtItsCaps(t *testing.T) {
 		t.Fatalf("found %d, complete %v", len(finds.Matches), finds.Complete)
 	}
 
-	if _, err := held.find([]byte(`{"query":"` + strings.Repeat("a", MostQuery+1) + `"}`)); err != ErrNoQuery {
+	if _, err := held.find(t.Context(), []byte(`{"query":"`+strings.Repeat("a", MostQuery+1)+`"}`)); err != ErrNoQuery {
 		t.Fatalf("a long query gave %v", err)
 	}
 }

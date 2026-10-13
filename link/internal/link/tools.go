@@ -102,9 +102,9 @@ func (a *Link) tool(ctx context.Context, asked *Request) {
 
 	switch asked.Verb {
 	case verbBrowse:
-		answered, err = a.browse(asked.Args)
+		answered, err = a.browse(ctx, asked.Args)
 	case verbFind:
-		answered, err = a.find(asked.Args)
+		answered, err = a.find(ctx, asked.Args)
 	case verbPeek:
 		answered, err = a.peek(asked.Args)
 	case verbPlace:
@@ -133,7 +133,7 @@ type Browsing struct {
 	Limit  int    `json:"limit,omitempty"`
 }
 
-func (a *Link) browse(raw json.RawMessage) (any, error) {
+func (a *Link) browse(ctx context.Context, raw json.RawMessage) (any, error) {
 	wanted := Browsing{}
 	if err := strictly(raw, &wanted); err != nil {
 		return nil, err
@@ -144,7 +144,7 @@ func (a *Link) browse(raw json.RawMessage) (any, error) {
 		limit = MostBrowsed
 	}
 
-	return a.Folders.List(folders.Query{Folder: wanted.Folder, Prefix: wanted.Prefix, Cursor: wanted.Cursor, Limit: limit})
+	return a.Folders.List(ctx, folders.Query{Folder: wanted.Folder, Prefix: wanted.Prefix, Cursor: wanted.Cursor, Limit: limit})
 }
 
 type Finding struct {
@@ -166,7 +166,7 @@ type Finds struct {
 	Complete bool    `json:"complete"`
 }
 
-func (a *Link) find(raw json.RawMessage) (any, error) {
+func (a *Link) find(ctx context.Context, raw json.RawMessage) (any, error) {
 	wanted := Finding{}
 	if err := strictly(raw, &wanted); err != nil {
 		return nil, err
@@ -204,7 +204,7 @@ func (a *Link) find(raw json.RawMessage) (any, error) {
 				return held, nil
 			}
 
-			listed, err := a.Folders.List(folders.Query{Folder: folder, Cursor: cursor, Limit: folders.MostListed})
+			listed, err := a.Folders.List(ctx, folders.Query{Folder: folder, Cursor: cursor, Limit: folders.MostListed})
 			if err != nil {
 				return nil, err
 			}

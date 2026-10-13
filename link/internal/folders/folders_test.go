@@ -68,7 +68,7 @@ func TestListWalksInOrderAndSkips(t *testing.T) {
 	shared, _ := tree(t)
 	held := New(ReadOnly(shared))
 
-	listed, err := held.List(Query{Folder: shared})
+	listed, err := held.List(t.Context(), Query{Folder: shared})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestListPagesWithACursor(t *testing.T) {
 	shared, _ := tree(t)
 	held := New(ReadOnly(shared))
 
-	first, err := held.List(Query{Folder: shared, Limit: 2})
+	first, err := held.List(t.Context(), Query{Folder: shared, Limit: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestListPagesWithACursor(t *testing.T) {
 		t.Fatalf("first page %v cursor %q", got, first.Cursor)
 	}
 
-	second, err := held.List(Query{Folder: shared, Limit: 2, Cursor: first.Cursor})
+	second, err := held.List(t.Context(), Query{Folder: shared, Limit: 2, Cursor: first.Cursor})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func TestListPagesWithACursor(t *testing.T) {
 		t.Fatalf("second page %v cursor %q", got, second.Cursor)
 	}
 
-	resumed, err := held.List(Query{Folder: shared, Cursor: "a/b.txt"})
+	resumed, err := held.List(t.Context(), Query{Folder: shared, Cursor: "a/b.txt"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestListTakesAPrefixAndSkips(t *testing.T) {
 	for _, each := range cases {
 		each.query.Folder = shared
 
-		listed, err := held.List(each.query)
+		listed, err := held.List(t.Context(), each.query)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -153,12 +153,12 @@ func TestListRefusesAnUnsharedFolder(t *testing.T) {
 	held := New(ReadOnly(shared))
 
 	for _, folder := range []string{outside, "", "/", filepath.Dir(shared)} {
-		if _, err := held.List(Query{Folder: folder}); !errors.Is(err, ErrUnshared) {
+		if _, err := held.List(t.Context(), Query{Folder: folder}); !errors.Is(err, ErrUnshared) {
 			t.Errorf("listing %q gave %v", folder, err)
 		}
 	}
 
-	if _, err := held.List(Query{Folder: shared + "/"}); err != nil {
+	if _, err := held.List(t.Context(), Query{Folder: shared + "/"}); err != nil {
 		t.Errorf("a trailing slash names the same folder: %v", err)
 	}
 }
@@ -173,7 +173,7 @@ func TestAFolderMayBeALink(t *testing.T) {
 
 	held := New(ReadOnly(linked))
 
-	listed, err := held.List(Query{Folder: linked})
+	listed, err := held.List(t.Context(), Query{Folder: linked})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -294,7 +294,7 @@ func TestAFolderThatNowLeadsElsewhereIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := shared.List(Query{Folder: link}); !errors.Is(err, ErrMoved) {
+	if _, err := shared.List(t.Context(), Query{Folder: link}); !errors.Is(err, ErrMoved) {
 		t.Fatalf("a folder swapped for another was listed, got %v", err)
 	}
 
@@ -312,7 +312,7 @@ func TestANameThatIsNotUTF8IsCountedAndLeftOut(t *testing.T) {
 		}
 	}
 
-	listed, err := New(ReadOnly(folder)).List(Query{Folder: folder})
+	listed, err := New(ReadOnly(folder)).List(t.Context(), Query{Folder: folder})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -2,6 +2,7 @@ package folders
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -266,7 +267,7 @@ func trusted(configured string) error {
 	return nil
 }
 
-func (f *Folders) List(query Query) (*Listing, error) {
+func (f *Folders) List(ctx context.Context, query Query) (*Listing, error) {
 	root, err := f.root(query.Folder)
 	if err != nil {
 		return nil, err
@@ -279,6 +280,7 @@ func (f *Folders) List(query Query) (*Listing, error) {
 	}
 
 	walk := &walker{
+		ctx:    ctx,
 		root:   root,
 		skip:   append(slices.Clone(Skipped), query.Skip...),
 		prefix: strings.TrimPrefix(query.Prefix, "/"),
@@ -301,6 +303,7 @@ func (f *Folders) List(query Query) (*Listing, error) {
 var errFull = errors.New("full")
 
 type walker struct {
+	ctx    context.Context
 	root   *os.Root
 	skip   []string
 	prefix string
@@ -311,6 +314,10 @@ type walker struct {
 }
 
 func (w *walker) descend(dir string) error {
+	if err := w.ctx.Err(); err != nil {
+		return err
+	}
+
 	opened, err := w.root.Open(dir)
 	if err != nil {
 		if dir == "." {
@@ -330,6 +337,10 @@ func (w *walker) descend(dir string) error {
 	slices.SortFunc(children, func(a, b fs.DirEntry) int { return strings.Compare(a.Name(), b.Name()) })
 
 	for _, child := range children {
+		if err := w.ctx.Err(); err != nil {
+			return err
+		}
+
 		if !utf8.ValidString(child.Name()) {
 			w.listed.SkippedNames++
 
@@ -508,11 +519,11 @@ func straight(root *os.Root, relative string) error {
 	return nil
 }
 
-func (f *Folders) Write(folder, name string, body io.Reader, size int64, replace bool) (*Entry, error) {
-	return f.WriteModified(folder, name, body, size, replace, time.Time{})
+func (f *Folders) Write(ctx context.Context, folder, name string, body io.Reader, size int64, replace bool) (*Entry, error) {
+	return f.WriteModified(ctx, folder, name, body, size, replace, time.Time{})
 }
 
-func (f *Folders) WriteModified(folder, name string, body io.Reader, size int64, replace bool, modified time.Time) (*Entry, error) {
+func (f *Folders) WriteModified(ctx context.Context, folder, name string, body io.Reader, size int64, replace bool, modified time.Time) (*Entry, error) {
 	relative, err := confined(name)
 	if err != nil {
 		return nil, err
@@ -546,11 +557,15 @@ func (f *Folders) WriteModified(folder, name string, body io.Reader, size int64,
 		return nil, err
 	}
 
-	temporary, err := spooled(root, path.Dir(relative), body, size, modified)
+	temporary, err := spooled(root, path.Dir(relative), Halting(ctx, body), size, modified)
 	if err != nil {
 		return nil, err
 	}
 	defer root.Remove(temporary)
+
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 
 	if err := placed(root, temporary, relative, replace); err != nil {
 		return nil, err

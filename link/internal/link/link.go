@@ -27,6 +27,7 @@ import (
 const (
 	Channel   = "LinkChannel"
 	ChunkSize = 256 << 10
+	Grace     = 5 * time.Second
 )
 
 var (
@@ -49,6 +50,7 @@ type Link struct {
 	Every    time.Duration
 	Quiet    time.Duration
 	Drain    time.Duration
+	Grace    time.Duration
 	Parallel int
 	Queue    int
 	Chunk    int
@@ -139,6 +141,10 @@ func (a *Link) settle() {
 		a.Drain = 2 * time.Minute
 	}
 
+	if a.Grace == 0 {
+		a.Grace = Grace
+	}
+
 	if a.Parallel == 0 {
 		a.Parallel = 4
 	}
@@ -179,7 +185,10 @@ func (a *Link) settle() {
 
 func (a *Link) Run(ctx context.Context) error {
 	a.settle()
-	defer a.work.Wait()
+	defer a.finish()
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	if !a.Unwatched {
 		watching, unwatch := context.WithCancel(ctx)
@@ -259,6 +268,24 @@ func (a *Link) Run(ctx context.Context) error {
 		}
 
 		wait = min(wait*2, time.Minute)
+	}
+}
+
+func (a *Link) finish() {
+	done := make(chan struct{})
+
+	go func() {
+		a.work.Wait()
+		close(done)
+	}()
+
+	timer := time.NewTimer(a.Grace)
+	defer timer.Stop()
+
+	select {
+	case <-done:
+	case <-timer.C:
+		a.Log.Warn("xixo link stops with work still running, since the work did not end within the grace period", "grace", a.Grace)
 	}
 }
 
@@ -485,7 +512,7 @@ func (a *Link) answer(ctx context.Context, asked *Request) {
 			return
 		}
 
-		listed, err := a.Folders.List(query)
+		listed, err := a.Folders.List(ctx, query)
 		if err != nil {
 			a.refuse(ctx, asked.Request, err)
 
@@ -535,7 +562,7 @@ func (a *Link) hash(ctx context.Context, request string, wanted Read) {
 	}
 	defer opened.Close()
 
-	digest, err := digested(opened)
+	digest, err := digested(ctx, opened)
 	if err != nil {
 		a.refuse(ctx, request, err)
 
@@ -573,9 +600,9 @@ func (a *Link) read(ctx context.Context, request string, wanted Read) {
 		return
 	}
 
-	var source io.Reader = opened
+	var source io.Reader = folders.Halting(ctx, opened)
 	if wanted.Limit > 0 {
-		source = io.LimitReader(opened, wanted.Limit)
+		source = io.LimitReader(source, wanted.Limit)
 	}
 
 	if ranged {
@@ -585,9 +612,9 @@ func (a *Link) read(ctx context.Context, request string, wanted Read) {
 			return
 		}
 
-		source = opened
+		source = folders.Halting(ctx, opened)
 		if wanted.Length > 0 {
-			source = io.LimitReader(opened, wanted.Length)
+			source = io.LimitReader(source, wanted.Length)
 		}
 	}
 

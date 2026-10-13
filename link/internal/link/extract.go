@@ -18,6 +18,7 @@ import (
 
 	"github.com/xixo/xixo/link/internal/dial"
 	"github.com/xixo/xixo/link/internal/extract"
+	"github.com/xixo/xixo/link/internal/folders"
 )
 
 const (
@@ -201,7 +202,7 @@ func (a *Link) source(ctx context.Context, wanted Extraction, work string) (stri
 
 	kept := filepath.Join(work, "source"+safeExtension(wanted.Source.Path))
 
-	digest, err := copied(kept, io.LimitReader(opened, MostUpload+1))
+	digest, err := copied(ctx, kept, io.LimitReader(opened, MostUpload+1))
 	if err != nil {
 		return "", Digest{}, err
 	}
@@ -213,14 +214,14 @@ func (a *Link) source(ctx context.Context, wanted Extraction, work string) (stri
 	return kept, digest, nil
 }
 
-func copied(kept string, from io.Reader) (Digest, error) {
+func copied(ctx context.Context, kept string, from io.Reader) (Digest, error) {
 	target, err := os.OpenFile(kept, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return Digest{}, err
 	}
 
 	hashed := sha256.New()
-	written, err := io.Copy(io.MultiWriter(target, hashed), from)
+	written, err := io.Copy(io.MultiWriter(target, hashed), folders.Halting(ctx, from))
 
 	if closed := target.Close(); err == nil {
 		err = closed
@@ -233,10 +234,10 @@ func copied(kept string, from io.Reader) (Digest, error) {
 	return Digest{SHA256: hex.EncodeToString(hashed.Sum(nil)), Size: written}, nil
 }
 
-func digested(from io.Reader) (Digest, error) {
+func digested(ctx context.Context, from io.Reader) (Digest, error) {
 	hashed := sha256.New()
 
-	written, err := io.Copy(hashed, from)
+	written, err := io.Copy(hashed, folders.Halting(ctx, from))
 	if err != nil {
 		return Digest{}, err
 	}
@@ -260,7 +261,7 @@ func (a *Link) fetch(ctx context.Context, wanted Extraction, work string) (strin
 	}
 	defer response.Body.Close()
 
-	digest, err := copied(kept, io.LimitReader(response.Body, wanted.Size+1))
+	digest, err := copied(ctx, kept, io.LimitReader(response.Body, wanted.Size+1))
 	if err != nil {
 		return "", Digest{}, err
 	}
@@ -361,9 +362,10 @@ func (a *Link) sendFile(ctx context.Context, of string, file extract.File) (Sent
 	id := uuid()
 	buffer := make([]byte, a.Chunk)
 	size := int64(0)
+	source := folders.Halting(ctx, opened)
 
 	for seq := 0; ; seq++ {
-		count, err := io.ReadFull(opened, buffer)
+		count, err := io.ReadFull(source, buffer)
 
 		if count > 0 {
 			chunk := Chunk{Request: id, Of: of, Seq: seq, Data: base64.StdEncoding.EncodeToString(buffer[:count])}

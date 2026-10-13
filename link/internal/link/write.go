@@ -87,7 +87,7 @@ func (a *Link) written(ctx context.Context, wanted Writing) (any, error) {
 		modified = *wanted.ModifiedAt
 	}
 
-	return a.Folders.WriteModified(wanted.Folder, wanted.Path, body, wanted.Size, wanted.Replace, modified)
+	return a.Folders.WriteModified(ctx, wanted.Folder, wanted.Path, body, wanted.Size, wanted.Replace, modified)
 }
 
 func (a *Link) body(ctx context.Context, wanted Writing) (io.ReadCloser, error) {
@@ -127,7 +127,7 @@ func (a *Link) remove(ctx context.Context, asked *Request) {
 		return
 	}
 
-	removed, err := a.Folders.Remove(wanted.Folder, wanted.Path, wanted.SHA256, wanted.Size, wanted.Prune)
+	removed, err := a.Folders.Remove(ctx, wanted.Folder, wanted.Path, wanted.SHA256, wanted.Size, wanted.Prune)
 	if err != nil {
 		a.refuse(ctx, asked.Request, err)
 

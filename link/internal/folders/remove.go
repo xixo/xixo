@@ -1,6 +1,7 @@
 package folders
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -25,7 +26,7 @@ type Removed struct {
 	Pruned []string `json:"pruned,omitempty"`
 }
 
-func (f *Folders) Remove(folder, name, sum string, size int64, prune bool) (*Removed, error) {
+func (f *Folders) Remove(ctx context.Context, folder, name, sum string, size int64, prune bool) (*Removed, error) {
 	if !sha256Hex.MatchString(sum) || size < 0 {
 		return nil, ErrNoHash
 	}
@@ -59,7 +60,11 @@ func (f *Folders) Remove(folder, name, sum string, size int64, prune bool) (*Rem
 		return nil, err
 	}
 
-	if err := matches(root, relative, sum, size); err != nil {
+	if err := matches(ctx, root, relative, sum, size); err != nil {
+		return nil, err
+	}
+
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 
@@ -75,7 +80,7 @@ func (f *Folders) Remove(folder, name, sum string, size int64, prune bool) (*Rem
 	return removed, nil
 }
 
-func matches(root *os.Root, relative, sum string, size int64) error {
+func matches(ctx context.Context, root *os.Root, relative, sum string, size int64) error {
 	opened, err := root.OpenFile(relative, os.O_RDONLY|noFollow|nonBlock, 0)
 	if err != nil {
 		return err
@@ -101,7 +106,7 @@ func matches(root *os.Root, relative, sum string, size int64) error {
 
 	hashed := sha256.New()
 
-	read, err := io.Copy(hashed, opened)
+	read, err := io.Copy(hashed, Halting(ctx, opened))
 	if err != nil {
 		return err
 	}

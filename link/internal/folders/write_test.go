@@ -23,7 +23,7 @@ func writableTree(t *testing.T) (string, string, *Folders) {
 func TestWriteMakesFoldersAndPlacesTheFile(t *testing.T) {
 	shared, _, held := writableTree(t)
 
-	written, err := held.Write(shared, "uploads/2026/note.txt", strings.NewReader("hello"), 5, false)
+	written, err := held.Write(t.Context(), shared, "uploads/2026/note.txt", strings.NewReader("hello"), 5, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ func TestWriteMakesFoldersAndPlacesTheFile(t *testing.T) {
 func TestWriteKeepsAnExistingFileUnlessAskedToReplaceIt(t *testing.T) {
 	shared, _, held := writableTree(t)
 
-	if _, err := held.Write(shared, "a.txt", strings.NewReader("new"), 3, false); !errors.Is(err, ErrExists) {
+	if _, err := held.Write(t.Context(), shared, "a.txt", strings.NewReader("new"), 3, false); !errors.Is(err, ErrExists) {
 		t.Fatalf("overwrote without replace: %v", err)
 	}
 
@@ -54,7 +54,7 @@ func TestWriteKeepsAnExistingFileUnlessAskedToReplaceIt(t *testing.T) {
 		t.Fatalf("a.txt became %q", body)
 	}
 
-	if _, err := held.Write(shared, "a.txt", strings.NewReader("new"), 3, true); err != nil {
+	if _, err := held.Write(t.Context(), shared, "a.txt", strings.NewReader("new"), 3, true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -87,7 +87,7 @@ func TestWriteRefusesWhatItMustNotTouch(t *testing.T) {
 	}
 
 	for _, refused := range cases {
-		_, err := held.Write(refused.folder, refused.name, strings.NewReader("x"), 1, true)
+		_, err := held.Write(t.Context(), refused.folder, refused.name, strings.NewReader("x"), 1, true)
 		if !errors.Is(err, refused.want) {
 			t.Errorf("%s in %s: got %v, want %v", refused.name, refused.folder, err, refused.want)
 		}
@@ -106,7 +106,7 @@ func TestWriteRefusesBytesThatDoNotMatchTheSize(t *testing.T) {
 	shared, _, held := writableTree(t)
 
 	for _, size := range []int64{3, 7} {
-		if _, err := held.Write(shared, "sized.txt", strings.NewReader("hello"), size, false); !errors.Is(err, ErrShort) {
+		if _, err := held.Write(t.Context(), shared, "sized.txt", strings.NewReader("hello"), size, false); !errors.Is(err, ErrShort) {
 			t.Errorf("size %d: %v", size, err)
 		}
 	}
@@ -141,7 +141,7 @@ func TestAFolderOverlappingAnotherIsNeverWritten(t *testing.T) {
 
 	held := New([]Shared{{Path: outer, Writable: true}, {Path: inner}})
 
-	if _, err := held.Write(outer, "inner/x.txt", strings.NewReader("x"), 1, false); !errors.Is(err, ErrOverlaps) {
+	if _, err := held.Write(t.Context(), outer, "inner/x.txt", strings.NewReader("x"), 1, false); !errors.Is(err, ErrOverlaps) {
 		t.Fatalf("writing over a read-only folder gave %v", err)
 	}
 
