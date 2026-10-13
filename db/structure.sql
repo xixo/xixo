@@ -453,7 +453,10 @@ CREATE TABLE public.link_exchanges (
     received bigint DEFAULT 0 NOT NULL,
     answered_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    expected bigint,
+    sent bigint DEFAULT 0 NOT NULL,
+    sent_seq integer DEFAULT 0 NOT NULL
 );
 
 ALTER TABLE ONLY public.link_exchanges FORCE ROW LEVEL SECURITY;
@@ -525,6 +528,50 @@ CREATE SEQUENCE public.link_requests_id_seq
 --
 
 ALTER SEQUENCE public.link_requests_id_seq OWNED BY public.link_requests.id;
+
+
+--
+-- Name: moves; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.moves (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    run_id bigint NOT NULL,
+    source_id bigint NOT NULL,
+    destination_id bigint NOT NULL,
+    feed_id bigint,
+    path character varying NOT NULL,
+    target character varying NOT NULL,
+    size bigint NOT NULL,
+    modified_at timestamp(6) without time zone,
+    status character varying DEFAULT 'waiting'::character varying NOT NULL,
+    sha256 character varying,
+    error character varying,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+ALTER TABLE ONLY public.moves FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: moves_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.moves_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: moves_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.moves_id_seq OWNED BY public.moves.id;
 
 
 --
@@ -923,6 +970,13 @@ ALTER TABLE ONLY public.link_requests ALTER COLUMN id SET DEFAULT nextval('publi
 
 
 --
+-- Name: moves id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.moves ALTER COLUMN id SET DEFAULT nextval('public.moves_id_seq'::regclass);
+
+
+--
 -- Name: passages id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1073,6 +1127,14 @@ ALTER TABLE ONLY public.link_exchanges
 
 ALTER TABLE ONLY public.link_requests
     ADD CONSTRAINT link_requests_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: moves moves_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.moves
+    ADD CONSTRAINT moves_pkey PRIMARY KEY (id);
 
 
 --
@@ -1568,6 +1630,55 @@ CREATE UNIQUE INDEX index_link_requests_on_tenant_id_and_user_code ON public.lin
 
 
 --
+-- Name: index_moves_on_destination_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_moves_on_destination_id ON public.moves USING btree (destination_id);
+
+
+--
+-- Name: index_moves_on_feed_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_moves_on_feed_id ON public.moves USING btree (feed_id);
+
+
+--
+-- Name: index_moves_on_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_moves_on_run_id ON public.moves USING btree (run_id);
+
+
+--
+-- Name: index_moves_on_run_id_and_source_id_and_path; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_moves_on_run_id_and_source_id_and_path ON public.moves USING btree (run_id, source_id, path);
+
+
+--
+-- Name: index_moves_on_run_id_and_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_moves_on_run_id_and_status ON public.moves USING btree (run_id, status);
+
+
+--
+-- Name: index_moves_on_source_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_moves_on_source_id ON public.moves USING btree (source_id);
+
+
+--
+-- Name: index_moves_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_moves_on_tenant_id ON public.moves USING btree (tenant_id);
+
+
+--
 -- Name: index_passages_on_feed_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1819,6 +1930,22 @@ ALTER TABLE ONLY public.link_requests
 
 
 --
+-- Name: moves fk_rails_1c7a73379d; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.moves
+    ADD CONSTRAINT fk_rails_1c7a73379d FOREIGN KEY (destination_id) REFERENCES public.resources(id) ON DELETE CASCADE;
+
+
+--
+-- Name: moves fk_rails_21b2b37998; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.moves
+    ADD CONSTRAINT fk_rails_21b2b37998 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: feed_references fk_rails_2dbee6c560; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1880,6 +2007,14 @@ ALTER TABLE ONLY public.active_storage_variant_records
 
 ALTER TABLE ONLY public.audit_events
     ADD CONSTRAINT fk_rails_543bbbff97 FOREIGN KEY (analysis_id) REFERENCES public.analyses(id) ON DELETE SET NULL;
+
+
+--
+-- Name: moves fk_rails_59b5d3bf67; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.moves
+    ADD CONSTRAINT fk_rails_59b5d3bf67 FOREIGN KEY (source_id) REFERENCES public.resources(id) ON DELETE CASCADE;
 
 
 --
@@ -2059,11 +2194,27 @@ ALTER TABLE ONLY public.resources
 
 
 --
+-- Name: moves fk_rails_e11e387771; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.moves
+    ADD CONSTRAINT fk_rails_e11e387771 FOREIGN KEY (feed_id) REFERENCES public.feeds(id) ON DELETE SET NULL;
+
+
+--
 -- Name: feeds fk_rails_e5c16162e1; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.feeds
     ADD CONSTRAINT fk_rails_e5c16162e1 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: moves fk_rails_e741c8fd33; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.moves
+    ADD CONSTRAINT fk_rails_e741c8fd33 FOREIGN KEY (run_id) REFERENCES public.runs(id) ON DELETE CASCADE;
 
 
 --
@@ -2161,6 +2312,12 @@ ALTER TABLE public.link_exchanges ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.link_requests ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: moves; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.moves ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: passages; Type: ROW SECURITY; Schema: public; Owner: -
@@ -2283,6 +2440,13 @@ CREATE POLICY tenant_isolation ON public.link_requests USING ((tenant_id = (NULL
 
 
 --
+-- Name: moves tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.moves USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
+
+
+--
 -- Name: passages tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -2331,6 +2495,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261013140000'),
 ('20261013010000'),
 ('20261012230000'),
 ('20261012210000'),

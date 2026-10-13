@@ -4,7 +4,7 @@ default: &default
       batch_size: 500
       concurrency_maintenance_interval: 300
   workers:
-    - queues: [sync, export, default]
+    - queues: [sync, export, default, move]
       threads: 5
       processes: <%= ENV.fetch("BULK_CONCURRENCY", 1) %>
       polling_interval: 1

@@ -33,6 +33,7 @@ module Types
     field :set_setting, mutation: Mutations::SetSetting, grants: "xixo:settings:write"
 
     field :export_feeds, mutation: Mutations::ExportFeeds, grants: "xixo:catalog:write"
+    field :move_files, mutation: Mutations::MoveFiles, grants: "xixo:resources:command"
     field :cancel_run, mutation: Mutations::CancelRun, grants: "xixo:catalog:write"
     field :cancel_analysis, mutation: Mutations::CancelAnalysis, grants: "xixo:catalog:write"
     field :tag_feeds, mutation: Mutations::TagFeeds, grants: "xixo:catalog:write"

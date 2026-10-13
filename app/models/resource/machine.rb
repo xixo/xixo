@@ -357,6 +357,20 @@ class Resource
       LinkExchange.apart { LinkExchange.where(id: exchange.id).delete_all } if exchange
     end
 
+    def asking(verb, args = {})
+      asked(verb, args)
+    end
+
+    def relayed_upload(size)
+      raise Resource::Offline, "#{key}: xixo link is not connected" unless connected?
+
+      LinkExchange.apart do
+        raise Resource::Failed, "#{key}: xixo link already has #{LinkExchange::MOST_OPEN} questions open" if LinkExchange.crowded?(self)
+
+        LinkExchange.create!(resource_id: id, request: SecureRandom.uuid, verb: LinkExchange::UPLOAD, expected: size)
+      end
+    end
+
     def read(folder, path, within: ANSWERED_WITHIN)
       exchanged("read", { "folder" => folder, "path" => path }, within: within) do |answer|
         Reading.new(self, answer.exchange, size: answer.result.to_h["size"]).file

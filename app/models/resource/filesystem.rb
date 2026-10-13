@@ -8,6 +8,9 @@ class Resource
     WRITTEN_PER_MEGABYTE = 1.second
     MOST_WRITTEN_WITHIN = 1.hour
     TENANT = "%{tenant}".freeze
+    HASHED_WITHIN = 1.minute
+    HASHED_PER_GIGABYTE = 30.seconds
+    MOST_HASHED_WITHIN = 2.hours
 
     serves :storage
     accepts "*/*"
@@ -185,6 +188,44 @@ class Resource
       locator_for(entry_from(written))
     end
 
+    def inner(path)
+      held = [ details.to_h["prefix"].to_s.delete_prefix("/").chomp("/"), path.to_s.delete_prefix("/").chomp("/") ]
+      joined = held.compact_blank.join("/")
+      joined.empty? ? joined : relative!(joined)
+    end
+
+    def movable!
+      shared!
+      return self if writable?
+
+      raise Resource::Refused, "#{machine.key} may not write into its folders, so files cannot move in or out of #{key}. " \
+                               "Set #{machine.key}'s access to Files and writing on its card on the Resources page" unless machine.writes?
+
+      raise Resource::Refused, "#{machine.key} shares #{folder} read-only, so files cannot move in or out of #{key}. " \
+                               "Share #{folder} writable on #{machine.key}: run the install command there again with " \
+                               "#{folder}:rw among its folders"
+    end
+
+    def entry_at(path)
+      shared!
+      found, = listed(prefix: relative!(path), limit: LOOKED_AT)
+
+      found.find { |entry| entry.path == path }
+    end
+
+    def hashed(path, size: nil)
+      shared!
+      said = machine.ask("hash", { "folder" => folder, "path" => relative!(path) }, within: hashing_within(size))
+
+      { "sha256" => Fingerprint.reported(said), "size" => said.to_h["size"] }
+    end
+
+    def removed!(path, sha256:, size:, prune: false)
+      shared!
+      machine.ask("remove", { "folder" => folder, "path" => relative!(path), "sha256" => sha256, "size" => size,
+                              "prune" => prune }, within: hashing_within(size))
+    end
+
     def command_list(prefix: nil, limit: nil)
       shared!
       count = (limit || 1000).to_i.clamp(1, PAGE)
@@ -268,6 +309,10 @@ class Resource
 
       def ours?(path)
         Reference.exists?(resource_id: id, locator_key: path)
+      end
+
+      def hashing_within(size)
+        [ HASHED_WITHIN + (HASHED_PER_GIGABYTE * size.to_i.fdiv(1.gigabyte).ceil), MOST_HASHED_WITHIN ].min
       end
 
       def writing_within(size)

@@ -12,6 +12,10 @@ class LinkExchange < ApplicationRecord
   CHUNKED = %w[read file].freeze
   UPLOAD = "upload".freeze
   FETCHED_WITHIN = 15.minutes
+  MOST_PART = 4.megabytes
+  PART_CHUNKS = 16
+
+  class OutOfRange < StandardError; end
 
   belongs_to :resource
   belongs_to :parent, class_name: "LinkExchange", optional: true
@@ -23,7 +27,7 @@ class LinkExchange < ApplicationRecord
 
   scope :asked, -> { where(status: "asked") }
   scope :open, -> { where(status: %w[asked answered]) }
-  scope :stale, -> { where(created_at: ...KEPT_FOR.ago) }
+  scope :stale, -> { where(updated_at: ...KEPT_FOR.ago) }
 
   class << self
     def for(machine, request)
@@ -40,11 +44,17 @@ class LinkExchange < ApplicationRecord
     def taken!(machine, request)
       return nil unless uuid?(request)
 
-      fresh = asked.where(resource_id: machine.id, request: request.to_s, verb: UPLOAD, parent_id: nil)
+      fresh = asked.where(resource_id: machine.id, request: request.to_s, verb: UPLOAD, parent_id: nil, expected: nil)
                    .where(created_at: FETCHED_WITHIN.ago..)
       return nil unless fresh.update_all(status: "answered", answered_at: Time.current, updated_at: Time.current) == 1
 
       find_by(resource_id: machine.id, request: request.to_s)
+    end
+
+    def relayed(machine, request)
+      return nil unless uuid?(request)
+
+      open.where.not(expected: nil).find_by(resource_id: machine.id, request: request.to_s, verb: UPLOAD, parent_id: nil)
     end
 
     def busy(ids)
@@ -121,6 +131,21 @@ class LinkExchange < ApplicationRecord
     false
   end
 
+  def part!(from)
+    LinkExchange.uncached do
+      transaction do
+        held = LinkExchange.lock.find(id)
+        raise OutOfRange, "the upload holds #{held.expected} bytes" unless from.between?(held.sent, held.expected)
+
+        held.parted(from - held.sent)
+      end
+    end
+  end
+
+  def waiting
+    LinkChunk.where(link_exchange_id: id).count
+  end
+
   def held_by_machine
     LinkExchange.open.where(resource_id: resource_id).sum(:received)
   end
@@ -132,6 +157,28 @@ class LinkExchange < ApplicationRecord
   def refused?
     status == "refused"
   end
+
+  protected
+
+    def parted(skip)
+      held = LinkChunk.where(link_exchange_id: id, seq: sent_seq...(sent_seq + (PART_CHUNKS * 4)))
+                      .order(:seq).pluck(:id, :seq, Arel.sql("octet_length(bytes)"))
+      held = held.each_with_index.take_while { |(_, seq, _), index| seq == sent_seq + index }.map(&:first)
+
+      acked = []
+      while (row = held[acked.size]) && skip >= row.last
+        skip -= row.last
+        acked << row
+      end
+      raise OutOfRange, "xixo has not sent those bytes yet" if skip.positive? && held.size == acked.size
+
+      LinkChunk.where(id: acked.map(&:first)).delete_all if acked.any?
+      update_columns(sent: sent + acked.sum(&:last), sent_seq: sent_seq + acked.size, updated_at: Time.current)
+
+      wanted = held.drop(acked.size).first(PART_CHUNKS + 1).map(&:first)
+      bytes = LinkChunk.where(id: wanted).order(:seq).pluck(:bytes)
+      bytes.join.byteslice(skip, MOST_PART).to_s
+    end
 
   private
 

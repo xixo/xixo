@@ -1,7 +1,7 @@
 class Run < ApplicationRecord
   include TenantScoped
 
-  KINDS = %w[sync export reindex snapshot fetch].freeze
+  KINDS = %w[sync export reindex snapshot fetch move].freeze
   STATUSES = %w[queued running done failed cancelled gated].freeze
   OPEN = %w[queued running].freeze
 
@@ -103,6 +103,10 @@ class Run < ApplicationRecord
     text = Redaction.scrub(parts.compact.map { |part| part.to_s.tr("\n", " ") }.join(" : ")).truncate(LINE_LIMIT)
 
     emit(text)
+  end
+
+  def announce!
+    publish!
   end
 
   private

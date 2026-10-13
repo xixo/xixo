@@ -19,5 +19,10 @@ module Types
     field :deadline, GraphQL::Types::ISO8601DateTime
     field :created_at, GraphQL::Types::ISO8601DateTime, null: false
     field :resource, Types::ResourceType
+    field :moved, Types::MoveProgressType, description: "How far a move has come. Empty for every other kind of run."
+
+    def moved
+      Move.progress(object.id) if object.kind == "move"
+    end
   end
 end

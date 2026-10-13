@@ -51,7 +51,59 @@ class LinkUploadsTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "a relayed upload is served part by part to its machine, as the bytes arrive" do
+    first = SecureRandom.random_bytes(Resource::Machine::MOST_CHUNKED)
+    second = SecureRandom.random_bytes(1000)
+    relayed = Tenant.switch(@tenant) { Resource::Machine.find(@machine.id).relayed_upload(first.bytesize + second.bytesize) }
+
+    part(relayed, 0, client_id: "box-client")
+    assert_response :no_content
+
+    Tenant.switch(@tenant) { relayed.chunks.create!(seq: 0, bytes: first) }
+    part(relayed, 0, client_id: "other-client")
+    assert_response :not_found
+
+    part(relayed, 0, client_id: "box-client")
+    assert_response :ok
+    assert_equal first[0, 100], response.body.b[0, 100]
+
+    part(relayed, 100, client_id: "box-client")
+    assert_equal first.byteslice(100..), response.body.b
+
+    Tenant.switch(@tenant) { relayed.chunks.create!(seq: 1, bytes: second) }
+    part(relayed, first.bytesize, client_id: "box-client")
+    assert_response :ok
+    assert_equal second, response.body.b
+    Tenant.switch(@tenant) { assert_equal [ 1 ], relayed.chunks.pluck(:seq) }
+
+    part(relayed, 50, client_id: "box-client")
+    assert_response :range_not_satisfiable
+
+    part(relayed, first.bytesize + second.bytesize + 1, client_id: "box-client")
+    assert_response :range_not_satisfiable
+  end
+
+  test "a relayed upload is never served whole, and a staged one never in parts" do
+    relayed = Tenant.switch(@tenant) { Resource::Machine.find(@machine.id).relayed_upload(10) }
+
+    token = machine_token(@tenant, client_id: "box-client")
+    whole = "/link/uploads/#{relayed.request}"
+    get whole, headers: { "HOST" => host, "Authorization" => "DPoP #{token}", "DPoP" => dpop_proof(token, url: "http://#{host}#{whole}") }
+    assert_response :not_found
+
+    get "#{path}?from=0", headers: { "HOST" => host, "Authorization" => "DPoP #{token}",
+                                      "DPoP" => dpop_proof(token, url: "http://#{host}#{path}") }
+    assert_response :not_found
+  end
+
   private
+
+    def part(relayed, from, client_id:)
+      token = machine_token(@tenant, client_id: client_id)
+      at = "/link/uploads/#{relayed.request}"
+      get "#{at}?from=#{from}", headers: { "HOST" => host, "Authorization" => "DPoP #{token}",
+                                           "DPoP" => dpop_proof(token, url: "http://#{host}#{at}") }
+    end
 
     def host
       "#{@tenant.subdomain}.xixo.test"
