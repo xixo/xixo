@@ -35,7 +35,7 @@ The [MCP reference](/reference/mcp/) lists each tool's inputs.
 
 A token sees only the tools its scopes permit. `Tool::Resources.for` builds the `resource` tool for
 each token. `list`, `describe`, `runs`, `get`, `parameters`, and `search` are always in its schema.
-`check`, `sync`, `keep`, `export`, `cancel`, `put`, and `snapshot` appear only when the token has
+`check`, `sync`, `keep`, `export`, `move`, `cancel`, `put`, and `snapshot` appear only when the token has
 `xixo:resources:command`. A token with `xixo:web:keep` also gets `snapshot`, and can send it only to
 a resource that renders pages, which is the `web` type. A command the token cannot use is left out of
 `tools/list`.
@@ -240,12 +240,12 @@ with it. A tenant without a feedback resource keeps nothing.
 ## Budgets and gates
 
 Work that can run for a long time spends from a budget. This covers `feed` with `do: analyze`, and
-`resource` with `sync` or `export`. Each subject in a tenant may start `XIXO_RUN_BUDGET` of these per
+`resource` with `sync`, `export`, or `move`. Each subject in a tenant may start `XIXO_RUN_BUDGET` of these per
 clock hour, 20 by default, and `0` removes the limit. A feed's agent spends from its own subject's
 budget, which is separate from any person's.
 
 A gate is a row that stops a kind of job. The iterating jobs each name their gate: `sync`,
-`analyze`, `export`, or `reindex`. A gate applies to the whole key or to one record, such as a
+`analyze`, `export`, `move`, or `reindex`. A gate applies to the whole key or to one record, such as a
 single resource for `sync`, and the record's gate takes precedence over the key's. A disabled gate
 marks the run as gated and does nothing. A gate that is enabled but not live lets `sync` and
 `reindex` walk and count without writing anything. Jobs read their gates again every 50 iterations,

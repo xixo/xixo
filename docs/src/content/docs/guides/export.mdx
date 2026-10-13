@@ -99,8 +99,8 @@ The `resource` tool exports with `do: "export"`. The token needs `xixo:resources
 3. Follow it with `do: "runs"` on the same key, and stop it with `do: "cancel"` and
    `input: { "id": "<run id>" }`.
 
-Each token can start `XIXO_RUN_BUDGET` runs an hour through MCP (20 by default). Syncs and exports
-share the budget.
+Each token can start `XIXO_RUN_BUDGET` runs an hour through MCP (20 by default). Syncs, exports, and
+moves share the budget.
 
 ## Fetch the files
 
@@ -111,6 +111,9 @@ Read the destination with any client for its type.
 - For `filesystem`, copy the directory from the server. In the example Compose project it is inside
   the `files` volume, at `/data/files/<tenant>/`.
 - For `webdav`, use any WebDAV client.
+
+To move files between two machines running xixo link, and remove each original once its copy
+checks out, see [move files between machines](/guides/move-files/).
 
 ## Move the files to another xixo
 

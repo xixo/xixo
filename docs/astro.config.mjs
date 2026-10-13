@@ -53,6 +53,7 @@ export default defineConfig({
             { label: "Ask the catalog", slug: "guides/ask" },
             { label: "Tag items", slug: "guides/tag" },
             { label: "Export your catalog", slug: "guides/export" },
+            { label: "Move files between machines", slug: "guides/move-files" },
             { label: "Back up and restore", slug: "guides/back-up-and-restore" },
             { label: "Install on a phone", slug: "guides/install-on-a-phone" },
           ],

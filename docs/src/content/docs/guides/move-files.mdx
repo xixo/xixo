@@ -1,0 +1,139 @@
+---
+title: Move files between machines
+description: Move a folder or a selection of files from one machine running xixo link to another, and remove each original only after its copy checks out.
+---
+
+This guide moves files from a folder on one machine to a folder on another. Both machines run
+[xixo link](/guides/add-a-machine/). You need an account that operates both machines, or an
+administrator's, with `xixo:resources:command`.
+
+## What a move does
+
+A move starts a `move` run on the folder the files go to. It lists the files in the folder they
+leave through xixo link on that machine, then moves three files at a time. For each file:
+
+1. xixo asks the machine the file leaves for it in parts of 32 MiB, and passes each part to the
+   machine it goes to. xixo holds at most two parts of a file at once, on its own disk, so a large
+   file never fills xixo's memory or disk.
+2. xixo link on the machine the file goes to writes it beside its new path under a temporary name,
+   with the original's modification time, and moves it into place.
+3. That xixo link reads the copy where it lies and answers with its SHA-256.
+4. xixo link on the machine the file leaves reads the original and removes it only when its size and
+   SHA-256 match the copy's. It then removes each folder the move left empty, up to the shared
+   folder.
+5. When the catalog already knows the file, its feed stays. Its reference moves to the new folder
+   and path, and keeps its analysis.
+
+A move needs no catalog. The files do not have to be synced first, and a move adds no feeds of its
+own, so moving thousands of files queues no analysis. When the folder the files go to syncs, its
+next sync finds the files that are new to the catalog.
+
+Paths keep their shape:
+
+| Moved | Into | `Photos/2019/a.jpg` lands at |
+| --- | --- | --- |
+| The folder `Photos/2019` | `Archive` | `Archive/2019/a.jpg` |
+| Everything in the folder | `Archive` | `Archive/Photos/2019/a.jpg` |
+| Everything in the folder | the top | `Photos/2019/a.jpg` |
+| A selection of files | `Inbox` | `Inbox/a.jpg` |
+
+A move never overwrites a file:
+
+- When the folder already holds a file at the path with the same bytes, the original is removed.
+  This is how a move that stopped part way finishes.
+- When the file there holds other bytes, both stay, and the run lists the file as one that stayed.
+- When the copy's SHA-256 does not match the original's, the copy is removed and the original stays.
+
+xixo link never reads `.git`, `node_modules`, `.DS_Store`, or the other
+[names it skips](https://github.com/xixo/xixo/tree/main/link#the-conversation-with-xixo). A move
+leaves those on the machine the files leave, along with the folders that hold them.
+
+## Prepare the machines
+
+1. Share both folders writable. On each machine, run the install command again with every folder
+   it shares, and end the folders a move reads from or writes to with `:rw`:
+
+   ```sh
+   curl -fsSL https://xixo.example.com/link.sh | sh -s -- ~/Documents ~/Pictures:rw
+   ```
+
+   The list replaces the folders the machine shared before. On Linux the command asks for `sudo`,
+   since the configuration and the service belong to root. A folder must exist before it is shared,
+   and xixo link's user must be able to write into it.
+2. On **Resources**, set each machine's access to **Files and writing**. See
+   [change what xixo may do](/guides/add-a-machine/#change-what-xixo-may-do).
+3. Attach each folder as a folder resource. See [attaching a resource](/guides/attach-a-resource/).
+   Leave **Sync** off for a folder you only move files out of.
+
+## Move from the app
+
+1. On **Resources**, open the **⋯** menu of the folder the files leave, and choose **Move files…**.
+   The menu shows it only for a folder its machine shares writable.
+2. Under **Folder or file**, type a path inside the folder, such as `Photos/2019`. Left empty,
+   everything in the folder moves.
+3. Under **Move to**, pick the folder the files go to.
+4. Under **Into**, type a folder inside it if you want one. Left empty, the files land at its top.
+5. Choose **Move**. The dialog shows how many files and bytes have moved. Close it at any time; the
+   move keeps going. **Stop the move** stops it after the files it is moving.
+
+To move files from the catalog, pick a type or type a search, then choose **Move these…** in the
+**More** menu. On a file's own page, choose **Move to…** in its **⋯** menu.
+
+When the run ends, **What it has done** on the folder the files went to shows the run. Its log names
+each file that stayed where it was, and why.
+
+## Move over GraphQL
+
+`moveFiles` takes `destinationId` and an optional `into`, and either `sourceId` with an optional
+`path`, or a selection with `feedIds`, `query`, and `type`. See the
+[GraphQL reference](/reference/graphql/).
+
+```graphql
+mutation {
+  moveFiles(input: { sourceId: "21", path: "Photos/2019", destinationId: "34", into: "Archive" }) {
+    run { id status }
+  }
+}
+```
+
+Follow the run until `status` is `done` or `failed`:
+
+```graphql
+query {
+  run(id: "55") { status error logs moved { files filesDone filesFailed bytes bytesDone } }
+}
+```
+
+To stop it, call `cancelRun` with the run's id.
+
+## Move over MCP
+
+The `resource` tool moves with `do: "move"` on the folder the files go to. The token needs
+`xixo:resources:read` and `xixo:resources:command`. See [MCP](/reference/mcp/).
+
+```json
+{
+  "key": "archive",
+  "do": "move",
+  "input": { "from": "pictures", "path": "Photos/2019", "into": "Archive" }
+}
+```
+
+Without `from`, `input` takes `ids`, `query`, and `type`, and moves the files they select. The call
+answers with the run and its `moved` counts. Moves share the MCP run budget with syncs and exports.
+
+## If it doesn't work
+
+- **"shares `<folder>` read-only"**: share the folder writable, as in
+  [prepare the machines](#prepare-the-machines). Nothing has moved.
+- **"may not write into its folders"**: set the machine's access to **Files and writing**.
+- **"only an operator of `<machine>`"**: an administrator adds you under **Who operates it** on the
+  machine's card.
+- **The run ends `failed` with "N of M files stayed where they were"**: the log names each file and
+  why it stayed. Fix the cause and start the same move again. Files that moved are gone from the
+  folder they left, so only the rest move.
+- **A machine is not connected**: the move waits and tries again every two minutes for an hour.
+  After that the run fails, and the files not moved yet stay where they are. Start the move again
+  once both machines are connected.
+- **The run stays `queued`**: no worker is running the `move` queue. See
+  [self-hosting](/guides/self-hosting/#the-worker).

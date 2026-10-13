@@ -482,7 +482,7 @@ production deployment sets at least these:
 
 | Queues | Threads | Processes |
 | --- | --- | --- |
-| `sync`, `export`, `default` | 5 | `BULK_CONCURRENCY` (default 1) |
+| `sync`, `export`, `default`, `move` | 5 | `BULK_CONCURRENCY` (default 1) |
 | `analysis` | `ANALYSIS_THREADS` (default 4) | `ANALYSIS_CONCURRENCY` (default 1) |
 
 The worker shells out to Chromium for snapshots. Every other program run on a file runs in xixo link,

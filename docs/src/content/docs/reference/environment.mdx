@@ -161,12 +161,12 @@ and every resource credential.
 ### Jobs
 
 `./bin/jobs` runs Solid Queue with two worker pools, set in `config/queue.yml`. The first takes
-the `sync`, `export`, and `default` queues with 5 threads per process. The second takes the
-`analysis` queue.
+the `sync`, `export`, `default`, and `move` queues with 5 threads per process. The second takes
+the `analysis` queue.
 
 | Variable | Default | |
 | --- | --- | --- |
-| `BULK_CONCURRENCY` | `1` | Processes for the `sync`, `export`, and `default` queues. |
+| `BULK_CONCURRENCY` | `1` | Processes for the `sync`, `export`, `default`, and `move` queues. |
 | `ANALYSIS_CONCURRENCY` | `1` | Processes for the `analysis` queue. |
 | `ANALYSIS_THREADS` | `4` | Threads per `analysis` process. |
 | `ANALYSIS_PER_TENANT` | `2` | Analyses one tenant may run at the same time, across every process, so one tenant cannot fill the pool. |
