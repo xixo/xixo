@@ -20,6 +20,7 @@ import { sized } from '../plain'
 import { ago } from '../when'
 import { Failed } from './Failed'
 import { Decide, type LinkRequest, nameOf } from './LinkUp'
+import { LinkMark, type LinkState, Mark } from './Mark'
 import { administratorSignIn } from './Resources'
 
 const SERVICES: Record<string, string> = {
@@ -104,7 +105,7 @@ function Heading({
 }) {
   return (
     <header className="linkup-machine">
-      {icon && <span className="linkup-machine-icon">{icon}</span>}
+      {icon}
       <h1 className="settings-title">{title}</h1>
       {lead && <p className="linkup-machine-system">{lead}</p>}
     </header>
@@ -121,6 +122,13 @@ function SystemIcon({ request }: { request: LinkRequest }) {
     return <IconBrandDebian size={44} stroke={1.5} />
 
   return <IconServer size={44} stroke={1.5} />
+}
+
+function linkState(request: LinkRequest): LinkState {
+  if (request.machine?.machine?.connected) return 'linked'
+  if (request.status === 'pending' || request.status === 'denied')
+    return 'apart'
+  return 'linking'
 }
 
 function Approval({
@@ -142,7 +150,19 @@ function Approval({
     <>
       <Heading
         title={titleFor(request)}
-        icon={<SystemIcon request={request} />}
+        icon={
+          <div className="linkup-pair">
+            <span className="linkup-machine-icon">
+              <SystemIcon request={request} />
+            </span>
+            <span className="linkup-pair-link">
+              <LinkMark size={40} state={linkState(request)} />
+            </span>
+            <span className="linkup-machine-icon linkup-pair-xixo">
+              <Mark size={56} bare />
+            </span>
+          </div>
+        }
         lead={lead}
       />
 

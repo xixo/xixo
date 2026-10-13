@@ -5,7 +5,7 @@ import {
   SegmentedControl,
   TextInput,
 } from '@mantine/core'
-import { IconCircleCheck, IconPlus } from '@tabler/icons-react'
+import { IconCircleCheck } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -24,6 +24,7 @@ import {
   SYSTEMS,
   systemOf,
 } from '../linkup'
+import { LinkMark } from './Mark'
 
 export interface LinkUpInfo {
   xixo: string
@@ -72,7 +73,7 @@ function plural(count: number, one: string, many = `${one}s`) {
 export function LinkUpTile({ onLinkUp }: { onLinkUp: () => void }) {
   return (
     <button type="button" className="linkup-tile" onClick={onLinkUp}>
-      <IconPlus size={22} stroke={1.8} />
+      <LinkMark size={26} />
       <span className="linkup-tile-name">Link up a machine</span>
     </button>
   )
@@ -212,7 +213,7 @@ function Requests({
   if (requests.length === 0)
     return (
       <div className="linkup-wait">
-        <span className="linkup-dot" />
+        <LinkMark size={18} state="apart" />
         Waiting for a machine to ask.
       </div>
     )

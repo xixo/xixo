@@ -87,6 +87,7 @@ import {
   LinkUpTile,
   useLinkRequests,
 } from './LinkUp'
+import { LinkMark } from './Mark'
 import { RunsDialog } from './Runs'
 import { useAloud, useSay } from './Say'
 import { Intro } from './Settings'
@@ -1152,6 +1153,8 @@ function Unlinked({
                 radius="xl"
                 variant="subtle"
                 color="brand"
+                className="link-mark-hover"
+                leftSection={<LinkMark size={14} />}
                 onClick={onLinkUp}
               >
                 Link up
