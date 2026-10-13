@@ -78,12 +78,15 @@ class Resource
         names: "A name for it",
         fields: [
           field("base_url", "Base URL", required: true, placeholder: "http://127.0.0.1:11434/v1"),
+          field("models.default", "Model",
+                help: "The model for every role below that is left blank. Images go to it only when its " \
+                      "server says it reads them."),
           field("models.fast", "Fast model", help: "Short summaries and titles."),
           field("models.smart", "Smart model", help: "Longer reasoning."),
           field("models.vision", "Vision model",
                 help: "What describes an image. It has to read images, as gemma3:4b does. " \
-                      "Left blank, xixo picks one the backend serves when its server says which can. " \
-                      "Otherwise images go to the default model, unless its server says it cannot read them."),
+                      "Left blank, xixo picks one the backend serves when its server says which can, or " \
+                      "uses the Model above when its server says it reads them."),
           field("models.agent", "Agent model", help: "What a feed drives. It has to call tools."),
           field("models.embedding", "Embedding model",
                 help: "What search compares meaning with. Its vectors have to be the width " \
