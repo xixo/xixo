@@ -3470,8 +3470,8 @@ a.tag:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--s2) var(--s4);
-  padding: var(--s3) var(--s4);
+  gap: var(--s4);
+  padding: var(--s4) var(--s5);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--lifted);
@@ -3502,30 +3502,65 @@ a.tag:hover {
 }
 
 .linkup-request-code {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s2);
+  display: grid;
+  flex-basis: 100%;
+  gap: var(--s1);
 }
 
 .linkup-request-code code {
   color: var(--bright);
+  font-size: 1.75rem;
   font-weight: 650;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.12em;
+}
+
+.linkup-steps {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.linkup-steps li {
+  --state: var(--busy);
+
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  color: var(--soft);
+  font-size: var(--t-small);
+}
+
+.linkup-steps li[data-done="true"] {
+  color: var(--bright);
+}
+
+.linkup-steps li[data-done="true"] svg {
+  color: var(--ok);
+}
+
+.linkup-steps li[data-done="false"] .linkup-dot {
+  margin-inline: 5px;
+  animation: thinking-beat 1.1s ease-in-out infinite;
 }
 
 .linkup-request-acts {
-  display: inline-flex;
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
   gap: var(--s2);
 }
 
 .linkup-request-said {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s1);
+  flex-basis: 100%;
+  margin: 0;
 }
 
-.linkup-request[data-status="linked"] .linkup-request-said svg {
-  color: var(--ok);
+.linkup-request-said a {
+  color: var(--accent);
 }
 
 .linkup-request-refused {

@@ -500,9 +500,7 @@ describe('Resources', () => {
 
     show(<Resources />, client, '/settings/resources')
 
-    expect(
-      await screen.findByText('studio.local is asking to link up.'),
-    ).toBeTruthy()
+    expect(await screen.findByText('studio is asking to link up.')).toBeTruthy()
     await userEvent.click(screen.getByRole('button', { name: 'Review' }))
     const dialog = await screen.findByRole('dialog', {
       name: 'Link up a machine',
@@ -530,7 +528,7 @@ describe('Resources', () => {
     expect(within(dialog).getByText('WDJB-MJHT')).toBeTruthy()
     expect(within(dialog).getByText(/from 192\.0\.2\.4/)).toBeTruthy()
     await userEvent.click(
-      within(dialog).getByRole('button', { name: 'Approve' }),
+      within(dialog).getByRole('button', { name: 'Approve studio' }),
     )
 
     expect(

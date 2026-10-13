@@ -7,6 +7,7 @@ import {
 } from '@mantine/core'
 import { IconCircleCheck, IconPlus } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   ApproveLinkRequestDocument,
   DenyLinkRequestDocument,
@@ -210,6 +211,16 @@ function Requests({
   )
 }
 
+export function shortName(hostname: string) {
+  return hostname.split('.')[0] || hostname
+}
+
+function folderNames(folders: string[]) {
+  return folders.map(
+    (folder) => folder.split('/').filter(Boolean).pop() ?? folder,
+  )
+}
+
 export function RequestCard({
   request,
   onChanged,
@@ -222,6 +233,7 @@ export function RequestCard({
   const [refused, setRefused] = useState<string | null>(null)
   const linked = request.machine
   const connected = Boolean(linked?.machine?.connected)
+  const name = linked?.key ?? shortName(request.hostname)
 
   const decide = async (approving: boolean) => {
     setRefused(null)
@@ -236,7 +248,7 @@ export function RequestCard({
   const about = [
     systemOf(request.os, request.arch),
     request.folders.length > 0
-      ? `shares ${request.folders.join(', ')}`
+      ? `shares ${folderNames(request.folders).join(', ')}`
       : 'shares no folders',
     request.remoteIp ? `from ${request.remoteIp}` : null,
   ].filter(Boolean)
@@ -244,58 +256,80 @@ export function RequestCard({
   return (
     <div className="linkup-request" data-status={request.status}>
       <div className="linkup-request-name">
-        <strong>{linked?.key ?? request.hostname}</strong>
+        <strong>{name}</strong>
         <span>{about.join(' · ')}</span>
       </div>
 
       {request.status === 'pending' && (
         <>
           <div className="linkup-request-code">
-            <span>It shows</span>
+            <span>Check that the machine shows this code</span>
             <code>{request.code}</code>
           </div>
           <div className="linkup-request-acts">
             <Button
-              size="compact-sm"
-              radius="xl"
-              variant="default"
-              loading={deny.loading}
-              onClick={() => decide(false)}
-            >
-              Deny
-            </Button>
-            <Button
-              size="compact-sm"
               radius="xl"
               color="brand"
               loading={approve.loading}
               onClick={() => decide(true)}
             >
-              Approve
+              Approve {name}
+            </Button>
+            <Button
+              radius="xl"
+              variant="subtle"
+              color="gray"
+              loading={deny.loading}
+              onClick={() => decide(false)}
+            >
+              Deny
             </Button>
           </div>
         </>
       )}
 
-      {request.status !== 'pending' && (
-        <div className="linkup-request-said">
-          {request.status === 'denied' ? (
-            'Denied.'
-          ) : connected ? (
-            <>
-              <IconCircleCheck size={16} stroke={1.8} />
-              Linked up.
-            </>
-          ) : linked ? (
-            'Starting xixo link.'
-          ) : (
-            'Approved. Finishing on the machine.'
-          )}
-        </div>
+      {request.status === 'denied' && (
+        <p className="linkup-request-said">
+          Denied. {name} cannot link up with this code.
+        </p>
+      )}
+
+      {request.status !== 'pending' && request.status !== 'denied' && (
+        <ol className="linkup-steps">
+          <Step done>Approved</Step>
+          <Step done={Boolean(linked)}>Linked up</Step>
+          <Step done={connected}>Connected</Step>
+        </ol>
+      )}
+
+      {connected && linked && (
+        <p className="linkup-request-said">
+          {name} is ready. Choose what xixo may do with it on{' '}
+          <Link to={`/settings/resources/${linked.id}`}>its card</Link>.
+        </p>
       )}
 
       {refused && <div className="linkup-request-refused">{refused}</div>}
     </div>
+  )
+}
+
+function Step({
+  done = false,
+  children,
+}: {
+  done?: boolean
+  children: string
+}) {
+  return (
+    <li data-done={done}>
+      {done ? (
+        <IconCircleCheck size={18} stroke={1.8} />
+      ) : (
+        <span className="linkup-dot" />
+      )}
+      {children}
+    </li>
   )
 }
 
@@ -311,7 +345,7 @@ export function AskingLine({
 
   const named =
     asking.length === 1
-      ? `${asking[0].hostname} is asking to link up.`
+      ? `${shortName(asking[0].hostname)} is asking to link up.`
       : `${plural(asking.length, 'machine')} are asking to link up.`
 
   return (

@@ -45,11 +45,7 @@ export function LinkApproval() {
     <div className="settings-page linkup-approval">
       <Intro
         title="Approve a machine"
-        lead={
-          <>
-            Approve it only if the machine shows <code>{code}</code>.
-          </>
-        }
+        lead="A machine is asking to link up to xixo. Approve it only if you just ran the command on it."
       />
 
       {!administrator ? (
