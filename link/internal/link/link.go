@@ -492,6 +492,8 @@ func (a *Link) answer(ctx context.Context, asked *Request) {
 		a.extraction(ctx, asked, true)
 	case verbWrite:
 		a.write(ctx, asked)
+	case verbRemove:
+		a.remove(ctx, asked)
 	case verbBrowse, verbFind, verbPeek, verbPlace, verbExamine, verbModel, verbRelay:
 		a.tool(ctx, asked)
 	default:
@@ -604,7 +606,7 @@ func decode(raw json.RawMessage, into any) error {
 func describe(err error) string {
 	switch {
 	case errors.Is(err, folders.ErrUnshared), errors.Is(err, folders.ErrOutside), errors.Is(err, folders.ErrOverlaps),
-		errors.Is(err, folders.ErrSkipped), errors.Is(err, folders.ErrNotFile):
+		errors.Is(err, folders.ErrSkipped), errors.Is(err, folders.ErrNotFile), errors.Is(err, folders.ErrChanged):
 		return err.Error()
 	case errors.Is(err, fs.ErrNotExist):
 		return "no such file"

@@ -508,6 +508,10 @@ func straight(root *os.Root, relative string) error {
 }
 
 func (f *Folders) Write(folder, name string, body io.Reader, size int64, replace bool) (*Entry, error) {
+	return f.WriteModified(folder, name, body, size, replace, time.Time{})
+}
+
+func (f *Folders) WriteModified(folder, name string, body io.Reader, size int64, replace bool, modified time.Time) (*Entry, error) {
 	relative, err := confined(name)
 	if err != nil {
 		return nil, err
@@ -541,7 +545,7 @@ func (f *Folders) Write(folder, name string, body io.Reader, size int64, replace
 		return nil, err
 	}
 
-	temporary, err := spooled(root, path.Dir(relative), body, size)
+	temporary, err := spooled(root, path.Dir(relative), body, size, modified)
 	if err != nil {
 		return nil, err
 	}
@@ -643,7 +647,7 @@ func writable(root *os.Root, relative string, replace bool) error {
 	return nil
 }
 
-func spooled(root *os.Root, dir string, body io.Reader, size int64) (string, error) {
+func spooled(root *os.Root, dir string, body io.Reader, size int64, modified time.Time) (string, error) {
 	random := make([]byte, 8)
 	rand.Read(random)
 
@@ -665,6 +669,10 @@ func spooled(root *os.Root, dir string, body io.Reader, size int64) (string, err
 
 	if closed := opened.Close(); err == nil {
 		err = closed
+	}
+
+	if err == nil && !modified.IsZero() {
+		err = root.Chtimes(temporary, modified, modified)
 	}
 
 	if err != nil {

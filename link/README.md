@@ -127,7 +127,7 @@ hashes, and extracts its own files, and sends xixo only what extraction makes.
 Each tool is a verb below that xixo link answers only when it is allowed both
 by the configuration and by xixo. An empty `tools` list allows none. `read`
 still needs lending, and `write` a writable folder; the `write` verb that
-places xixo's own files needs the `write` tool too. A tool name xixo link does
+places xixo's own files needs the `write` tool too, and so does `remove`. A tool name xixo link does
 not know stops it from starting. The container beside the server sets these
 keys from `XIXO_LINK_LEND`, `XIXO_LINK_EXTRACTS_FOR_OTHERS`, and
 `XIXO_LINK_TOOLS` when they are set, and leaves them out otherwise.
@@ -343,7 +343,8 @@ xixo sends a request as the `message` of a broadcast on the subscription:
 | `hash` | `folder`, `path` | `{"sha256","size"}` |
 | `extract` | `source`, `size`, `mime`, `filename`, `skip`, `settings` | each made file's `chunk` messages, then the steps and the list of files |
 | `derive` | as `extract` | the thumbnail and preview alone |
-| `write` | `folder`, `path`, `upload`, `size`, `replace` | `{"path","size","modified_at"}` |
+| `write` | `folder`, `path`, `upload`, `size`, `replace`, `modified_at` | `{"path","size","modified_at"}` |
+| `remove` | `folder`, `path`, `sha256`, `size`, `prune` | `{"path","size","pruned"}` |
 | `browse` | `folder`, `prefix`, `cursor`, `limit` | as `list`, 200 files at most |
 | `find` | `query`, `folder`, `limit` | `{"matches":[{"folder","path","size","modified_at"}],"visited","complete"}` |
 | `peek` | `folder`, `path`, `limit` | `{"data","size","total"}` |
@@ -367,7 +368,19 @@ beside the target, syncs it, and moves it into place, so a reader never sees a
 partial file. It creates the folders on the way inside the shared folder only.
 It refuses a read-only or unshared folder, a link anywhere on the path, a name
 a walk skips, and bytes that do not match `size`. Without `replace` it refuses
-to overwrite an existing file.
+to overwrite an existing file. With `modified_at`, an RFC 3339 time, the file
+gets that modification time before it is moved into place.
+
+`remove` deletes a file inside a writable folder. It reads the file where it
+lies, and removes it only when its size and SHA-256 match `size` and `sha256`
+and it did not change while it was read. xixo can therefore remove only bytes
+it has already seen somewhere else, which is how a move works: xixo copies a
+file, has the other machine hash the copy, and asks for the original to be
+removed with that hash. `remove` refuses everything `write` refuses. With
+`prune`, it then removes each folder above the file that the removal left
+empty, up to the shared folder and never the shared folder itself. A folder
+that holds only `.DS_Store`, `Thumbs.db`, or `desktop.ini` counts as empty, and
+those files go with it. `pruned` lists the folders it removed.
 
 `hash` reads the file where it lies and answers with its SHA-256 in hex and its
 size, sending none of its bytes.
