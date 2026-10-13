@@ -156,16 +156,19 @@ class MoveTest < ActiveSupport::TestCase
     assert_equal %w[raws/2019/DSC_0001.NEF], @there.keys
   end
 
-  test "an agent moves a folder with the resource tool" do
+  test "an agent moves a folder with the move tool, and checks on it by its run" do
     Current.grant = @grant
-    answered = Tenant.switch(@tenant) do
-      JSON.parse(Tool::Resources.call(server_context: {}, key: "data", do: "move",
-                                      input: { "from" => "backup", "path" => "notes.txt" }).content.first[:text])
+    started = Tenant.switch(@tenant) do
+      JSON.parse(Tool::Move.call(server_context: {}, from: "backup", path: "notes.txt", to: "data").content.first[:text])
     end
     performed
+    checked = Tenant.switch(@tenant) do
+      JSON.parse(Tool::Move.call(server_context: {}, run: started["run"]).content.first[:text])
+    end
 
-    assert_equal "move", answered["kind"]
-    assert_equal({ "files" => 0, "files_done" => 0, "files_failed" => 0, "bytes" => 0, "bytes_done" => 0 }, answered["moved"])
+    assert_equal "queued", started["status"]
+    assert_equal "done", checked["status"]
+    assert_equal({ "files" => 1, "files_done" => 1, "files_failed" => 0, "bytes" => 6, "bytes_done" => 6 }, checked["moved"])
     assert_equal %w[notes.txt], @here.keys
   ensure
     Current.grant = nil

@@ -4,7 +4,8 @@ module Tool
       Tool::Search,
       Tool::Feeds,
       Tool::Connect,
-      Tool::Resources
+      Tool::Resources,
+      Tool::Move
     ]
   end
 end

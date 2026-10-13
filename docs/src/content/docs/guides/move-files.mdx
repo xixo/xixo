@@ -108,19 +108,27 @@ To stop it, call `cancelRun` with the run's id.
 
 ## Move over MCP
 
-The `resource` tool moves with `do: "move"` on the folder the files go to. The token needs
-`xixo:resources:read` and `xixo:resources:command`. See [MCP](/reference/mcp/).
+The `move` tool moves files. The token needs `xixo:resources:command`. See [MCP](/reference/mcp/).
 
-```json
-{
-  "key": "archive",
-  "do": "move",
-  "input": { "from": "pictures", "path": "Photos/2019", "into": "Archive" }
-}
-```
+1. Start a move with the key of the folder the files leave, a path inside it, and the key of the
+   folder they go to:
 
-Without `from`, `input` takes `ids`, `query`, and `type`, and moves the files they select. The call
-answers with the run and its `moved` counts. Moves share the MCP run budget with syncs and exports.
+   ```json
+   { "from": "pictures", "path": "Photos/2019", "to": "archive", "into": "Archive" }
+   ```
+
+   Without `from`, `ids`, `query`, and `type` pick the files instead. The call answers with the
+   move's `run`, its `status`, and its `moved` counts.
+2. Check on it with the run's id. The answer adds `stayed`, the last files that stayed where they
+   were, each with the reason:
+
+   ```json
+   { "run": "55" }
+   ```
+
+3. To stop it, add `"stop": true` to the same call.
+
+Moves share the MCP run budget with syncs and exports.
 
 ## If it doesn't work
 

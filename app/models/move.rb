@@ -72,7 +72,7 @@ class Move < ApplicationRecord
   end
 
   def self.progress(run_id)
-    counted = where(run_id: run_id).group(:status).pluck(:status, Arel.sql("count(*)"), Arel.sql("coalesce(sum(size), 0)"))
+    counted = where(run_id: run_id).group(:status).pluck(:status, Arel.sql("count(*)"), Arel.sql("coalesce(sum(size), 0)::bigint"))
     held = counted.to_h { |status, files, bytes| [ status, [ files, bytes ] ] }
     done = held.fetch("done", [ 0, 0 ])
 

@@ -81,7 +81,7 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
   test "the token decides which tools exist at all" do
     assert_equal %w[search feed], listed_tools([ "xixo:catalog:read" ])
     assert_equal %w[search feed connect], listed_tools(%w[xixo:catalog:read xixo:catalog:write])
-    assert_equal %w[search feed connect resource], listed_tools(ALL)
+    assert_equal %w[search feed connect resource move], listed_tools(ALL)
   end
 
   test "a tool outside the grant is not callable, not merely unlisted" do

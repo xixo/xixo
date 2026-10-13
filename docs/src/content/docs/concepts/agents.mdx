@@ -1,6 +1,6 @@
 ---
 title: Agents and MCP
-description: The four tools at /mcp, how the token's scopes select them, and the agent loop that runs over the same tools.
+description: The five tools at /mcp, how the token's scopes select them, and the agent loop that runs over the same tools.
 ---
 
 `/mcp` is a Model Context Protocol endpoint over streamable HTTP. It accepts the same masks access
@@ -22,7 +22,7 @@ news never holds one of the server's threads. A `GET /mcp` gets `405 Method Not 
 and `server/discover` lists no `listChanged` or `subscribe` capability. xixo sends no notifications
 for a client to wait for.
 
-## Four tools
+## Five tools
 
 | Tool | Scope to see it | Purpose |
 | --- | --- | --- |
@@ -30,12 +30,13 @@ for a client to wait for.
 | `feed` | `xixo:catalog:read` | reads one [feed](/concepts/feeds/) in full. With `do`, it adds a note, renames, analyzes, creates, places, or sets how long a feed lasts. |
 | `connect` | `xixo:catalog:write` | connects two feeds, or disconnects them |
 | `resource` | `xixo:resources:read` | lists the [resources](/concepts/resources/), and sends a command to one |
+| `move` | `xixo:resources:command` | moves files from a folder on one machine to a folder on another, and checks on or stops a move. See [moving files](/guides/move-files/). |
 
 The [MCP reference](/reference/mcp/) lists each tool's inputs.
 
 A token sees only the tools its scopes permit. `Tool::Resources.for` builds the `resource` tool for
 each token. `list`, `describe`, `runs`, `get`, `parameters`, and `search` are always in its schema.
-`check`, `sync`, `keep`, `export`, `move`, `cancel`, `put`, and `snapshot` appear only when the token has
+`check`, `sync`, `keep`, `export`, `cancel`, `put`, and `snapshot` appear only when the token has
 `xixo:resources:command`. A token with `xixo:web:keep` also gets `snapshot`, and can send it only to
 a resource that renders pages, which is the `web` type. A command the token cannot use is left out of
 `tools/list`.
@@ -59,7 +60,7 @@ through unchanged.
 ## The agent
 
 `Agent` runs a prompt against an inference resource that serves the `agent` role, and offers it the
-same four tools. It runs for a fixed number of turns: six by default, or the number a feed's
+same tools, as far as its scopes allow. It runs for a fixed number of turns: six by default, or the number a feed's
 schedule sets, up to 32. Each turn asks the model for a reply.
 
 - A reply with no tool calls is the answer.
@@ -240,7 +241,7 @@ with it. A tenant without a feedback resource keeps nothing.
 ## Budgets and gates
 
 Work that can run for a long time spends from a budget. This covers `feed` with `do: analyze`, and
-`resource` with `sync`, `export`, or `move`. Each subject in a tenant may start `XIXO_RUN_BUDGET` of these per
+`resource` with `sync` or `export`, and `move`. Each subject in a tenant may start `XIXO_RUN_BUDGET` of these per
 clock hour, 20 by default, and `0` removes the limit. A feed's agent spends from its own subject's
 budget, which is separate from any person's.
 
