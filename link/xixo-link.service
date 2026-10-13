@@ -10,6 +10,7 @@ User=@USER@
 ExecStart=/usr/local/lib/xixo-link/xixo-link run --config /etc/xixo-link/config.json --state /var/lib/xixo-link --updates systemd
 Restart=always
 RestartSec=5
+TimeoutStopSec=15s
 RestartPreventExitStatus=78
 StateDirectory=xixo-link
 StateDirectoryMode=0700

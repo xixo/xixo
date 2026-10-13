@@ -14,7 +14,7 @@ import (
 
 const (
 	Probation = 3 * time.Minute
-	stopping  = 30 * time.Second
+	stopping  = 10 * time.Second
 )
 
 type Supervisor struct {

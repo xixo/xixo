@@ -181,7 +181,9 @@ keeps the token out of the process list. `--name` is the name masks shows for
 the machine, and defaults to the hostname. The container beside the server
 enrolls this way, with a token the server leaves it.
 
-`xixo-link run` connects to xixo and serves it until it is stopped.
+`xixo-link run` connects to xixo and serves it until it is stopped. On
+SIGTERM or SIGINT it stops the requests it is answering and waits at most five
+seconds for them to end before it exits.
 `--updates systemd` or `--updates self` lets it update itself, as described in
 [updates](#updates). Without the flag it ignores xixo's updates. `run` takes
 `--updates systemd` only on Linux when systemd started it, and `--updates self`
@@ -515,6 +517,9 @@ The unit also:
   so a program the kernel stops for memory fails one extraction and xixo link
   keeps running. `sudo systemctl edit xixo-link` sets a higher cap in a
   drop-in that an install leaves alone
+- gives xixo link 15 seconds to stop with `TimeoutStopSec=15s`, after which
+  systemd kills it. xixo link needs about five at most, so a restart never
+  waits the 90 seconds systemd allows by default
 - starts after `time-sync.target`. A clock that is wrong anyway makes masks
   refuse xixo link's assertion, which xixo link retries, so it does not stop
 - gives xixo link `/var/cache/xixo-link` as its cache, read through
@@ -647,6 +652,10 @@ newest update as a child and never changes itself:
    `state/running.json`, within three minutes, the parent points
    `releases/good` at the folder. When it does not, or stops first, the parent
    points `current` back at `good`, or at nothing, and starts that one.
+
+When launchd stops the parent, the parent sends SIGTERM to the child and gives
+it 10 seconds to exit before it kills it. That fits inside the 20 seconds
+launchd waits before it kills the parent.
 
 macOS grants Full Disk Access to a binary by its code signature, which changes
 with every build. The child runs under the parent, and macOS checks the
