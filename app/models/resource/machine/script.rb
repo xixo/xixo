@@ -103,8 +103,8 @@ class Resource
             install -m 0755 "$work/xixo-link" "$dir/bin/xixo-link"
 
             if [ -n "$reader" ]; then
-              if curl -fsSL --proto =https -o "$work/xixo-mac-reader" "$reader" &&
-                curl -fsSL --proto =https -o "$work/xixo-mac-reader.sha256" "$reader.sha256" &&
+              if curl -fsL --proto =https -o "$work/xixo-mac-reader" "$reader" &&
+                curl -fsL --proto =https -o "$work/xixo-mac-reader.sha256" "$reader.sha256" &&
                 (cd "$work" && shasum -a 256 -c xixo-mac-reader.sha256 > /dev/null 2>&1); then
                 install -m 0755 "$work/xixo-mac-reader" "$dir/bin/xixo-mac-reader"
               else
@@ -121,6 +121,7 @@ class Resource
             launchctl bootout "gui/$(id -u)/network.xixo.link" 2> /dev/null || true
             install -m 0644 "$work/agent" "$agent"
             launchctl bootstrap "gui/$(id -u)" "$agent"
+            launchctl kickstart "gui/$(id -u)/network.xixo.link"
             say "xixo link is running. To share Documents, Desktop, or Downloads, turn on Full Disk Access for xixo-link in System Settings, Privacy & Security."
           }
 
