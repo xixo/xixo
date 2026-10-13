@@ -15,7 +15,7 @@ class FakeLinks
   LinkChannel.singleton_class.prepend(Overheard)
 
   attr_reader :asked
-  attr_accessor :corrupting
+  attr_accessor :corrupting, :removing
 
   def initialize(tenant, folders)
     @tenant = tenant
@@ -44,6 +44,10 @@ class FakeLinks
   def heard(machine, message)
     @asked << [ machine.key, message["verb"], message["args"] ]
     @inbox << [ machine.id, message ]
+  end
+
+  def add(machine_id, folder, files)
+    (@folders[machine_id] ||= {})[folder] = files
   end
 
   def files(machine, folder)
@@ -94,7 +98,7 @@ class FakeLinks
       after = args["cursor"].to_s
 
       folder.keys.sort.select { |path| path.start_with?(prefix) && path > after }.first(args["limit"] || 500).map do |path|
-        { "path" => path, "size" => folder[path].bytes.bytesize, "modified_at" => folder[path].modified_at.utc.iso8601 }
+        { "path" => path, "size" => folder[path].bytes.bytesize, "modified_at" => folder[path].modified_at.utc.iso8601(9) }
       end
     end
 
@@ -121,6 +125,7 @@ class FakeLinks
     end
 
     def removed(exchange, folder, args)
+      removing&.call(folder, args)
       held = folder[args["path"]]
       return exchange.refuse!("no such file") if held.nil?
       return exchange.refuse!("the file does not match the SHA-256 xixo named") unless Digest::SHA256.hexdigest(held.bytes) == args["sha256"]

@@ -174,6 +174,103 @@ class MoveTest < ActiveSupport::TestCase
     Current.grant = nil
   end
 
+  test "a move between two folders on one machine is refused, since a file there can be its own copy" do
+    Tenant.switch(@tenant) do
+      again = Resource::Filesystem.create!(key: "backup-again", details: { "folder" => BACKUP }, via: @mac)
+
+      refused = assert_raises(ArgumentError) do
+        Move.start!(grant: @grant, destination: again, source: Resource::Filesystem.find(@backup.id))
+      end
+
+      assert_match(/both on mac/, refused.message)
+      assert_equal 0, Run.count
+    end
+
+    assert_equal %w[notes.txt raws/2019/DSC_0001.NEF raws/2019/DSC_0002.NEF], @there.keys.sort
+  end
+
+  test "a move already planned between two folders on one machine removes nothing" do
+    run = Tenant.switch(@tenant) do
+      again = Resource::Filesystem.create!(key: "backup-again", details: { "folder" => BACKUP }, via: @mac)
+      held = Run.start!(kind: "move", resource: again, selector: { "destination_id" => again.id, "into" => "",
+                                                                    "source_id" => @backup.id, "root" => "" })
+      PlanMoveJob.perform_later(@tenant.id, held.id)
+      held
+    end
+    performed
+
+    assert_equal %w[notes.txt raws/2019/DSC_0001.NEF raws/2019/DSC_0002.NEF], @there.keys.sort
+    assert_not @links.verbs.any? { |_, verb, _| verb == "remove" }
+    Tenant.switch(@tenant) { assert_equal "failed", run.reload.status }
+  end
+
+  test "a copy stays when its original is gone before xixo removes it" do
+    @links.removing = ->(folder, args) { folder.delete(args["path"]) }
+
+    run = moving(path: "notes.txt")
+
+    assert_equal "failed", run.status
+    assert_equal "a note", @here["notes.txt"]&.bytes
+    assert_match(/notes.txt is gone from backup/, run.logs)
+  end
+
+  test "a file another move is carrying stays where it is" do
+    key = Tenant.switch(@tenant) { Move.carried_as(Resource::Machine.find(@mac.id), BACKUP, "notes.txt") }
+    held = Queue.new
+    release = Queue.new
+    holder = Thread.new do
+      ActiveRecord::Base.connection_pool.with_connection do |connection|
+        connection.execute("SELECT pg_advisory_lock(hashtextextended(#{connection.quote(key)}, 0))")
+        held << true
+        release.pop
+        connection.execute("SELECT pg_advisory_unlock(hashtextextended(#{connection.quote(key)}, 0))")
+      end
+    end
+    held.pop
+
+    run = moving(path: "notes.txt")
+    release << true
+    holder.join
+
+    assert_equal "failed", run.status
+    assert_equal "a note", @there["notes.txt"].bytes
+    assert_empty @here
+    assert_match(/another move is carrying notes.txt/, run.logs)
+  end
+
+  test "a copy keeps the fraction of a second in its modification time" do
+    taken = Time.utc(2019, 7, 4, 12, 30, Rational(123_456, 1_000_000))
+    @there["notes.txt"].modified_at = taken
+
+    run = moving(path: "notes.txt")
+
+    assert_equal "done", run.status, run.error
+    assert_equal taken, @here["notes.txt"].modified_at
+  end
+
+  test "a selection moves only the files on machines its starter operated when it started" do
+    elsewhere = "/srv/elsewhere"
+    other = writing(machine_on(@tenant, key: "other", folders: [ elsewhere ], operators: [ "bob" ]), elsewhere)
+    kept = {}
+    feed = Tenant.switch(@tenant) do
+      @backup.keep!(Resource::Filesystem::Entry.new(path: "notes.txt", size: 6, modified_at: TAKEN_AT)).feed
+    end
+
+    started = Tenant.switch(@tenant) { Move.start!(grant: @grant, destination: @data, into: "Inbox", feeds: { "id" => [ feed.id ] }) }
+
+    Tenant.switch(@tenant) do
+      folder = Resource::Filesystem.create!(key: "elsewhere", details: { "folder" => elsewhere }, via: other)
+      kept["bob.txt"] = FakeLinks::Held.new("bob's".b, TAKEN_AT)
+      folder.keep!(Resource::Filesystem::Entry.new(path: "bob.txt", size: 5, modified_at: TAKEN_AT)).update_columns(feed_id: feed.id)
+    end
+    @links.add(other.id, elsewhere, kept)
+    performed
+
+    Tenant.switch(@tenant) { assert_equal "done", started.reload.status, started.error }
+    assert_equal({ "bob.txt" => "bob's" }, kept.transform_values(&:bytes))
+    assert_equal %w[Inbox/notes.txt], @here.keys
+  end
+
   test "a large file crosses part by part, and the server holds only a few parts at once" do
     Tenant.switch(@tenant) do
       Resource::Machine::Relay.new(

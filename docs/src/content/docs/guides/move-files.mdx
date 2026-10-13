@@ -43,6 +43,12 @@ A move never overwrites a file:
   This is how a move that stopped part way finishes.
 - When the file there holds other bytes, both stay, and the run lists the file as one that stayed.
 - When the copy's SHA-256 does not match the original's, the copy is removed and the original stays.
+- When the original is gone before xixo removes it, the copy stays.
+- Two moves never carry the same file, or write the same path, at the same time. A file another move
+  is carrying stays where it is, and the run lists it.
+
+Both folders must be on different machines. Two folders on one machine can hold the same files, so a
+move between them is refused before anything starts.
 
 xixo link never reads `.git`, `node_modules`, `.DS_Store`, or the other
 [names it skips](https://github.com/xixo/xixo/tree/main/link#the-conversation-with-xixo). A move
@@ -135,6 +141,7 @@ Moves share the MCP run budget with syncs and exports.
 - **"shares `<folder>` read-only"**: share the folder writable, as in
   [prepare the machines](#prepare-the-machines). Nothing has moved.
 - **"may not write into its folders"**: set the machine's access to **Files and writing**.
+- **"are both on `<machine>`"**: pick a folder on another machine. Nothing has moved.
 - **"only an operator of `<machine>`"**: an administrator adds you under **Who operates it** on the
   machine's card.
 - **The run ends `failed` with "N of M files stayed where they were"**: the log names each file and

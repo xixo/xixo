@@ -27,13 +27,14 @@ class Move < ApplicationRecord
       raise ArgumentError, "the files already live in #{destination.key}" if source.id == destination.id
 
       movable!(source, grant)
+      apart!(source, destination)
       selector = selector.merge("source_id" => source.id, "root" => source.inner(folder_inside!(path, "path")))
     else
       raise ArgumentError, "a move takes a folder or a selection of files" if feeds.blank?
 
       reader = grant&.speaks_for
-      sources_of(feeds, reader, destination).each { |held| movable!(held, grant) }
-      selector = selector.merge("feeds" => feeds.to_h, "reader" => reader)
+      sources = sources_of(feeds, reader, destination).each { |held| movable!(held, grant) }
+      selector = selector.merge("feeds" => feeds.to_h, "reader" => reader, "sources" => sources.map(&:id))
     end
 
     run = Run.start!(kind: "move", resource: destination, selector: selector, deadline: LASTS.from_now)
@@ -57,10 +58,21 @@ class Move < ApplicationRecord
   def self.sources_of(feeds, reader, destination)
     chosen = Feed.referenced.readable_to(reader).matching(feeds.to_h.merge("reader" => reader))
     held = Reference.originals.where(gone_at: nil, feed_id: chosen.select(:id)).where.not(resource_id: destination.id)
-    found = Resource::Filesystem.where(id: held.select(:resource_id)).to_a
-    raise ArgumentError, "none of those files lives in a folder on a machine running xixo link" if found.empty?
+    found = Resource::Filesystem.where(id: held.select(:resource_id)).where.not(via_id: destination.via_id).to_a
+    raise ArgumentError, "none of those files lives in a folder on another machine running xixo link" if found.empty?
 
     found
+  end
+
+  def self.apart!(source, destination)
+    return unless source.via_id == destination.via_id
+
+    raise ArgumentError, "#{source.key} and #{destination.key} are both on #{source.machine.key}. A move carries files " \
+                         "from one machine to another"
+  end
+
+  def self.carried_as(machine, folder, path)
+    "move:#{machine.id}:#{File.join(folder, path).unicode_normalize(:nfc).downcase}"
   end
 
   def self.folder_inside!(path, named)
@@ -97,17 +109,9 @@ class Move < ApplicationRecord
 
   def carry!
     return self unless status == "waiting"
+    return failed!("#{source.key} and #{destination.key} are on the same machine, so #{path} stays where it is") if same_machine?
 
-    landed = destination.entry_at(target)
-    landed ? kept_if_same!(landed) : Resource::Machine::Relay.new(
-      from: source.machine, folder: source.folder, path: path, size: size,
-      to: destination.machine, into: destination.folder, target: target, modified_at: modified_at
-    ).copy!
-
-    copied = destination.hashed(target, size: size)
-    return mismatched!(copied, landed) unless copied["size"] == size
-
-    left!(copied, landed)
+    alone { carried! }
   rescue Resource::Unusable
     raise
   rescue Resource::Failed, Resource::Refused => e
@@ -117,6 +121,45 @@ class Move < ApplicationRecord
   end
 
   private
+
+    def same_machine?
+      source.via_id == destination.via_id
+    end
+
+    def alone
+      keys = [ Move.carried_as(source.machine, source.folder, path), Move.carried_as(destination.machine, destination.folder, target) ]
+
+      self.class.connection_pool.with_connection do |connection|
+        taken = []
+
+        begin
+          keys.each do |key|
+            break unless connection.select_value("SELECT pg_try_advisory_lock(hashtextextended(#{connection.quote(key)}, 0))")
+
+            taken << key
+          end
+
+          next failed!("another move is carrying #{path} or writing #{target}, so #{path} stays where it is") if taken.size < keys.size
+
+          yield
+        ensure
+          taken.each { |key| connection.select_value("SELECT pg_advisory_unlock(hashtextextended(#{connection.quote(key)}, 0))") }
+        end
+      end
+    end
+
+    def carried!
+      landed = destination.entry_at(target)
+      landed ? kept_if_same!(landed) : Resource::Machine::Relay.new(
+        from: source.machine, folder: source.folder, path: path, size: size,
+        to: destination.machine, into: destination.folder, target: target, modified_at: modified_at
+      ).copy!
+
+      copied = destination.hashed(target, size: size)
+      return mismatched!(copied, landed) unless copied["size"] == size
+
+      left!(copied, landed)
+    end
 
     def kept_if_same!(landed)
       return if landed.size == size && destination.hashed(target, size: size)["sha256"] == source.hashed(path, size: size)["sha256"]
@@ -134,6 +177,8 @@ class Move < ApplicationRecord
       begin
         source.removed!(path, sha256: copied["sha256"], size: copied["size"], prune: true)
       rescue Resource::Machine::Refusal => e
+        return failed!("#{path} is gone from #{source.key}, so its copy stays at #{target} on #{destination.key}") unless landed || source.entry_at(path)
+
         destination.removed!(target, sha256: copied["sha256"], size: copied["size"]) unless landed
         return failed!("#{path} stays on #{source.key}, since #{e.message.sub(/\A[^:]+: /, '')}")
       end

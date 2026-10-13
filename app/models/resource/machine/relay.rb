@@ -31,7 +31,7 @@ class Resource
           @upload = @to.relayed_upload(@size)
           @write = @to.asking("write", {
             "folder" => @into, "path" => @target, "upload" => @upload.request, "size" => @size,
-            "replace" => false, "relayed" => true, "modified_at" => @modified_at&.utc&.iso8601
+            "replace" => false, "relayed" => true, "modified_at" => @modified_at&.utc&.iso8601(6)
           }.compact)
           @moved_at = Time.current
           @base = 0

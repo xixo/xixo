@@ -83,9 +83,11 @@ class PlanMoveJob < ApplicationJob
     end
 
     def sources_of(feed)
-      feed.references.originals.where(gone_at: nil).where.not(resource_id: destination.id).filter_map do |reference|
+      allowed = Array(run.selector["sources"])
+
+      feed.references.originals.where(gone_at: nil, resource_id: allowed).filter_map do |reference|
         source = reference.resource
-        next unless source.is_a?(Resource::Filesystem) && source.machine.present?
+        next unless source.is_a?(Resource::Filesystem) && source.machine.present? && source.via_id != destination.via_id
 
         located = reference.locator.to_h
         entry = Resource::Filesystem::Entry.new(
