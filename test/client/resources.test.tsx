@@ -4,6 +4,11 @@ import { describe, expect, test } from 'vitest'
 import { Resources } from '../../app/javascript/components/Resources'
 import { fakeClient, show } from './support/screen'
 
+const QUIET = {
+  LinkRequests: () => ({ linkRequests: [] }),
+  UnlinkedMachines: () => ({ unlinkedMachines: [] }),
+}
+
 const resource = (overrides: Record<string, unknown>) => ({
   id: '1',
   type: 'database',
@@ -60,6 +65,9 @@ const machineSaid = (overrides: Record<string, unknown>) => ({
   folders: [],
   extractors: ['pdf', 'text'],
   unread: [],
+  access: 'search',
+  helpsOthers: true,
+  heldBack: [],
   lends: false,
   tools: [],
   warnings: [],
@@ -68,8 +76,6 @@ const machineSaid = (overrides: Record<string, unknown>) => ({
   extractsForOthers: false,
   waiting: [],
   linked: true,
-  selfLinked: false,
-  linkingUntil: null,
   services: [],
   memoryTotal: null,
   memoryAvailable: null,
@@ -106,7 +112,6 @@ const studio = resource({
     hostname: 'studio',
     os: 'darwin',
     folders: ['/srv/media', '/srv/photos'],
-    selfLinked: true,
     services: [
       {
         kind: 'ollama',
@@ -121,6 +126,7 @@ const studio = resource({
 
 function resources(administrator: boolean) {
   return fakeClient({
+    ...QUIET,
     Resources: () => ({ administrator, resources: [household, notes] }),
     Runs: () => ({ runs: { nodes: [], hasMore: false, nextCursor: null } }),
   })
@@ -160,6 +166,7 @@ describe('Resources', () => {
       emptiedAt: new Date().toISOString(),
     })
     const { client } = fakeClient({
+      ...QUIET,
       Resources: () => ({ administrator: true, resources: [emptied] }),
       Runs: () => ({ runs: { nodes: [], hasMore: false, nextCursor: null } }),
     })
@@ -209,6 +216,7 @@ describe('Resources', () => {
 
   test('the setup checklist opens straight onto Attach', async () => {
     const { client } = fakeClient({
+      ...QUIET,
       Resources: () => ({ administrator: true, resources: [household] }),
       ResourceTypes: () => ({ resourceTypes: [] }),
     })
@@ -229,6 +237,7 @@ describe('Resources', () => {
       machineId: '9',
     })
     const { client } = fakeClient({
+      ...QUIET,
       Resources: () => ({
         administrator: true,
         resources: [household, tailnet, local, studio],
@@ -245,10 +254,9 @@ describe('Resources', () => {
     const server = screen.getByRole('region', { name: 'This server' })
     expect(within(server).getByText('Where xixo runs')).toBeTruthy()
     expect(
-      within(server).getByText(
-        'Shares 1 folder · Reads every kind of file · Also reads for other machines · Found Ollama',
-      ),
+      within(server).getByText('Shares 1 folder · Reads every kind of file'),
     ).toBeTruthy()
+    expect(within(server).getByText('Found Ollama on This server')).toBeTruthy()
     expect(within(server).getByText('Household')).toBeTruthy()
     expect(within(server).getByText('drops land here')).toBeTruthy()
     expect(within(server).getByText('home')).toBeTruthy()
@@ -285,6 +293,7 @@ describe('Resources', () => {
       settings: { base_url: 'http://100.64.0.40:8000/v1' },
     })
     const { client } = fakeClient({
+      ...QUIET,
       Resources: () => ({
         administrator: true,
         resources: [local, studio, ollama, hosted],
@@ -318,6 +327,7 @@ describe('Resources', () => {
       settings: { folder: '/srv/media' },
     })
     const { client, asked } = fakeClient({
+      ...QUIET,
       Resources: () => ({
         administrator: true,
         resources: [local, studio, media],
@@ -361,6 +371,7 @@ describe('Resources', () => {
 
   test('the Add button asks where first, starting at this server', async () => {
     const { client } = fakeClient({
+      ...QUIET,
       Resources: () => ({
         administrator: true,
         resources: [local, studio],
@@ -397,6 +408,7 @@ describe('Resources', () => {
       machine: { ...studio.machine, connected: false, seenAt },
     })
     const { client } = fakeClient({
+      ...QUIET,
       Resources: () => ({ administrator: true, resources: [local, away] }),
     })
 
@@ -429,6 +441,7 @@ describe('Resources', () => {
       },
     })
     const { client } = fakeClient({
+      ...QUIET,
       Resources: () => ({
         administrator: true,
         waitingForMachines: [{ kind: 'media', count: 12 }],
@@ -450,63 +463,178 @@ describe('Resources', () => {
     const server = screen.getByRole('region', { name: 'This server' })
     expect(
       within(server).getByText(
-        /Also reads for other machines and lends its files · 12 files wait for it to read PDFs or audio and video/,
+        /12 files wait for it to read PDFs or audio and video/,
       ),
     ).toBeTruthy()
   })
 
-  test('linking up a machine names it, then shows the code beside commands that ask for it', async () => {
+  test('linking up a machine shows one command for the system, and the machine asking appears to approve', async () => {
+    const asking = {
+      id: '40',
+      code: 'WDJB-MJHT',
+      status: 'pending',
+      hostname: 'studio.local',
+      os: 'darwin',
+      arch: 'arm64',
+      folders: ['/Users/jon/Documents'],
+      writable: [],
+      remoteIp: '192.0.2.4',
+      expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      machine: null,
+    }
     const { client, asked } = fakeClient({
+      ...QUIET,
       Resources: () => ({
         administrator: true,
         resources: [household],
         linkUp: {
           xixo: 'https://xixo.example.com',
-          issuer: 'https://id.example.com',
-          builds: [
-            {
-              os: 'linux',
-              arch: 'amd64',
-              file: 'xixo-link-linux-amd64',
-              sha256: 'a'.repeat(64),
-            },
-          ],
+          systems: ['darwin', 'linux'],
         },
       }),
-      LinkMachine: () => ({
-        linkMachine: {
-          resource: { id: '7', key: 'studio', name: 'studio' },
-          code: 'enroll-secret',
-          expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      LinkRequests: () => ({ linkRequests: [asking] }),
+      ApproveLinkRequest: () => ({
+        approveLinkRequest: { request: { ...asking, status: 'approved' } },
+      }),
+    })
+
+    show(<Resources />, client, '/settings/resources')
+
+    expect(
+      await screen.findByText('studio.local is asking to link up.'),
+    ).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: 'Review' }))
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Link up a machine',
+    })
+
+    expect(
+      within(dialog).getByText(
+        'Run this on the machine, then approve it here.',
+      ),
+    ).toBeTruthy()
+    expect(
+      within(dialog).getByText(
+        'curl -fsSL https://xixo.example.com/link.sh | sh',
+      ),
+    ).toBeTruthy()
+    expect(within(dialog).queryByText(/enroll/)).toBeNull()
+
+    await userEvent.click(within(dialog).getByText('macOS'))
+    expect(
+      within(dialog).getByText(
+        'curl -fsSL https://xixo.example.com/link.sh | sh -s -- ~/Documents ~/Desktop',
+      ),
+    ).toBeTruthy()
+
+    expect(within(dialog).getByText('WDJB-MJHT')).toBeTruthy()
+    expect(within(dialog).getByText(/from 192\.0\.2\.4/)).toBeTruthy()
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Approve' }),
+    )
+
+    expect(
+      asked.find((ask) => ask.name === 'ApproveLinkRequest')?.variables,
+    ).toEqual({ id: '40' })
+  })
+
+  test('an administrator changes what xixo may do with a machine on its card', async () => {
+    const { client, asked } = fakeClient({
+      ...QUIET,
+      Resources: () => ({ administrator: true, resources: [local, studio] }),
+      SetMachineAccess: () => ({
+        setMachineAccess: {
+          resource: {
+            id: '7',
+            machine: {
+              access: 'files',
+              helpsOthers: true,
+              heldBack: [],
+              lends: true,
+              tools: [],
+              extractsForOthers: true,
+            },
+          },
         },
       }),
     })
 
     show(<Resources />, client, '/settings/resources')
 
+    const card = await screen.findByRole('region', { name: 'Studio' })
+    expect(
+      within(card).getByText(
+        'Browse, search, and read the text xixo drew out.',
+      ),
+    ).toBeTruthy()
+    await userEvent.click(within(card).getByText('Files'))
     await userEvent.click(
-      await screen.findByRole('button', { name: /Link up a machine/ }),
-    )
-    const dialog = await screen.findByRole('dialog', {
-      name: 'Link up a machine',
-    })
-    await userEvent.type(
-      within(dialog).getByLabelText(/Name the machine/),
-      'studio',
-    )
-    await userEvent.click(
-      within(dialog).getByRole('button', { name: 'Show the commands' }),
+      within(card).getByLabelText("Help read other machines' files"),
     )
 
-    expect(await within(dialog).findByText('Get xixo link')).toBeTruthy()
-    expect(within(dialog).getByText('enroll-secret')).toBeTruthy()
-    expect(within(dialog).queryByText(/enroll-secret'/)).toBeNull()
-    expect(within(dialog).getAllByText(/read -rs code/)).toHaveLength(1)
+    const changes = asked
+      .filter((ask) => ask.name === 'SetMachineAccess')
+      .map((ask) => ask.variables)
+    expect(changes).toEqual([
+      { id: '7', access: 'files' },
+      { id: '7', helpsOthers: false },
+    ])
+  })
+
+  test('a tailnet machine that is not linked shows a model server to add in one click', async () => {
+    const { client, asked } = fakeClient({
+      ...QUIET,
+      Resources: () => ({
+        administrator: true,
+        resources: [local],
+        linkUp: { xixo: 'https://xixo.example.com', systems: ['linux'] },
+      }),
+      UnlinkedMachines: () => ({
+        unlinkedMachines: [
+          {
+            hostName: 'm2',
+            dnsName: 'm2.example.ts.net',
+            addresses: ['100.64.0.8'],
+            via: 'home',
+            services: [
+              {
+                name: 'ollama',
+                port: 11434,
+                type: 'openai-compatible',
+                address: 'http://100.64.0.8:11434/v1',
+              },
+            ],
+          },
+        ],
+      }),
+      AttachResource: () => ({
+        attachResource: {
+          resource: {
+            id: '31',
+            type: 'openai-compatible',
+            key: 'ollama-m2',
+            name: 'Ollama on m2',
+          },
+          checkError: null,
+          connectUrl: null,
+        },
+      }),
+    })
+
+    show(<Resources />, client, '/settings/resources')
+
+    expect(await screen.findByText('Not linked yet')).toBeTruthy()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Add Ollama on m2' }),
+    )
+
     expect(
-      within(dialog).getByText(/Waiting for studio to link up/),
-    ).toBeTruthy()
-    expect(
-      asked.find((ask) => ask.name === 'LinkMachine')?.variables,
-    ).toMatchObject({ key: 'studio' })
+      asked.find((ask) => ask.name === 'AttachResource')?.variables,
+    ).toMatchObject({
+      type: 'openai-compatible',
+      key: 'ollama-m2',
+      via: 'home',
+      settings: { base_url: 'http://100.64.0.8:11434/v1' },
+    })
   })
 })

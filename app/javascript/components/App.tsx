@@ -23,6 +23,7 @@ import { Cycle } from './Cycle'
 import { Face } from './Face'
 import { Fallen } from './Fallen'
 import { ItemDetail } from './ItemDetail'
+import { LinkApproval } from './LinkApproval'
 import { Lost } from './Lost'
 import { Mark } from './Mark'
 import { Resources } from './Resources'
@@ -191,6 +192,7 @@ function Shell({
               <Route path="resources/:id" element={<Resources />} />
               <Route path="activity" element={<Audit />} />
             </Route>
+            <Route path="/link/:code" element={<LinkApproval />} />
             <Route path="/:slug" element={<Catalog />} />
             <Route path="*" element={<Lost />} />
           </Routes>

@@ -6,15 +6,7 @@ query Resources($archived: Boolean) {
   }
   linkUp {
     xixo
-    issuer
-    builds {
-      os
-      arch
-      file
-      sha256
-    }
-    macReader
-    packages
+    systems
   }
   resources(archived: $archived) {
     id
@@ -60,6 +52,9 @@ query Resources($archived: Boolean) {
       folders
       extractors
       unread
+      access
+      helpsOthers
+      heldBack
       lends
       tools
       warnings
@@ -71,8 +66,6 @@ query Resources($archived: Boolean) {
         count
       }
       linked
-      selfLinked
-      linkingUntil
       services {
         kind
         port
@@ -91,15 +84,93 @@ query Resources($archived: Boolean) {
   }
 }
 
-mutation LinkMachine($key: String, $name: String, $id: ID) {
-  linkMachine(input: { key: $key, name: $name, id: $id }) {
+fragment LinkRequestFields on LinkRequest {
+  id
+  code
+  status
+  hostname
+  os
+  arch
+  folders
+  writable
+  remoteIp
+  expiresAt
+  machine {
+    id
+    key
+    machine {
+      connected
+    }
+  }
+}
+
+query LinkRequests {
+  linkRequests {
+    ...LinkRequestFields
+  }
+}
+
+query LinkRequest($code: String!) {
+  administrator
+  linkRequest(code: $code) {
+    ...LinkRequestFields
+  }
+}
+
+subscription LinkRequestChanged {
+  linkRequestChanged {
+    request {
+      ...LinkRequestFields
+    }
+  }
+}
+
+mutation ApproveLinkRequest($id: ID!) {
+  approveLinkRequest(input: { id: $id }) {
+    request {
+      ...LinkRequestFields
+    }
+  }
+}
+
+mutation DenyLinkRequest($id: ID!) {
+  denyLinkRequest(input: { id: $id }) {
+    request {
+      ...LinkRequestFields
+    }
+  }
+}
+
+mutation SetMachineAccess($id: ID!, $access: String, $helpsOthers: Boolean) {
+  setMachineAccess(
+    input: { id: $id, access: $access, helpsOthers: $helpsOthers }
+  ) {
     resource {
       id
-      key
-      name
+      machine {
+        access
+        helpsOthers
+        heldBack
+        lends
+        tools
+        extractsForOthers
+      }
     }
-    code
-    expiresAt
+  }
+}
+
+query UnlinkedMachines {
+  unlinkedMachines {
+    hostName
+    dnsName
+    addresses
+    via
+    services {
+      name
+      port
+      type
+      address
+    }
   }
 }
 
@@ -113,7 +184,6 @@ subscription MachineChanged($id: ID) {
         connected
         linked
         folders
-        linkingUntil
       }
     }
   }

@@ -83,6 +83,72 @@ export function addedAs(place: Place, service: Service, held: Held[]) {
   )
 }
 
+export interface Quick {
+  kind: string
+  url: string
+  via?: string | null
+  key: string
+  name: string
+}
+
+export function quickFor(place: Place, service: Service): Quick | null {
+  if (!service.url) return null
+
+  const label = SERVERS[service.kind] ?? service.kind
+
+  return {
+    kind: service.kind,
+    url: service.url,
+    via: service.via ?? null,
+    key: place.local ? service.kind : `${service.kind}-${place.key}`,
+    name: place.local ? label : `${label} on ${place.name}`,
+  }
+}
+
+export function useQuickAdd(administrator: boolean, onAdded: () => void) {
+  const say = useSay()
+  const attach = useMutation(AttachResourceDocument)
+  const [busy, setBusy] = useState<string | null>(null)
+
+  const add = async (quick: Quick) => {
+    setBusy(quick.key)
+
+    const { data, error } = await attach.attempt({
+      type: 'openai-compatible',
+      key: quick.key,
+      name: quick.name,
+      personal: !administrator,
+      settings: { base_url: quick.url },
+      via: quick.via ?? null,
+    })
+
+    setBusy(null)
+
+    if (!data?.attachResource?.resource) {
+      say({
+        text: error?.message ?? `${quick.name} could not be added.`,
+        wrong: true,
+      })
+      return false
+    }
+
+    onAdded()
+    say(
+      data.attachResource.checkError
+        ? {
+            text: `${quick.key} is added, but it did not answer: ${unraised(data.attachResource.checkError)}`,
+            wrong: true,
+          }
+        : {
+            text: `${quick.key} is added. Name a model for each role in Change.`,
+          },
+    )
+    return true
+  }
+
+  return { add, busy }
+}
+
 export function AddTo({
   places,
   start,
@@ -102,49 +168,15 @@ export function AddTo({
   onAdded: () => void
   onClose: () => void
 }) {
-  const say = useSay()
-  const attach = useMutation(AttachResourceDocument)
   const [chosen, setChosen] = useState(start.key)
-  const [busy, setBusy] = useState<string | null>(null)
+  const quickly = useQuickAdd(administrator, onAdded)
   const place = places.find((held) => held.key === chosen) ?? start
   const folders = unadded(place, held)
   const via = place.id ? place.key : null
 
   const quick = async (service: Service) => {
-    const label = SERVERS[service.kind] ?? service.kind
-    const key = place.local ? service.kind : `${service.kind}-${place.key}`
-
-    setBusy(service.kind)
-
-    const { data, error } = await attach.attempt({
-      type: 'openai-compatible',
-      key,
-      name: place.local ? label : `${label} on ${place.name}`,
-      personal: !administrator,
-      settings: { base_url: service.url },
-      via: service.via ?? null,
-    })
-
-    setBusy(null)
-
-    if (!data?.attachResource?.resource) {
-      say({
-        text: error?.message ?? `${label} could not be added.`,
-        wrong: true,
-      })
-      return
-    }
-
-    onAdded()
-    onClose()
-    say(
-      data.attachResource.checkError
-        ? {
-            text: `${key} is added, but it did not answer: ${unraised(data.attachResource.checkError)}`,
-            wrong: true,
-          }
-        : { text: `${key} is added. Name a model for each role in Change.` },
-    )
+    const asked = quickFor(place, service)
+    if (asked && (await quickly.add(asked))) onClose()
   }
 
   return (
@@ -236,7 +268,9 @@ export function AddTo({
                           size="compact-sm"
                           radius="xl"
                           color="brand"
-                          loading={busy === service.kind}
+                          loading={
+                            quickly.busy === quickFor(place, service)?.key
+                          }
                           onClick={() => quick(service)}
                         >
                           Add

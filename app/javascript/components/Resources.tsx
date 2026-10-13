@@ -6,6 +6,8 @@ import {
   Menu,
   NumberInput,
   Popover,
+  SegmentedControl,
+  Switch,
 } from '@mantine/core'
 import {
   IconArchive,
@@ -13,9 +15,9 @@ import {
   IconCheck,
   IconChevronDown,
   IconClock,
+  IconCpu,
   IconDots,
   IconHistory,
-  IconLink,
   IconLock,
   IconPencil,
   IconPlugConnected,
@@ -43,8 +45,10 @@ import {
   ResourcesDocument,
   SetDefaultInferenceDocument,
   SetDefaultStorageDocument,
+  SetMachineAccessDocument,
   SetSyncIntervalDocument,
   SyncResourceDocument,
+  UnlinkedMachinesDocument,
 } from 'xixo'
 import { useQuery } from 'xixo/react'
 import { session } from '../hooks/useSession'
@@ -65,14 +69,23 @@ import {
 } from '../plain'
 import { unraised } from '../shared'
 import { ago, dated } from '../when'
-import { AddTo, addedAs, type Form, type Place, SERVERS } from './AddTo'
+import {
+  AddTo,
+  addedAs,
+  type Form,
+  type Place,
+  quickFor,
+  SERVERS,
+  useQuickAdd,
+} from './AddTo'
 import { Attach, type Editing, glyphFor } from './Attach'
 import { Failed } from './Failed'
 import {
+  AskingLine,
   LinkUpDialog,
   type LinkUpInfo,
   LinkUpTile,
-  type Machine,
+  useLinkRequests,
 } from './LinkUp'
 import { RunsDialog } from './Runs'
 import { useAloud, useSay } from './Say'
@@ -122,16 +135,17 @@ interface Resource {
     folders: string[]
     extractors: string[]
     unread: string[]
+    access: string
+    helpsOthers: boolean
+    heldBack: string[]
     lends: boolean
     tools: string[]
     warnings: string[]
     os?: string | null
     arch?: string | null
-    extractsForOthers?: boolean | null
+    extractsForOthers: boolean
     waiting: Waiting[]
     linked: boolean
-    selfLinked: boolean
-    linkingUntil?: string | null
     services: {
       kind: string
       port: number
@@ -188,13 +202,6 @@ function status(resource: Resource): Status {
     }
   if (resource.checking)
     return { tone: 'var(--busy)', said: 'checking', busy: true, wrong: false }
-  if (machine?.linkingUntil)
-    return {
-      tone: 'var(--busy)',
-      said: 'waiting to link up',
-      busy: true,
-      wrong: false,
-    }
   if (machine && !machine.linked && resource.key !== LOCAL)
     return {
       tone: 'var(--edge)',
@@ -267,20 +274,26 @@ function facts(machine: NonNullable<Resource['machine']>, place: Place) {
   if (!machine.linked && !machine.connected && !machine.seenAt) return []
 
   const shared = place.folders.length
-  const helps = [
-    machine.extractsForOthers && 'reads for other machines',
-    machine.lends && 'lends its files',
-  ].filter(Boolean)
 
   return [
     shared === 0
       ? 'Shares no folders yet'
       : `Shares ${plural(shared, 'folder')}`,
     reads(machine.extractors, machine.unread),
-    helps.length > 0 ? `Also ${helps.join(' and ')}` : null,
-    machine.tools.length > 0 ? `Tools: ${machine.tools.join(', ')}` : null,
+    heldBack(machine.heldBack),
     waitingOn(machine.waiting, machine.connected),
   ].filter((line): line is string => Boolean(line))
+}
+
+const HELD_BACK: Record<string, string> = {
+  lend: 'whole files',
+  extracts_for_others: "reading other machines' files",
+}
+
+function heldBack(held: string[]) {
+  if (held.length === 0) return null
+
+  return `Its own config holds back ${held.map((name) => HELD_BACK[name] ?? name).join(', ')}`
 }
 
 function placeOf(machine: Resource | null): Place {
@@ -430,8 +443,6 @@ export function Resources() {
   const [form, setForm] = useState<Form | null>(null)
   const [editing, setEditing] = useState<Editing | null>(null)
   const [linkingUp, setLinkingUp] = useState(false)
-  const [relinking, setRelinking] = useState<Machine | null>(null)
-  const [installing, setInstalling] = useState(false)
   const [history, setHistory] = useState<Resource | null>(null)
   const arrived = useRef<HTMLElement | null>(null)
 
@@ -440,6 +451,13 @@ export function Resources() {
   }, [landed])
 
   const checking = (data?.resources ?? []).some((resource) => resource.checking)
+  const administering = data?.administrator ?? false
+  const asking = useLinkRequests(!administering)
+  const unlinked = useQuery(
+    UnlinkedMachinesDocument,
+    {},
+    { skip: !administering },
+  )
 
   useEffect(() => {
     if (!checking) return
@@ -545,7 +563,6 @@ export function Resources() {
       return true
     },
     change: (resource) => setEditing(resource),
-    relink: (resource) => setRelinking(resource),
     history: (resource) => setHistory(resource),
     putAway,
     remove: (resource) => setDeleting(resource),
@@ -677,30 +694,22 @@ export function Resources() {
         </p>
       )}
 
-      {linkingUp || relinking ? (
+      {linkingUp && linkUp && (
         <LinkUpDialog
           info={linkUp}
-          relinking={relinking}
-          onClose={() => {
-            setLinkingUp(false)
-            setRelinking(null)
-          }}
-          onChanged={refetch}
-          onSsh={() => {
-            setLinkingUp(false)
-            setInstalling(true)
+          requests={asking.requests}
+          onClose={() => setLinkingUp(false)}
+          onChanged={() => {
+            asking.refetch()
+            refetch()
           }}
         />
-      ) : null}
+      )}
 
-      {installing && (
-        <Attach
-          opened
-          administrator={administrator}
-          transports={transports}
-          initialType={MACHINE}
-          onClose={() => setInstalling(false)}
-          onAttached={refetch}
+      {!shelved && administrator && (
+        <AskingLine
+          requests={asking.requests}
+          onReview={() => setLinkingUp(true)}
         />
       )}
 
@@ -759,12 +768,25 @@ export function Resources() {
           administrator={administrator}
           acts={acts}
           onAdd={() => setAdding({ place: group.place.key, choosing: false })}
+          onChanged={refetch}
         >
           {placed(group.rows).map((resource) => row(resource, group))}
         </MachineCard>
       ))}
 
       {!shelved && administrator && (
+        <Unlinked
+          nodes={(unlinked.data?.unlinkedMachines ?? []) as Peer[]}
+          held={resources}
+          onLinkUp={() => setLinkingUp(true)}
+          onAdded={() => {
+            unlinked.refetch()
+            refetch()
+          }}
+        />
+      )}
+
+      {!shelved && administrator && linkUp && (
         <LinkUpTile onLinkUp={() => setLinkingUp(true)} />
       )}
 
@@ -812,7 +834,7 @@ export function Resources() {
   )
 }
 
-function administratorSignIn() {
+export function administratorSignIn() {
   const url = new URL(
     session.loginUrl({ returnTo: window.location.pathname }),
     window.location.origin,
@@ -829,7 +851,6 @@ interface Acts {
   takeQuestions: (resource: Resource) => void
   schedule: (resource: Resource, seconds: number | null) => Promise<boolean>
   change: (resource: Resource) => void
-  relink: (resource: Resource) => void
   history: (resource: Resource) => void
   putAway: (resource: Resource, archived: boolean) => void
   remove: (resource: Resource) => void
@@ -843,6 +864,7 @@ function MachineCard({
   administrator,
   acts,
   onAdd,
+  onChanged,
   children,
 }: {
   group: Group
@@ -852,21 +874,16 @@ function MachineCard({
   administrator: boolean
   acts: Acts
   onAdd: () => void
+  onChanged: () => void
   children: ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const { machine: resource, place } = group
   const machine = resource?.machine
   const state = resource ? status(resource) : null
-  const linkable = administrator && resource && !place.local
-  const unlinked = linkable && !machine?.linked && !machine?.linkingUntil
   const away = Boolean(machine?.linked && !machine.connected)
   const problem =
-    resource?.checkError &&
-    !resource.checking &&
-    !machine?.linkingUntil &&
-    !away &&
-    !unlinked
+    resource?.checkError && !resource.checking && !away
       ? humane(resource.checkError)
       : null
   const said = machine ? facts(machine, place) : []
@@ -876,6 +893,7 @@ function MachineCard({
   )
   const Glyph = place.local ? IconServer : glyphFor(MACHINE)
   const addable = administrator || place.local
+  const quickly = useQuickAdd(administrator, onChanged)
 
   return (
     <section
@@ -912,22 +930,10 @@ function MachineCard({
 
         {resource && (
           <div className="machine-acts">
-            {unlinked && (
-              <Button
-                size="compact-sm"
-                radius="xl"
-                color="brand"
-                leftSection={<IconLink size={14} />}
-                onClick={() => acts.relink(resource)}
-              >
-                Get a fresh code
-              </Button>
-            )}
             <More
               resource={resource}
               administrator={administrator}
               putting={putting}
-              linkable={Boolean(linkable && !unlinked)}
               open={open}
               onDetails={() => setOpen((held) => !held)}
               acts={acts}
@@ -936,16 +942,41 @@ function MachineCard({
         )}
       </header>
 
-      {(said.length > 0 || found.length > 0) && (
-        <p className="machine-facts">
-          {[
-            ...said,
-            ...found.map(
-              (service) => `Found ${SERVERS[service.kind] ?? service.kind}`,
-            ),
-          ].join(' · ')}
-        </p>
+      {said.length > 0 && <p className="machine-facts">{said.join(' · ')}</p>}
+
+      {resource && machine?.linked && (
+        <Access
+          resource={resource}
+          administrator={administrator}
+          onChanged={onChanged}
+        />
       )}
+
+      {found.map((service) => {
+        const quick =
+          administrator || place.local ? quickFor(place, service) : null
+
+        return (
+          <p key={`${service.kind}-${service.port}`} className="machine-found">
+            <IconCpu size={15} stroke={1.8} />
+            <span>
+              Found {SERVERS[service.kind] ?? service.kind} on {place.name}
+            </span>
+            {quick && (
+              <Button
+                size="compact-xs"
+                radius="xl"
+                variant="default"
+                aria-label={`Add ${quick.name}`}
+                loading={quickly.busy === quick.key}
+                onClick={() => quickly.add(quick)}
+              >
+                Add
+              </Button>
+            )}
+          </p>
+        )
+      })}
 
       {problem && <div className="rrow-error">{problem}</div>}
       {low && <div className="rrow-notice">{low}</div>}
@@ -965,6 +996,170 @@ function MachineCard({
           Add to {place.name}
         </button>
       )}
+    </section>
+  )
+}
+
+const LEVELS = [
+  { value: 'search', label: 'Search' },
+  { value: 'files', label: 'Files' },
+  { value: 'writing', label: 'Files and writing' },
+]
+
+const LEVEL_SAYS: Record<string, string> = {
+  search: 'Browse, search, and read the text xixo drew out.',
+  files: 'Also fetch whole files and run its readers.',
+  writing: 'Also write into the folders it marks writable.',
+}
+
+function Access({
+  resource,
+  administrator,
+  onChanged,
+}: {
+  resource: Resource
+  administrator: boolean
+  onChanged: () => void
+}) {
+  const set = useAloud(SetMachineAccessDocument, 'That could not be changed.')
+  const machine = resource.machine
+  if (!machine) return null
+
+  const change = async (asked: { access?: string; helpsOthers?: boolean }) => {
+    const answered = await set.execute({ id: resource.id, ...asked })
+    if (answered) onChanged()
+  }
+
+  const level =
+    LEVELS.find((held) => held.value === machine.access) ?? LEVELS[0]
+
+  if (!administrator)
+    return (
+      <p className="machine-access-says">
+        {level.label}. {LEVEL_SAYS[level.value]}
+      </p>
+    )
+
+  return (
+    <div className="machine-access">
+      <SegmentedControl
+        size="xs"
+        aria-label={`What xixo may do with ${resource.key}`}
+        value={level.value}
+        data={LEVELS}
+        disabled={set.loading}
+        onChange={(access) => change({ access })}
+      />
+      <span className="machine-access-says">{LEVEL_SAYS[level.value]}</span>
+      <Switch
+        size="xs"
+        label="Help read other machines' files"
+        checked={machine.helpsOthers}
+        disabled={set.loading}
+        onChange={(event) =>
+          change({ helpsOthers: event.currentTarget.checked })
+        }
+      />
+    </div>
+  )
+}
+
+interface Peer {
+  hostName?: string | null
+  dnsName?: string | null
+  addresses: string[]
+  via?: string | null
+  services: { name: string; port: number; type: string; address: string }[]
+}
+
+const KINDS: Record<string, string> = { 'lm-studio': 'lmstudio' }
+
+function keyed(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function Unlinked({
+  nodes,
+  held,
+  onLinkUp,
+  onAdded,
+}: {
+  nodes: Peer[]
+  held: Resource[]
+  onLinkUp: () => void
+  onAdded: () => void
+}) {
+  const quickly = useQuickAdd(true, onAdded)
+
+  if (nodes.length === 0) return null
+
+  return (
+    <section className="unlinked" aria-labelledby="unlinked-title">
+      <h2 id="unlinked-title" className="label">
+        Not linked yet
+      </h2>
+      <ul className="unlinked-list">
+        {nodes.map((node) => {
+          const name =
+            node.hostName ?? node.dnsName ?? node.addresses[0] ?? 'a machine'
+          const models = node.services
+            .filter((service) => service.type === 'openai-compatible')
+            .map((service) => {
+              const kind = KINDS[service.name] ?? service.name
+              const label = SERVERS[kind] ?? kind
+
+              return {
+                kind,
+                url: service.address,
+                via: node.via ?? null,
+                key: `${kind}-${keyed(name)}`,
+                name: `${label} on ${name}`,
+                label,
+              }
+            })
+            .filter(
+              (quick) =>
+                !held.some(
+                  (resource) =>
+                    resource.key === quick.key ||
+                    resource.settings.base_url === quick.url,
+                ),
+            )
+
+          return (
+            <li key={node.addresses[0] ?? name} className="unlinked-row">
+              <span className="unlinked-name">{name}</span>
+              {models.map((quick) => (
+                <span key={quick.key} className="unlinked-found">
+                  Found {quick.label}
+                  <Button
+                    size="compact-xs"
+                    radius="xl"
+                    variant="default"
+                    aria-label={`Add ${quick.name}`}
+                    loading={quickly.busy === quick.key}
+                    onClick={() => quickly.add(quick)}
+                  >
+                    Add
+                  </Button>
+                </span>
+              ))}
+              <Button
+                size="compact-xs"
+                radius="xl"
+                variant="subtle"
+                color="brand"
+                onClick={onLinkUp}
+              >
+                Link up
+              </Button>
+            </li>
+          )
+        })}
+      </ul>
     </section>
   )
 }
@@ -1110,7 +1305,6 @@ function ResourceRow({
               resource={resource}
               administrator={administrator}
               putting={putting}
-              linkable={false}
               compact
               open={open}
               onDetails={() => setOpen((held) => !held)}
@@ -1138,7 +1332,6 @@ function More({
   resource,
   administrator,
   putting,
-  linkable,
   compact = false,
   open,
   onDetails,
@@ -1147,7 +1340,6 @@ function More({
   resource: Resource
   administrator: boolean
   putting: boolean
-  linkable: boolean
   compact?: boolean
   open: boolean
   onDetails: () => void
@@ -1213,14 +1405,6 @@ function More({
             )}
           {resource.manageable && (
             <>
-              {linkable && (
-                <Menu.Item
-                  leftSection={<IconLink size={15} />}
-                  onClick={() => acts.relink(resource)}
-                >
-                  Link up again
-                </Menu.Item>
-              )}
               {administrator && resource.capabilities.includes('storage') && (
                 <Menu.Item
                   disabled={resource.defaultStorage}
@@ -1317,6 +1501,10 @@ function Details({ resource, acts }: { resource: Resource; acts: Acts }) {
     rows.push([
       'Offers MCP clients',
       machine.tools.length > 0 ? machine.tools.join(', ') : 'no tools',
+    ])
+    rows.push([
+      'Whole files',
+      machine.lends ? 'xixo may fetch them' : 'stay on the machine',
     ])
     if (machine.services.length > 0)
       rows.push([
