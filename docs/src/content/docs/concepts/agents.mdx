@@ -41,7 +41,8 @@ xixo still checks each call:
 - `search` on a resource that serves `search` needs `xixo:web:read`;
 - `get` on a resource that serves `fetch`, such as `curl`, needs `xixo:web:read`.
 
-A machine running xixo link adds the commands of the tools its own configuration offers: `browse`,
+A machine running xixo link adds the commands of the tools its access in xixo allows and its own
+configuration does not hold back: `browse`,
 `search`, `read`, `extract`, and `chat`, and `write`, which needs `xixo:resources:command`. `describe`
 on the machine lists the ones it offers. See
 [tools a machine offers](/concepts/resources/#tools-a-machine-offers).

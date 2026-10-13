@@ -1,6 +1,6 @@
 ---
 title: Add a machine
-description: Link up a machine by installing xixo link on it yourself, or let xixo install it over SSH, and attach the folders it shares.
+description: Link up a machine with one command, approve it in xixo, choose what xixo may do with it, and attach the folders it shares.
 ---
 
 This guide links up a machine, such as a home server or a desktop, and attaches the folders it
@@ -8,162 +8,145 @@ shares. The machine runs xixo link, which dials xixo, reports the machine's heal
 and reads files in its folders when xixo asks. The machine opens no port. See
 [machines and xixo link](/concepts/resources/#machines-and-xixo-link) for how it works.
 
-There are two ways to put xixo link on a machine:
+## Requirements
 
-- **Install it yourself**: copy the commands xixo shows into a terminal on the machine.
-- **Let xixo install it**: xixo signs in to a Linux machine once over SSH and installs it.
-
-Either way you need:
-
-- An administrator's sign-in. Only an administrator links a machine.
+- An administrator's sign-in. Only an administrator sees a machine asking to link up and approves it.
 - A route from the machine to xixo and to masks. xixo link dials out, so xixo never needs to reach
-  the machine when you install it yourself.
+  the machine.
+- On Linux: x86_64 or ARM64, systemd, `curl`, and `sudo`, or a root shell.
+- On macOS: Apple silicon or Intel. The command uses no `sudo`.
 
-## Install it yourself
+Run the command as the account that owns the folders. xixo link runs as that account and reads only
+what it can read.
 
-This works on Linux on x86_64 or aarch64 with systemd, `curl`, `sha256sum`, and `sudo`, and on
-macOS on Apple silicon or Intel. xixo link runs as the account that runs the commands, so use the
-one that owns the folders.
+## Link up a machine
 
-1. On **Resources**, choose **Link up a machine** below the machines.
-2. Leave **Install it yourself** chosen, name the machine, and choose **Show the commands**. xixo
-   asks masks for a code and puts it in the commands. The code works once, for ten minutes.
-3. Pick the machine's system. On Linux, `uname -m` prints `x86_64` for Intel or AMD and `aarch64`
-   for ARM. On a Mac, **About This Mac** names an Apple M chip for Apple silicon.
-4. Under **Folders it shares**, list the folders xixo link may read, one absolute path per line.
-   End a line with `:rw`, such as `/srv/inbox:rw`, for a folder xixo may also write into. These
-   fill in the commands. The config on the machine decides what is shared, and xixo reads nothing
-   outside it. A path holding a colon, a quotation mark, an apostrophe, a backslash, or a control
-   character is refused.
-5. Under **What it offers MCP clients**, choose the tools a client reaches on the machine through
-   xixo. **Browse**, **Search**, **Read**, and **Extract** start checked. **Write** needs a `:rw`
-   folder, and **Models** a model server on the machine. The choice lands in the machine's config
-   as `tools`.
-6. Under **More options**, turn on **Help read files from other machines** to let xixo send this
-   machine files from elsewhere to read, and **Let xixo fetch whole files from it** for downloads,
-   previews, and reading elsewhere. Both are off unless you turn them on, and both land in the
-   machine's config as `extracts_for_others` and `lend`.
-7. Run the three steps in one terminal on the machine, in order. The first asks for the code,
-   which **Copy the code** puts on the clipboard, and reads it without showing it or leaving it in
-   your shell's history. The steps share it through the `code` variable, and the last unsets it.
+1. On **Resources**, choose the **Link up a machine** tile. The dialog says "Run this on the
+   machine, then approve it here."
+2. Check the system. The dialog shows the command for the system your browser runs on. Use the
+   **macOS** and **Linux** switch to change it.
+3. Check the folders. On macOS the command shares `~/Documents` and `~/Desktop`. On Linux it
+   shares no folders. To change them, choose **Change** beside the list and type the folders,
+   separated by spaces. End a folder with `:rw`, such as `/srv/inbox:rw`, to let xixo write into it.
+4. Choose **Copy**.
+5. Paste the command into a terminal on the machine and run it. On a Mac it looks like this:
 
-The steps on Linux:
+   ```sh
+   curl -fsSL https://xixo.example.com/link.sh | sh -s -- ~/Documents ~/Desktop
+   ```
 
-1. **Get xixo link** downloads xixo link for the machine from xixo with the code, checks its
-   SHA-256, and installs it at `/usr/local/bin/xixo-link`.
-2. **Say what it shares** writes `/etc/xixo-link/config.json` and fetches the systemd service from
-   xixo, filled in with the account and the folders, into
-   `/etc/systemd/system/xixo-link.service`. The service mounts each folder read-only, or
-   read-write for a `:rw` folder.
-3. **Link up and start** creates `/var/lib/xixo-link`, runs `xixo-link enroll` with the code on
-   standard input, then `xixo-link link`, which tells xixo which machine it is with the same code
-   and a token held to the machine's own key, and starts the service.
+6. Wait for the command to print a link and a code:
 
-The steps on macOS use no `sudo`:
+   ```text
+   Open https://xixo.example.com/link/WDJB-MJHT to approve this machine.
+   It shows the code WDJB-MJHT.
+   ```
 
-1. **Get xixo link** downloads xixo link from xixo with the code, checks its SHA-256 with
-   `shasum`, and installs it at `~/Library/Application Support/xixo-link/bin/xixo-link`. Beside
-   it goes the mac reader, `xixo-mac-reader`, from the GitHub release of the server's version,
-   installed only when it matches the `xixo-mac-reader.sha256` published with that release. The
-   mac reader reads PDFs, images, audio, and video with what macOS ships. A release without it, such
-   as one from before it existed, leaves the Mac reading those with the Homebrew programs it has,
-   and the step says so. `curl` sets no quarantine mark, so macOS runs both without a prompt.
-2. **Say what it shares** writes `~/Library/Application Support/xixo-link/config.json` with mode
-   0600, and fetches the launch agent from xixo into
-   `~/Library/LaunchAgents/network.xixo.link.plist`.
-3. **Link up and start** enrolls the Mac, links it up with `xixo-link link`, and starts the launch
-   agent with `launchctl bootstrap`.
+7. Approve the machine, as described in [approve the machine](#approve-the-machine). The command
+   waits until you do, then starts xixo link and ends.
+
+The script holds no secret. It finds the machine's system and processor, downloads xixo link from
+this xixo, and checks it against the SHA-256 that xixo wrote into the script. A download that does
+not match installs nothing. Then:
+
+- **On Linux** it installs xixo link at `/usr/local/bin/xixo-link`. On Debian or Ubuntu it installs
+  the programs that read PDFs, images, audio, video, and office documents with apt. On other
+  systems it names the programs to install by hand. It writes `/etc/xixo-link/config.json` with
+  the folders, and writes the systemd service to `/etc/systemd/system/xixo-link.service`. The
+  service mounts each folder read-only, or read-write for a `:rw` folder. Last, it enables and
+  starts the service.
+- **On macOS** it installs xixo link in `~/Library/Application Support/xixo-link/bin/`. Beside it
+  goes the mac reader, `xixo-mac-reader`, from the GitHub release of the server's version, installed
+  only when it matches the `.sha256` file published with it. The mac reader reads PDFs, images,
+  audio, and video with what macOS ships. The script writes the config with mode 0600, then
+  installs and starts the launch agent `~/Library/LaunchAgents/network.xixo.link.plist`.
+
+Each folder must exist, or the command stops before it links up. A folder cannot hold a quotation
+mark, an apostrophe, a backslash, a colon, or a control character.
+
+When the server holds no builds of xixo link, the dialog says so and shows no command. The server
+image puts them in the folder `XIXO_LINK_DIR` names.
+
+### Folders a Mac guards
 
 macOS guards `~/Documents`, `~/Desktop`, `~/Downloads`, iCloud Drive, and removable and network
-volumes. To share a folder there, add
-`~/Library/Application Support/xixo-link/bin/xixo-link` under **Full Disk Access** in
-**Privacy & Security**, then run `launchctl kickstart -k gui/$(id -u)/network.xixo.link`. Until
-then the machine's card shows xixo link's warning that it may not read the folder. See
+volumes. To share a folder there:
+
+1. Open **System Settings**, then **Privacy & Security**, then **Full Disk Access**.
+2. Add `~/Library/Application Support/xixo-link/bin/xixo-link` and turn on its switch.
+3. Run `launchctl kickstart -k gui/$(id -u)/network.xixo.link`.
+
+Until then the machine's card shows xixo link's warning that it may not read the folder. See
 [xixo link on macOS](https://github.com/xixo/xixo/tree/main/link#macos) for more.
 
-The code reaches `curl` and xixo link on standard input, never as an argument, so it does not show
-in the process list. xixo links a machine up only for the code together with the new machine's own
-token, so a code read off the screen links up nothing by itself. The dialog waits while you work. Once the client is sent it says the machine
-is linked, and when xixo link says hello it says the machine is linked up.
+## Approve the machine
 
-When the code runs out first, choose **Get a fresh code** and copy the commands again. The old code
-stops working. A machine whose code ran out before it linked up shows **Get a fresh code** on its
-card.
+A machine asking to link up shows in the open dialog at once. With the dialog closed, a line above
+the machine cards says so, such as "studio is asking to link up." Choose **Review** to open the
+dialog. The link the command printed opens a page with the same request.
 
-## Let xixo install it
+Each request shows the machine's hostname, its system, the folders it shares, the address it asked
+from, and the code it shows.
 
-This works on Linux on x86_64 or aarch64 with systemd. It needs an account on the machine with an SSH key and `sudo` without a password, and a route from
-xixo to the machine's SSH port. Through a tailnet, follow [reach a tailnet](/guides/tailnet/) first.
-Directly, the machine needs a public address. `XIXO_PUBLIC_ORIGIN` must be set on the server, since
-xixo link is told where xixo is from it.
+1. Check that the code under **It shows** matches the code the command printed on the machine.
+2. Choose **Approve**. Choose **Deny** for a machine you do not know.
 
-1. On **Resources**, choose **Link up**, pick **Let xixo install it**, and choose
-   **Set it up over SSH**. This opens **A Linux machine xixo sets up**.
-2. Under **Reached through**, pick the tailnet, and under **On tailnet**, pick the machine. This
-   fills in **Address**.
-3. Fill in **SSH user** and paste the account's private key into **SSH private key**.
-4. Under **Folders it shares**, list the folders xixo link may read, one absolute path per line,
-   such as `/srv/media`. End a line with `:rw`, such as `/srv/inbox:rw`, for a folder xixo may
-   also write into. The same characters are refused as above.
-5. Fill in **Host key** with the fingerprint `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`
-   prints on the machine. A machine reached directly needs it. A machine reached through a tailnet
-   at its tailnet address may leave it empty, since the tailnet vouches for the address, and then
-   the key the machine offers on the first install is kept.
-6. Leave **Extract on the machine** on to install the programs that read PDFs, office documents,
-   images, audio, and video. They install with apt, so this needs Debian or Ubuntu.
-7. Choose **Attach it**.
+:::caution
+Approve a machine only when it shows the same code. Anyone who can reach xixo can ask to link up a
+machine, and the code is how you know the request came from the machine in front of you.
+:::
 
-Attaching starts an install run. **What it has done** in the machine's menu shows it, with a line
-for each step. The run:
+After you approve, the command on the machine finishes. xixo link registers with masks with a key
+it makes on the machine, and xixo adds the machine to **Resources**. Its key comes from the first
+part of the hostname, such as `studio`, or `studio-2` when `studio` is taken. Its name is the full
+hostname. You become its first operator.
 
-1. Checks the machine's host key against the one given, and stops before sending anything when
-   they differ or when a machine outside a tailnet has none.
-2. Refuses anything other than Linux on x86_64 or aarch64, and an account without `sudo -n`.
-3. Installs the extraction programs with `apt-get` when **Extract on the machine** is on, the same
-   packages as xixo link beside the server. apt runs without prompts, keeps any configuration file
-   already changed on the machine, and leaves running services alone. On Ubuntu several of the
-   packages, such as `ffmpeg` and `libraw-bin`, come from the `universe` component. When one
-   package cannot be found, the others still install, and the run names the missing one. On a
-   machine that is not Debian or Ubuntu, or when apt fails, the run says so and goes on, and xixo
-   link reads only what needs no program: plain text, data, calendars, contacts, email, books, and
-   spreadsheets.
-4. Places xixo link at `/usr/local/bin/xixo-link` and checks its SHA-256 on the machine.
-5. Writes `/etc/xixo-link/config.json` with xixo's address, masks' address, and the folders. On a
-   machine installed before, it keeps `tools`, `lend`, `extracts_for_others`, and
-   `extract_unsandboxed` from the configuration already there.
-6. Asks masks for an enrollment token and runs `xixo-link enroll`, which makes xixo link's keys on
-   the machine and registers it with masks as a client of its own.
-7. Installs and starts the `xixo-link` systemd service as the account. The service sees `/home`,
-   `/root`, `/srv`, `/mnt`, `/media`, `/opt`, and `/var/lib` as empty, apart from its own state
-   directory. Each shared folder is mounted back, read-only or, for a `:rw` folder, read-write. A
-   file outside the shared folders is missing for xixo link even when its account could read it.
-   The service may use 2 GB of memory, and extraction works in `/var/cache/xixo-link`, on disk.
+A request runs out after ten minutes. The command then prints "the request ran out. Run the command
+again". A denied machine prints "xixo denied this machine". Either way, run the command again to
+ask again.
 
-xixo drops the private key when the run ends, whether it worked or not. A run that fails after
-xixo link enrolls keeps the new client on the machine, so archiving the machine or installing
-again unenrolls it.
-
-To give xixo link more memory than 2 GB, for large office documents or video, run
-`sudo systemctl edit xixo-link` on the machine and add:
-
-```ini
-[Service]
-MemoryMax=4G
-```
-
-The setting lives in a drop-in file, so installing again keeps it.
+One address may have three requests waiting at once and start ten in an hour. xixo holds at most
+twenty waiting requests.
 
 ## What a machine's card shows
 
-Within a minute of starting, xixo link connects, and the machine gets its own card on
-**Resources**, with **online** beside its name. One line says how many folders it shares, what
-kinds of file it reads, whether it reads for other machines or lends its files, the
-tools it offers MCP clients, how many files wait for it, and any model server it found that is not
-attached yet. An offline
-machine says **offline** and when it was last seen, and the rows under it stay quiet. The card
-lists the folders and model servers attached on it, or reached at its tailnet address. **Details**
-shows its hostname, system, xixo link version, folders, the kinds of file it cannot read, the model
-servers it found, and its uptime, memory, and disks.
+Within a minute of starting, xixo link connects, and the machine's card shows **online** beside its
+name. One line says how many folders it shares, what kinds of file it reads, what its own config
+holds back, and how many files wait for it. An offline machine says **offline** and when it was
+last seen, and the rows under it stay quiet.
+
+The card lists the folders and model servers attached on it, or reached at its tailnet address.
+**Details** shows its hostname, system, xixo link version, folders, the kinds of file it cannot
+read, the tools it offers MCP clients, whether xixo may fetch whole files, the model servers it
+found, and its uptime, memory, and disks.
+
+To rename the machine, choose **Change**. **Change** edits the name and **Who operates it**. The
+key stays the same.
+
+## Change what xixo may do
+
+Each machine's card has a choice an administrator changes at any time:
+
+| | |
+| --- | --- |
+| **Search** | Browse, search, and read the text xixo drew out of its files. |
+| **Files** | Also fetch whole files, for downloads and previews, and run its readers: the machine lends its files and offers the `extract` tool. |
+| **Files and writing** | Also write into the folders the machine marks writable, including drops. |
+
+The **Help read other machines' files** switch lets xixo send the machine files from elsewhere to
+read: uploads, mail attachments, cloud files, web pages, and files other machines lend.
+
+A newly approved machine starts at **Search** with the switch on. xixo link beside the server
+starts at **Files and writing**. The `models` tool turns on by itself when xixo link finds a model
+server on the machine.
+
+xixo sends the choice to xixo link over its connection, so it takes effect without touching the
+machine. Anyone who is not an administrator sees the choice as text.
+
+The machine's own config can narrow the choice. xixo link does only what both xixo and its config
+allow, and the folders in the config stay the limit. When the config holds something back, the card
+says "Its own config holds back" and names it. See
+[what xixo may do](/concepts/resources/#what-xixo-may-do-with-a-machine) for the config keys.
 
 ## Files a machine cannot read
 
@@ -171,12 +154,12 @@ A file on a machine is read by that machine's own xixo link, so only its text le
 file whose program the machine lacks, such as a PDF on a machine without poppler, waits, and its
 item says what for. The machine's card counts the files waiting for it. Two things start them:
 
-- Install the programs on the machine, or run an SSH install again with **Extract on the machine**
-  on. Once xixo link restarts and says hello listing the new extractor, the waiting files are read.
-- Let the machine lend its files: `lend` in its config, **Let xixo fetch whole files from it** when
-  linking up, or **Lend its files** for an SSH install. Each such file is then copied to a connected
-  machine that reads for others and has the program, xixo link beside the server first, which
-  reads it there. The copy is deleted once it is read.
+- Install the programs on the machine, then run the link-up command again, which restarts xixo
+  link. On Debian or Ubuntu the command installs them itself. Once xixo link says hello listing the
+  new extractor, the waiting files are read.
+- Choose **Files** for the machine, so it lends its files. Each such file is then copied to a
+  connected machine that helps read other machines' files and has the program, xixo link beside the
+  server first, which reads it there. The copy is deleted once it is read.
 
 A file on a machine that is offline waits for the machine to come back.
 
@@ -186,16 +169,6 @@ A file on a machine that is offline waits for the machine to come back.
 2. Under **Folders it shares**, pick a folder. The list holds the ones not attached yet.
 3. Check the name xixo filled in from the folder's, then choose **Attach it**, and sync it like
    any other resource.
-
-## Attach a model server it found
-
-xixo link looks for Ollama and LM Studio on the machine and says what it found.
-
-1. On **Resources**, choose **Add to** followed by the machine's name.
-2. Under **Model servers it found**, choose **Add**. When xixo reaches the machine over a tailnet,
-   it attaches the model server through that tailnet at the machine's tailnet address, and checks
-   it. Otherwise choose **Set up** and check the **Base URL**.
-3. Choose **Change** on the new row to name a model for each role.
 
 Only an administrator attaches a folder through a machine, as shared or as only theirs. A folder
 xixo link does not share is refused, and so is a folder that is the same as, inside, or around a
@@ -207,47 +180,84 @@ A full sync that finds nothing in a folder where it found files before marks not
 unmounted disk looks the same as an emptied folder. The folder's row says when that sync ran, and
 its items stay until a sync finds files again.
 
+## Attach a model server it found
+
+xixo link looks for Ollama and LM Studio on the machine. When xixo reaches the machine over a
+tailnet, the card shows a line such as "Found Ollama on studio".
+
+1. Choose **Add** on that line. xixo attaches the model server through the tailnet at the
+   machine's tailnet address and checks it.
+2. Choose **Change** on the new row to name a model for each role.
+
+For a machine on no tailnet, choose **Add to** followed by the machine's name, then **Set up** under
+**Model servers it found**, and check the **Base URL**.
+
+## Find machines on a tailnet
+
+When xixo reaches a tailnet, **Not linked yet** under the machine cards lists the online machines on
+it that are not linked up.
+
+- Choose **Link up** beside one to open the link-up dialog.
+- When xixo found Ollama or LM Studio on one, it says so, such as "Found Ollama". Choose **Add** to
+  attach the model server through the tailnet.
+
 ## Change the folders
 
-The folders live in the machine's own configuration, so xixo cannot widen them. For a machine xixo
-installed over SSH, change **Folders it shares**, paste the private key again, and save, which runs
-the install again with the new list. On any machine, change them in two places: the `folders` list in
-`/etc/xixo-link/config.json`, and the `BindReadOnlyPaths=` line in
-`/etc/systemd/system/xixo-link.service`, where each folder is written as `"-/srv/media"`. A
-writable folder is `{"path": "/srv/inbox", "writable": true}` in the config and goes on a
-`BindPaths=` line in the service. Then run `sudo systemctl daemon-reload` and
-`sudo systemctl restart xixo-link`. A folder only in the config is missing for xixo link.
+The folders live in the machine's own config, so xixo cannot widen them. To change them, run the
+link-up command on the machine again with the new folders. A machine that is already linked prints
+"Already linked up as" followed by its key and keeps its link. The command rewrites the config and
+the service, upgrades xixo link, and restarts it. Run with no folders, it keeps the folders it has.
+
+To change them by hand on Linux, edit two files:
+
+1. In `/etc/xixo-link/config.json`, change the `folders` list. A read-only folder is a path, such as
+   `"/srv/media"`. A writable folder is `{"path": "/srv/inbox", "writable": true}`.
+2. In `/etc/systemd/system/xixo-link.service`, change the `BindReadOnlyPaths=` line, where each
+   folder is written as `"-/srv/media"`. A writable folder goes on the `BindPaths=` line.
+3. Run `sudo systemctl daemon-reload`.
+4. Run `sudo systemctl restart xixo-link`.
+
+A folder only in the config is missing for xixo link.
+
+## Give xixo link more memory
+
+The service may use 2 GB of memory. To give it more for large office documents or video, run
+`sudo systemctl edit xixo-link` on the machine and add:
+
+```ini
+[Service]
+MemoryMax=4G
+```
+
+The setting lives in a drop-in file, so running the link-up command again keeps it.
 
 ## Offer tools to MCP clients
 
-A machine offers no tools to MCP clients until its own configuration names them. On the machine,
-add a `tools` list to `/etc/xixo-link/config.json`, such as `"tools": ["browse", "search",
-"extract"]`, and run `sudo systemctl restart xixo-link`. The names are `browse`, `search`, `read`,
-`write`, `extract`, and `models`. The machine's card lists the ones it offers once xixo link
-connects again, and a client sees them when it describes the machine through the `resource` tool.
-[Tools a machine offers](/concepts/resources/#tools-a-machine-offers) says what each does and what
-else it needs. Installing again over SSH keeps `browse`, `search`, `read`, and `extract` from the
-list, and keeps `write` and `models` only when the machine's **Keep write and models on a
-reinstall** setting is on. It never keeps `extract_unsandboxed`.
+The access you choose decides which tools a machine offers MCP clients:
+
+- **Search** offers `browse`, `search`, and `read`. `read` answers with the text xixo drew out,
+  since the machine lends no files.
+- **Files** adds `extract`, and `read` sends the file's bytes.
+- **Files and writing** adds `write`, for a machine with a writable folder.
+- `models` comes with any level when the machine has a model server.
+
+The machine's config can narrow the list with `tools`. **Details** on the card lists the tools the
+machine offers, and a client sees them when it describes the machine through the `resource` tool.
+[Tools a machine offers](/concepts/resources/#tools-a-machine-offers) says what each does.
 
 A client reaches a machine's files only with a token for one of the machine's operators, or an
-administrator's. The administrator who links or attaches the machine is its first operator, and
-**Who operates it** in the machine's settings lists the masks subjects of the rest, one per line.
+administrator's. The administrator who approves the machine is its first operator. **Who operates
+it**, under **Change**, lists the masks subjects of the rest, one per line.
 
 ## Remove a machine
 
 Archive and delete the folders attached through it, then the machine. Archiving the machine
 unenrolls it in masks, which archives its client and revokes every token it holds, and closes xixo
 link's connection at once. When xixo link connects again, xixo says it has no machine enrolled as
-its client, or masks refuses it a token, and xixo link exits with status 78 and systemd leaves it
-stopped. xixo turning a token away for any other reason, or masks being out of reach, only makes
-xixo link try again. When masks cannot be reached, the machine stays attached
-and the error says so, since a machine left enrolled could still sign in. Try again once masks
-answers.
-
-Installing again over a machine that is already enrolled unenrolls the earlier client before the
-new one enrolls. **Link up again** in a machine's menu makes a fresh code for it, and the earlier
-client is unenrolled once the new one is sent back to xixo.
+its client, or masks refuses it a token, and xixo link exits and stays stopped. xixo turning a token away
+for any other reason, or masks being out of reach, only makes xixo link try again. When masks
+cannot be reached, the machine stays attached and the error says so, since a machine left enrolled
+could still sign in. Try again once masks answers.
 
 xixo link stays on the machine, stopped. To remove it from a Linux machine:
 
@@ -258,3 +268,14 @@ sudo rm -f /usr/local/bin/xixo-link
 sudo rm -rf /etc/xixo-link /var/lib/xixo-link /var/cache/xixo-link
 sudo systemctl daemon-reload
 ```
+
+To remove it from a Mac:
+
+```sh
+launchctl bootout gui/$(id -u)/network.xixo.link
+rm ~/Library/LaunchAgents/network.xixo.link.plist
+rm -r ~/Library/Application\ Support/xixo-link ~/Library/Caches/xixo-link
+rm ~/Library/Logs/xixo-link.log
+```
+
+Then remove `xixo-link` from **Full Disk Access**.

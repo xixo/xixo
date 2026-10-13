@@ -23,7 +23,9 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | `discovered`<br />`via: String!` | [`[DiscoveredNode!]!`](#discoverednode) | `xixo:resources:read` | What a transport reaches, offered as resources to attach. Asking for services also knocks on a few well-known ports of each machine that is online. |
 | `feed`<br />`id: ID`<br />`key: String` | [`Feed`](#feed) | `xixo:catalog:read` |  |
 | `feeds`<br />`type: String`<br />`types: [String!]`<br />`mime: String`<br />`resourceId: ID`<br />`tag: String`<br />`connectedTo: ID`<br />`topLevel: Boolean`<br />`after: ID`<br />`limit: Int` | [`FeedPage!`](#feedpage) | `xixo:catalog:read` |  |
-| `linkUp` | [`LinkUp`](#linkup) | `xixo:resources:read` | What a machine needs to link up by installing xixo link itself. Empty for anyone but an administrator, who alone links machines. |
+| `linkRequest`<br />`code: String!` | [`LinkRequest`](#linkrequest) | `xixo:resources:read` | The machine asking to link up with the code it shows. Empty for anyone but an administrator. |
+| `linkRequests` | [`[LinkRequest!]!`](#linkrequest) | `xixo:resources:read` | The machines asking to link up, and those approved in the last ten minutes. Empty for anyone but an administrator. |
+| `linkUp` | [`LinkUp`](#linkup) | `xixo:resources:read` | What the command that links up a machine needs. Empty for anyone but an administrator, who alone approves machines. |
 | `resourceTypes` | [`[Attaching!]!`](#attaching) | `xixo:resources:read` | Every type that can be attached, and what each of them needs. |
 | `resources`<br />`archived: Boolean` | [`[Resource!]!`](#resource) | `xixo:resources:read` |  |
 | `run`<br />`id: ID!` | [`Run`](#run) | `xixo:catalog:read` |  |
@@ -33,6 +35,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | `setup` | [`Setup!`](#setup) | `xixo:resources:read` | What a new install still needs: storage, a model server, and an MCP client. |
 | `tenant` | [`Tenant`](#tenant) | `xixo:catalog:read` |  |
 | `types` | [`[TypeCount!]!`](#typecount) | `xixo:catalog:read` |  |
+| `unlinkedMachines` | [`[DiscoveredNode!]!`](#discoverednode) | `xixo:resources:read` | The machines a tailnet reaches that are not linked up, each with the model servers that answered on it. Empty for anyone but an administrator. |
 | `waitingForMachines` | [`[WaitingFiles!]!`](#waitingfiles) | `xixo:resources:read` | Files from no machine in particular, or from one that lends them, whose reading waits for a connected machine that reads for others and has their program, by kind. |
 
 ## Mutations
@@ -43,6 +46,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | --- | --- | --- | --- |
 | `addNote`<br />`input: AddNoteInput!` | [`AddNotePayload`](#addnotepayload) | `xixo:catalog:write` |  |
 | `analyzeFeed`<br />`input: AnalyzeFeedInput!` | [`AnalyzeFeedPayload`](#analyzefeedpayload) | `xixo:catalog:write` |  |
+| `approveLinkRequest`<br />`input: ApproveLinkRequestInput!` | [`ApproveLinkRequestPayload`](#approvelinkrequestpayload) | `xixo:resources:command` | Approves a machine asking to link up. xixo hands xixo link on it a single-use enrollment token for masks, and the machine shows up once it enrolls. It starts with Search access and helps read other machines' files. |
 | `archiveResource`<br />`input: ArchiveResourceInput!` | [`ArchiveResourcePayload`](#archiveresourcepayload) | `xixo:resources:command` |  |
 | `askCatalog`<br />`input: AskCatalogInput!` | [`AskCatalogPayload`](#askcatalogpayload) | `xixo:catalog:write` |  |
 | `attachResource`<br />`input: AttachResourceInput!` | [`AttachResourcePayload`](#attachresourcepayload) | `xixo:resources:command` |  |
@@ -52,10 +56,10 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | `connectFeeds`<br />`input: ConnectFeedsInput!` | [`ConnectFeedsPayload`](#connectfeedspayload) | `xixo:catalog:write` |  |
 | `deleteFeed`<br />`input: DeleteFeedInput!` | [`DeleteFeedPayload`](#deletefeedpayload) | `xixo:catalog:write` |  |
 | `deleteResource`<br />`input: DeleteResourceInput!` | [`DeleteResourcePayload`](#deleteresourcepayload) | `xixo:resources:command` |  |
+| `denyLinkRequest`<br />`input: DenyLinkRequestInput!` | [`DenyLinkRequestPayload`](#denylinkrequestpayload) | `xixo:resources:command` | Denies a machine asking to link up. xixo link on it stops waiting and says so. |
 | `exportFeeds`<br />`input: ExportFeedsInput!` | [`ExportFeedsPayload`](#exportfeedspayload) | `xixo:catalog:write` |  |
 | `fetchUrl`<br />`input: FetchUrlInput!` | [`FetchUrlPayload`](#fetchurlpayload) | `xixo:catalog:write` |  |
 | `forgetFeed`<br />`input: ForgetFeedInput!` | [`ForgetFeedPayload`](#forgetfeedpayload) | `xixo:catalog:write` |  |
-| `linkMachine`<br />`input: LinkMachineInput!` | [`LinkMachinePayload`](#linkmachinepayload) | `xixo:resources:command` | Starts linking a machine that installs xixo link itself. Names a new machine, or takes an existing one to link it again, and answers with a code the machine enrolls with once. |
 | `noteFeed`<br />`input: NoteFeedInput!` | [`NoteFeedPayload`](#notefeedpayload) | `xixo:catalog:write` |  |
 | `pauseFeed`<br />`input: PauseFeedInput!` | [`PauseFeedPayload`](#pausefeedpayload) | `xixo:catalog:write` |  |
 | `renameFeed`<br />`input: RenameFeedInput!` | [`RenameFeedPayload`](#renamefeedpayload) | `xixo:catalog:write` |  |
@@ -65,6 +69,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | `setDefaultStorage`<br />`input: SetDefaultStorageInput!` | [`SetDefaultStoragePayload`](#setdefaultstoragepayload) | `xixo:resources:command` |  |
 | `setFeedLifetime`<br />`input: SetFeedLifetimeInput!` | [`SetFeedLifetimePayload`](#setfeedlifetimepayload) | `xixo:catalog:write` |  |
 | `setFeedTimeout`<br />`input: SetFeedTimeoutInput!` | [`SetFeedTimeoutPayload`](#setfeedtimeoutpayload) | `xixo:catalog:write` |  |
+| `setMachineAccess`<br />`input: SetMachineAccessInput!` | [`SetMachineAccessPayload`](#setmachineaccesspayload) | `xixo:resources:command` | Sets what xixo may do with a machine. search browses, searches, and reads the text xixo drew out. files adds fetching whole files and running the machine's readers. writing adds writing into the folders the machine marks writable. xixo tells xixo link at once, and the machine's own config can only narrow it. |
 | `setSetting`<br />`input: SetSettingInput!` | [`SetSettingPayload`](#setsettingpayload) | `xixo:settings:write` |  |
 | `setSyncInterval`<br />`input: SetSyncIntervalInput!` | [`SetSyncIntervalPayload`](#setsyncintervalpayload) | `xixo:resources:command` |  |
 | `snapshotUrl`<br />`input: SnapshotUrlInput!` | [`SnapshotUrlPayload`](#snapshoturlpayload) | `xixo:catalog:write` |  |
@@ -77,12 +82,13 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 
 ### Subscription
 
-| Field | Type | Needs |
-| --- | --- | --- |
-| `analysisProgressed`<br />`id: ID` | [`AnalysisProgressedPayload!`](#analysisprogressedpayload) | `xixo:catalog:read` |
-| `feedAnalyzed`<br />`id: ID` | [`FeedAnalyzedPayload!`](#feedanalyzedpayload) | `xixo:catalog:read` |
-| `machineChanged`<br />`id: ID` | [`MachineChangedPayload!`](#machinechangedpayload) | `xixo:resources:read` |
-| `runProgressed`<br />`id: ID` | [`RunProgressedPayload!`](#runprogressedpayload) | `xixo:catalog:read` |
+| Field | Type | Needs | Description |
+| --- | --- | --- | --- |
+| `analysisProgressed`<br />`id: ID` | [`AnalysisProgressedPayload!`](#analysisprogressedpayload) | `xixo:catalog:read` |  |
+| `feedAnalyzed`<br />`id: ID` | [`FeedAnalyzedPayload!`](#feedanalyzedpayload) | `xixo:catalog:read` |  |
+| `linkRequestChanged` | [`LinkRequestChangedPayload!`](#linkrequestchangedpayload) | `xixo:resources:read` | Fires when a machine asks to link up, and when its request is approved, denied, or linked. Only an administrator hears it. |
+| `machineChanged`<br />`id: ID` | [`MachineChangedPayload!`](#machinechangedpayload) | `xixo:resources:read` |  |
+| `runProgressed`<br />`id: ID` | [`RunProgressedPayload!`](#runprogressedpayload) | `xixo:catalog:read` |  |
 
 ## Objects
 
@@ -145,6 +151,15 @@ Autogenerated return type of AnalyzeFeed.
 | `analysis` | [`Analysis!`](#analysis) |  |
 | `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
 | `feed` | [`Feed!`](#feed) |  |
+
+### ApproveLinkRequestPayload
+
+Autogenerated return type of ApproveLinkRequest.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `request` | [`LinkRequest!`](#linkrequest) |  |
 
 ### ArchiveResourcePayload
 
@@ -320,6 +335,15 @@ Autogenerated return type of DeleteResource.
 | `deleted` | `Boolean!` | Whether the resource, which must be put away first, is gone and its key free to attach again. |
 | `places` | `Int!` | How many places in it xixo stopped pointing at. A feed left with no place is forgotten unless it has a note, a lifetime, or an edge someone made. |
 
+### DenyLinkRequestPayload
+
+Autogenerated return type of DenyLinkRequest.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `request` | [`LinkRequest!`](#linkrequest) |  |
+
 ### Detail
 
 Resolves only for a token carrying `xixo:catalog:read`.
@@ -345,6 +369,7 @@ A machine a transport reaches, as its network names it. Nothing else the network
 | `lastSeenAt` | `ISO8601DateTime` | When the network last saw it, for a machine that is offline. |
 | `online` | `Boolean!` | Whether the network sees it now. |
 | `services` | [`[DiscoveredService!]!`](#discoveredservice) | The well-known ports that answered when the machine was asked. Empty for a machine that is offline, or when the ports were not asked. |
+| `via` | `String` | The key of the transport that reaches it. |
 
 ### DiscoveredService
 
@@ -437,39 +462,41 @@ Autogenerated return type of ForgetFeed.
 | `forgotten` | `Boolean!` |  |
 | `places` | `Int!` | How many places it lived that xixo stopped pointing at. |
 
-### LinkBuild
+### LinkRequest
 
-One build of xixo link this server hands out. Resolves only for a token carrying `xixo:resources:read`.
-
-| Field | Type | Description |
-| --- | --- | --- |
-| `arch` | `String!` | amd64 or arm64. |
-| `file` | `String!` | Its name under /link/download/. |
-| `os` | `String!` | linux or darwin. |
-| `sha256` | `String!` | The SHA-256 of the binary, in hex. |
-
-### LinkMachinePayload
-
-Autogenerated return type of LinkMachine.
+A machine asking to link up. xixo link on the machine started it and shows its code. Only an administrator approves or denies it, and it runs out after ten minutes. Resolves only for a token carrying `xixo:resources:read`.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
-| `code` | `String!` | The single-use code the machine enrolls and links up with. It is shown only here. |
-| `expiresAt` | `ISO8601DateTime!` | When the code stops working, about ten minutes from now. |
-| `resource` | [`Resource!`](#resource) |  |
+| `arch` | `String` |  |
+| `code` | `String!` | The code the machine shows, such as WDJB-MJHT. |
+| `createdAt` | `ISO8601DateTime!` |  |
+| `expiresAt` | `ISO8601DateTime!` |  |
+| `folders` | `[String!]!` | The folders the machine's config shares. |
+| `hostname` | `String!` | The name the machine gives itself. |
+| `id` | `ID!` |  |
+| `machine` | [`Resource`](#resource) | The machine it linked up as, once it has. |
+| `os` | `String` |  |
+| `remoteIp` | `String` | The address the request came from. |
+| `status` | `String!` | pending, approved, handed (the machine took its enrollment token), linked, or denied. |
+| `writable` | `[String!]!` | The shared folders the machine marks writable. |
+
+### LinkRequestChangedPayload
+
+Autogenerated return type of LinkRequestChanged.
+
+| Field | Type |
+| --- | --- |
+| `request` | [`LinkRequest!`](#linkrequest) |
 
 ### LinkUp
 
-What a machine needs to install xixo link itself and link up. Resolves only for a token carrying `xixo:resources:read`.
+What the command that links up a machine needs. Resolves only for a token carrying `xixo:resources:read`.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `builds` | [`[LinkBuild!]!`](#linkbuild) | The xixo link builds this server hands out, by system and architecture. |
-| `issuer` | `String!` | The masks issuer xixo link enrolls with. |
-| `macReader` | `String` | Where a Mac gets the mac reader: the asset of the GitHub release of this server's version, with its SHA-256 beside it at the same address ending .sha256. Empty when the server's version is unknown. |
-| `packages` | `[String!]!` | The Debian and Ubuntu packages that hold the programs xixo link reads PDFs, images, audio, video, and office documents with. |
-| `xixo` | `String!` | The address xixo link dials. |
+| `systems` | `[String!]!` | The systems this server holds a build of xixo link for: linux, darwin, or both. |
+| `xixo` | `String!` | The address of this xixo. The command is curl -fsSL &lt;xixo>/link.sh \| sh, followed by the folders the machine shares. |
 
 ### Machine
 
@@ -477,24 +504,25 @@ What xixo link on a machine last said about it. Resolves only for a token carryi
 
 | Field | Type | Description |
 | --- | --- | --- |
+| `access` | `String!` | What xixo may do with the machine: search, files, or writing. An administrator changes it with setMachineAccess. |
 | `arch` | `String` |  |
 | `connected` | `Boolean!` | Whether xixo link is connected to xixo now. |
 | `disks` | [`[MachineDisk!]!`](#machinedisk) |  |
 | `extractors` | `[String!]!` | The kinds of file xixo link can read, by the programs installed on the machine. |
-| `extractsForOthers` | `Boolean` | Whether the machine's own config lets it read files from other places for xixo: uploads, mail attachments, cloud files, web pages, and files other machines lend. Empty when xixo link on it does not say. |
+| `extractsForOthers` | `Boolean!` | Whether the machine reads files from other places for xixo: uploads, mail attachments, cloud files, web pages, and files other machines lend. Its access and its own config both have to allow it. |
 | `folders` | `[String!]!` | The folders xixo link shares, as its own config lists them. |
+| `heldBack` | `[String!]!` | What its access asks for that the machine's own config holds back: tool names, lend, or extracts_for_others. |
+| `helpsOthers` | `Boolean!` | Whether xixo asks the machine to help read files from elsewhere. |
 | `hostname` | `String` | The name the machine gives itself. |
-| `lends` | `Boolean!` | Whether xixo link on it lets the bytes of its files leave the machine: to be opened or downloaded, and to be read by another machine when it lacks the program itself. |
+| `lends` | `Boolean!` | Whether the bytes of its files may leave the machine: to be opened or downloaded, and to be read by another machine when it lacks the program itself. Its access and its own config both have to allow it. |
 | `linked` | `Boolean!` | Whether xixo link is enrolled as this machine, whether or not it is connected now. |
-| `linkingUntil` | `ISO8601DateTime` | When the code handed out to link the machine stops working. Empty when none is waiting. |
 | `load` | `[Float!]!` | The load average over one, five, and fifteen minutes. |
 | `memoryAvailable` | `BigInt` |  |
 | `memoryTotal` | `BigInt` |  |
 | `os` | `String` |  |
 | `seenAt` | `ISO8601DateTime` | When xixo link last said anything. |
-| `selfLinked` | `Boolean!` | Whether the machine installed xixo link itself, with a code, instead of xixo installing it over SSH. |
 | `services` | [`[MachineService!]!`](#machineservice) | Model servers listening on the machine, with its tailnet address when it has one. |
-| `tools` | `[String!]!` | The tools the machine offers to MCP clients through xixo, as its config names them: browse, search, read, write, extract, and models. |
+| `tools` | `[String!]!` | The tools the machine offers to MCP clients through xixo: browse, search, read, write, extract, and models. Its access and its own config both have to allow each one. |
 | `unread` | `[String!]!` | The kinds of file xixo link cannot read, because the machine lacks their programs. Such a file on this machine is read by a machine that reads for others when this one lends its files, and otherwise waits until this one can read it. |
 | `uptime` | `Float` | Seconds since the machine started. |
 | `version` | `String` | The version of xixo link. |
@@ -729,6 +757,15 @@ Autogenerated return type of SetFeedTimeout.
 | `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
 | `feed` | [`Feed!`](#feed) |  |
 
+### SetMachineAccessPayload
+
+Autogenerated return type of SetMachineAccess.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `resource` | [`Resource!`](#resource) |  |
+
 ### SetSettingPayload
 
 Autogenerated return type of SetSetting.
@@ -883,6 +920,15 @@ Autogenerated input type of AnalyzeFeed
 | `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
 | `id` | `ID!` |  |
 
+### ApproveLinkRequestInput
+
+Autogenerated input type of ApproveLinkRequest
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `id` | `ID!` |  |
+
 ### ArchiveResourceInput
 
 Autogenerated input type of ArchiveResource
@@ -974,6 +1020,15 @@ Autogenerated input type of DeleteResource
 | `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
 | `id` | `ID!` |  |
 
+### DenyLinkRequestInput
+
+Autogenerated input type of DenyLinkRequest
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `id` | `ID!` |  |
+
 ### ExportFeedsInput
 
 Autogenerated input type of ExportFeeds
@@ -1003,17 +1058,6 @@ Autogenerated input type of ForgetFeed
 | --- | --- | --- |
 | `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
 | `id` | `ID!` |  |
-
-### LinkMachineInput
-
-Autogenerated input type of LinkMachine
-
-| Argument | Type | Description |
-| --- | --- | --- |
-| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
-| `id` | `ID` | A machine already attached, for a fresh code. |
-| `key` | `String` | A name for a new machine. |
-| `name` | `String` |  |
 
 ### NoteFeedInput
 
@@ -1106,6 +1150,17 @@ Autogenerated input type of SetFeedTimeout
 | `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
 | `id` | `ID!` |  |
 | `seconds` | `Int` | How long an analysis of it may run, from a minute to a day. Left off, it gets the default. |
+
+### SetMachineAccessInput
+
+Autogenerated input type of SetMachineAccess
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `access` | `String` | search, files, or writing. |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `helpsOthers` | `Boolean` | Whether the machine helps read files from elsewhere: uploads, mail attachments, cloud files, web pages, and files other machines lend. |
+| `id` | `ID!` |  |
 
 ### SetSettingInput
 

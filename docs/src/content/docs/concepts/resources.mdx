@@ -272,55 +272,77 @@ A `machine` resource stands for a machine running `xixo-link`, the program in `l
 Every other resource sits on the card of the machine it lives on or is reached through, which the
 `machineId` field of a resource names: a `filesystem` its machine, a resource reached over a
 tailnet the linked machine at the address it dials, and anything else **This server**.
-A machine links up in one of two ways: someone runs the install commands on the machine, or xixo
-installs xixo link over SSH.
+A machine links itself up, and an administrator approves it.
 
-### Installing it yourself
+### Linking up
 
-`linkMachine` names a new machine, or takes one already attached, and asks masks for an enrollment
-token as described below. xixo shows the token once, as the code in the commands, and keeps only its
-SHA-256 and when it was made, under `linking` in the resource's details. The code works for ten
-minutes and once:
+Linking up follows the shape of the OAuth device authorization grant (RFC 8628). An administrator
+copies one command from **Resources** and runs it on the machine. `GET /link.sh` serves the script
+without a sign-in, and it holds no secret: only xixo's address, masks' issuer, and the SHA-256 of
+each build of xixo link in `XIXO_LINK_DIR`. The script downloads the build for the machine from
+`GET /link/download/xixo-link-<os>-<arch>`, refuses one that does not match its SHA-256, writes the
+configuration and the service, and runs `xixo-link up`.
 
-- `GET /link/download/<build>`, `GET /link/download/xixo-link.service`, and
-  `GET /link/download/xixo-link.plist` answer only a request carrying a waiting code in
-  `Authorization: Bearer`. A build is one of the files named
-  `xixo-link-<os>-<arch>` in `XIXO_LINK_DIR`, and nothing else in that folder is served. The
-  service comes filled in with the account and folders the request names, which pass the same
-  checks an SSH install makes.
-- `xixo-link enroll` redeems the token with masks and prints the new client's ID. The commands
-  then send that ID to `POST /link` with the same code. xixo finds the machine by the code's
-  digest, refuses a client another machine already holds, binds the client to that machine, and
-  forgets the code. From then on the client's connections are that machine's.
+`xixo-link up` makes the machine's keys and posts its hostname, system, processor, and folders to
+`POST /link/requests`. xixo keeps them as a `LinkRequest` and answers with two codes:
 
-masks does not tell xixo which token a client came from, so the code is the proof: only whoever
-holds a machine's code can name a client for it, and one machine's code never binds another's
-slot. A client enrolled with a token that was never linked is let in nowhere. Asking for a fresh
-code replaces the waiting one, and linking a machine again unenrolls its earlier client once the
-new one names itself. Each address is limited to 30 requests a minute across these endpoints.
+- The user code, eight letters from a 20-letter alphabet, such as `WDJB-MJHT`. xixo link prints it
+  with the link `/link/<code>`, and xixo shows it beside the request.
+- The device code, a random secret xixo link keeps to itself. xixo stores only its SHA-256.
 
-### Installing over SSH
+xixo link then polls `POST /link/requests/token` with the device code every five seconds. The
+request appears at once to every administrator on **Resources**, with the address it came from.
+Only an administrator sees requests, approves them, and denies them. The user code is how the
+administrator matches the request on screen with the machine in front of them, so a request someone
+else started is never approved by mistake.
 
-Attaching a machine with an SSH key starts an `install` run. `InstallLinkJob` connects over SSH to the
-address in `host`, which passes the address check through the machine's own `via`, and holds the
-machine to the host key in `host_key`. Only a machine reached through a `tailnet` resource at a
-tailnet address, in `100.64.0.0/10` or `fd7a:115c:a1e0::/48`, may leave `host_key` empty, and then
-the key the machine offers is kept there. Any other install stops before it sends anything. The
-client xixo link enrolls as is kept on the resource as soon as `xixo-link enroll` names it, so a
-run that fails later still leaves it where archiving the machine unenrolls it. The run refuses a machine that is not Linux on x86_64 or aarch64 and an account without
-`sudo -n`. It places the binary for the machine's architecture from `XIXO_LINK_DIR`, checks its
-SHA-256 on the machine, writes `/etc/xixo-link/config.json`, and starts the `xixo-link` systemd
-service as the SSH user. The private key is removed from the resource's credentials when the run
-ends, whether it worked or not. See [add a machine](/guides/add-a-machine/) for the steps.
+On approval xixo asks masks for an enrollment token, as described below, and hands it to the next
+poll, once. xixo link registers with masks with its own key and posts the device code to
+`POST /link` with its own DPoP-bound token. Only then does xixo create the `machine`, bound to that
+client. Its key is the first label of the hostname, with `-2`, `-3`, and so on when that key is
+taken, and it never changes. Its name is the full hostname and can be changed. The approving
+administrator is its first operator. A client another machine holds already is refused.
+
+Limits keep a stranger from filling the list. A request runs out ten minutes after it starts, or
+after it is approved. One address may have three requests waiting at once and start ten an hour, a
+tenant holds at most twenty waiting requests, and each address is limited to 30 requests a minute
+across these endpoints. A denied machine is told so on its next poll, and an expired one is told to
+run the command again.
+
+Running the command on a machine that is linked already makes `xixo-link up` ask
+`GET /link` with its own token. xixo answers with the machine's key, and the script goes on to
+upgrade xixo link and rewrite its configuration and service. A machine cannot be attached by hand.
+See [add a machine](/guides/add-a-machine/) for the steps.
 
 ### Enrollment
 
-Either way, xixo asks masks for an enrollment token at the issuer's `enrollment_endpoint`, as the tenant's
-own client, for the `xixo:link` scope alone. An install over SSH passes the token to `xixo-link enroll` on
-standard input, and the commands do the same. xixo link makes its keys on the machine and registers itself with masks, which
-gives it a client that signs in with `private_key_jwt`, uses only `client_credentials`, and gets
-DPoP-bound tokens. The private keys never leave the machine, and xixo keeps only the client's ID,
-in `client_id`. `xixo:link` is outside the scopes xixo asks for when a person signs in.
+xixo asks masks for an enrollment token at the issuer's `enrollment_endpoint`, as the tenant's own
+client, for the `xixo:link` scope alone. The token works once. xixo link makes its keys on the
+machine and registers itself with masks, which gives it a client that signs in with
+`private_key_jwt`, uses only `client_credentials`, and gets DPoP-bound tokens. The private keys
+never leave the machine, and xixo keeps only the client's ID, in `client_id`. `xixo:link` is
+outside the scopes xixo asks for when a person signs in.
+
+### What xixo may do with a machine
+
+Each machine holds an access level that an administrator sets on its card:
+
+| Level | Tools | Lends whole files | Writes |
+| --- | --- | --- | --- |
+| `search` | `browse`, `search`, `read` | no | no |
+| `files` | adds `extract` | yes | no |
+| `writing` | adds `write` | yes | into its writable folders |
+
+A machine also holds whether it helps read other machines' files, which puts it in the pool that
+reads uploads, mail attachments, cloud files, web pages, and lent files. `models` is added at any
+level once the machine reports a model server. A newly approved machine starts at `search` and
+helps others. xixo link beside the server starts at `writing`.
+
+xixo sends these to xixo link as `{"settings": {"tools", "lend", "extracts_for_others"}}` right
+after each `hello` and whenever they change, so a change takes effect without touching the machine.
+The machine's configuration can narrow them with the same three keys, and a key left out sets no
+limit. xixo link does only what both allow, xixo counts only what both allow, and the folders in the
+configuration stay the hard limit. When the configuration holds something back, the card says so.
 
 ### The connection
 
@@ -334,14 +356,14 @@ refuses a person. Every fifteen seconds the channel closes a connection whose to
 whose machine was archived, and xixo link connects again with a new token.
 
 On `hello`, xixo records the machine's hostname, operating system, architecture, xixo link version,
-folders, model servers, the tools it offers, whether it lends its files' bytes, and its warnings,
+folders, model servers, what its configuration allows, and its warnings,
 and clears `offline_host`. `health` adds uptime, load, memory, and disks every minute, and replaces
 the warnings. A warning is a sentence xixo link writes about something keeping it from working
 fully, such as a shared folder it may not read; xixo keeps at most 16, each up to 500 characters,
 and shows them on the machine's card. When the connection closes, the machine goes offline with when it was last
 seen, unless a newer connection has taken its place. A machine not heard from for three minutes is
 not connected either way. What xixo keeps is trimmed and checked first: folders must be clean
-absolute paths, and services are only ollama and LM Studio. When `hello` carries `extracts_for_others`, xixo keeps that too, and the machine's card says it reads for other machines. Those two settings decide who reads what: a machine that lends lets another read the files it cannot, and a machine that reads for others joins the pool that reads uploads, cloud files, and lent files. See [extraction](/concepts/analysis/#extraction). A hello also resumes the analyses parked for want of a machine that the machine can now serve.
+absolute paths, and services are only ollama and LM Studio. `hello` also carries the configuration's own `tools`, `lend`, and `extracts_for_others`, which xixo combines with the machine's access level. Lending and helping others decide who reads what: a machine that lends lets another read the files it cannot, and a machine that helps others joins the pool that reads uploads, cloud files, and lent files. See [extraction](/concepts/analysis/#extraction). A hello also resumes the analyses parked for want of a machine that the machine can now serve.
 
 ### Asking a machine
 
@@ -369,8 +391,8 @@ written and awaited on a connection of its own, so the channel sees it at once.
 A `filesystem` names one of the folders xixo link said it shares. Attaching one xixo link does
 not share is refused, and a folder xixo link stops sharing is unusable. Every path xixo link lists
 must be relative and stay inside the folder. The folders, and which of them are writable, are set
-only by the machine's configuration, which xixo writes during an install and never changes over the
-connection, and xixo link refuses any path outside them.
+only by the machine's configuration, which `xixo-link setup` writes on the machine. Nothing xixo sends
+over the connection changes them, and xixo link refuses any path outside them.
 
 A write is a `write {folder, path, upload, size, replace}` question. xixo link fetches the upload
 the way it fetches one to extract, writes it to a temporary file beside its target, syncs it, and
@@ -381,13 +403,15 @@ catalog already holds on that resource, so a file someone else put there is neve
 
 ### Tools a machine offers
 
-A machine offers MCP clients the tools its configuration names in `tools`, and no others.
-xixo link says which in `hello`, and xixo keeps only the names it knows. A client reaches them
+A machine offers MCP clients the tools its access level gives it, as described in
+[what xixo may do with a machine](#what-xixo-may-do-with-a-machine), narrowed by any `tools` list in
+its configuration. xixo link says what its configuration allows in `hello`, and xixo keeps only the
+names it knows. A client reaches them
 through the `resource` tool at `/mcp`, as commands on the machine, and never through a port on the
 machine: each call is a question on the connection xixo link already holds open. xixo link refuses
-the verb of a tool its configuration leaves out, and xixo lists and accepts only the commands of the
-tools the machine offers, so neither side can widen what the other allows. A machine whose
-configuration names no tools answers `health` and `discover` alone.
+the verb of a tool that xixo's settings or its configuration leave out, and xixo lists and accepts
+only the commands of the tools the machine offers, so neither side can widen what the other allows.
+A machine that offers no tools answers `health` and `discover` alone.
 
 | Tool | Command | Verb | Does |
 | --- | --- | --- | --- |
@@ -398,8 +422,8 @@ configuration names no tools answers `health` and `discover` alone.
 | `extract` | `extract` | `examine` | Runs the machine's extractors on a file and answers with their steps, and none of the files they make. |
 | `models` | `chat` | `model` | Asks a model server on the machine one question. |
 
-The machine's other settings still apply. `read` sends bytes only from a machine whose configuration
-sets `lend`; from any other machine, or one that is offline, it answers with the text and summary
+The machine's other settings still apply. `read` sends bytes only from a machine that lends, at the
+`files` or `writing` level with a configuration that allows `lend`; from any other machine, or one that is offline, it answers with the text and summary
 analysis drew out of the file and says that the bytes stay on the machine. `write` reaches only the
 folders the configuration marks writable, and xixo lists it only for a machine that has one. `chat`
 is listed only for a machine that reported a model server. xixo link sends the question to
@@ -410,7 +434,7 @@ OpenAI-compatible chat completion. It takes no address, follows no redirect, and
 Every command needs `xixo:resources:read`, and `write` also needs `xixo:resources:command`.
 `browse`, `write`, `extract`, `chat`, the walk in `search`, and the bytes `read` sends answer only a
 token for one of the machine's operators, or an administrator's. The operators are masks subjects
-the machine lists under **Who operates it**. The administrator who links or attaches a machine is
+the machine lists under **Who operates it**. The administrator who approves a machine is
 its first operator, and the first administrator xixo sees after **This server** appears operates it.
 Anyone else's token gets `search` over xixo's index and `read` of what analysis drew out, and the
 other commands are neither listed nor accepted.
@@ -431,7 +455,7 @@ tool takes a command line, a program, or an address.
 ### xixo link beside the server
 
 Every install runs xixo link beside the server, as the `xixo-link` service of the example compose. It
-lends and reads for others by default, so it is in the pool, and it is asked first while it has the
+starts at the `writing` level and helps others, so it is in the pool, and it is asked first while it has the
 extractor, since the bytes are already on the server. It has no database and no keys, and sees
 only its own state and the folders mounted into it. It enrolls itself through a directory
 it shares with the worker, named by `XIXO_LOCAL_LINK`: it leaves a `wanted` file, `EnrollLocalLinkJob`

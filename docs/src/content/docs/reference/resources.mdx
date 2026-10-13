@@ -705,7 +705,7 @@ None.
 
 ## machine
 
-A Linux machine xixo sets up. xixo signs in to the machine once over SSH, installs xixo link, and links it up. The key is used for that one install and then dropped. From then on xixo link on the machine dials xixo, shares the folders listed here, and reads the files in them on the machine.
+A machine running xixo link. A machine links itself up with one command from the Resources page, and an administrator approves it.
 
 |  |  |
 | --- | --- |
@@ -721,17 +721,7 @@ A Linux machine xixo sets up. xixo signs in to the machine once over SSH, instal
 
 | Field | Label | Kind | Required | Held | Asked when | Help |
 | --- | --- | --- | --- | --- | --- | --- |
-| `host` | Address | string | yes |  |  | Where xixo reaches its SSH server. Through a tailnet, its address on the tailnet. |
-| `port` | SSH port | integer |  |  |  |  |
-| `user` | SSH user | string | yes |  |  | xixo link runs as this user and reads only what it can read. The user needs sudo without a password to install it. |
-| `private_key` | SSH private key | text |  | encrypted |  | Used once to install xixo link and then dropped, whether the install worked or not. Paste it again to install again. |
-| `host_key` | Host key | string |  |  |  | The SHA256 fingerprint that ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub prints on the machine. Needed unless the machine is reached through a tailnet, which vouches for its address. Left empty there, the key seen on the first install is kept, and every later install must meet the same one. |
-| `folders` | Folders it shares | lines |  |  |  | Absolute paths, one per line. End a line with :rw for a folder xixo may also write into. xixo link reads nothing outside them, and only an install or the machine's own config changes them. |
-| `programs` | Extract on the machine | boolean |  |  |  | Installs the programs that read PDFs, office documents, images, audio, and video with apt on Debian or Ubuntu, so only text leaves the machine. Left off, the machine reads only plain text, data, calendars, contacts, email, books, and spreadsheets. |
-| `lend` | Lend its files | boolean |  |  |  | Lets the bytes of its files leave the machine: to be opened or downloaded through xixo, and to be read by another machine that reads for others when this one lacks the program. Left off, nothing on this machine leaves it but text, and a file it cannot read waits until it can. |
-| `extracts_for_others` | Read files for other machines | boolean |  |  |  | Lets this machine read files that live elsewhere: uploads, mail attachments, cloud files, web pages, and files other machines lend. |
-| `keep_tools` | Keep write and models on a reinstall | boolean |  |  |  | A reinstall keeps browse, search, read, and extract from the config already on the machine. Turned on, it keeps write and models too, which let xixo write into the machine's folders and ask its model server. |
-| `operators` | Who operates it | lines |  |  |  | The masks subjects, one per line, whose clients may browse its folders, read its files' bytes, write into them, run its extractors, and ask its model server. The administrator who attaches or links the machine is listed on their own. Anyone else reaches only what xixo drew out of its files. |
+| `operators` | Who operates it | lines |  |  |  | The masks subjects, one per line, whose clients may browse its folders, read its files' bytes, write into them, run its readers, and ask its model server. The administrator who approves the machine is listed on their own. Anyone else reaches only what xixo drew out of its files. |
 
 ### Commands
 

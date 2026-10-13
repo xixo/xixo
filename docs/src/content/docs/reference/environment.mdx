@@ -105,7 +105,7 @@ Uploads are staged through Active Storage before a job places them in a resource
 | `XIXO_GIT_ROOT` | none | The directory where `git` resources keep their shallow bare clones, at `<root>/<tenant id>/<resource id>.git`. Unset, every `git` resource is unusable. |
 | `XIXO_LOCAL_LINK` | none | The directory the server shares with xixo link beside it. Each tenant whose xixo link runs there has a directory of its own under it, named by its subdomain. When it asks to enroll, the worker leaves it a single-use enrollment token readable by its user alone, and binds the client xixo link enrolled as to the `local` machine. Unset, nothing is extracted until xixo link on a machine is connected. |
 | `XIXO_LINK_FOLDER` | `./tmp/link-folder` | Development only: the folder on the host that the dev compose shares read-only with xixo link beside the server, at `/folders`. |
-| `XIXO_LINK_DIR` | `/opt/xixo-link` | Where the server finds xixo link it installs on a machine: `xixo-link-linux-amd64`, `xixo-link-linux-arm64`, and the `xixo-link.service` unit. The server image builds all three there from `link/`. |
+| `XIXO_LINK_DIR` | `/opt/xixo-link` | Where the server finds the xixo link it hands to a machine that links up: the builds named `xixo-link-<os>-<arch>`, the `xixo-link.service` unit, and the `xixo-link.plist` launch agent. `/link.sh` offers each build it finds there. The server image builds xixo link for Linux and macOS on amd64 and arm64 there from `link/`. |
 
 ### Outbound connections
 

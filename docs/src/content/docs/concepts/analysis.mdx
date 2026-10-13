@@ -98,14 +98,16 @@ it opens a transaction:
 
 - A file in a folder a machine shares is read by xixo link on that machine, where it lies, when its
   hello lists the extractor. Only what xixo link extracted and its SHA-256 reach xixo.
-- When it does not, and the machine's config sets `lend`, the file goes to the pool. When the
-  machine does not lend, its bytes stay on it and the file waits until that machine lists the
-  extractor.
+- When it does not, and the machine lends its files, the file goes to the pool. A machine lends
+  when an administrator chooses **Files** or **Files and writing** for it and its own config does
+  not hold `lend` back. When the machine does not lend, its bytes stay on it and the file waits
+  until that machine lists the extractor.
 - An upload, a mail attachment, a file a cloud resource holds, and anything else with no machine of
   its own goes to the pool.
 
-The pool is every connected machine in the tenant whose hello sets `extracts_for_others` and lists
-the extractor. xixo link beside the server comes first when it is in the pool, since the bytes are
+The pool is every connected machine in the tenant that helps read other machines' files and lists
+the extractor. A machine helps when its **Help read other machines' files** switch is on and its own
+config does not hold `extracts_for_others` back. xixo link beside the server comes first when it is in the pool, since the bytes are
 already on the server; otherwise the machine with the fewest questions open is asked. The chosen
 machine fetches the bytes once over HTTPS.
 
