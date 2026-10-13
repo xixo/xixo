@@ -34,9 +34,12 @@ class McpController < ApplicationController
 
   skip_forgery_protection
 
-  def handle
-    return refuse_stream if request.get?
+  def stream
+    response.headers["Allow"] = "POST, DELETE"
+    head :method_not_allowed
+  end
 
+  def handle
     status, headers, body = transport.call(request.env)
 
     headers.each { |name, value| response.headers[name] = value }
@@ -65,11 +68,6 @@ class McpController < ApplicationController
 
       McpTransports.claim(issued, grant.subject)
       McpTransports.forget(issued) if request.delete? && issued.present?
-    end
-
-    def refuse_stream
-      response.headers["Allow"] = "POST, DELETE"
-      head :method_not_allowed
     end
 
     def deliver(body)

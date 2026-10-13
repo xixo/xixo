@@ -38,6 +38,15 @@ class McpSessionTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "HEAD is refused the same way as GET" do
+    held, = session_for(@tenant, ALL)
+
+    head "/mcp", headers: host_for(@tenant).merge(held)
+
+    assert_response :method_not_allowed
+    assert_equal "POST, DELETE", response.headers["Allow"]
+  end
+
   test "a listen request is answered as a method xixo does not have, where it used to fail with a 500" do
     send_modern(@tenant, bearer(@tenant, ALL), "subscriptions/listen",
                 { notifications: { toolsListChanged: true } })

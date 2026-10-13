@@ -30,7 +30,8 @@ Rails.application.routes.draw do
   get "/resources/:id/connect", to: "resource_connections#show", as: :resource_connect
   get "/connect/callback", to: "resource_connections#callback", as: :resource_connect_callback
 
-  match "/mcp", to: "mcp#handle", via: %i[get post delete]
+  get "/mcp", to: "mcp#stream"
+  match "/mcp", to: "mcp#handle", via: %i[post delete]
 
   get "/.well-known/oauth-protected-resource", to: "oauth_metadata#protected_resource"
   get "/.well-known/oauth-protected-resource/mcp", to: "oauth_metadata#protected_resource"
