@@ -49,7 +49,7 @@ func newXixo(t *testing.T, answers ...string) *xixoFake {
 			return
 		}
 
-		io.WriteString(response, "Linked up as nas.\n")
+		io.WriteString(response, held.linked())
 	})
 
 	mux.HandleFunc("POST /link/requests", func(response http.ResponseWriter, request *http.Request) {
@@ -108,10 +108,14 @@ func newXixo(t *testing.T, answers ...string) *xixoFake {
 		}
 
 		held.known = true
-		io.WriteString(response, "Linked up as nas.\n")
+		io.WriteString(response, held.linked())
 	})
 
 	return held
+}
+
+func (x *xixoFake) linked() string {
+	return `{"name":"nas","url":"` + x.URL + `/settings/resources/7","updates":true}`
 }
 
 func upFor(t *testing.T, answers ...string) (*xixoFake, *issuer, *state.Config, state.State) {
@@ -144,7 +148,8 @@ func TestUpAsksXixoWaitsForApprovalEnrollsAndLinks(t *testing.T) {
 	}
 
 	told := out.String()
-	if !strings.Contains(told, "Open "+xixo.URL+"/link/WDJB-MJHT to approve this machine.\n") || !strings.Contains(told, "It shows the code WDJB-MJHT.\n") || !strings.HasSuffix(told, "Linked up as nas.\n") {
+	if !strings.Contains(told, "Open this link to approve this machine:\n\n     "+xixo.URL+"/link/WDJB-MJHT\n") || !strings.Contains(told, "shows the code WDJB-MJHT, then choose Approve.\n") ||
+		!strings.Contains(told, "runs out in 10 minutes.\n") || !strings.HasSuffix(told, "Approved. Linked up as nas.\n") {
 		t.Fatalf("printed %q", told)
 	}
 
@@ -169,7 +174,7 @@ func TestUpAsksXixoWaitsForApprovalEnrollsAndLinks(t *testing.T) {
 	}
 
 	again := &bytes.Buffer{}
-	if err := Up(context.Background(), config, held, "1.2.3", again); err != nil || again.String() != "Already linked up as nas.\n" || xixo.started != 1 {
+	if err := Up(context.Background(), config, held, "1.2.3", again); err != nil || again.String() != "   Already linked up as nas. It keeps the approval it has.\n" || xixo.started != 1 {
 		t.Fatalf("up again printed %q, started %d, %v", again, xixo.started, err)
 	}
 }
@@ -181,8 +186,13 @@ func TestUpStartsAFreshRequestWhenXixoForgotTheMachine(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := Up(context.Background(), config, held, "1.2.3", io.Discard); err != nil {
+	out := &bytes.Buffer{}
+	if err := Up(context.Background(), config, held, "1.2.3", out); err != nil {
 		t.Fatal(err)
+	}
+
+	if !strings.HasPrefix(out.String(), "   xixo no longer knows this machine, so it needs approval again.\n") {
+		t.Fatalf("printed %q", out)
 	}
 
 	if xixo.started != 1 || xixo.bound != "device-secret" {
@@ -245,6 +255,60 @@ func TestUpNamesOnlyTheStatusWhenXixoAnswersWithAPage(t *testing.T) {
 
 	err := Up(context.Background(), config, state.State{Dir: t.TempDir()}, "1.2.3", io.Discard)
 	if err == nil || err.Error() != "xixo did not take the request to link up (500)" {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestUpRemindsThatItIsStillWaiting(t *testing.T) {
+	_, _, config, held := upFor(t, "authorization_pending", "authorization_pending", "authorization_pending", "approved")
+	pollUnit = 20 * time.Millisecond
+	out := &bytes.Buffer{}
+
+	before := remindEvery
+	remindEvery = 2
+	t.Cleanup(func() { remindEvery = before })
+
+	if err := Up(context.Background(), config, held, "1.2.3", out); err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(out.String(), "   Still waiting for approval. The request runs out in ") {
+		t.Fatalf("printed %q", out)
+	}
+}
+
+func TestLookupKeepsOnlyANameAndALinkIntoThisXixo(t *testing.T) {
+	config := &state.Config{Xixo: "https://xixo.example"}
+
+	linked, err := linkedFrom(config, []byte(`{"name":"nas\u001b[2J","url":"https://xixo.example/settings/resources/7","updates":false}`))
+	if err != nil || linked.Name != "nas[2J" || linked.URL != "https://xixo.example/settings/resources/7" || linked.Updates {
+		t.Fatalf("got %+v, %v", linked, err)
+	}
+
+	for _, url := range []string{"https://evil.example/settings", "https://xixo.example.evil/x", `https://xixo.example/\u0007`, "javascript:alert(1)"} {
+		linked, err := linkedFrom(config, []byte(`{"name":"nas","url":"`+url+`"}`))
+		if err != nil || linked.URL != "" {
+			t.Fatalf("%s kept %+v, %v", url, linked, err)
+		}
+	}
+
+	if _, err := linkedFrom(config, []byte("Linked up as nas.\n")); !errors.Is(err, errAnswer) {
+		t.Fatalf("plain text gave %v", err)
+	}
+
+	if _, err := linkedFrom(config, []byte(`{"name":" "}`)); !errors.Is(err, errAnswer) {
+		t.Fatalf("a blank name gave %v", err)
+	}
+}
+
+func TestUpSaysWhichXixoItCouldNotReach(t *testing.T) {
+	xixo := httptest.NewServer(http.NotFoundHandler())
+	xixo.Close()
+
+	config := &state.Config{Xixo: xixo.URL, Issuer: "https://id.example"}
+
+	err := Up(context.Background(), config, state.State{Dir: t.TempDir()}, "1.2.3", io.Discard)
+	if err == nil || !strings.HasPrefix(err.Error(), "xixo link could not reach xixo at "+xixo.URL+". Check that this machine can reach it, then run the command again: ") {
 		t.Fatalf("got %v", err)
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/xixo/xixo/link/internal/dial"
 	"github.com/xixo/xixo/link/internal/machine"
 	"github.com/xixo/xixo/link/internal/state"
+	"github.com/xixo/xixo/link/internal/terminal"
 )
 
 const (
@@ -26,15 +27,24 @@ const (
 	mostTold       = 300
 	slowedBy       = 5
 	pollEvery      = 5
+	mostName       = 200
 )
 
 var (
-	ErrDenied  = errors.New("xixo denied this machine")
-	ErrExpired = errors.New("the request ran out. Run the command again")
+	ErrDenied  = errors.New("an administrator denied this machine in xixo. Run the command again to ask again")
+	ErrExpired = errors.New("the request ran out before anyone approved it. Run the command again")
 
-	pollUnit   = time.Second
-	errUnknown = errors.New("xixo knows no machine enrolled as this client")
+	pollUnit    = time.Second
+	remindEvery = 60
+	errUnknown  = errors.New("xixo knows no machine enrolled as this client")
+	errAnswer   = errors.New("xixo answered with something xixo link cannot read")
 )
+
+type Linked struct {
+	Name    string `json:"name"`
+	URL     string `json:"url"`
+	Updates bool   `json:"updates"`
+}
 
 type Asking struct {
 	Hostname string        `json:"hostname"`
@@ -69,15 +79,18 @@ type said struct {
 }
 
 func Up(ctx context.Context, config *state.Config, held state.State, version string, out io.Writer, options ...masks.Option) error {
+	style := terminal.For(out)
+
 	if _, err := held.Registration(); err == nil {
-		told, err := linkedAs(ctx, config, held, options...)
+		linked, err := Lookup(ctx, config, held, options...)
 
 		switch {
 		case err == nil:
-			fmt.Fprintln(out, strings.Replace(told, "Linked up", "Already linked up", 1))
+			fmt.Fprintf(out, "   Already linked up as %s. It keeps the approval it has.\n", style.Bold(linked.Name))
 
 			return nil
 		case errors.Is(err, errUnknown), errors.Is(err, ErrRevoked), masks.HasCode(err, "invalid_client"):
+			fmt.Fprintln(out, "   xixo no longer knows this machine, so it needs approval again.")
 		default:
 			return err
 		}
@@ -103,10 +116,11 @@ func Up(ctx context.Context, config *state.Config, held state.State, version str
 		return err
 	}
 
-	fmt.Fprintf(out, "Open %s to approve this machine.\n", started.VerificationURIComplete)
-	fmt.Fprintf(out, "It shows the code %s.\n", started.UserCode)
+	fmt.Fprintf(out, "   Open this link to approve this machine:\n\n     %s\n\n", style.Bold(terminal.Printable(started.VerificationURIComplete)))
+	fmt.Fprintf(out, "   Check that the page shows the code %s, then choose Approve.\n", style.Bold(terminal.Printable(started.UserCode)))
+	fmt.Fprintf(out, "   This command waits until you do. The request runs out in %s.\n", minutes(lasting(started)))
 
-	approved, err := await(ctx, config, started)
+	approved, err := await(ctx, config, started, out)
 	if err != nil {
 		return err
 	}
@@ -120,14 +134,39 @@ func Up(ctx context.Context, config *state.Config, held state.State, version str
 		return err
 	}
 
-	told, err := bind(ctx, config, held, started.DeviceCode, options...)
+	linked, err := bind(ctx, config, held, started.DeviceCode, options...)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintln(out, told)
+	fmt.Fprintf(out, "   %s Linked up as %s.\n", style.Green("Approved."), style.Bold(linked.Name))
 
 	return nil
+}
+
+func lasting(started *Started) int {
+	if started.ExpiresIn <= 0 {
+		return 600
+	}
+
+	return started.ExpiresIn
+}
+
+func minutes(seconds int) string {
+	held := (seconds + 59) / 60
+	if held == 1 {
+		return "1 minute"
+	}
+
+	return fmt.Sprintf("%d minutes", held)
+}
+
+func unreachable(err error, xixo string) error {
+	if errors.Is(err, context.Canceled) {
+		return err
+	}
+
+	return fmt.Errorf("xixo link could not reach xixo at %s. Check that this machine can reach it, then run the command again: %w", xixo, err)
 }
 
 func plain() *http.Client {
@@ -153,7 +192,7 @@ func start(ctx context.Context, config *state.Config, asking Asking) (*Started, 
 
 	response, err := plain().Do(request)
 	if err != nil {
-		return nil, err
+		return nil, unreachable(err, config.Xixo)
 	}
 	defer response.Body.Close()
 
@@ -171,18 +210,16 @@ func start(ctx context.Context, config *state.Config, asking Asking) (*Started, 
 	return started, nil
 }
 
-func await(ctx context.Context, config *state.Config, started *Started) (*Approved, error) {
+func await(ctx context.Context, config *state.Config, started *Started, out io.Writer) (*Approved, error) {
 	every := started.Interval
 	if every <= 0 {
 		every = pollEvery
 	}
 
-	lasts := started.ExpiresIn
-	if lasts <= 0 {
-		lasts = 600
-	}
-
-	deadline := time.Now().Add(time.Duration(lasts) * pollUnit)
+	lasts := lasting(started)
+	began := time.Now()
+	deadline := began.Add(time.Duration(lasts) * pollUnit)
+	reminded := began
 
 	for {
 		select {
@@ -191,8 +228,15 @@ func await(ctx context.Context, config *state.Config, started *Started) (*Approv
 		case <-time.After(time.Duration(every) * pollUnit):
 		}
 
-		if time.Now().After(deadline) {
+		now := time.Now()
+		if now.After(deadline) {
 			return nil, ErrExpired
+		}
+
+		if now.Sub(reminded) >= time.Duration(remindEvery)*pollUnit {
+			reminded = now
+			left := int(deadline.Sub(now) / pollUnit)
+			fmt.Fprintf(out, "   Still waiting for approval. The request runs out in %s.\n", minutes(left))
 		}
 
 		approved, code, err := poll(ctx, config, started.DeviceCode)
@@ -226,7 +270,7 @@ func poll(ctx context.Context, config *state.Config, device string) (*Approved, 
 
 	response, err := plain().Do(request)
 	if err != nil {
-		return nil, "", err
+		return nil, "", unreachable(err, config.Xixo)
 	}
 	defer response.Body.Close()
 
@@ -278,18 +322,18 @@ func described(response *http.Response, answer []byte) string {
 	return told
 }
 
-func linkedAs(ctx context.Context, config *state.Config, held state.State, options ...masks.Option) (string, error) {
+func Lookup(ctx context.Context, config *state.Config, held state.State, options ...masks.Option) (*Linked, error) {
 	return signed(ctx, config, held, http.MethodGet, "", options...)
 }
 
-func bind(ctx context.Context, config *state.Config, held state.State, device string, options ...masks.Option) (string, error) {
+func bind(ctx context.Context, config *state.Config, held state.State, device string, options ...masks.Option) (*Linked, error) {
 	return signed(ctx, config, held, http.MethodPost, url.Values{"device_code": {device}}.Encode(), options...)
 }
 
-func signed(ctx context.Context, config *state.Config, held state.State, method, form string, options ...masks.Option) (string, error) {
+func signed(ctx context.Context, config *state.Config, held state.State, method, form string, options ...masks.Option) (*Linked, error) {
 	client, _, err := Client(ctx, config, held, options...)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	var body io.Reader
@@ -299,8 +343,10 @@ func signed(ctx context.Context, config *state.Config, held state.State, method,
 
 	request, err := http.NewRequestWithContext(ctx, method, config.Xixo+"/link", body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
+
+	request.Header.Set("Accept", "application/json")
 
 	if form != "" {
 		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -308,25 +354,42 @@ func signed(ctx context.Context, config *state.Config, held state.State, method,
 
 	response, err := client.HTTPClient(Tokens(client, config), config.Xixo).Do(request)
 	if held := (&masks.Error{}); errors.As(err, &held) {
-		return "", refused(err)
+		return nil, refused(err)
 	}
 
 	if err != nil {
-		return "", err
+		return nil, unreachable(err, config.Xixo)
 	}
 	defer response.Body.Close()
 
 	answer, _ := io.ReadAll(io.LimitReader(response.Body, mostLinkAnswer))
-	told := strings.TrimSpace(string(answer))
 
 	switch {
 	case response.StatusCode == http.StatusOK:
-		return told, nil
+		return linkedFrom(config, answer)
 	case method == http.MethodGet && response.StatusCode == http.StatusNotFound:
-		return "", errUnknown
+		return nil, errUnknown
 	case method == http.MethodGet:
-		return "", failed("xixo did not say whether it knows this machine", response, answer)
+		return nil, failed("xixo did not say whether it knows this machine", response, answer)
 	}
 
-	return "", failed("xixo did not link this machine up", response, answer)
+	return nil, failed("xixo did not link this machine up", response, answer)
+}
+
+func linkedFrom(config *state.Config, answer []byte) (*Linked, error) {
+	linked := &Linked{}
+	if err := json.Unmarshal(answer, linked); err != nil {
+		return nil, errAnswer
+	}
+
+	linked.Name = strings.TrimSpace(terminal.Printable(linked.Name))
+	if linked.Name == "" || len(linked.Name) > mostName {
+		return nil, errAnswer
+	}
+
+	if linked.URL != terminal.Printable(linked.URL) || !strings.HasPrefix(linked.URL, config.Xixo+"/") || strings.ContainsAny(linked.URL, " \"'<>") {
+		linked.URL = ""
+	}
+
+	return linked, nil
 }

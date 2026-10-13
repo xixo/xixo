@@ -75,7 +75,7 @@ class LinksController < ActionController::API
     return if held.nil?
     return plain(UNKNOWN, :not_found) if held.machine.nil?
 
-    plain("Linked up as #{held.machine.key}.\n", :ok)
+    linked(held.machine)
   end
 
   def create
@@ -89,7 +89,7 @@ class LinksController < ActionController::API
     machine = request_held.link!(held.claims.client_id)
     audited("link", "ok", "linked #{machine.key} as #{machine.client_id}", key: machine.key)
 
-    plain("Linked up as #{machine.key}.\n", :ok)
+    linked(machine)
   rescue LinkRequest::Refused => e
     refused("#{e.message.upcase_first}.\n", :unprocessable_content, e.message)
   end
@@ -102,6 +102,11 @@ class LinksController < ActionController::API
 
       refused(UNSIGNED, :unauthorized, "a machine tried to link up without a token xixo lets in")
       nil
+    end
+
+    def linked(machine)
+      render json: { name: machine.name.presence || machine.key, url: "#{Tenant.origin(request)}/settings/resources/#{machine.id}",
+                     updates: machine.updates? }
     end
 
     def served(path, file, type)

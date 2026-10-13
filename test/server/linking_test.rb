@@ -260,10 +260,11 @@ class LinkingTest < ActionDispatch::IntegrationTest
 
     bind(started, client_id: "client-studio")
     assert_response :ok
-    assert_equal "Linked up as studio.\n", response.body
+    machine = Tenant.switch(@tenant) { Resource::Machine.enrolled("client-studio") }
+    linked = { "name" => "studio", "url" => "http://#{host}/settings/resources/#{machine.id}", "updates" => true }
+    assert_equal linked, response.parsed_body
 
     Tenant.switch(@tenant) do
-      machine = Resource::Machine.enrolled("client-studio")
       assert_equal [ "studio", "studio" ], [ machine.key, machine.name ]
       assert_equal "search", machine.access
       assert machine.helps_others?
@@ -279,7 +280,7 @@ class LinkingTest < ActionDispatch::IntegrationTest
 
     get "/link", headers: signed("client-studio", method: "GET")
     assert_response :ok
-    assert_equal "Linked up as studio.\n", response.body
+    assert_equal linked, response.parsed_body
 
     get "/link", headers: signed("client-unknown", method: "GET")
     assert_response :not_found
