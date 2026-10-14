@@ -193,3 +193,46 @@ func TestAFileThatChangedWhileHashedIsNotRemembered(t *testing.T) {
 		t.Fatal("a failed hash is remembered")
 	}
 }
+
+func TestAWaiterHashesTheFileItselfWhenTheFirstAskerIsStopped(t *testing.T) {
+	cache := &Cache{Smallest: 1}
+	stamp := Stamp{File: "1:3", Size: 100}
+	first, stop := context.WithCancel(context.Background())
+	reading := make(chan struct{})
+	led := make(chan error, 1)
+
+	go func() {
+		_, err := cache.Digest(first, stamp, func() (string, int64, Stamp, error) {
+			close(reading)
+			<-first.Done()
+
+			return "", 0, stamp, first.Err()
+		})
+		led <- err
+	}()
+
+	<-reading
+
+	waited := make(chan string, 1)
+
+	go func() {
+		got, err := cache.Digest(context.Background(), stamp, func() (string, int64, Stamp, error) {
+			return sum, 100, stamp, nil
+		})
+		if err != nil {
+			t.Errorf("the waiter got %v", err)
+		}
+		waited <- got
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+	stop()
+
+	if err := <-led; !errors.Is(err, context.Canceled) {
+		t.Fatalf("the stopped asker got %v", err)
+	}
+
+	if got := <-waited; got != sum {
+		t.Fatalf("the waiter got %q", got)
+	}
+}

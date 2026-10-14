@@ -470,8 +470,8 @@ func TestAFullQueueAnswersBusy(t *testing.T) {
 
 	held, dpop := linkFor(t, cable.URL, folder, time.Now().Add(time.Hour))
 	cable.Thumbprint = dpop.Thumbprint()
-	held.Parallel = 1
-	held.Queue = 1
+	held.Heavy = 1
+	held.Backlog = 1
 	held.Work = t.TempDir()
 	held.Extract = func(ctx context.Context, _ extract.Input) (*extract.Output, error) {
 		<-release

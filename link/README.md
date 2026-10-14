@@ -215,8 +215,9 @@ xixo link watches every directory under a shared folder, up to 16,384 on Linux a
 so. Raise the Linux limit with `sysctl fs.inotify.max_user_watches`. The
 regular sync still finds anything a watch missed.
 
-xixo sends `settings`, as in [what xixo may do](#what-xixo-may-do), and
-`update`, as in [updates](#updates). It also sends requests, each naming a verb:
+xixo sends `settings`, as in [what xixo may do](#what-xixo-may-do),
+`update`, as in [updates](#updates), and `cancel`, as in [waiting and
+stopping](#waiting-and-stopping). It also sends requests, each naming a verb:
 
 | Verbs | Do |
 | --- | --- |
@@ -235,8 +236,27 @@ not in its shortest form, a symbolic link, and anything other than a regular
 file. It never walks or reads these names: `.git`, `.hg`, `.svn`,
 `node_modules`, `__pycache__`, `.venv`, `.tox`, `.Trash`, `.Trashes`,
 `.Spotlight-V100`, `.fseventsd`, `.DS_Store`, `._*`, `Thumbs.db`,
-`desktop.ini`, and its own `.xixo-*.part` files. It answers up to four requests
-at once.
+`desktop.ini`, and its own `.xixo-*.part` files.
+
+### Waiting and stopping
+
+xixo link keeps two queues, so a slow extraction never holds up a quick request:
+
+| Queue | Verbs | At once | Waiting |
+| --- | --- | --- | --- |
+| Extraction | `extract`, `derive`, `examine` | 2 | 16 |
+| Everything else | `list`, `read`, `hash`, `health`, and the rest | 4 | 64 |
+
+A request that finds its queue full is refused at once with an error that says
+xixo link is busy. xixo then asks again later.
+
+xixo gives each request a deadline, as `within`, in seconds. xixo link stops a
+request when its deadline passes, whether the request is still waiting or
+already running. When xixo gives up on a request before then, it sends
+`{"cancel": "<request>"}`, and xixo link stops that request too. A stopped
+request ends its programs, removes its work folder, sends no reply, and frees
+its place in the queue. A cancel for a request xixo link does not hold changes
+nothing.
 
 ### Hashing
 

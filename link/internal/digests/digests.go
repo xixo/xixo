@@ -3,6 +3,7 @@ package digests
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -112,6 +113,10 @@ func (c *Cache) Digest(ctx context.Context, stamp Stamp, hash func() (string, in
 
 		select {
 		case <-running.done:
+			if stopped(running.err) && ctx.Err() == nil {
+				return c.Digest(ctx, stamp, hash)
+			}
+
 			return running.sum, running.err
 		case <-ctx.Done():
 			return "", ctx.Err()
@@ -137,6 +142,10 @@ func (c *Cache) Digest(ctx context.Context, stamp Stamp, hash func() (string, in
 	close(running.done)
 
 	return sum, err
+}
+
+func stopped(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 func (c *Cache) Save() error {

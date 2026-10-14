@@ -37,6 +37,8 @@ var (
 	ErrNotLent = errors.New("this machine does not lend its files' bytes: its config sets lend to false")
 	ErrOthers  = errors.New("this machine extracts only its own files: its config sets extracts_for_others to false")
 	ErrMoving  = errors.New("the file changed while xixo link read it, so xixo link named no SHA-256; ask again once it settles")
+	ErrDropped = errors.New("xixo stopped waiting for this request")
+	ErrLate    = errors.New("the request's deadline passed")
 )
 
 const unknownClient = "no client is registered with that client_id"
@@ -55,6 +57,8 @@ type Link struct {
 	Grace    time.Duration
 	Parallel int
 	Queue    int
+	Heavy    int
+	Backlog  int
 	Chunk    int
 	Work     string
 	Runner   extract.Runner
@@ -77,14 +81,21 @@ type Link struct {
 	wire     wire
 	recent   recent
 	work     sync.WaitGroup
-	slots    chan struct{}
-	pending  chan struct{}
+	quick    lane
+	slow     lane
+	requests requests
+}
+
+type lane struct {
+	slots   chan struct{}
+	pending chan struct{}
 }
 
 type Request struct {
 	Request string          `json:"request"`
 	Verb    string          `json:"verb"`
 	Args    json.RawMessage `json:"args"`
+	Within  float64         `json:"within,omitempty"`
 }
 
 type Reply struct {
@@ -180,9 +191,17 @@ func (a *Link) settle() {
 		a.Queue = 64
 	}
 
+	if a.Heavy == 0 {
+		a.Heavy = 2
+	}
+
+	if a.Backlog == 0 {
+		a.Backlog = 16
+	}
+
 	a.once.Do(func() {
-		a.slots = make(chan struct{}, a.Parallel)
-		a.pending = make(chan struct{}, a.Parallel+a.Queue)
+		a.quick = lane{slots: make(chan struct{}, a.Parallel), pending: make(chan struct{}, a.Parallel+a.Queue)}
+		a.slow = lane{slots: make(chan struct{}, a.Heavy), pending: make(chan struct{}, a.Heavy+a.Backlog)}
 	})
 }
 
@@ -432,6 +451,7 @@ func (s *session) listen(ctx context.Context) {
 			told := struct {
 				Settings *Settings      `json:"settings"`
 				Update   *update.Target `json:"update"`
+				Cancel   string         `json:"cancel"`
 			}{}
 			if json.Unmarshal(frame.Message, &told) == nil && told.Settings != nil {
 				s.Apply(*told.Settings)
@@ -441,6 +461,12 @@ func (s *session) listen(ctx context.Context) {
 
 			if told.Update != nil {
 				s.updateTo(ctx, *told.Update)
+
+				continue
+			}
+
+			if told.Cancel != "" {
+				s.requests.drop(told.Cancel)
 
 				continue
 			}
@@ -506,8 +532,10 @@ func (a *Link) take(ctx context.Context, asked *Request) {
 		return
 	}
 
+	held := a.laneFor(asked.Verb)
+
 	select {
-	case a.pending <- struct{}{}:
+	case held.pending <- struct{}{}:
 	default:
 		busy, cancel := context.WithTimeout(ctx, 5*time.Second)
 		a.refuse(busy, asked.Request, ErrBusy)
@@ -516,21 +544,99 @@ func (a *Link) take(ctx context.Context, asked *Request) {
 		return
 	}
 
+	work, done := a.requests.start(ctx, asked)
+
 	a.work.Add(1)
 
 	go func() {
 		defer a.work.Done()
-		defer func() { <-a.pending }()
+		defer func() { <-held.pending }()
+		defer done()
 
 		select {
-		case a.slots <- struct{}{}:
-		case <-ctx.Done():
+		case held.slots <- struct{}{}:
+		case <-work.Done():
+			a.gaveUp(ctx, work, asked, "before it started")
+
 			return
 		}
-		defer func() { <-a.slots }()
+		defer func() { <-held.slots }()
 
-		a.answer(ctx, asked)
+		if work.Err() != nil {
+			a.gaveUp(ctx, work, asked, "before it started")
+
+			return
+		}
+
+		a.answer(work, asked)
+
+		if work.Err() != nil {
+			a.gaveUp(ctx, work, asked, "while it ran")
+		}
 	}()
+}
+
+func (a *Link) laneFor(verb string) lane {
+	if slow[verb] {
+		return a.slow
+	}
+
+	return a.quick
+}
+
+var slow = map[string]bool{verbExtract: true, verbDerive: true, verbExamine: true}
+
+func (a *Link) gaveUp(ctx context.Context, work context.Context, asked *Request, when string) {
+	if ctx.Err() != nil {
+		return
+	}
+
+	a.Log.Info("xixo link stopped a request "+when, "request", asked.Request, "verb", asked.Verb, "reason", context.Cause(work))
+}
+
+type requests struct {
+	lock sync.Mutex
+	held map[string]context.CancelCauseFunc
+}
+
+func (o *requests) start(ctx context.Context, asked *Request) (context.Context, func()) {
+	work, cancel := context.WithCancelCause(ctx)
+	stop := func() { cancel(nil) }
+
+	if asked.Within > 0 {
+		within := time.Duration(asked.Within * float64(time.Second))
+		late, cancelLate := context.WithTimeoutCause(work, within, ErrLate)
+		work = late
+		stop = func() {
+			cancelLate()
+			cancel(nil)
+		}
+	}
+
+	o.lock.Lock()
+	if o.held == nil {
+		o.held = map[string]context.CancelCauseFunc{}
+	}
+	o.held[asked.Request] = cancel
+	o.lock.Unlock()
+
+	return work, func() {
+		o.lock.Lock()
+		delete(o.held, asked.Request)
+		o.lock.Unlock()
+
+		stop()
+	}
+}
+
+func (o *requests) drop(request string) {
+	o.lock.Lock()
+	cancel := o.held[request]
+	o.lock.Unlock()
+
+	if cancel != nil {
+		cancel(ErrDropped)
+	}
 }
 
 func (a *Link) answer(ctx context.Context, asked *Request) {
@@ -720,12 +826,20 @@ func (a *Link) read(ctx context.Context, request string, wanted Read) {
 }
 
 func (a *Link) reply(ctx context.Context, request string, result any) {
+	if ctx.Err() != nil {
+		return
+	}
+
 	if err := a.wire.perform(ctx, "reply", Reply{Request: request, OK: true, Result: result}); err != nil {
 		a.Log.Warn("a reply did not reach xixo", "request", request, "error", err)
 	}
 }
 
 func (a *Link) refuse(ctx context.Context, request string, err error) {
+	if ctx.Err() != nil {
+		return
+	}
+
 	if err := a.wire.perform(ctx, "reply", Reply{Request: request, Error: describe(err)}); err != nil {
 		a.Log.Warn("a refusal did not reach xixo", "request", request, "error", err)
 	}
