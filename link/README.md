@@ -20,24 +20,31 @@ curl -fsSL https://xixo.example.com/link.sh | sh -s -- ~/Documents ~/Desktop
 
 The folders after `--` are the ones the machine shares. Leave them out to share
 none yet, or to keep the folders of an earlier install. The script holds no
-secret. It:
+secret and reads nothing from standard input. It numbers its steps and prints
+each one before it starts:
 
-1. Downloads xixo link for the machine's system and processor from xixo, and
-   checks it against the SHA-256 that xixo wrote into the script.
-2. On Linux, installs the binary, and on Debian or Ubuntu installs the programs
-   that read PDFs, images, audio, video, and office documents with apt. Then it
-   writes the configuration with `xixo-link setup` and the systemd unit with
-   `xixo-link unit`.
-3. On macOS, installs the binary and the mac reader. The mac reader comes from
-   xixo and is checked against the SHA-256 in the script. When xixo holds no
-   mac reader, it comes from the GitHub release and is checked against the
-   `.sha256` file published beside it. Then the script writes the
-   configuration.
-4. Runs `xixo-link up`, which waits for an administrator to approve the machine.
-5. Starts the service. On macOS this is when it installs the launch agent.
+1. It downloads xixo link for the machine's system and processor from xixo,
+   and checks it against the SHA-256 that xixo wrote into the script. It checks
+   that each folder exists before anything asks for a password.
+2. It installs the binary and writes the configuration with `xixo-link setup`.
+   On Linux it also writes the systemd unit with `xixo-link unit`, and says
+   before sudo asks for a password why it needs one. On macOS it also installs
+   the mac reader, from xixo, or from the GitHub release when xixo holds none,
+   and checks it against its SHA-256.
+3. On Debian or Ubuntu, it installs the programs that read PDFs, images, audio,
+   video, and office documents with apt, unless they are installed already.
+   apt writes to a log file. When apt fails, the script shows its last lines
+   and the log's path, and goes on. macOS skips this step.
+4. It runs `xixo-link up`, which waits for an administrator to approve the
+   machine.
+5. It starts the service or the launch agent, or restarts it on a rerun.
 
-Running the command again installs the build xixo ships and keeps the link.
-After that, xixo link [updates itself](#updates).
+It ends with the summary that [`xixo-link status`](#commands) prints. Each
+error starts with `Error:` and says what to do next. Color appears only on a
+terminal, and never with `NO_COLOR` set.
+
+Running the command again installs the build xixo ships and keeps the link and
+its approval. After that, xixo link [updates itself](#updates).
 
 ## Configuration
 
@@ -94,14 +101,19 @@ from starting. See
 
 ## Commands
 
+`xixo-link` alone, or `xixo-link help`, lists the commands. Each command takes
+`-h`.
+
 | Command | Does |
 | --- | --- |
-| `xixo-link setup --xixo URL --issuer URL [FOLDER ...]` | Writes the configuration. Each folder must exist. End one with `:rw` to share it writable. A folder cannot hold a quotation mark, an apostrophe, a backslash, a colon, or a control character. Run again, it keeps every other key, and keeps the folders when none are given. |
+| `xixo-link status` | Prints the machine's name in xixo, the address of its card, the version, whether the service runs, whether updates are on, each folder as read only or read and write, and the commands that show the service and its log. It needs no root. Run by an account that cannot read the keys, it says so and prints the rest. |
+| `xixo-link setup --xixo URL --issuer URL [FOLDER ...]` | Writes the configuration, and prints nothing. Each folder must exist. End one with `:rw` to share it writable. A folder cannot hold a quotation mark, an apostrophe, a backslash, a colon, or a control character. Run again, it keeps every other key, and keeps the folders when none are given. |
 | `xixo-link unit --template PATH [--user NAME]` | Prints the systemd unit for the folders the configuration shares. |
-| `xixo-link up` | Links the machine up, as described in [linking up](#linking-up). A machine already linked prints "Already linked up as" and its key. |
+| `xixo-link up` | Links the machine up, as described in [linking up](#linking-up). A machine already linked prints "Already linked up as" and the name xixo shows for it. |
 | `xixo-link enroll --token - [--name NAME]` | Reads an enrollment token from standard input, or from `XIXO_ENROLLMENT_TOKEN`, and registers xixo link's key with masks. `--name` defaults to the hostname. |
 | `xixo-link run [--updates systemd\|self] [--revoked-status N]` | Connects to xixo and serves it until it is stopped. On SIGTERM or SIGINT, it waits at most five seconds for the requests it is answering, then exits. `--updates systemd` works only on Linux under systemd, and `--updates self` only on macOS. Without it, xixo link ignores updates. |
 | `xixo-link update` | The Linux updater, run by `xixo-link-update.service`. |
+| `xixo-link stage [--releases DIR]` | On macOS, installs its own binary and the mac reader beside it as an [update](#on-macos): a new folder under `releases/`, named by the start of its SHA-256, with `releases/current` pointing at it. The install command runs it on a rerun. |
 | `xixo-link version` | Prints the version. |
 
 Every command takes `--config PATH`, and `up`, `enroll`, and `run` take
@@ -143,14 +155,22 @@ are made on the machine the first time xixo link enrolls and never leave it.
 
 1. It makes its keys, then posts the machine's hostname, system, processor, and
    folders to `<xixo>/link/requests`.
-2. It prints a link and a code, such as "Open
-   https://xixo.example.com/link/WDJB-MJHT to approve this machine."
+2. It prints the link, such as `https://xixo.example.com/link/WDJB-MJHT`, on a
+   line of its own, the code, and how long the request lasts. It says once a
+   minute that it still waits.
 3. It polls `<xixo>/link/requests/token` until an administrator approves or
    denies the machine, or the request runs out after ten minutes.
 4. On approval, xixo hands it an enrollment token once, and xixo link enrolls
    with masks as `enroll` does.
 5. It posts to `<xixo>/link` with its own token, and xixo links the new client
    to the machine.
+
+xixo answers that post, and `GET <xixo>/link` with the machine's token, with
+JSON: `{"name","url","updates"}`, the name xixo shows, the address of the
+machine's card, and whether its updates are on. `up` and `status` print the
+name. They drop control characters from it, and keep `url` only when it starts
+with the xixo address in the configuration. An enrolled machine that xixo
+answers 404 for asks for approval again.
 
 ### Signing in
 
@@ -279,8 +299,12 @@ back to the last good one when a new one does not connect within three minutes.
 When launchd stops it, it gives the child 10 seconds to exit before it kills it.
 
 macOS grants Full Disk Access to the binary the launch agent runs, so an update
-keeps the access. Running the install command again replaces that binary, and
-the access has to be granted again.
+keeps the access. Running the install command again keeps it too. When
+`bin/xixo-link run -h` lists `-supervised`, the script leaves `bin/xixo-link`
+in place and installs the new build with `xixo-link stage`, and the launch
+agent tries it for three minutes like any update. Only a first install, or a
+`bin/xixo-link` too old to run updates, replaces the binary, and then the
+access has to be granted again.
 
 ## Beside the server
 
@@ -316,13 +340,14 @@ and its last exit status.
 macOS guards `~/Documents`, `~/Desktop`, `~/Downloads`, iCloud Drive, and
 removable and network volumes. A launch agent does not share the access granted
 to Terminal, so until you grant it, xixo shows xixo link's warning that macOS
-has not let it read the folder. The install command opens the Finder and
-**Full Disk Access** for you when a shared folder needs it.
+has not let it read the folder. When a shared folder needs it, the install
+command lists these steps with the exact path, and opens the Finder and
+**Full Disk Access** for you. A rerun keeps the access, and says so.
 
 1. Open **System Settings**, then **Privacy & Security**, then **Full Disk
    Access**.
 2. Drag `xixo-link` from `~/Library/Application Support/xixo-link/bin/` into
-   the list.
+   the list. When the list holds an older `xixo-link`, remove it first.
 3. Turn on the switch beside `xixo-link`.
 
 xixo link checks every 15 seconds, and restarts itself once macOS lets it read
