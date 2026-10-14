@@ -88,7 +88,7 @@ class McpLimitsTest < ActionDispatch::IntegrationTest
     reply = sync
 
     assert reply.dig("result", "isError")
-    assert_match(/#{budget} is the ceiling/, reply.dig("result", "content", 0, "text"))
+    assert_match(/#{budget} is the limit/, reply.dig("result", "content", 0, "text"))
   end
 
   test "a tool that starts no run does not spend the run budget" do
@@ -108,6 +108,6 @@ class McpLimitsTest < ActionDispatch::IntegrationTest
 
     assert_equal "resource", refused.action
     assert_equal "denied", refused.status
-    assert_match(/is the ceiling/, refused.detail)
+    assert_match(/is the limit/, refused.detail)
   end
 end
