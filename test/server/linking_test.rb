@@ -110,7 +110,7 @@ class LinkingTest < ActionDispatch::IntegrationTest
     assert_includes script, "sudo asks for your password to write to /usr/local/lib/xixo-link, /etc/xixo-link, and /etc/systemd/system."
     assert_includes script, "with apt. This can take a few minutes."
     assert_includes script, 'note "The whole log is in $log."'
-    assert_includes script, 'step "Restarting xixo link with the new version. This can take up to a minute."'
+    assert_includes script, 'step "Restarting xixo link with the new version. This can take up to 15 seconds."'
     assert_includes script, '"$work/xixo-link" status || true'
     assert_includes script, 'if [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != dumb ]; then'
     assert_operator script.index("sudo asks for your password"), :<, script.index("sudo -v")

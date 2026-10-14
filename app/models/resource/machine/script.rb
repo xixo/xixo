@@ -196,8 +196,8 @@ class Resource
             fi
             "$work/xixo-link" up
 
-            if as_root systemctl is-active --quiet xixo-link; then
-              step "Restarting xixo link with the new version. This can take up to a minute."
+            if as_root systemctl is-enabled --quiet xixo-link 2> /dev/null; then
+              step "Restarting xixo link with the new version. This can take up to 15 seconds."
             else
               step "Starting xixo link."
             fi
