@@ -78,6 +78,24 @@ class SharedFoldersTest < ActiveSupport::TestCase
     end
   end
 
+  test "a folder whose sync failed because the machine went offline syncs again when the machine says hello" do
+    Tenant.switch(@tenant) do
+      greet([ "/srv/media/Movies", "/srv/data/Documents" ])
+      movies, documents = Resource::Filesystem.where(via_id: @machine.id).order(:key).to_a.values_at(1, 0)
+
+      Run.where(kind: "sync", resource_id: movies.id).sole.finished!(error: "Resource::Offline: media.local is offline on media")
+      Run.where(kind: "sync", resource_id: documents.id).sole.finished!(error: "Resource::Failed: the disk is full")
+      [ movies, documents ].each(&:abandon_sync!)
+
+      greet([ "/srv/media/Movies", "/srv/data/Documents" ])
+      greet([ "/srv/media/Movies", "/srv/data/Documents" ])
+
+      assert_equal 2, Run.where(kind: "sync", resource_id: movies.id).count
+      assert_equal "queued", Run.where(kind: "sync", resource_id: movies.id).newest_first.first.status
+      assert_equal 1, Run.where(kind: "sync", resource_id: documents.id).count
+    end
+  end
+
   test "a folder someone put away stays put away" do
     Tenant.switch(@tenant) do
       greet([ "/srv/media/Music" ])

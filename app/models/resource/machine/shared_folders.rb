@@ -18,7 +18,7 @@ class Resource
 
         held = Filesystem.where(via_id: id).order(:id).to_a
         offered_folders.each { |path| cataloged!(path, held) }
-        held.each { |folder| unshared!(folder) unless offered_folders.include?(folder.folder) }
+        held.each { |folder| offered_folders.include?(folder.folder) ? missed!(folder) : unshared!(folder) }
       end
 
       def shared_folder_name(path)
@@ -76,6 +76,13 @@ class Resource
 
           held << made
           made.sync!
+        end
+
+        def missed!(folder)
+          return if folder.archived_at.present? || !folder.syncable?
+
+          last = Run.where(kind: "sync", resource_id: folder.id).newest_first.first
+          folder.sync! if last&.status == "failed" && last.error.to_s.start_with?("#{Resource::Offline.name}:")
         end
 
         def reshared!(folder)
