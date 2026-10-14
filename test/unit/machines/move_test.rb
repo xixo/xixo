@@ -314,6 +314,25 @@ class MoveTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { assert_equal 0, LinkChunk.count }
   end
 
+  test "a relay that stops part way tells the machine taking the file to stop writing it" do
+    media = Tenant.switch(@tenant) { Resource::Machine.find(@media.id) }
+
+    assert_raises(Resource::Failed) do
+      Tenant.switch(@tenant) do
+        Resource::Machine::Relay.new(
+          from: Resource::Machine.find(@mac.id), folder: BACKUP, path: "missing.NEF", size: 100,
+          to: media, into: DATA, target: "copy.NEF"
+        ).copy!
+      end
+    end
+
+    cancels = ActionCable.server.pubsub.broadcasts(LinkChannel.broadcasting_for(media)).map { |raw| JSON.parse(raw) }
+                                    .select { |message| message.key?("cancel") }
+    assert_equal 1, cancels.size
+    assert_empty @here
+    Tenant.switch(@tenant) { assert_equal 0, LinkExchange.count }
+  end
+
   test "a long transfer touches its exchanges well before the sweeper would take them" do
     assert_operator Resource::Machine::Relay::KEPT_ALIVE_EVERY * 10, :<, LinkExchange::KEPT_FOR
     assert_operator Resource::Machine::Relay::STALLS_AFTER, :<, LinkExchange::KEPT_FOR

@@ -337,15 +337,29 @@ class Resource
     end
 
     def exchanged(verb, args = {}, within: ANSWERED_WITHIN)
-      exchange = asked(verb, args)
+      exchange = asked(verb, args, within: within)
+      result = awaited(exchange, verb, within)
+      settled = true
 
-      yield Answer.new(self, exchange, awaited(exchange, verb, within))
+      yield Answer.new(self, exchange, result)
+    rescue Refusal
+      settled = true
+      raise
     ensure
-      LinkExchange.apart { LinkExchange.where(id: exchange.id).delete_all } if exchange
+      if exchange
+        LinkExchange.apart { LinkExchange.where(id: exchange.id).delete_all }
+        abandon(exchange) unless settled
+      end
     end
 
     def asking(verb, args = {})
       asked(verb, args)
+    end
+
+    def abandon(exchange)
+      LinkChannel.broadcast_to(self, { "cancel" => exchange.request })
+    rescue StandardError => e
+      Rails.logger.warn("#{key}: xixo could not tell xixo link to stop #{exchange.verb}: #{e.message}")
     end
 
     def relayed_upload(size)
@@ -528,7 +542,7 @@ class Resource
         end
       end
 
-      def asked(verb, args)
+      def asked(verb, args, within: nil)
         raise Resource::Offline, "#{key}: xixo link is not connected" unless connected?
 
         exchange = LinkExchange.apart do
@@ -536,7 +550,9 @@ class Resource
 
           LinkExchange.create!(resource_id: id, request: SecureRandom.uuid, verb: verb)
         end
-        LinkChannel.broadcast_to(self, { "request" => exchange.request, "verb" => verb, "args" => args.presence || {} })
+        message = { "request" => exchange.request, "verb" => verb, "args" => args.presence || {} }
+        message["within"] = within.to_f if within
+        LinkChannel.broadcast_to(self, message)
         exchange
       end
 

@@ -171,5 +171,7 @@ class FakeLinks
       end
 
       received
+    rescue ActiveRecord::RecordNotFound
+      nil
     end
 end

@@ -46,6 +46,8 @@ class Resource
 
           written
         ensure
+          @from.abandon(@read) if @read
+          @to.abandon(@write) if @write && !@written
           forget(@upload, @write, @read)
         end
 
@@ -120,6 +122,7 @@ class Resource
         end
 
         def finished(said)
+          @written = true
           said = said.to_h
           return said if said["size"] == @size
 

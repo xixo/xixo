@@ -278,7 +278,9 @@ card counts the files waiting. Do one of these:
 
 A file on a machine that is offline waits for the machine to come back. A file on a machine that is
 too busy to take it, or that does not answer within 30 minutes, waits, and xixo asks again at the
-next check.
+next check. When xixo stops waiting, it tells xixo link to stop that extraction, so the machine is
+free for the next file. Extractions wait in their own queue on the machine, so a long one never holds
+up a sync.
 
 ## Rename a machine
 

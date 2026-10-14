@@ -161,6 +161,48 @@ class LinkChannelTest < ActionCable::Channel::TestCase
     assert_match(/did not answer health/, error.message)
   end
 
+  test "a question carries its deadline, and xixo tells the link to stop one nobody answers in time" do
+    connected
+    perform :hello, HELLO
+    machine = fresh
+
+    assert_raises(Resource::Failed) do
+      Tenant.switch(@tenant) { machine.ask("hash", { "folder" => "/srv/media", "path" => "a.mkv" }, within: 0.2.seconds) }
+    end
+
+    sent = told(machine)
+    asked = sent.find { |message| message["verb"] == "hash" }
+    assert_in_delta 0.2, asked["within"]
+    assert_equal({ "cancel" => asked["request"] }, sent.last)
+  end
+
+  test "an answered or refused question sends no cancel" do
+    connected
+    perform :hello, HELLO
+
+    machine = asking(fresh) { |asked| perform :reply, "request" => asked["request"], "ok" => true, "result" => {} }
+    Tenant.switch(@tenant) { machine.ask("health") }
+
+    machine = asking(fresh) { |asked| perform :reply, "request" => asked["request"], "ok" => false, "error" => "no such file" }
+    assert_raises(Resource::Failed) { Tenant.switch(@tenant) { machine.ask("hash", { "folder" => "/srv/media", "path" => "gone" }) } }
+
+    assert_empty told(fresh).select { |message| message.key?("cancel") }
+  end
+
+  test "a wait that ends early tells the link to stop the question" do
+    connected
+    perform :hello, HELLO
+    machine = fresh
+    machine.define_singleton_method(:waiting) { raise IOError, "the job was stopped" }
+
+    assert_raises(IOError) { Tenant.switch(@tenant) { machine.ask("extract", { "source" => { "folder" => "/srv/media", "path" => "film.mkv" } }) } }
+
+    sent = told(machine)
+    asked = sent.find { |message| message["verb"] == "extract" }
+    assert_equal({ "cancel" => asked["request"] }, sent.last)
+    assert_equal 0, Tenant.switch(@tenant) { LinkExchange.count }
+  end
+
   test "a machine that is not connected is not asked" do
     assert_raises(Resource::Offline) { Tenant.switch(@tenant) { fresh.ask("health") } }
   end
@@ -418,6 +460,10 @@ class LinkChannelTest < ActionCable::Channel::TestCase
 
     def fresh
       Tenant.switch(@tenant) { Resource::Machine.find(@machine.id) }
+    end
+
+    def told(machine)
+      ActionCable.server.pubsub.broadcasts(LinkChannel.broadcasting_for(machine)).map { |raw| JSON.parse(raw) }
     end
 
     def asking(machine)
