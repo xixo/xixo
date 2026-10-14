@@ -153,7 +153,12 @@ Each folder a machine shares joins the catalog by itself. There is nothing to at
 - When the machine connects, xixo adds a folder resource for each folder it shares, such as
   `media-documents`, named **Documents on media**. On **This server** the key is the folder's name
   alone, such as `files`. When the key is taken, xixo adds a number, such as `media-documents-2`.
-- A new folder syncs at once, then every hour. In between, xixo link tells xixo which files changed.
+- A new folder syncs at once, then every hour. In between, xixo link tells xixo which files changed,
+  and xixo looks at them within seconds. Any folder synced once follows these changes, with or
+  without a schedule.
+- A sync where nothing changed reads no file. xixo link lists each file's size and times, and xixo
+  compares them with what it holds. xixo link remembers the SHA-256 of each file of 1 MB or more,
+  so a large film is read once and not again until it changes.
 - A folder someone already attached is used as it is, and never added twice.
 - When the machine stops sharing a folder, xixo puts the folder away. Its items stay in the catalog.
   When the machine shares the folder again, xixo puts it back.

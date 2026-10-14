@@ -131,6 +131,7 @@ On Linux xixo link runs as a systemd service:
 | `/etc/xixo-link/config.json` | The configuration. |
 | `/var/lib/xixo-link/` | The state: `key.json` and `dpop.json`, the keys xixo link signs with, and `registration.json`, its masks client. |
 | `/var/cache/xixo-link/work/` | Each extraction's private work folder, emptied when xixo link starts. |
+| `/var/cache/xixo-link/digests.json` | The SHA-256 of each file of 1 MB or more that xixo link read, as in [hashing](#hashing). |
 | `/etc/systemd/system/` | `xixo-link.service`, `xixo-link-update.service`, and `xixo-link-update.path`. |
 
 On macOS xixo link runs as the user whose files it shares:
@@ -142,6 +143,7 @@ On macOS xixo link runs as the user whose files it shares:
 | `~/Library/Application Support/xixo-link/config.json` | The configuration. |
 | `~/Library/Application Support/xixo-link/state/` | The keys, the registration, and the update files. |
 | `~/Library/Caches/xixo-link/work/` | Each extraction's private work folder, emptied when xixo link starts. |
+| `~/Library/Caches/xixo-link/digests.json` | The SHA-256 of each file of 1 MB or more that xixo link read, as in [hashing](#hashing). |
 | `~/Library/LaunchAgents/network.xixo.link.plist` | The launch agent. |
 | `~/Library/Logs/xixo-link.log` | What xixo link logs. |
 
@@ -224,6 +226,9 @@ xixo sends `settings`, as in [what xixo may do](#what-xixo-may-do), and
 | `browse`, `find`, `peek`, `place`, `examine`, `model` | Answer MCP clients. Each needs its tool. |
 | `relay` | Pass xixo's own requests on to a model server that answers only on the machine. Needs the `models` tool. |
 
+A `list` names each file's path, size, modification time to the nanosecond, and
+`file`, its device and inode. xixo tells a renamed file by that `file`.
+
 A refused request is answered with `"ok": false` and an `error`. xixo link
 refuses a folder its configuration does not name, a path outside the folder or
 not in its shortest form, a symbolic link, and anything other than a regular
@@ -232,6 +237,27 @@ file. It never walks or reads these names: `.git`, `.hg`, `.svn`,
 `.Spotlight-V100`, `.fseventsd`, `.DS_Store`, `._*`, `Thumbs.db`,
 `desktop.ini`, and its own `.xixo-*.part` files. It answers up to four requests
 at once.
+
+### Hashing
+
+xixo asks for the SHA-256 of a shared file with `hash`, and an extraction of a
+shared file reports it too. xixo link remembers the SHA-256 of each file of 1 MB
+or more it read, by the file's device, inode, size, modification time, and
+change time. Every write changes the change time, so a rewritten file is always
+read again, even when its size and modification time stay the same.
+
+- An unchanged file is not read again, so a sync of a folder of films reads
+  nothing.
+- When several requests ask for one file at once, xixo link reads it once.
+- A file that changes while xixo link reads it gets no SHA-256. xixo asks again
+  later.
+- On Linux, xixo link tells the system it is done with a file's pages after it
+  hashed or copied the file, so a large film does not push other files out of
+  memory.
+
+xixo link keeps up to 100,000 SHA-256 values, the most recently used, and saves them
+every minute and when it stops. Deleting `digests.json` is safe: xixo link
+reads each file again the next time xixo asks.
 
 ## The service
 
@@ -246,6 +272,10 @@ the shared folders. systemd confines it:
   processes.
 - It and its programs share `MemoryMax=2G`. A program the kernel stops for
   memory fails one extraction, and xixo link keeps running.
+- It and its programs run at a low priority, so the machine's own work comes
+  first: `Nice=10`, `CPUWeight=20`, `IOWeight=20`, and the lowest best-effort
+  IO priority. On a Mac the launch agent runs it as a background process with
+  low-priority IO.
 - `TimeoutStopSec=15s` gives it 15 seconds to stop before systemd kills it.
 - `RestartPreventExitStatus=78` keeps it stopped after the machine was
   unenrolled.

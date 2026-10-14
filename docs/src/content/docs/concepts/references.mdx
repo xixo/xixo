@@ -35,6 +35,17 @@ a git commit, a Notion edit time, or the digest of a web capture. When a sync re
 version, xixo marks the reference changed and analyzes the feed again. Every cached analysis step
 that finished before the change runs again, so an analysis never describes old bytes.
 
+In a folder a machine shares, the version is the file's size and its modification time to the
+nanosecond. xixo link also names each file by its device and inode. When a file's version changes:
+
+- xixo asks xixo link for the file's SHA-256 before it analyzes anything. When the bytes are the
+  ones xixo analyzed, as after a copy that kept the bytes or a touch, the analysis stands.
+- Only new bytes are analyzed again.
+
+A renamed file keeps its feed and its analysis. It has the same device, inode, size, and time, so
+xixo moves the reference to the new path and gives the feed the new name. A second hard link to a
+file joins the same feed without a new analysis.
+
 When an export copies a feed into another resource, the copy records the version of the original it
 came from. The next export copies the file again only when the original has changed.
 
@@ -84,7 +95,8 @@ because they describe the same bytes. Each join is recorded in the audit log.
 
 When a sync reports a new version for an original on a feed with other originals, that original
 moves to a feed of its own before it is analyzed. A file saved again with the same bytes joins its
-old feed, and a file whose bytes changed stays on its own.
+old feed, and a file whose bytes changed stays on its own. In a folder a machine shares, the original
+moves only once its new SHA-256 shows new bytes.
 
 ## Keeping apart
 
