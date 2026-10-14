@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/xixo/xixo/link/internal/dial"
+	"github.com/xixo/xixo/link/internal/digests"
 	"github.com/xixo/xixo/link/internal/extract"
 	"github.com/xixo/xixo/link/internal/folders"
 )
@@ -211,7 +212,29 @@ func (a *Link) source(ctx context.Context, wanted Extraction, work string) (stri
 		return "", Digest{}, ErrTooLarge
 	}
 
+	a.remember(opened, digest)
+
 	return kept, digest, nil
+}
+
+func (a *Link) remember(opened *folders.Opened, digest Digest) {
+	if a.Digests == nil {
+		return
+	}
+
+	before, known := digests.Of(opened.Info)
+	if !known || before.Size != digest.Size {
+		return
+	}
+
+	info, err := opened.Stat()
+	if err != nil {
+		return
+	}
+
+	if after, _ := digests.Of(info); after == before {
+		a.Digests.Note(before, digest.SHA256)
+	}
 }
 
 func copied(ctx context.Context, kept string, from io.Reader) (Digest, error) {

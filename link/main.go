@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/xixo/xixo/link/internal/digests"
 	"github.com/xixo/xixo/link/internal/extract"
 	_ "github.com/xixo/xixo/link/internal/extract/documents"
 	_ "github.com/xixo/xixo/link/internal/extract/plain"
@@ -262,6 +263,7 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 			DPoP:              dpop,
 			Log:               slog.New(slog.NewTextHandler(os.Stderr, nil)),
 			Work:              workDir(),
+			Digests:           &digests.Cache{Path: digestsFile(*stateDir)},
 			Runner:            run,
 			Notices:           notices,
 			Lend:              config.LendCeiling(),
@@ -384,12 +386,25 @@ func searchPath() {
 	os.Setenv("PATH", strings.Join(held, string(os.PathListSeparator)))
 }
 
-func workDir() string {
+func cacheDir() string {
 	cache, _, _ := strings.Cut(os.Getenv("CACHE_DIRECTORY"), ":")
 	if cache == "" {
 		cache = state.DefaultCache
 	}
 
+	return cache
+}
+
+func digestsFile(stateDir string) string {
+	if cache := cacheDir(); cache != "" {
+		return filepath.Join(cache, "digests.json")
+	}
+
+	return filepath.Join(stateDir, "digests.json")
+}
+
+func workDir() string {
+	cache := cacheDir()
 	if cache == "" {
 		return os.TempDir()
 	}

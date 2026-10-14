@@ -432,6 +432,12 @@ type Opened struct {
 	io.ReadSeekCloser
 	Size     int64
 	Identity string
+	Info     fs.FileInfo
+	file     *os.File
+}
+
+func (o *Opened) Stat() (fs.FileInfo, error) {
+	return o.file.Stat()
 }
 
 func (f *Folders) Open(folder, name string) (*Opened, error) {
@@ -480,7 +486,7 @@ func (f *Folders) Open(folder, name string) (*Opened, error) {
 		return nil, err
 	}
 
-	return &Opened{ReadSeekCloser: opened, Size: info.Size(), Identity: identity(info)}, nil
+	return &Opened{ReadSeekCloser: opened, Size: info.Size(), Identity: identity(info), Info: info, file: opened}, nil
 }
 
 func confined(name string) (string, error) {

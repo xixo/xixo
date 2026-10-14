@@ -17,6 +17,7 @@ import (
 
 	masks "github.com/masksrb/masks/go"
 	"github.com/xixo/xixo/link/internal/cable"
+	"github.com/xixo/xixo/link/internal/digests"
 	"github.com/xixo/xixo/link/internal/extract"
 	"github.com/xixo/xixo/link/internal/folders"
 	"github.com/xixo/xixo/link/internal/machine"
@@ -35,6 +36,7 @@ var (
 	ErrBusy    = errors.New("xixo link is busy with as much work as it queues; ask again later")
 	ErrNotLent = errors.New("this machine does not lend its files' bytes: its config sets lend to false")
 	ErrOthers  = errors.New("this machine extracts only its own files: its config sets extracts_for_others to false")
+	ErrMoving  = errors.New("the file changed while xixo link read it, so xixo link named no SHA-256; ask again once it settles")
 )
 
 const unknownClient = "no client is registered with that client_id"
@@ -56,6 +58,7 @@ type Link struct {
 	Chunk    int
 	Work     string
 	Runner   extract.Runner
+	Digests  *digests.Cache
 	Extract  func(context.Context, extract.Input) (*extract.Output, error)
 
 	Lend              bool
@@ -190,6 +193,10 @@ func (a *Link) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	if a.Digests != nil {
+		a.work.Go(func() { a.keepDigests(ctx) })
+	}
+
 	if !a.Unwatched {
 		watching, unwatch := context.WithCancel(ctx)
 		defer unwatch()
@@ -286,6 +293,32 @@ func (a *Link) finish() {
 	case <-done:
 	case <-timer.C:
 		a.Log.Warn("xixo link stops with work still running, since the work did not end within the grace period", "grace", a.Grace)
+	}
+
+	a.saveDigests()
+}
+
+func (a *Link) keepDigests(ctx context.Context) {
+	ticker := time.NewTicker(a.Every)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			a.saveDigests()
+		}
+	}
+}
+
+func (a *Link) saveDigests() {
+	if a.Digests == nil {
+		return
+	}
+
+	if err := a.Digests.Save(); err != nil {
+		a.Log.Warn("the digests xixo link remembers were not saved, so it hashes those files again after a restart", "error", err)
 	}
 }
 
@@ -554,22 +587,53 @@ func (a *Link) answer(ctx context.Context, asked *Request) {
 }
 
 func (a *Link) hash(ctx context.Context, request string, wanted Read) {
-	opened, err := a.Folders.Open(wanted.Folder, wanted.Path)
+	hashed, err := a.hashed(ctx, wanted)
 	if err != nil {
 		a.refuse(ctx, request, err)
 
 		return
+	}
+
+	a.reply(ctx, request, hashed)
+}
+
+func (a *Link) hashed(ctx context.Context, wanted Read) (Hashed, error) {
+	opened, err := a.Folders.Open(wanted.Folder, wanted.Path)
+	if err != nil {
+		return Hashed{}, err
 	}
 	defer opened.Close()
 
-	digest, err := digested(ctx, opened)
-	if err != nil {
-		a.refuse(ctx, request, err)
+	stamp, known := digests.Of(opened.Info)
+	if a.Digests == nil || !known {
+		digest, err := digested(ctx, opened)
 
-		return
+		return Hashed{Digest: digest, File: opened.Identity}, err
 	}
 
-	a.reply(ctx, request, Hashed{Digest: digest, File: opened.Identity})
+	sum, err := a.Digests.Digest(ctx, stamp, func() (string, int64, digests.Stamp, error) {
+		digest, err := digested(ctx, opened)
+		if err != nil {
+			return "", digest.Size, digests.Stamp{}, err
+		}
+
+		after, err := opened.Stat()
+		if err != nil {
+			return "", digest.Size, digests.Stamp{}, err
+		}
+
+		held, _ := digests.Of(after)
+		if held != stamp || digest.Size != stamp.Size {
+			return "", digest.Size, held, ErrMoving
+		}
+
+		return digest.SHA256, digest.Size, held, nil
+	})
+	if err != nil {
+		return Hashed{}, err
+	}
+
+	return Hashed{Digest: Digest{SHA256: sum, Size: stamp.Size}, File: opened.Identity}, nil
 }
 
 func (a *Link) read(ctx context.Context, request string, wanted Read) {
@@ -680,7 +744,8 @@ func decode(raw json.RawMessage, into any) error {
 func describe(err error) string {
 	switch {
 	case errors.Is(err, folders.ErrUnshared), errors.Is(err, folders.ErrOutside), errors.Is(err, folders.ErrOverlaps),
-		errors.Is(err, folders.ErrSkipped), errors.Is(err, folders.ErrNotFile), errors.Is(err, folders.ErrChanged):
+		errors.Is(err, folders.ErrSkipped), errors.Is(err, folders.ErrNotFile), errors.Is(err, folders.ErrChanged),
+		errors.Is(err, ErrMoving):
 		return err.Error()
 	case errors.Is(err, fs.ErrNotExist):
 		return "no such file"
