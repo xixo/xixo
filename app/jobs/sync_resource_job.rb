@@ -33,19 +33,13 @@ class SyncResourceJob < ApplicationJob
     resource.answering!
     walk = walk_for(resource, cursor)
 
-    objects = Enumerator.new do |yielder|
-      started_at = cursor
-
+    pages = Enumerator.new do |yielder|
       resource.each_page(cursor: cursor, walk: walk) do |page, next_cursor|
-        page.each_with_index do |object, index|
-          yielder.yield(object, index == page.size - 1 ? next_cursor : started_at)
-        end
-
-        started_at = next_cursor
+        yielder.yield(page.to_a, next_cursor)
       end
     end
 
-    enumerator_builder.wrap(enumerator_builder, objects)
+    enumerator_builder.wrap(enumerator_builder, pages)
   end
 
   def abandon_sync
@@ -62,12 +56,17 @@ class SyncResourceJob < ApplicationJob
     nil
   end
 
-  def each_iteration(object, tenant_id, resource_id, _run_id = nil)
-    return track_iteration if dry_run?
+  def each_iteration(page, tenant_id, resource_id, _run_id = nil)
+    return track_iteration(page.size) if dry_run?
 
-    kept(resource_for(resource_id), object)
+    resource = resource_for(resource_id)
+    changed = resource.seen_unchanged!(page)
+    track_iteration(page.size - changed.size) if changed.size < page.size
 
-    track_iteration
+    changed.each do |object|
+      kept(resource, object)
+      track_iteration
+    end
   end
 
   private

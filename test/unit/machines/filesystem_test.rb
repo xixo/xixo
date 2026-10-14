@@ -295,6 +295,34 @@ class FilesystemTest < ActiveSupport::TestCase
     end
   end
 
+  test "a sync of an unchanged folder settles each page in a few queries, and still finds what changed or went" do
+    Dir.mktmpdir("unchanged") do |root|
+      120.times { |i| File.write(File.join(root, format("file-%03d.txt", i)), "file #{i}") }
+
+      Tenant.switch(@tenant) do
+        folder = disk_folder(root, key: "unchanged")
+        SyncResourceJob.perform_now(@tenant.id, folder.id)
+        Reference.where(resource_id: folder.id).update_all(analyzed_at: Time.current, seen_at: 1.hour.ago)
+        Analysis.update_all(status: "done", finished_at: Time.current)
+
+        File.write(File.join(root, "file-007.txt"), "file 7 grew longer")
+        File.delete(File.join(root, "file-008.txt"))
+        queries = 0
+        counting = ->(*, payload) { queries += 1 unless payload[:name] == "SCHEMA" }
+        folder.reload.claim_sync!
+        ActiveSupport::Notifications.subscribed(counting, "sql.active_record") do
+          SyncResourceJob.perform_now(@tenant.id, folder.id)
+        end
+
+        assert_operator queries, :<, 60
+        held = Reference.where(resource_id: folder.id)
+        assert_equal 119, held.where(seen_at: 1.minute.ago.., gone_at: nil).count
+        assert_nil held.find_by(locator_key: "file-007.txt").analyzed_at
+        assert held.find_by(locator_key: "file-008.txt").gone_at
+      end
+    end
+  end
+
   private
 
     def attached

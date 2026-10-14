@@ -56,6 +56,8 @@ class Resource
       pending.each { |url| yield [ url ], url }
     end
 
+    def seen_unchanged!(urls) = urls
+
     def keep!(url, cause: "sync")
       reference = snapshot!(url)
       reference.update_columns(seen_at: Time.current, gone_at: nil) if cause == "sync"

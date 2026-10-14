@@ -263,7 +263,7 @@ class Resource
           return false
         end
 
-        found.each { |entry| keep!(entry) }
+        seen_unchanged!(found).each { |entry| keep!(entry) }
         Reference.originals.where(resource_id: id, gone_at: nil)
                  .where("locator_key = ? OR locator_key LIKE ?", path, "#{Reference.sanitize_sql_like(path)}/%")
                  .where.not(locator_key: found.map(&:path))

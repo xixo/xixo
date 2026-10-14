@@ -323,7 +323,7 @@ class SyncResourceJobTest < ActiveSupport::TestCase
     end
   end
 
-  test "an object is saved with the cursor its page began at, so a resumed sync misses none of that page" do
+  test "a page is saved with the cursor after it, so a resumed sync starts at the next page" do
     pages = { nil => [ %w[a b], "b" ], "b" => [ %w[c d], "d" ] }
     paged = Object.new
     paged.define_singleton_method(:answering!) { nil }
@@ -340,12 +340,11 @@ class SyncResourceJobTest < ActiveSupport::TestCase
 
     walked = job.build_enumerator(@tenant.id, @resource.id, cursor: nil).to_a
 
-    assert_equal [ [ "a", nil ], [ "b", "b" ], [ "c", "b" ], [ "d", "d" ] ], walked
+    assert_equal [ [ %w[a b], "b" ], [ %w[c d], "d" ] ], walked
 
-    stopped_after = walked.index { |object, _| object == "c" }
-    resumed = job.build_enumerator(@tenant.id, @resource.id, cursor: walked[stopped_after].last).to_a
+    resumed = job.build_enumerator(@tenant.id, @resource.id, cursor: walked.first.last).to_a
 
-    assert_equal %w[c d], resumed.map(&:first)
+    assert_equal [ %w[c d] ], resumed.map(&:first)
   end
 
   test "a resource that cannot report a version never claims anything changed" do

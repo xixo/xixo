@@ -625,6 +625,23 @@ class Resource < ApplicationRecord
     reference
   end
 
+  def seen_unchanged!(objects)
+    versions = objects.each_with_object({}) do |object, held|
+      version = version_for(locator_for(object))
+      held[locator_key_for(object)] = version if version.present?
+    end
+    return objects if versions.empty?
+
+    unchanged = Reference.originals.where(resource_id: id, locator_key: versions.keys, gone_at: nil)
+                         .where.not(analyzed_at: nil).pluck(:id, :locator_key, :version)
+                         .select { |_, locator_key, version| versions[locator_key] == version }
+    return objects if unchanged.empty?
+
+    Reference.where(id: unchanged.map(&:first)).update_all(seen_at: Time.current)
+    seen = unchanged.to_set { |_, locator_key, _| locator_key }
+    objects.reject { |object| seen.include?(locator_key_for(object)) }
+  end
+
   def unchanged(object)
     version = version_for(locator_for(object))
     return nil if version.blank?
