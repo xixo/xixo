@@ -68,9 +68,10 @@ its approval. After that, xixo link [updates itself](#updates).
 
 ### What xixo may do
 
-An administrator chooses what xixo may do with the machine on its card. xixo
-sends the choice to xixo link in a `settings` message, and xixo link applies it
-at once. Until the first `settings` message arrives, xixo link lends nothing,
+xixo asks for every tool and for lending, and asks the machine to read for
+other machines unless an administrator turns that off on its card. xixo sends
+what it asks to xixo link in a `settings` message, and xixo link applies it at
+once. Until the first `settings` message arrives, xixo link lends nothing,
 reads nothing for other machines, and offers no tools.
 
 These keys set a limit. xixo link does what xixo asks only when the

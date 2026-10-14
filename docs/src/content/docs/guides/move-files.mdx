@@ -41,7 +41,7 @@ The run's log names each file that stayed, and why.
 
 ## Prepare the machines
 
-1. Share both folders writable. On each machine, run the install command again with every folder it
+1. Share both folders writable. On each machine, run the link-up command again with every folder it
    shares, and end each folder a move reads from or writes to with `:rw`:
 
    ```sh
@@ -50,8 +50,7 @@ The run's log names each file that stayed, and why.
 
    The list replaces the folders the machine shared before. A folder must exist before it is shared,
    and xixo link's user must be able to write into it.
-2. On **Resources**, set each machine to **Files and writing**. See
-   [change what xixo may do](/guides/add-a-machine/#change-what-xixo-may-do).
+2. On **Resources**, check that each machine's card lists the folder with **Read and write**.
 3. Attach each folder. See [attach a folder](/guides/add-a-machine/#attach-a-folder).
 
 ## Move from the app
@@ -113,7 +112,9 @@ Moves count against the [MCP run budget](/guides/export/#export-over-mcp). See t
 
 - **"shares `<folder>` read-only"**: share the folder writable, as in
   [prepare the machines](#prepare-the-machines). Nothing has moved.
-- **"may not write into its folders"**: set the machine to **Files and writing**.
+- **"leaves write out of tools"**: the machine's configuration lists `tools` without `write`. Add
+  `write` to `tools` in xixo link's configuration on the machine, or remove `tools` to allow every
+  tool. Nothing has moved.
 - **"are both on `<machine>`"**: pick a folder on another machine. Nothing has moved.
 - **"only an operator of `<machine>`"**: an administrator adds you to **Who operates it** under
   **Change** in the machine's **More** menu.

@@ -61,13 +61,13 @@ Which machine reads the file depends on where it lives:
 - A file in a folder a machine shares is read on that machine, when the machine has the extractor.
   Only what xixo link extracted and the file's SHA-256 reach xixo.
 - When the machine lacks the extractor and lends its files, the file goes to the pool. A machine
-  lends at the **Files** and **Files and writing** levels, unless its own configuration holds `lend`
-  back. When it does not lend, the file waits until that machine has the extractor.
+  lends unless its own configuration sets `lend` to false. When it does not lend, the file waits
+  until that machine has the extractor.
 - An upload, a mail attachment, a file in a cloud resource, and anything else with no machine of its
   own goes to the pool.
 
-The pool is every connected machine whose **Help read other machines' files** switch is on, unless
-its own configuration holds `extracts_for_others` back. xixo link beside the server comes first,
+The pool is every connected machine whose **Help read files from other places** switch is on,
+unless its own configuration sets `extracts_for_others` to false. xixo link beside the server comes first,
 since the bytes are already on the server. Otherwise the machine with the fewest questions open is
 asked, and it fetches the bytes once over HTTPS.
 

@@ -223,28 +223,26 @@ disks. A machine not heard from for three minutes is offline.
 
 ### What xixo may do with a machine
 
-An administrator sets each machine's level on its card:
+xixo may do everything with the folders a machine shares. It asks every machine for the tools
+`browse`, `search`, `read`, `write`, and `extract`, for `models` once the machine reports a model
+server, and to lend its files' bytes.
 
-| Level | Tools | Lends whole files | Writes |
-| --- | --- | --- | --- |
-| **Search** | `browse`, `search`, `read` | no | no |
-| **Files** | adds `extract` | yes | no |
-| **Files and writing** | adds `write` | yes | into its writable folders |
+The machine decides the rest. The link-up command names the folders it shares, and a folder followed
+by `:rw` is writable. xixo writes only into a writable folder. The shared folders, and which of them
+are writable, are set only on the machine, and nothing xixo sends changes them. The machine's own
+configuration can also turn off tools, lending, and reading for others with `tools`, `lend`, and
+`extracts_for_others`. xixo link does only what both sides allow, and the card says when the
+configuration holds something back.
 
-`models` is added at any level once the machine reports a model server. **Help read other machines'
-files** puts the machine in the pool that reads uploads, mail attachments, cloud files, web pages,
-and the files machines lend, as described in [extraction](/concepts/analysis/#extraction). A newly
-approved machine starts at **Search** and helps others. xixo link beside the server starts at
-**Files and writing**.
-
-xixo sends these to xixo link whenever they change. The machine's own configuration can narrow them
-with `tools`, `lend`, and `extracts_for_others`. xixo link does only what both allow, and the card
-says when the configuration holds something back. The shared folders, and which of them are
-writable, are set only on the machine, and nothing xixo sends changes them.
+The one choice xixo holds is **Help read files from other places**. It puts the machine in the pool
+that reads uploads, mail attachments, cloud files, web pages, and the files machines lend, as
+described in [extraction](/concepts/analysis/#extraction). An administrator turns it on or off on
+the machine's card, and a newly approved machine starts with it on. xixo sends it to xixo link
+whenever it changes.
 
 ### Tools a machine offers
 
-A machine offers MCP clients the tools its level and its configuration allow. A client reaches them
+A machine offers MCP clients the tools its configuration allows. A client reaches them
 as commands on the machine through the `resource` tool at `/mcp`, never through a port on the
 machine. Neither side can widen what the other allows.
 
@@ -262,8 +260,8 @@ machine. Neither side can widen what the other allows.
   machine's operators and administrators. The operators are the masks subjects listed under **Who
   operates it**. Anyone else gets `search` over xixo's index, and `read` of what analysis drew out
   of the file.
-- `read` sends the file's bytes only from a machine that lends. From any other machine, or one that
-  is offline, it answers with what analysis drew out of the file.
+- `read` sends the file's bytes unless the machine's configuration sets `lend` to false. From such a
+  machine, or one that is offline, it answers with what analysis drew out of the file.
 - `chat` sends the question only to a model server on the machine's own loopback address. It takes
   no address and follows no redirect.
 - One call that waits on a machine runs on it at a time, and one for each person across every
@@ -274,7 +272,7 @@ machine. Neither side can widen what the other allows.
   reaching outward, for an agent's [catalog or web](/concepts/agents/#catalog-or-web) rule.
 
 No tool takes a command line, a program, or an address. xixo records each call in the audit log. See
-[change what xixo may do](/guides/add-a-machine/#change-what-xixo-may-do).
+[what xixo may do with a machine](/guides/add-a-machine/#what-xixo-may-do-with-a-machine).
 
 ### xixo link beside the server
 
