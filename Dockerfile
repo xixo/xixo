@@ -125,7 +125,6 @@ COPY --chown=rails:rails --from=build /rails /rails
 COPY --from=link /opt/xixo-link /opt/xixo-link
 COPY --from=mac-reader / /opt/xixo-link/mac/
 
-# Entrypoint prepares the database.
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]
 
 # Start server via Thruster by default, this can be overwritten at runtime

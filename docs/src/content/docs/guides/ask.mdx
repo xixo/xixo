@@ -4,77 +4,65 @@ description: Ask a question from the search bar, follow it up, and keep what the
 ---
 
 At the end of this guide, you have an answer kept as a note, with links to what it drew on. You need
-a model backend with an **Agent model**. See
-[attach a resource](/guides/attach-a-resource/).
+a model backend with an **Agent model**. See [attach a resource](/guides/attach-a-resource/).
+For how an answer is worked out, see [asking](/concepts/agents/#asking).
 
 ## Ask a question
 
-1. Type the question in the search bar at the top of the page, where it reads **Search, ask, or
-   paste an address**. Press `/` to reach it from anywhere.
+1. Type the question in the search bar, where it reads **Search, ask, or paste an address**. Press
+   `/` to reach it from anywhere. A question can be up to 500 characters.
 2. Wait for the results. Above them, a row reads **Ask about** followed by your question.
-3. Choose that row. From the search bar, `Tab` or `Down` moves to it and `Enter` asks. `Up` or
-   `Escape` goes back to the search bar.
+3. Choose that row. From the search bar, `Tab` or `Down` moves to it and `Enter` asks.
 
 xixo creates a note keyed by the question and opens its page. The question appears under **The
-conversation**, with progress while the answer is worked out. A question can be up to 500
-characters.
-
-xixo searches the catalog and reads the parts of what it finds that bear on the question: a sheet of
-a workbook, a section of a document, a minute of a recording, or what a picture shows. The agent
-model answers from them in one call. A total or a count over the rows of a table is worked out by
-xixo itself. A question about the world as it is now, such as the weather, goes to the web when the
-tenant has attached a web resource. See [asking](/concepts/agents/#asking).
-
-Once the answer is in, the **Agent model** that answered titles the note with what the answer found.
+conversation**, with progress while the answer is worked out. When the answer is in, the note is
+titled with what it found.
 
 ## Ask about one item
 
 1. Open the item's page and choose **Ask about this**.
-2. Type the question in the field that opens, and choose **Ask**.
+2. Type the question, and choose **Ask**.
 
-The note is connected to the item, and the answer reads that item first. The model is told the
-question was asked on that item's page, so "this", "it", and anyone the item shows mean that item.
-Follow-ups in the same note start from it too. **Ask about this** does not appear on a note that was itself
-asked, or on the page of a tag or a content type.
+The note is connected to the item, and the answer reads that item first, so "this" and "it" mean
+that item. **Ask about this** does not appear on a note that was itself asked, or on the page of a
+tag or a content type.
 
 ## Read the answer
 
-The conversation lists the newest question and its answer first, with earlier ones below it. The
-answer appears under its question. Each item it cites is a link to that item's page, and a page
-it read on the web is a link to the page. When what the catalog holds answers only part of a
-question, the answer says what it does show and what it does not.
-
-Below the answer, **What it drew on** lists every item the answer cited. The note
-is connected to each of them.
+The conversation lists the newest question first. Each item the answer cites is a link to that
+item's page, and a page it read on the web is a link to that page. Below the answer, **What it drew
+on** lists every item it cited. The note is connected to each of them.
 
 ## Follow up
 
-1. On the note's page, type in the field that reads **Ask a follow-up**, at the top of **The
-   conversation**.
+1. On the note's page, type in the field that reads **Ask a follow-up**.
 2. Choose **Ask**.
 
-A follow-up is told the earlier questions and their answers, and reads first what they drew on. The
-field is disabled while an answer is still being worked out. A follow-up about an earlier answer
-itself, such as "say that as a table", is answered by saying it again that way.
+A follow-up starts from the earlier questions, their answers, and what they drew on. The field is
+disabled while an answer is still being worked out.
 
 ## Ask again
 
-Open the menu beside the note's title and choose **Ask again**. xixo asks the latest question in the
-conversation again and adds the new answer at the top.
+1. Open the menu beside the note's title.
+2. Choose **Ask again**.
+
+xixo asks the latest question again and adds the new answer at the top.
 
 ## Keep what the answer found
 
-The note itself lasts forever. What the agent made or kept while looking a question up on the web,
-such as a note it created or a page it snapshotted, lasts 30 days.
+The note lasts until you forget it. A note or page snapshot the agent made while answering lasts 30
+days. See [lifetime](/concepts/feeds/#lifetime).
 
 1. Open the item from **What it drew on**. Its page shows **forgotten** followed by the date.
 2. Choose **Keep forever**.
 
 To tag what the answer drew on, see [tag items](/guides/tag/#tag-what-an-answer-drew-on).
 
-To remove the note and its conversation, choose **Forget** from the menu beside the note's title,
-then **Forget it**. See
-[lifetime](/concepts/feeds/#lifetime).
+## Forget the note
+
+1. Open the menu beside the note's title.
+2. Choose **Forget**.
+3. Choose **Forget it**.
 
 ## Over GraphQL
 
@@ -90,23 +78,19 @@ mutation {
 }
 ```
 
-Watch the analysis with the `analysisProgressed` subscription, or query it until `status` is no
-longer `queued` or `running`. When it is done, `said` holds the answer and `drewOn` holds what it drew on.
-
-To follow up, pass the note's id as `feedId` with the next question. To ask about one item, pass its
-id as `aboutId`. To ask the latest question
-again, call `analyzeFeed` with the note's id. To keep an item for good, call `setFeedLifetime` with
-its id and no `lasts`. See the [GraphQL reference](/reference/graphql/).
+Watch the analysis with the `analysisProgressed` subscription. When it is done, `said` holds the
+answer and `drewOn` holds what it drew on. Pass the note's id as `feedId` to follow up, or an item's
+id as `aboutId` to ask about it. See the [GraphQL reference](/reference/graphql/).
 
 ## If it doesn't work
 
 - **No Ask about row.** The search bar treats text that looks like an address as something to keep,
-  and offers that instead. **Ask about** also does not appear on an address page.
-- **`no inference resource serves the agent role`** appears in place of an answer. No model backend
-  names an **Agent model**. Add one with **Change** in the **⋯** menu on the backend's row in **Resources**.
-- **`... is still being answered`.** A question can be followed up or asked again only after the
-  previous answer finishes.
+  and offers that instead.
+- **`no inference resource serves the agent role`.** No model backend names an **Agent model**. On
+  **Resources**, open the backend's **More** menu, choose **Change**, and fill in **Agent model**.
+- **`... is still being answered`.** Wait for the previous answer to finish, then follow up or ask
+  again.
 - **The answer names nothing from the web.** The tenant has no **Web search**, **Fetch a page**, or
-  **The web** resource, so the question was asked of the catalog alone.
-- **An error about `XIXO_INFERENCE_ORIGINS`** appears in place of an answer. The model backend's
-  origin is not permitted. See [attach a resource](/guides/attach-a-resource/#if-it-doesnt-work).
+  **The web** resource, so only the catalog was asked.
+- **An error about `XIXO_INFERENCE_ORIGINS`.** The model backend's origin is not allowed. See
+  [attach a resource](/guides/attach-a-resource/#if-it-doesnt-work).

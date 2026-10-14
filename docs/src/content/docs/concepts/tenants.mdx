@@ -3,8 +3,8 @@ title: Tenants
 description: How one xixo deployment serves one or more tenants, and how each tenant signs in through masks.
 ---
 
-A tenant is a separate catalog with its own resources, feeds, analyses, runs, gates, settings, and
-audit trail. Every request and every job runs inside exactly one tenant.
+A tenant is a separate catalog with its own resources, feeds, analyses, runs, settings, and audit
+trail. Every request and every job runs inside exactly one tenant.
 
 ## Resolving the tenant
 
@@ -13,124 +13,98 @@ A deployment declares its tenants in one of two ways. Setting both is an error.
 | | Declared by | A request resolves by |
 | --- | --- | --- |
 | Single | `XIXO_TENANT=xixo` | Nothing. Every host is that tenant. |
-| Multi | `XIXO_TENANTS=demo,acme` | The first label of the hostname. `demo.xixo.example` is `demo`. |
+| Multi | `XIXO_TENANTS=demo,acme` | The first label of the host name. `demo.xixo.example` is `demo`. |
 
-`bin/rails xixo:tenants` creates the declared tenants, and the container entrypoint runs it on
-boot. `Tenancy::Middleware` resolves the host and enters the tenant before any controller runs. A
-host that names no tenant receives `404 Unknown tenant`. The health check at `/up` is the only path
-served outside a tenant.
+The container entrypoint creates the declared tenants on boot. A host that names no tenant gets
+`404 Unknown tenant`. The health check at `/up` is the only path served outside a tenant. See
+[tenants and hosts](/guides/self-hosting/#tenants-and-hosts).
 
 ## Isolation
 
-Isolation has two layers.
+Isolation has two layers:
 
-| Layer | What it does | When it fails |
-| --- | --- | --- |
-| `TenantScoped` | Adds a default scope and a default `tenant_id` from `Current.tenant`. | Only when code bypasses it, as `unscoped` does. |
-| Row-level security | Applies `FORCE ROW LEVEL SECURITY` and a `tenant_isolation` policy to every tenant table. | It fails with an error or returns no rows. |
+| Layer | What it does |
+| --- | --- |
+| Default scope | Every tenant model is scoped to the current tenant, and new rows take its id. |
+| Row-level security | Every tenant table has `FORCE ROW LEVEL SECURITY` and a `tenant_isolation` policy. |
 
-The policy compares `tenant_id` with the `xixo.tenant_id` session setting for both reads and
-writes, so a row cannot be read from, or written to, another tenant. `Tenant.switch` sets the value
-for the session, so it covers every query and transaction inside the block, and it restores the
-previous tenant when the block ends. Outside a tenant the setting is empty and the policy matches
-no rows, so `Model.unscoped` returns zero rows.
+The policy compares each row's `tenant_id` with the tenant the database session is in, for reads and
+writes. Outside a tenant the policy matches no rows, so code that skips the default scope still
+finds nothing from another tenant. Active Storage's tables carry the same policy, so a signed blob
+id from one tenant finds no row in another.
 
-Active Storage's blobs, attachments, and variant records tables also have a `tenant_id` and the same
-policy, and `TenantScoped` is added to their models on load. A signed blob id is signed with the
-application's secret and does not identify its tenant. With the policy in place, a signed id from
-one tenant finds no row in another. Active Storage's own routes are not drawn. Bytes are served
-through `/references/:id/content`, which requires the same grant as the rest of the app.
+A Postgres role with `SUPERUSER` or `BYPASSRLS` ignores every policy. xixo checks its role the first
+time a process enters a tenant, and raises an error if the role can bypass the policies. See
+[the database role](/guides/self-hosting/#the-database-role).
 
-A Postgres role with `SUPERUSER` or `BYPASSRLS` ignores every policy. The first `Tenant.switch` in a
-process checks which role the connection uses, and raises an error if that role can bypass the
-policies. Set `POSTGRES_USER` to an ordinary role.
-
-## Jobs
-
-Every job records the subdomain of the tenant it was enqueued in, and the worker switches into that
-tenant before performing it. This is built into the job base class. A job enqueued outside a tenant
-raises an error. Maintenance jobs that work across every tenant declare it and switch into each
-tenant themselves:
-
-```ruby
-class SweepAuditEventsJob < ApplicationJob
-  across_tenants!
-end
-```
+Every job records the tenant it was enqueued in and runs inside it. A job enqueued outside a tenant
+raises an error. All tenants share one OpenSearch index, and each searches through a filtered alias
+of its own. See [search](/concepts/search/#tenants).
 
 ## Settings
 
-A setting is a named value from a fixed list of choices. Each setting has a level that decides who
-it belongs to and which scope changes it.
+A setting is a named value from a fixed list of choices. The browser app shows them under
+**Settings**, then **Account**. A setting that was never changed reads as its default.
 
 | Level | Belongs to | Read with | Changed with |
 | --- | --- | --- | --- |
 | `personal` | the person signed in | `xixo:settings:read` | `xixo:settings:write` |
 | `shared` | everyone in the tenant | `xixo:settings:read` | `xixo:settings:write` |
-| `server` | everyone in the tenant | `xixo:settings:admin` | `xixo:settings:admin` |
 
-A setting that was never changed reads as its default.
+The personal settings, such as **How the catalog opens**, change only how the browser app looks. The
+shared settings decide how [analysis](/concepts/analysis/#extraction) renders images:
 
-| Setting | Level | Choices | Default |
-| --- | --- | --- | --- |
-| **How the catalog opens** (`catalog_view`) | `personal` | `list`, `cards` | `list` |
-| **Thumbnail width** (`thumbnail_size`) | `shared` | 160, 240, 320, 480, or 640 pixels | 320 |
-| **Hi-res size** (`hires_size`) | `shared` | 1024, 1500, 2048, or 3072 pixels | 1500 |
-| **Most frames read from an animation** (`animation_frames`) | `shared` | 1, 2, 4, 6, 8, or 12 | 4 |
-| **Share of an animation's frames read** (`animation_frame_share`) | `shared` | 10, 25, 50, or 100 percent | 100 |
+| Setting | Choices | Default |
+| --- | --- | --- |
+| **Thumbnail width** | 160, 240, 320, 480, or 640 pixels | 320 |
+| **Hi-res size** | 1024, 1500, 2048, or 3072 pixels on the longest edge | 1500 |
+| **Most frames read from an animation** | 1, 2, 4, 6, 8, or 12 | 4 |
+| **Share of an animation's frames read** | 10, 25, 50, or 100 percent | 100 |
 
-The two image sizes decide how [analysis](/concepts/analysis/#extraction) renders thumbnails and
-hi-res images. An item rendered before a change keeps its old images until it is analyzed again.
+The hi-res image is what a thumbnail opens and what the vision model reads. A page capture keeps its
+full length at the hi-res width. An item rendered before a change keeps its old images until it is
+analyzed again.
 
-The two animation settings decide how many frames of a GIF, WebP, or APNG the vision model is shown:
-the share of its frames, rounded up, and never more than the most frames read. At the defaults, an
-animation of up to four frames is read in full, and a longer one is read at four frames spread evenly
-across it.
+The vision model is shown the share of an animation's frames, rounded up and never more than the
+most frames read. At the defaults, an animation of up to four frames is read in full, and a longer
+one is read at four frames spread evenly across it.
 
 The `settings` query lists every setting the token may read, with its value, default, and choices.
-`setSetting` takes a `key` and a `value`, and refuses a value outside the choices. The browser app
-shows them under **Settings**, then **Account**. See the [GraphQL reference](/reference/graphql/).
+`setSetting` changes one and refuses a value outside the choices. See the
+[GraphQL reference](/reference/graphql/).
 
 ## Signing in
 
-Each xixo tenant is a client of a masks tenant. By default xixo serves masks itself, at `/id` on
-each tenant's origin, so `demo.xixo.example` signs in against `demo.xixo.example/id`. The masks
-tenant has the same name as the xixo tenant. `MASKS_ISSUER_TEMPLATE` names a masks server run apart
-from xixo instead, with `%{subdomain}` taken from the request's host, so `demo.xixo.example` can
-sign in against `demo.masks.example`.
+Each xixo tenant is a client of a masks tenant with the same name. By default xixo serves masks
+itself at `/id` on each tenant's origin, so `demo.xixo.example` signs in at `demo.xixo.example/id`.
+The built-in masks runs in xixo's processes, with its own database, session cookie, and keys.
+`MASKS_ISSUER_TEMPLATE` names a masks server run apart from xixo instead, with `%{subdomain}` taken
+from the request's host.
 
-The built-in masks runs in xixo's processes, with its own database, session cookie, and keys. xixo
-reaches it the same way it reaches a masks server: discovery, the token endpoint, and registration
-go through OpenID Connect. Those calls stay inside the process and never leave it as network
-requests.
+A new tenant has no client. Connecting one starts a handshake at `/auth/handshake`:
 
-A new tenant has no client. Connecting one starts the handshake at `/auth/handshake`:
-
-1. xixo sends the browser to masks with its name, its resource URL, its redirect URIs, the scopes
-   `openid profile email offline_access`, the `xixo:` scope namespace, and `masks:delegate:`. The
-   redirect URIs are `/auth/callback` for signing in and `/connect/callback` for
-   [connecting a resource](/concepts/resources/#resources-connected-through-masks).
-2. A masks account that is allowed to approve connections approves the request.
+1. xixo sends the browser to masks with its name, its resource URL, its redirect URIs, and the
+   scopes it uses.
+2. A masks account that may approve connections approves the request.
 3. masks returns a one-time initial access token, and xixo redeems it at masks' registration
    endpoint, server to server.
 
-xixo stores `client_id`, `client_secret`, `registration_access_token`, `registration_client_uri`,
-and `connected_at` on the tenant, with the secret and the registration token encrypted.
-Disconnecting deletes the registration in masks and clears these columns.
+xixo stores the client's id and secret and its registration token on the tenant, with the secret and
+the token encrypted. Disconnecting deletes the registration in masks.
 
-The masks client engine is mounted at `/auth`. `GET /auth/session` returns the signed-in account, or a 401
-whose `error` is `handshake_required` or `login_required`, which tells the browser which button to
-show. Signing in requests `openid profile email offline_access` and every `xixo:` scope except
-`xixo:settings:admin`. That scope is the `admin` privilege in `config.privileges`, so
-`/auth?privilege=admin` signs in again asking for it too, and masks grants it only to a person whose
-scopes there cover it. `/auth/session` lists `admin` under `privileges` once the sign-in holds it. See the [scopes reference](/reference/scopes/).
+`GET /auth/session` returns the signed-in account, or a `401` whose `error` is `handshake_required`
+or `login_required`, which tells the browser which button to show. Signing in asks for every `xixo:`
+scope except `xixo:settings:admin`. `/auth?privilege=admin` signs in again asking for that scope
+too, and masks grants it only to a person whose scopes in masks cover it. See [who changes a
+resource](/concepts/resources/#who-changes-a-resource) and the [scopes
+reference](/reference/scopes/).
 
 `/graphql`, `/mcp`, and `/uploads` all verify a masks access token. The browser's token comes from
 its session, and other clients send `Authorization: Bearer`. A token is accepted only when:
 
 - it was issued by this tenant's issuer,
-- its audience is this tenant's resource URL (the origin followed by `/mcp`), and
+- its audience is this tenant's resource URL, the origin followed by `/mcp`, and
 - any `tenant` claim it carries names this tenant.
 
-A token whose `tenant` claim names `acme` is refused at `demo`. The browser's session requests the
-same audience, so one token works on all three paths.
+A token whose `tenant` claim names `acme` is refused at `demo`. The browser's session asks for the
+same audience, so one token works on every path.

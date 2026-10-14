@@ -1,84 +1,67 @@
 # documents
 
-The `pdf`, `doc`, and `image` extractors. Each registers with `extract.Register`
-when the package is imported.
+The `pdf`, `doc`, and `image` extractors. Each registers with `extract` when the
+package is imported.
 
 ## pdf
 
-Handles `application/pdf`. Needs `pdfinfo`, `pdftotext`, `pdftoppm`, and
+Reads `application/pdf` with `pdfinfo`, `pdftotext`, `pdftoppm`, and
 `tesseract`.
 
 | Step | Result |
-|---|---|
-| `info` | `{pages (integer), title, author, creationdate, page_size}`, holding only the fields pdfinfo printed |
-| `text` | The text layer. When it holds fewer than 40 visible characters a page, the first 30 pages are rendered at 200 dpi in gray and read by tesseract, and that text is used when it holds anything. Digest: `text layer, then ocr past 40 characters a page`. |
+| --- | --- |
+| `info` | `pages`, `title`, `author`, `creationdate`, and `page_size`, as far as pdfinfo printed them. |
+| `text` | The text layer. A PDF with fewer than 40 visible characters a page has its first 30 pages rendered at 200 dpi and read by tesseract, and that text is used when it holds anything. |
 
-A pdf with more than 30 pages that needs OCR drops `pages`. A broken pdf still
-answers: `info` carries an error and `text` holds whatever pdftotext read.
+A broken PDF still answers: `info` holds an error and `text` holds whatever
+pdftotext read.
 
 ## doc
 
-Handles `application/msword`, docx, and odt. Needs `soffice`, `pdfinfo`, and
-`pdftotext`.
+Reads `.doc`, `.docx`, and `.odt` with `soffice`, `pdfinfo`, and `pdftotext`.
 
 | Step | Result |
-|---|---|
-| `info` | The pdfinfo fields of the pdf LibreOffice makes, with its own profile in the work dir |
-| `text` | For docx and odt, the document's own XML: headings become `#` lines (Title is level 1, `Heading N` or the outline level otherwise), paragraphs are separated by a blank line, and each table row is its cells joined by ` \| `. A document with no readable XML, and every legacy `.doc`, uses the pdf's text. Digest: `headings and tables from the document itself, else the pdf's text`. |
-
-A document XML entry larger than 50 MiB is not read.
+| --- | --- |
+| `info` | The pdfinfo fields of the PDF that LibreOffice makes. |
+| `text` | For `.docx` and `.odt`, the document's own XML: headings become `#` lines, paragraphs are separated by a blank line, and each table row is its cells joined by ` \| `. A legacy `.doc`, or a document with no readable XML, uses the PDF's text. |
 
 ## image
 
-Handles every `image/*` type. Needs `vipsheader`, `vips`, `exiftool`,
-`tesseract`, and `simple_dcraw`.
+Reads every `image/*` type with `vipsheader`, `vips`, `exiftool`, `tesseract`,
+and `simple_dcraw`.
 
 | Step | Result |
-|---|---|
-| `dimensions` | `{width, height}` in pixels |
-| `deviation` | The standard deviation of the pixels on a 0 to 255 scale, whatever the bit depth. Below 1.0 the image is flat. |
-| `frames` | For gif, webp, and apng: the number of frames, 1 for a still |
-| `location` | `{latitude, longitude}` from the GPS tags, rounded to six places, or null. Digest: `exiftool`. |
-| `ocr` | What tesseract reads. A format tesseract cannot open is flattened to png by vips first. |
+| --- | --- |
+| `dimensions` | `{width, height}` in pixels. |
+| `deviation` | The standard deviation of the pixels on a 0 to 255 scale. Below 1.0 the image is flat. |
+| `frames` | For GIF, WebP, and APNG, the number of frames. |
+| `location` | `{latitude, longitude}` from the GPS tags, or null. |
+| `ocr` | What tesseract reads. |
 
-A raw photograph (nef, cr2, dng, and the other dcraw formats, chosen by the
-filename's extension) is read from its embedded preview when that is at least
-1024 pixels wide, and developed to tiff otherwise. Both are written in the work
-dir, never beside the original. `location` always reads the original.
+A camera raw file is read from its embedded preview when that is at least 1,024
+pixels wide, and developed to TIFF otherwise, in the work folder.
 
-An animation with more than one frame sends evenly spaced frames as `frame`
-files: JPEG, 768 pixels wide, named `frame-N.jpg` for frame N counted from 0, at
-most `Settings.Frames` of them.
+An animation sends up to `settings.frames` evenly spaced frames as `frame`
+files, JPEGs 768 pixels wide.
 
 ## On macOS
 
-On macOS three more extractors register under the same names and go first
-when their programs are present.
+Three more extractors register under the same names and go first when their
+programs are on the Mac:
 
-`pdf` with the mac reader reads each page's text with PDFKit and joins the
-pages with form feeds. `info` holds the same fields, read from the document's
-attributes. A pdf with bookmarks adds an `outline` step, each bookmark starting
-at its page. OCR renders pages at 200 dpi and reads them with Vision, and joins
-the pages with form feeds.
-
-`image` with the mac reader measures dimensions, deviation, and frames, and
-reads `location`, with ImageIO, which reads camera raw files directly. The
-digest of `location` is `imageio`. `ocr` is what Vision reads, one line for each
-line of text, top to bottom.
-
-`doc` with `textutil` also handles `.rtf` (`text/rtf` and `application/rtf`)
-and `.webarchive`. A docx or odt still reads its own XML first, and anything
-else is `textutil`'s plain text. `info` holds the title and author that
-`textutil -info` names, with no page count. Digest: `headings and tables from
-the document itself, else textutil's text`.
+- `pdf` with the mac reader reads each page's text with PDFKit, adds an
+  `outline` step from the bookmarks, and reads sparse pages with Vision.
+- `image` with the mac reader reads the same steps with ImageIO, which opens
+  camera raw files directly, and reads text with Vision.
+- `doc` with `textutil` also reads `.rtf` and `.webarchive`. `info` holds the
+  title and author, with no page count.
 
 ## Tests
 
-`go test` runs everything that needs no outside program anywhere. The rest skips
-when a program is missing, so run the package in a Linux image with
-poppler-utils, tesseract-ocr, libreoffice-writer, libvips-tools,
-libimage-exiftool-perl, and libraw-bin. `XIXO_CORPUS` naming xixo's
-`test/fixtures/corpus` also runs the raw photograph.
+`go test` runs every test that needs no outside program. The rest skip when a
+program is missing, so run the package in a Linux image with poppler-utils,
+tesseract-ocr, libreoffice-writer, libvips-tools, libimage-exiftool-perl, and
+libraw-bin. Set `XIXO_CORPUS` to xixo's `test/fixtures/corpus` to also read the
+raw photograph.
 
-`testdata/golden` holds what the Ruby analyzers read from the corpus pdf, doc,
-and image files on 11 October 2026, as a reference.
+The tests compare what they read with the files in `testdata/golden`.

@@ -4,110 +4,104 @@ description: Join xixo to a Tailscale or Headscale network, and attach resources
 ---
 
 This guide puts xixo on a [Tailscale](https://tailscale.com) network, including one coordinated by
-[Headscale](https://headscale.net), so it can attach storage, mail, and other services on machines
-that have no public address. xixo joins the network as its own node through a `tailscale`
-container. Each resource on the network names the `tailnet` resource as the one it is reached
-through. See [reaching through another resource](/concepts/resources/#reaching-through-another-resource).
+[Headscale](https://headscale.net). xixo can then attach storage, mail, model servers, and other
+services on machines that have no public address. See
+[reaching through another resource](/concepts/resources/#reaching-through-another-resource).
 
 You need a running xixo from [self-hosting](/guides/self-hosting/), and an auth key for the
 network. On Headscale, `headscale preauthkeys create --user <user>` makes one.
 
 ## Join the network
 
-Add a `tailscale` service to the Compose project, and run `xixo` and `worker` in its network
-namespace. Both reach the tailnet through it, and both share its socket so xixo can ask tailscaled
-for its status.
+1. Add a `tailscale` service to the Compose project.
+2. Run `xixo` and `worker` in its network namespace, and give both its socket in
+   `XIXO_TAILSCALE_SOCKET`:
 
-```yaml
-x-xixo: &xixo
-  environment:
-    XIXO_TAILSCALE_SOCKET: /var/run/tailscale/tailscaled.sock
-  volumes:
-    - tailscale-socket:/var/run/tailscale
+   ```yaml
+   x-xixo: &xixo
+     environment:
+       XIXO_TAILSCALE_SOCKET: /var/run/tailscale/tailscaled.sock
+     volumes:
+       - tailscale-socket:/var/run/tailscale
 
-services:
-  tailscale:
-    image: tailscale/tailscale:stable
-    hostname: xixo
-    environment:
-      TS_AUTHKEY: ...
-      TS_STATE_DIR: /var/lib/tailscale
-      TS_SOCKET: /var/run/tailscale/tailscaled.sock
-      TS_USERSPACE: "false"
-      TS_EXTRA_ARGS: --login-server=https://headscale.example.com
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    volumes:
-      - tailscale:/var/lib/tailscale
-      - tailscale-socket:/var/run/tailscale
+   services:
+     tailscale:
+       image: tailscale/tailscale:stable
+       hostname: xixo
+       environment:
+         TS_AUTHKEY: ...
+         TS_STATE_DIR: /var/lib/tailscale
+         TS_SOCKET: /var/run/tailscale/tailscaled.sock
+         TS_USERSPACE: "false"
+         TS_EXTRA_ARGS: --login-server=https://headscale.example.com
+       cap_add:
+         - NET_ADMIN
+       devices:
+         - /dev/net/tun:/dev/net/tun
+       volumes:
+         - tailscale:/var/lib/tailscale
+         - tailscale-socket:/var/run/tailscale
 
-  xixo:
-    <<: *xixo
-    network_mode: service:tailscale
+     xixo:
+       <<: *xixo
+       network_mode: service:tailscale
 
-  worker:
-    <<: *xixo
-    network_mode: service:tailscale
+     worker:
+       <<: *xixo
+       network_mode: service:tailscale
 
-volumes:
-  tailscale:
-  tailscale-socket:
-```
+   volumes:
+     tailscale:
+     tailscale-socket:
+   ```
 
-Leave `TS_EXTRA_ARGS` off for Tailscale's own coordination server. The auth key is used once. The
-node's identity is kept in the `tailscale` volume after that.
-
-A container in another service's network namespace has no networks or ports of its own. List the
-networks `xixo` was on under `tailscale` instead, and point the reverse proxy at `tailscale`, which
-now answers for xixo on port 80.
+   Leave `TS_EXTRA_ARGS` off for Tailscale's own coordination server. The auth key is used once,
+   and the node's identity is kept in the `tailscale` volume.
+3. Move the networks `xixo` was on to the `tailscale` service. A container in another service's
+   network namespace has no networks or ports of its own.
+4. Point the reverse proxy at `tailscale`, which now answers for xixo on port 80.
+5. Recreate the containers.
 
 ## Limit what xixo reaches
 
-xixo reaches every node the network lets it reach. Tag its node, and allow the tag only the
-services xixo should attach, in the tailnet's access policy. A xixo that is compromised can then
-reach those services and nothing else on the network.
+xixo reaches every node the network lets it reach. In the tailnet's access policy, tag xixo's node
+and allow the tag only the services xixo should attach.
 
 ## Check the tailnet resource
 
 With `XIXO_TAILSCALE_SOCKET` set, xixo declares a resource named `tailnet` in every tenant when it
-boots, beside the resources in `config/resources.yml`. It is never attached by hand. Its check asks
-tailscaled for its status, and passes when tailscaled reports `Running`.
+boots. Its check passes when tailscaled reports `Running`.
 
 :::caution
 Every tenant on the deployment gets the `tailnet` resource. Leave `XIXO_TAILSCALE_SOCKET` unset on a
 deployment whose tenants should not reach the network.
 :::
 
-Open **Settings → Resources** in the app. A failed check says what
-tailscaled reported, such as `tailscaled is NeedsLogin`.
+1. Choose your avatar in the top right corner, then **Resources**.
+2. Find **Tailnet** on the **This server** card. A failed check says what tailscaled reported, such
+   as `tailscaled is NeedsLogin`.
 
 ## Attach a resource on the tailnet
 
-Attach the resource as usual, give its address on the tailnet, and set **Reached through** to
-`tailnet`. Through GraphQL, pass `via: "tailnet"` to `attachResource`. Name the node by its tailnet
-address, such as `http://100.64.0.5:8080`. The container resolves names with its own resolver, which
-does not know MagicDNS names.
+1. Attach the resource as usual. See [attach a resource](/guides/attach-a-resource/).
+2. Under **Connection**, set **Reached through** to `tailnet`.
+3. Pick a machine from **On tailnet**, which fills in its tailnet address. See
+   [a resource on a network](/guides/attach-a-resource/#a-resource-on-a-network).
 
-A resource reached through `tailnet` connects only to addresses on the tailnet. An address elsewhere
-fails with `is not an address its transport reaches`. When the tailnet is down, the resource's check
-fails with `<key> is reached through tailnet, which is down`.
+To type the address yourself, use the machine's tailnet address, such as `http://100.64.0.5:8080`.
+The container's own resolver does not know MagicDNS names.
 
-To move an existing resource onto the tailnet, change it and set **Reached through**, or pass `via`
-to `updateResource`. An empty `via` reaches it directly again.
+To move a resource you already attached onto the tailnet, choose **Change** and set **Reached
+through**. **Directly** reaches it without the tailnet again.
 
-## Pick a machine from the tailnet
-
-When **Reached through** is `tailnet`, the attach dialog lists the tailnet's machines under **On
-tailnet**. Choosing one fills in its tailnet address. See
-[a resource on a network](/guides/attach-a-resource/#a-resource-on-a-network).
+A resource reached through `tailnet` connects only to addresses on the tailnet. Any other address
+fails with `is not an address its transport reaches`. When the tailnet is down, its check fails
+with `<key> is reached through tailnet, which is down`.
 
 ## When a machine is off
 
-A resource on a machine that is off the tailnet reads **offline** in the app and shows no error.
-xixo asks tailscaled about the machine instead of dialing it, and holds the
-resource's scheduled syncs. When tailscaled reports the machine online again, the next check, at
-most ten minutes later, clears **offline** and starts the sync that was held. Choose **Check** from
-the resource's **⋯** menu to look sooner. See
+A resource on a machine that is off the tailnet reads **offline** and shows no error. Its scheduled
+syncs wait. xixo checks it again about every ten minutes, and when the machine is back, the check
+clears **offline** and starts the sync that waited. To look sooner, choose **Check** from the
+resource's **⋯** menu. See
 [a machine that is offline](/concepts/resources/#a-machine-that-is-offline).

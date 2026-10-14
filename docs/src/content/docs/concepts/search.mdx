@@ -4,166 +4,92 @@ description: The OpenSearch index over every feed, and how lexical and semantic 
 ---
 
 Every [feed](/concepts/feeds/) is a document in OpenSearch, at `OPENSEARCH_URL`. xixo indexes a feed
-again whenever the feed or one of its [references](/concepts/references/) is saved, and whenever an
-[analysis](/concepts/analysis/) of it finishes. It removes the document when the feed is destroyed.
-The index is a derived copy. Postgres holds the records, and a search returns ids that xixo loads
-from Postgres in ranked order.
+again whenever it or one of its [references](/concepts/references/) is saved, and whenever an
+[analysis](/concepts/analysis/) of it finishes. The index is a copy. Postgres holds the records, and
+a search returns ids that xixo loads from Postgres in ranked order.
 
-## What a document holds
-
-| Field | From | Analyzed as |
-| --- | --- | --- |
-| `tenant_id` | the feed's tenant | long |
-| `type`, `mime` | the feed | keyword |
-| `tags` | the keys of its tags, across the feed and its children | path, and `tags.raw` as keyword |
-| `key`, `title` | the feed | path |
-| `locator_key` | its original references, joined | path |
-| `note` | the feed | standard |
-| `summary` | every summary across the feed and its children | standard |
-| `body` | everything its analyses extracted, across the feed and its children | standard |
-| `resource_ids` | the resources where its original references live | long |
-| `created_at` | the feed | date |
-| `embedding` | the feed's vector, when it has one | `knn_vector`, HNSW, cosine |
-
-The `path` analyzer splits on slashes, backslashes, dashes, underscores, dots, and whitespace, and
-then lowercases, so a search for `acme` finds `invoices/2026/acme-q3.pdf`. Only original references
-contribute a locator or a resource id. A preview or a thumbnail never does. The body leaves out the
-summary step, which has its own field, and the bookkeeping steps, such as `placement` and `derived`,
-whose results are paths and store names. The mapping is not dynamic.
+A document holds the feed's type, mime type, tags, key, title, note, summary, text, and the paths
+and resources of its originals. A file's tags, summaries, and text include those of its extracted
+children. Paths, keys, titles, and tags are split on slashes, dashes, underscores, dots, and spaces,
+so a search for `acme` finds `invoices/2026/acme-q3.pdf`.
 
 ## Lexical search
 
-A query with text runs a `multi_match` over these fields, with these boosts:
+A query with text matches the title, key, and tags most strongly, then the note and summary, then
+the paths and the text. Words in the title, note, summary, and text also match by their stems, so
+`invoices` finds `invoice`. Common words such as `the` and `what` are left out of the query.
 
-| | |
-| --- | --- |
-| 3 | `title`, `key`, and `tags` |
-| 2 | `note` and `summary` |
-| 1 | `locator_key` and `body` |
+- Every word has to match, and the last word may match as the start of a word. A query of
+  `acme inv` finds a feed that holds `acme` and `invoice`.
+- When that does not fill the page and the query has three or more words, a looser search requires
+  60% of the words. Its results follow the strict ones.
+- A query with no text matches everything.
 
-`title`, `note`, `summary`, and `body` are also indexed a second time through the `kstem` stemmer,
-and searched with the same boosts, so a word finds its other forms: `invoices` finds `invoice`, and
-`kilners` finds `Kilner`.
-
-The first search is strict. It uses the `and` operator, so every word has to match, and the
-`bool_prefix` type, so the last word matches as a prefix. A query of `acme inv` finds a feed that
-contains `acme` and `invoice`.
-
-If the strict search does not fill the requested page, and the query has three or more words, xixo
-runs a second, looser search. The loose search requires 60% of the words to match, or as few as the caller asks for: an answer's
-evidence asks for any one of the question's keywords. Its results go
-after the strict results, without duplicates, and the reported total is the larger of the two
-totals. A query of one or two words gets only the strict search.
-
-A query with no text matches everything. Facets narrow the results in either case, and each facet
-takes one value or a list:
-
-| Facet | Field |
-| --- | --- |
-| `type` | `type` |
-| `mime` | `mime` |
-| `tag` | `tags.raw` |
+The `type`, `mime`, and `tag` facets narrow the results, and each takes one value or a list.
 
 ## Semantic search
 
-Semantic search is added when all of these are true:
+Semantic search is added when the query has text, an inference resource names an `embedding` model,
+and the page ends within the first 200 results.
 
-- the query has text;
-- an inference resource declares a model for the `embedding` role;
-- the requested page ends within the first 200 results.
+xixo embeds the query and asks for the 200 nearest feeds. It keeps those whose cosine similarity is
+at least `XIXO_SEMANTIC_FLOOR`, 0.55 by default, and within 0.12 of the best match, so a query whose
+meaning matches nothing well adds nothing. When no facet is set, xixo also asks for the 200 nearest
+[passages](#passages) and ranks their feeds by their best passage. This finds a long document by
+something said deep inside it. The `search` tool shows each result found this way with its passage.
 
-xixo embeds the query and caches the vector for a day per tenant, resource, model, and text. It then
-asks for the 200 nearest neighbors under the same facets. The neighbors are cut to the ones whose
-cosine similarity is at least `XIXO_SEMANTIC_FLOOR` (0.55 by default), and within 0.12 of the best
-match. A query whose meaning matches nothing well therefore adds no semantic results.
+The lexical and semantic lists are fused by reciprocal rank fusion, which uses only each result's
+rank in each list, since the two engines score on different scales.
 
-When no facet is set, xixo also asks the passage index for the 200 passages nearest the query, cut
-the same way, and ranks their feeds by their best passage. This finds a long document by something
-said deep inside it, which its own vector, drawn mostly from its opening, does not carry. The
-`search` tool gives each result found this way the passage and where it starts.
-
-The top 200 lexical results and the remaining neighbors, of feeds and of passages, are fused by
-reciprocal rank fusion. Each list adds `1 / (60 + rank)` to a feed's score, with ranks counted from one, and the fused list is
-sorted by score. Fusion uses only the rank in each list. The two engines score on different scales,
-so their scores are never compared.
-
-Search is lexical only when the page is past the first 200 results, when no resource serves the
-`embedding` role, or when embedding the query fails. If the engine refuses the vector query, xixo
-logs the error and the vector query adds nothing. Pages use offsets: `from` and `limit` select a
-slice of the fused list, and the reported total is the larger of the lexical total and the length
-of the fused list.
+Search is lexical only past the first 200 results, when no resource serves the `embedding` role, or
+when embedding the query fails.
 
 ## Listing without the index
 
-The `feeds` query does not use OpenSearch. It lists feeds from Postgres, newest first, and pages by
-id with `after`. Its arguments narrow the list:
-
-| | |
-| --- | --- |
-| `type`, `types` | one type, or any of several |
-| `mime` | feeds with a reference of that mime type |
-| `resourceId` | feeds with a reference in that resource |
-| `tag` | feeds connected to that tag |
-| `connectedTo` | feeds connected to the feed with that id, in either direction |
-| `topLevel` | only feeds that were not extracted from another feed |
-
-When a feed is selected in the catalog, the catalog uses `connectedTo` to list the feeds connected to it.
+The `feeds` query lists feeds from Postgres, newest first, without OpenSearch. It narrows by type,
+mime type, resource, tag, the feed it is connected to, and whether a feed was extracted from
+another. The catalog uses it to list the feeds connected to the one selected. See the [GraphQL
+reference](/reference/graphql/).
 
 ## Embeddings
 
-`EmbedItemsJob` runs every minute. It takes the tenants in turn, and in each one embeds a batch of
-up to fifty feeds that have no `embedded_at`, cuts up to fifty feeds into passages, and embeds up to
-64 passages. It goes round again while any tenant has work left, for up to 50 seconds, and only one
-run goes at a time, so a large first sync drains as fast as the model embeds. The text it embeds is the feed's title, tags, summaries, note, and the first 2,000
-characters of its body, up to 8,000 characters in total. xixo stores a digest of that text and the
-model name next to the vector. If the digest has not changed, xixo sets `embedded_at` without
-embedding the feed again. Changing a title or a note, finishing an analysis, or saving a reference
-clears `embedded_at`.
+Every minute, xixo embeds the feeds that changed since they were last embedded. A feed's vector is
+made from its title, tags, summaries, note, and the start of its text. Changing a title or a note,
+finishing an analysis, or saving a reference embeds the feed again, unless that text is the same.
 
-Some embedding models were trained with a prefix on each text, one for what is stored and one for
-what is searched, and match poorly without it. xixo puts `search_document: ` and `search_query: `
-before texts for `nomic-embed-text`, `passage: ` and `query: ` for e5 models, and the searching
-instruction mxbai, bge, and snowflake-arctic-embed expect before queries. A model backend's **Query
-prefix** and **Document prefix** replace these.
+Some embedding models match poorly without a prefix on each text. xixo adds the ones that
+`nomic-embed-text`, e5, mxbai, bge, and snowflake-arctic-embed expect. A model backend's **Query
+prefix** and **Document prefix** replace them.
 
-The model and its prefixes make a signature. Every digest includes it, and the backend keeps the
-signature its vectors were made with. When the two differ, because the model or a prefix changed,
-the next sweep clears `embedded_at` on every feed and passage in the tenant, since vectors made two
-ways cannot be compared. The vector's dimension is `XIXO_EMBEDDING_DIMENSIONS`,
-768 by default.
+Vectors made by two models, or with two prefixes, cannot be compared. When the model or a prefix
+changes, xixo embeds every feed and passage in the tenant again. The vector's length is
+`XIXO_EMBEDDING_DIMENSIONS`, 768 by default, and the embedding model must return that many.
 
 ## Passages
 
 A feed whose text is longer than 1,500 characters is also cut into passages of up to 1,500
-characters. A passage never crosses into the next section of the feed's outline: a sheet of a
-workbook, a markdown heading or a heading in a Word document or a web page, an event in a calendar,
-a contact in a vCard file, a page of a PDF, or a minute of a transcript. Within a section, each
-passage ends at the first of a paragraph, a line, a sentence, a clause, or a word found in its last
-40 percent, and the next starts 200 characters before it ends, so a clause across a boundary is
-whole in one of them. A passage that ends at a section starts the next one there. The `passages` table holds each passage's text, where it starts and ends, and its
-vector. A digest of the text in `feeds.passages_digest` means a feed is cut again only when its
-text changes.
+characters. A passage never crosses into the next section of the feed's outline, such as a sheet of
+a workbook, a heading, an event in a calendar, a page of a PDF, or a minute of a transcript. Within
+a section, a passage ends at a paragraph, a line, or a sentence when it can, and the next one starts
+a little before it ends. A feed is cut again only when its text changes.
 
-The same job cuts feeds that have no passages digest and embeds their passages, each with its feed's title and the name of its section before it, such as
-`elm-street-pantry-plan.xlsx › Buy List`. The vectors are indexed in their own
-index, `_passages` after the feeds' index name, and every query on it filters by `tenant_id`.
-
-The `feed` tool's `find` returns a long document's passages that contain the words asked for, ranked
-by how many of them each passage holds, together with the passages nearest in meaning. Each says
-whether it matched by words, by meaning, or both.
+Each passage is embedded with its feed's title and its section's name, such as
+`elm-street-pantry-plan.xlsx › Buy List`, and kept in an index of its own. The `feed` tool's `find`
+returns a long document's passages that hold the words asked for, together with the passages nearest
+in meaning.
 
 ## Tenants
 
-All tenants' documents share one index. Each tenant searches through its own alias, created with the
-tenant, which filters on `tenant_id`. The nearest-neighbor query repeats that filter inside itself.
-xixo refuses a search that has no tenant.
+All tenants' documents share one index. Each tenant searches through its own alias, which filters on
+the tenant, and the nearest-neighbor query repeats that filter. xixo refuses a search with no
+tenant. Each document also lists its readers, and every query filters by them, so a person's
+[personal files](/concepts/resources/#only-mine-or-everyones) never reach anyone else's results.
 
 ## Rebuilding
 
-xixo hashes the index's settings and mapping into a stamp and stores it in the index's metadata.
-`RebuildSearchIndexJob` does nothing unless the stamp has changed or the index
-is missing. When either happens, the job builds a new versioned index and reindexes every tenant into
-it in pages of 200, under a run of kind `reindex`. It refuses to promote the new index if it holds
-fewer documents than there are feeds. Promotion moves the main alias and every tenant alias in one
-request, and deletes the old index. If promotion fails, the job deletes the new index and the old
-one keeps serving. Feeds that changed during the rebuild are indexed again afterward.
+xixo stores a stamp of the index's settings and mapping in the index itself. Every ten minutes, when
+the stamp has changed or the index is missing, xixo builds a new index and reindexes every tenant
+into it, under a run of kind `reindex`. It promotes the new index only when it holds as many
+documents as there are feeds. Promotion moves every alias at once and deletes the old index. If it
+fails, the old index keeps serving. Feeds that changed during the rebuild are indexed again
+afterward.

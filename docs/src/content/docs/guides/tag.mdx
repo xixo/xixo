@@ -4,7 +4,7 @@ description: Tag an item from its page, remove a tag, and tag what an answer dre
 ---
 
 At the end of this guide, the items you chose are filed under a tag of your own, and the tag's page
-lists them. Analysis tags every item it reads. The tags you add stay when the item is analyzed
+lists them. Analysis also tags every item it reads. A tag you add stays when the item is analyzed
 again. See [edges](/concepts/feeds/#edges).
 
 ## Tag an item
@@ -18,13 +18,10 @@ again. See [edges](/concepts/feeds/#edges).
 A tag that does not exist yet is created. Case does not matter, and underscores read as spaces, so
 `Mortgage_Statement` and `mortgage statement` are one tag.
 
-An item's tags are listed on one line, the tags most items share first. When they do not fit, the
-line ends with a count such as **+3 more**. Choose it to show the rest.
-
 ## Remove a tag
 
 1. Open the item's page.
-2. Choose the **×** beside the tag.
+2. Choose the remove button beside the tag.
 
 ## Tag what an answer drew on
 
@@ -32,18 +29,19 @@ line ends with a count such as **+3 more**. Choose it to show the rest.
 2. Under **What it drew on**, choose **Tag these**. Every file and note in the list is checked.
 3. Uncheck the items you want to leave out.
 4. Type the tag's name in the field that reads **Tag the ones you have checked**.
-5. Choose **Tag**. With more than one item checked, it reads **Tag** and the count, such as **Tag 3**.
+5. Choose **Tag**. With more than one item checked, it reads **Tag** and the count, such as
+   **Tag 3**.
 
 Only files and notes can be checked. To stop without tagging, choose **Cancel**.
 
 ## Find what a tag holds
 
-Choose a tag on any item's page. The tag's page lists everything filed under it. The `feeds` query
-takes the tag's name as `tag` and lists the same items. See [search](/concepts/search/).
+Choose a tag on any item's page. The tag's page lists everything filed under it.
 
 ## Over GraphQL
 
-`tagFeeds` takes up to 200 item ids and a tag's name. It needs `xixo:catalog:write`.
+`tagFeeds` takes up to 200 item ids and a tag's name. It needs `xixo:catalog:write`. Pass
+`tagged: false` to remove the tag instead.
 
 ```graphql
 mutation {
@@ -53,7 +51,7 @@ mutation {
 }
 ```
 
-To remove the tag from the same items, pass `tagged: false`. See the
+The `feeds` query takes a tag's name as `tag` and lists the items under it. See the
 [GraphQL reference](/reference/graphql/).
 
 ## If it doesn't work
@@ -62,4 +60,3 @@ To remove the tag from the same items, pass `tagged: false`. See the
   an address. Only files and notes take tags.
 - **`no more than 200 items can be tagged at once`.** Split the ids into several calls.
 - **A removed tag comes back.** The item was analyzed again, and the analysis found the same tag.
-  A tag you add yourself stays through every analysis.

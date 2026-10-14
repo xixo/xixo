@@ -3,103 +3,58 @@ title: Resources
 description: The places xixo reads from, writes to, and sends requests to.
 ---
 
-A resource is one instance of a type, such as a bucket, a directory, a mailbox, an inference
-endpoint, or an MCP server. Its key is unique within its tenant and type. The
-[resource reference](/reference/resources/) lists what each type needs and what it can do. This page
-covers what all types share.
+A resource is one instance of a type, such as a bucket, a folder, a mailbox, a model backend, or an
+MCP server. Its key is unique within its tenant and type. The [resource
+reference](/reference/resources/) lists every type, what it serves, what it accepts, and what it
+needs. This page covers what all types share.
 
-## What a type declares
+## What a type serves
 
-A type declares what it serves with three class macros:
+A type serves capabilities, such as `storage`, `inference`, `browser` for rendering pages, `fetch`
+for reading a page's text, `search`, `tools` for an MCP server, or `transport`. A storage type also
+says which mime types it accepts and the largest file it takes. Types such as git, IMAP, RSS, and
+CalDAV serve no capability. xixo reads them by syncing.
 
-| | |
-| --- | --- |
-| `serves` | its capabilities: `storage`, `inference`, `browser`, `fetch`, `search`, `tools`, or `integration` |
-| `accepts` | the mime patterns it will store, such as `*/*` |
-| `up_to` | the largest file it will take, in bytes, or no limit when it is unset |
+A tenant has at most one default storage and one default inference resource. Only an administrator
+chooses them. Snapshots go to the default storage unless the `web` resource names another, and so
+does an upload that nothing else placed. Inference uses the default when more than one resource
+serves a role. When the default is down, because its last check failed, its machine is offline, or
+it needs connecting again, inference uses the first other resource for that role that is up. It
+returns to the default once a check passes. Embeddings never move this way, because a different
+embedding model makes every vector useless.
 
-`browser` is the `web` type, which renders pages. `fetch` is the `curl` type, which reads a page's
-text. `search` is a web search API. Types such as git, IMAP, RSS, and CalDAV declare no capability,
-and xixo reads them by syncing.
-
-Every save copies the declaration into the `serving` jsonb column. A question such as "which active
-stores accept a 4 GB video" is then one SQL query, and xixo does not need to load every resource to
-answer it. The copy is only as current as the last save. `bin/rails xixo:resources`, which the
-production entrypoint runs before the server starts, saves every row again in every tenant and then
-reconciles the declared resources.
-
-A tenant has at most one default storage and one default inference resource, and only a resource
-that serves the matching capability can hold either one. Making a resource the default clears the
-flag on the previous one. Snapshots go to the default storage unless the `web` resource names
-another, an upload that nothing placed goes there, and inference uses the default when more than one
-resource serves a role. When the default's last check failed, its machine is offline, or it needs connecting again,
-inference uses the first other resource serving the role that is not down, and returns to the
-default once a check passes. Embeddings never move this way, because a different embedding model
-forgets every vector.
-
-A model backend's **Model** setting is its `default` model. It answers any role the backend names
-no model for, except `embedding` and `transcription`. It answers `vision` only when the server says
-the model reads images. Ollama says what each model can do at `/api/show`, and LM Studio says it at
-`/api/v0/models`, where a model of type `vlm` reads images. A check records what the server says
-under `model_capabilities`. A model on any other server is taken to read no images, unless it is
-named as the backend's **Vision model**.
-
-When no vision model is set, a check picks one the server says reads images from the families known
-to describe pictures well: gemma3, then qwen2.5-vl and qwen3-vl, minicpm-v, llava, and
-llama3.2-vision. A vision model the server says cannot read images fails the check, and the message
-names models that can. Images go to a backend whose vision model is known to read them before one
-whose server says nothing. The backend's card says which model describes images, or why none does.
-
-Every call that wants JSON back sends `response_format` with the JSON schema of the answer it
-expects. Ollama and LM Studio both follow it.
+A model backend's **Model** serves every role the backend names no model for, except `embedding` and
+`transcription`. It serves `vision` only when its server says the model reads images, which Ollama
+and LM Studio do. When **Vision model** is empty, a check picks one the server says reads images. A
+**Vision model** the server says cannot read images fails the check. The backend's card says which
+model describes images, or why none does.
 
 ## Where they come from
 
-`config/resources.yml` is ERB, keyed by environment, and reads every host and secret from the
-environment. The shipped file declares a `files` filesystem resource as the default storage.
-`Resource.declare!` reconciles it in each tenant. It creates or updates each declared key and never
-deletes. A resource removed from the file stays attached, so nobody using it loses it. A declared
-`default_storage` or `default_inference` takes the default only while the tenant has none, so a
-default chosen in the app survives every boot.
+`config/resources.yml` declares resources for every tenant, with hosts and secrets read from the
+environment. The shipped file declares a `files` folder as the default storage. Each boot creates or
+updates every declared resource and never deletes one, so a resource removed from the file stays
+attached. A declared default takes effect only while the tenant has none, so a default chosen in the
+app survives every boot. The development stack attaches a few more, as described in the
+[quickstart](/quickstart/#resources).
 
-In development, `db/seeds.rb` attaches a database store, an S3 bucket in MinIO, a `web` resource,
-and an Ollama inference resource. See the [quickstart](/quickstart/#resources).
+People attach everything else in the browser, from a form that each type describes. Each value goes
+into the resource's details, or into its encrypted credentials when the field is a secret. Attaching
+runs a first check and reports the result. The same form changes a resource later. A secret left
+empty keeps its value, and the form reads back only the names of the secrets that are set. See
+[attach a resource](/guides/attach-a-resource/).
 
-People attach everything else in the browser. A type that can be attached returns an `attaching`
-description, with a label and a list of fields, and the form is rendered from it.
-`Resource::Settings` reads the submitted values against those fields, for both the file and the
-form. It drops any value the type does not declare and refuses a missing required field. Each value
-goes into `details`, or into `credentials` when the field is a secret. Credentials are encrypted at
-rest, and the audit log records which fields were set but never their values. Attaching runs a first
-check and reports the result. See [attaching a resource](/guides/attach-a-resource/).
+A `filesystem` resource is a folder on a machine that runs xixo link, the server's own included. It
+names one of the folders xixo link shares, and xixo link lists, reads, hashes, and writes its files.
+A folder is storage only when the machine's configuration marks it writable. The shipped `files`
+resource is `/data/files/<tenant>` on xixo link beside the server.
 
-A resource is changed through the same form. Its type and key stay the same. Its name and fields
-are read against the type again. A secret left empty keeps its current value, and a field the type
-no longer asks for is removed along with its value. The form reads back only the values held in
-plain text, plus the names of the encrypted fields that have a value. xixo checks and audits a
-change the same way it checks and audits attaching.
-
-A filesystem resource is a folder on a machine that runs xixo link, the server's own included.
-It is reached through that machine's `machine` resource and names one of the folders xixo link
-shares. xixo never opens a file itself: xixo link lists, reads, hashes, and writes. A folder is
-storage only when the machine's own config marks it writable. A read-only folder accepts no
-uploads, so placement passes it over and it cannot be default storage. The shipped `files` resource
-is `/data/files/<tenant>` on xixo link beside the server, which the example compose mounts
-read-write.
-
-A walk never enters version control folders such as `.git`, dependency folders such as
-`node_modules`, or the folders and files an operating system leaves behind, such as `.DS_Store`.
-**Also skip** adds names or patterns of its own. A prefix walks only the folders that can hold it, and
-a sync resumed from its cursor passes over the folders it already walked without opening them.
-
-xixo link also watches its shared folders and sends a `changed` message naming the paths that
-changed, a couple of seconds after they settle; see [the xixo link README](https://github.com/xixo/xixo/tree/main/link#the-conversation-with-xixo)
-for how it watches on Linux and macOS and where it stops. For each folder resource on that folder
-with a sync interval, `SyncPathsJob` lists just those paths, at most 256 to a message, keeps what
-it finds, and marks gone what it held there and no longer finds, so a new or removed file shows up
-without waiting for the next sync. A path that turns out to hold more than 2,000 files, or a message
-that says it overflowed, starts a whole sync instead. A folder that syncs only on demand ignores
-these messages, and the scheduled walk still runs to catch anything a watch missed.
+A walk skips version control folders such as `.git`, dependency folders such as `node_modules`, and
+files an operating system leaves behind, such as `.DS_Store`. **Also skip** adds names or patterns
+of its own. xixo link also watches its shared folders. For a folder resource with a sync interval,
+it tells xixo which paths changed a couple of seconds after they settle, so a new or removed file
+shows up without waiting for the next sync. The scheduled sync still runs to catch anything a watch
+missed. See [the xixo link README](https://github.com/xixo/xixo/tree/main/link#readme).
 
 ## Resources connected through masks
 
@@ -108,417 +63,247 @@ account. Nobody enters a secret into xixo.
 
 1. **Attach** it. It starts out not connected.
 2. **Connect** it. The browser goes to masks, which asks for the person's consent, signs them in to
-   the provider if needed, and returns.
-3. From then on it syncs and answers requests, with nobody signed in.
-4. If the person revokes xixo's access in masks, the resource shows **Reconnect** and its syncs
-   stop until somebody reconnects it.
+   the provider if needed, and comes back.
+3. From then on it syncs and answers requests with nobody signed in.
+4. If the person revokes xixo's access in masks, the resource shows **Reconnect** and stops syncing
+   until somebody reconnects it.
 
 masks keeps the provider's tokens. xixo keeps a
-[delegation](https://masks.pages.dev/guides/connecting-via-sdk/#delegation), which is the connection and a secret
-encrypted in the resource's credentials. When the last provider token expires, xixo exchanges the
-secret for a new one.
+[delegation](https://masks.pages.dev/guides/connecting-via-sdk/#delegation), a secret encrypted in
+the resource's credentials that xixo trades for a new provider token when the last one expires.
+masks revokes a delegation secret that is used twice, so only one worker renews a resource's token
+at a time.
 
-xixo enforces these rules:
-
-- `/resources/<id>/connect` needs `xixo:resources:command`, and the caller has to manage the
-  resource: their own personal one, or a shared one with `xixo:settings:admin`.
-- `/connect/callback` refuses a `state` that this browser did not start, a callback that somebody
-  else already finished, and a connection that masks made for a different person.
-- Only one worker at a time renews a resource's token, under a row lock, because masks revokes a
-  secret that is used twice. xixo keeps every rotated secret.
-- When a provider API refuses the token, xixo gets one new token and tries once more.
-- When masks refuses, xixo sets `needs_connect_at` and raises `Resource::Unusable`, which stops a
-  sync without retrying it. When masks does not answer, xixo raises `Resource::Failed`, which is
-  retried as usual. A successful check or sync clears `needs_connect_at`.
+- Connecting needs `xixo:resources:command`, and the caller must
+  [manage the resource](#who-changes-a-resource).
+- The callback refuses a request this browser did not start, one that somebody already finished,
+  and a connection masks made for a different person.
+- When masks refuses, the resource needs connecting again and its syncs stop without retrying. When
+  masks does not answer, the sync is retried as usual.
 
 ## Only mine, or everyone's
 
 The person who attaches a resource chooses who can use it. **Everyone here** is the default for an
-administrator, and **Only me** for anyone else, who cannot attach a shared one.
-**Only me** records the person's subject as `owner_subject`. From then on the resource is hidden from
-everybody else: from the resources query, from every mutation that names a resource, from the
-`resource` and `feed` tools, from the connect route, and from the MCP tools a personal MCP server
-offers. A type connected through masks starts as **Only me**.
+administrator. **Only me** is the default for anyone else, who cannot attach a shared one. A type
+connected through masks starts as **Only me**.
 
-What a personal resource syncs is its owner's to read. Each feed records its readers in `readers`:
-nothing, which means everyone, when a shared resource holds the file or nothing holds it at all, or
-the owners of the personal resources that are the only places holding it. A feed extracted from
-another, such as an attachment or a page, has the readers of the feed it came from. A copy of the
-same file in a shared resource makes it everyone's.
+A personal resource is hidden from everybody but its owner: from the resources query, every mutation
+and tool that names a resource, and the tools a personal MCP server offers.
 
-xixo checks `readers` everywhere a feed is read. `Feed.readable_by` narrows the `feed`, `feeds`,
-`search`, `types`, `analysis`, `analyses`, and `auditEvents` queries, a feed's connections and
-children, every mutation that names a feed, the `search`, `feed`, and `connect` tools,
-`/references/:id/content`, the evidence an answer reads, the counts the model is told, and an export,
-which records who asked for it. The search index and the passage index carry the same readers on each
-document, and every query filters by them, so another person's personal file is never a candidate.
-`feedAnalyzed` sends nothing about a feed the subscriber cannot read. A feed lists only the references
-held in resources its reader can reach, so nobody else reads its path or fetches its bytes with the
-owner's credentials. A personal resource is never the default for uploads or questions. An agent working on a feed reaches it only
-in a run its owner started. See [whose resources a run reaches](/concepts/agents/#whose-resources-a-run-reaches).
+What a personal resource syncs is its owner's to read. Each feed records its readers. A feed is
+everyone's when a shared resource holds it, or when nothing holds it. Otherwise its readers are the
+owners of the personal resources that hold it. An extracted child has the readers of the file it
+came from.
+
+xixo checks readers everywhere a feed is read: every query, mutation, and tool that names a feed,
+search and the passage index, `/references/:id/content`, the evidence an answer reads, the counts a
+model is told, exports, and subscriptions. A feed lists only the references in resources its reader
+can reach. A personal resource is never the default for uploads or questions. An agent reaches a
+personal resource only in a run its owner started. See
+[whose resources a run reaches](/concepts/agents/#whose-resources-a-run-reaches).
 
 ## Who changes a resource
 
 A resource everyone shares belongs to the tenant, so only an administrator changes it. A token with
-`xixo:settings:admin` attaches a shared resource, changes it, puts it away, deletes it, connects it
-through masks, sets its schedule, and changes a `web` resource's watchlist. Only an administrator
-chooses the default storage and the default inference. A token with `xixo:resources:command` and no
-admin scope does all of these to its own personal resources, and checks or syncs any resource it can
-see. `Resource#managed_by?` decides, and the `manageable` field on a resource answers it for the
-token asking.
+`xixo:settings:admin` attaches a shared resource, changes it, puts it away, deletes it, connects it,
+sets its schedule, and changes a `web` resource's watchlist. It also chooses the default storage and
+the default inference. A token with `xixo:resources:command` and no admin scope does all of these to
+its own personal resources, and checks or syncs any resource it can see. The `manageable` field on a
+resource says whether the asking token may change it.
 
-Signing in never asks for `xixo:settings:admin`. masks grants it only to a person whose own scopes
-in masks cover it, which the person who connected xixo to masks has from the start, and anyone else
-signs in with the usual scopes. The `administrator` query says whether the current token carries it.
+Signing in never asks for `xixo:settings:admin`. masks grants it only to a person whose scopes in
+masks cover it, which the person who connected xixo to masks has from the start. The `administrator`
+query says whether the current token carries it. See [signing in](/concepts/tenants/#signing-in).
 
 ## Syncing
 
-A type that implements `each_page` can sync. A type that does not can neither sync nor have a
-schedule. A `web` resource syncs only while its watchlist holds an address. `sync_interval` is at least one minute, and `ScheduleSyncsJob` checks every
-minute for resources that are due.
+A type that can list what its source holds can sync. A `web` resource syncs only while its
+**Watchlist** holds an address. A sync interval is at least one minute, and xixo checks every minute
+for resources that are due. See [schedule syncs](/guides/attach-a-resource/#schedule-syncs).
 
-Starting a sync claims the resource with a single conditional update, so two workers cannot both
-start one, and opens a run of kind `sync`. The job walks the resource page by page with
-job-iteration. It records a [reference](/concepts/references/) for each object, analyzes any
-[feed](/concepts/feeds/) that needs it, and resumes at its cursor after a deploy. An object whose
-version matches the one recorded, and which has been analyzed since, is only marked seen, with one
-update and no write to the search index, so a sync of a large resource that barely changed costs
-little more than its listing. A
-`Resource::Failed` error gets five attempts before the run fails. When the sync finishes, xixo
-clears the claim and schedules the next sync on the original interval, skipping any times that were
-missed. A failed sync also clears the claim, but does not record the resource as synced. If the
-worker running a sync dies, the claim stays for six hours. After that xixo treats the sync as
-abandoned, and another sync can start.
+- Only one sync runs for a resource at a time. A sync whose worker died is given up after six hours,
+  and another can start.
+- A sync walks the resource page by page, records a [reference](/concepts/references/) for each
+  object, and [analyzes](/concepts/adding/#sync) what needs it. After a deploy it resumes where it
+  was.
+- An object whose version has not changed, and which has been analyzed since, is only marked seen,
+  so a sync of a large resource that barely changed costs little more than its listing.
+- A failed request to the source gets five attempts before the run fails.
+- A run can be cancelled, and it stops when it passes its deadline.
+- When a sync finishes, the next one is due one interval later, skipping any times that were missed.
 
-A run can be cancelled, and it stops when it passes its deadline.
+A type that can ask its source for only what changed, such as git, IMAP, GitHub, OneDrive, Google
+Drive, Notion, or Slack, keeps a checkpoint. The next sync walks only what changed since it, as long
+as a full walk finished within the last day. Otherwise, or when the checkpoint cannot be used, such
+as after history was rewritten, it walks everything. A checkpoint is saved only when a walk
+finishes. A folder, a bucket, and a WebDAV share walk everything on every sync.
 
-`Resource::Walk` decides which kind of walk a sync does. A type that can ask its source for only
-what changed, such as git, IMAP, GitHub, OneDrive, Google Drive, Notion, or Slack, keeps a checkpoint in `sync_state`. The
-checkpoint is the commit it reached, the last message it saw together with the mailbox's
-`UIDVALIDITY`, the time the last walk began minus five minutes, or the delta link Microsoft Graph
-handed back. The next sync walks only what changed since the checkpoint, as long as a full walk
-finished within the last day. Otherwise it walks everything. It also walks everything when the
-checkpoint cannot be used, for example because history was rewritten, the mailbox was renumbered,
-or Microsoft Graph expired the delta link. A walk saves its new checkpoint only when it finishes. A cancelled, failed,
-or dry-run sync leaves the previous checkpoint in place, and a walk resumed after a deploy keeps the
-checkpoint it started with. `walked_at` records when a full walk last finished without missing
-anything.
-
-Google Drive's walk of what changed reads Drive's change list from the page token its last full walk
-began at, and a file removed or put in the trash is gone. A full walk lists every file the
-resource's query reaches. A Google document, spreadsheet, presentation, or drawing is downloaded as
-the Word, Excel, PDF, or PNG file Drive exports it to, so the analyzers read it like any other file.
-Forms, folders, and shortcuts are left out.
-
-Notion's walk of what changed asks for pages newest edit first and stops at the first one edited
-before its checkpoint. Slack's asks for threads begun up to seven days before its checkpoint, so a
-reply to a recent thread is read at the next sync and a reply to an older one at the next full walk.
-A directory, a bucket, and a WebDAV share list everything on every sync, and an object whose version
-has not changed costs one update.
+A Google document, spreadsheet, presentation, or drawing syncs as the Word, Excel, PDF, or PNG file
+Drive exports it to, so the analyzers read it like any other file.
 
 ## Reaching through another resource
 
-A resource can name a transport in its `via` column. A transport is a resource that serves
-`transport`. It lists the addresses it reaches in `covers`, and `reach!` can rewrite a URL before it
-is dialed. The `tailnet` transport covers the Tailscale ranges `100.64.0.0/10` and
-`fd7a:115c:a1e0::/48`. See [reach a tailnet](/guides/tailnet/).
+A resource can be reached through a transport, set as **Reached through** in the app or `via` in
+GraphQL and `config/resources.yml`. Two types are transports:
 
-A resource with a `via` connects only to addresses its transport covers. The address check runs as
-it always does, with the transport's ranges in place of the public internet, so a public address is
-refused as firmly as a loopback one. `XIXO_ALLOW_PRIVATE_FETCH` and the `_ORIGINS` lists do not widen
-it. Where xixo resolves a name itself, it connects to the address it checked. An `s3` resource also
-checks the address of the peer that answers, since the AWS SDK resolves names on its own.
+- A `tailnet` reaches the addresses on a Tailscale network. See [reach a tailnet](/guides/tailnet/).
+- A `machine` reaches its shared folders as `filesystem` resources, and a model server on it as an
+  `openai-compatible` resource at `127.0.0.1`. xixo link passes on only a model server's own
+  requests, such as chat and embeddings, to a port where it found a model server, and only while the
+  machine offers its models. It carries no audio, so it cannot transcribe.
 
-These types can name a `via`: `webdav`, `caldav`, `carddav`, `s3`, `mcp`, `search`, `curl`, `rss`,
-`imap`, `git`, `openai-compatible`, `machine`, and `filesystem`. Every other type refuses one. A
-`filesystem` is reached only through a
-`machine`. A `git` resource behind a
-transport takes only an `http` or `https` URL, since the address check does not apply to `ssh`.
+A resource reached through a transport connects only to addresses the transport covers. The address
+check runs as usual, with the transport's ranges in place of the public internet, so a public
+address is refused as firmly as a loopback one. `XIXO_ALLOW_PRIVATE_FETCH` and the `_ORIGINS` lists
+do not widen it. A `git` resource behind a transport takes only an `http` or `https` URL. The
+[resource reference](/reference/resources/) says which types can be reached through a transport.
 
-Checking a resource with a `via` checks the transport first. If the transport fails, the resource
-fails with `<key> is reached through <transport>, which is down`, followed by the transport's error.
+Checking such a resource checks the transport first. When the transport fails, the resource fails
+with `<key> is reached through <transport>, which is down`, followed by the transport's error. A
+transport cannot be put away or deleted while another resource is reached through it.
 
 ### A machine that is offline
 
-tailscaled's status says whether each machine on the tailnet is online, and when it was last seen.
-Before a check or a sync dials a resource reached through a tailnet, xixo reads the host from the
-field the type keeps its address in (`url`, `endpoint`, `base_url`, or `host`). It looks for a peer
-with that address, host name, or name on the tailnet. When that peer is offline, xixo records its
-name in `offline_host` and when it was last seen in `offline_last_seen_at`, and dials nothing.
+Before a check or a sync dials a resource reached through a tailnet, xixo asks Tailscale whether
+the machine at that address is online. When it is offline, xixo dials nothing. The app shows the
+resource as **offline**, with when the machine was last seen.
 
-A resource that is offline is down and not healthy, and its `check_error` stays empty. The app shows
-it as **offline**, with when the machine was last seen. A sync that finds the machine offline raises
-`Resource::Offline`, which fails the run once without retrying it. `ScheduleSyncsJob` skips a
-resource that is offline. `ScheduleChecksJob` checks it again ten minutes after its last check, and
-that check asks only tailscaled. When the machine is back, the check clears both columns, moves a
-scheduled resource's next sync to now, and goes on to check the resource as usual. Inference passes
-over a model server that is offline the same way it passes over one that failed its check.
+- A sync that finds the machine offline fails once without retrying, and no sync is scheduled while
+  it stays offline.
+- xixo checks again ten minutes after the last check. When the machine is back, a scheduled sync
+  starts at once.
+- Inference passes over a model server that is offline, the same way it passes over one that failed
+  its check.
 
 A resource reached directly is never offline, and neither is one whose host the tailnet does not
 list. Each fails its check with the error the connection raised.
 
 ### What a transport reaches
 
-The `discovered` query takes a transport's key and lists the machines it reaches. For a tailnet,
-these are the peers in tailscaled's status, the online ones first. Each has its host name, its name
-on the tailnet, its addresses on the tailnet, whether it is online, and when it was last seen. xixo
-reads nothing else from the status, so a peer's keys, owner, tags, and operating system stay on the
-server. An address outside the tailnet's ranges is dropped. `address(type:)` gives what that type's
-address field would hold to reach the machine, and `addressedBy` on `resourceTypes` names the field.
-
-Asking for `services` also tries a TCP connection to a few well-known ports on each machine that is
-online, for half a second each: 11434 for ollama, 1234 for LM Studio, and 993 for IMAP. Each port
-that accepts is listed with the type that reaches it and the address to give that type. At most 32
-machines are asked. The `resource` tool's `discover` command returns the same list, services
-included. Discovery changes nothing, and it is refused for a transport the grant cannot reach.
-
-`via` is set by the `via` argument of `attachResource` and `updateResource`, by the "Reached through"
-field when a resource is attached or changed in the app, or by a `via` key in `config/resources.yml`.
-The validations refuse a `via` that does not serve `transport`, that belongs to another tenant, that points at the resource itself, that forms a
-loop, or that is more than four hops from a resource that answers. The foreign key is composite:
-`(via_id, tenant_id)` references `(id, tenant_id)`, so the database refuses a link to another
-tenant's resource even if the application does not. A transport cannot be archived while an active
-resource uses it.
+The `discovered` query, and the `resource` tool's `discover` command, list the machines a transport
+reaches. For a tailnet these are its peers, online ones first, each with its names, its addresses on
+the tailnet, and when it was last seen. xixo reads nothing else from Tailscale, so a peer's keys,
+owner, tags, and operating system stay on the server. Asking for `services` also tries well-known
+ports on each online machine, such as Ollama's, LM Studio's, and IMAP's, and lists each one that
+answers with the type and address to attach it with. Discovery changes nothing.
 
 ## Machines and xixo link
 
-A `machine` resource stands for a machine running `xixo-link`, the program in `link/`. The
-**Resources** page is a card per machine, xixo link beside the server first as **This server**.
-Every other resource sits on the card of the machine it lives on or is reached through, which the
-`machineId` field of a resource names: a `filesystem` its machine, a resource reached over a
-tailnet the linked machine at the address it dials, and anything else **This server**.
-A machine links itself up, and an administrator approves it.
+A `machine` resource stands for a machine running xixo link, the program in `link/`. The
+**Resources** page shows a card for each machine, with xixo link beside the server first as **This
+server**. Every other resource sits on the card of the machine it lives on or is reached through.
 
-### Linking up
+A machine links itself up, and an administrator approves it:
 
-Linking up follows the shape of the OAuth device authorization grant (RFC 8628). An administrator
-copies one command from **Resources** and runs it on the machine. `GET /link.sh` serves the script
-without a sign-in, and it holds no secret. The script downloads the build for the machine from
-`GET /link/download/xixo-link-<os>-<arch>`, refuses one that does not match its SHA-256, writes the
-configuration and the service, and runs `xixo-link up`.
+1. An administrator copies one command from **Resources** and runs it on the machine. The script it
+   fetches holds no secret. It downloads the build for the machine, and on a Mac the mac reader, and
+   checks each against its SHA-256.
+2. xixo link makes its own keys, and asks to link up with the machine's name, system, folders, and
+   other details for the administrator to check. It prints a user code, such as `WDJB-MJHT`.
+3. The request appears to every administrator on **Resources**, with the same code and the address
+   it came from. The code is how the administrator matches the request with the machine in front of
+   them.
+4. On approval, xixo hands xixo link a one-time enrollment token from masks. xixo link registers
+   itself with masks and gets a client whose private key never leaves the machine.
+5. xixo creates the `machine`, keyed by the first label of the host name, and makes the approving
+   administrator its first operator.
 
-`xixo-link up` makes the machine's keys and posts its hostname, system, processor, and folders to
-`POST /link/requests`, with details for the administrator to check: the account it runs as, its
-system version and hardware model, its processor cores and memory, the disks under its folders, its
-network addresses, its version, and the model servers it found. xixo clips each text and caps each
-list before it keeps them. xixo keeps them as a `LinkRequest` and answers with two codes:
+A request runs out after ten minutes, and each address and tenant can have only a few waiting at
+once. Running the command again on a linked machine updates xixo link and its configuration. A
+machine cannot be attached by hand. See [add a machine](/guides/add-a-machine/) for the steps.
 
-- The user code, eight letters from a 20-letter alphabet, such as `WDJB-MJHT`. xixo link prints it
-  with the link `/link/<code>`, and xixo shows it beside the request.
-- The device code, a random secret xixo link keeps to itself. xixo stores only its SHA-256.
-
-xixo link then polls `POST /link/requests/token` with the device code every five seconds. The
-request appears at once to every administrator on **Resources**, with the address it came from.
-Only an administrator sees requests, approves them, and denies them. The user code is how the
-administrator matches the request on screen with the machine in front of them, so a request someone
-else started is never approved by mistake.
-
-On approval xixo asks masks for an enrollment token, as described below, and hands it to the next
-poll, once. xixo link registers with masks with its own key and posts the device code to
-`POST /link` with its own DPoP-bound token. Only then does xixo create the `machine`, bound to that
-client. Its key is the first label of the hostname, with `-2`, `-3`, and so on when that key is
-taken, and it never changes. The approving
-administrator is its first operator. A client another machine holds already is refused.
-
-Limits keep a stranger from filling the list. A request runs out ten minutes after it starts, or
-after it is approved. One address may have three requests waiting at once and start ten an hour, a
-tenant holds at most twenty waiting requests, and each address is limited to 30 requests a minute
-across these endpoints. A denied machine is told so on its next poll, and an expired one is told to
-run the command again.
-
-Running the command on a machine that is linked already makes `xixo-link up` ask
-`GET /link` with its own token. xixo answers with the machine's key, and the script goes on to
-upgrade xixo link and rewrite its configuration and service. A machine cannot be attached by hand.
-See [add a machine](/guides/add-a-machine/) for the steps.
-
-### Enrollment
-
-xixo asks masks for an enrollment token at the issuer's `enrollment_endpoint`, as the tenant's own
-client, for the `xixo:link` scope alone. The token works once. xixo link makes its keys on the
-machine and registers itself with masks, which gives it a client that signs in with
-`private_key_jwt`, uses only `client_credentials`, and gets DPoP-bound tokens. The private keys
-never leave the machine, and xixo keeps only the client's ID, in `client_id`. `xixo:link` is
-outside the scopes xixo asks for when a person signs in.
+xixo link connects to xixo over a WebSocket, with a DPoP-bound masks token that carries `xixo:link`.
+xixo takes the connection only from the client of an active machine in the tenant, and closes it
+when the token expires or the machine is put away. xixo never connects to the machine. On each
+hello, xixo link reports its version, folders, model servers, extractors, what its configuration
+allows, and any warnings, which show on its card. Every minute it adds its uptime, load, memory, and
+disks. A machine not heard from for three minutes is offline.
 
 ### What xixo may do with a machine
 
-Each machine holds an access level that an administrator sets on its card:
+An administrator sets each machine's level on its card:
 
 | Level | Tools | Lends whole files | Writes |
 | --- | --- | --- | --- |
-| `search` | `browse`, `search`, `read` | no | no |
-| `files` | adds `extract` | yes | no |
-| `writing` | adds `write` | yes | into its writable folders |
+| **Search** | `browse`, `search`, `read` | no | no |
+| **Files** | adds `extract` | yes | no |
+| **Files and writing** | adds `write` | yes | into its writable folders |
 
-A machine also holds whether it helps read other machines' files, which puts it in the pool that
-reads uploads, mail attachments, cloud files, web pages, and lent files. `models` is added at any
-level once the machine reports a model server. A newly approved machine starts at `search` and
-helps others. xixo link beside the server starts at `writing`.
+`models` is added at any level once the machine reports a model server. **Help read other machines'
+files** puts the machine in the pool that reads uploads, mail attachments, cloud files, web pages,
+and the files machines lend, as described in [extraction](/concepts/analysis/#extraction). A newly
+approved machine starts at **Search** and helps others. xixo link beside the server starts at
+**Files and writing**.
 
-xixo sends these to xixo link as `{"settings": {"tools", "lend", "extracts_for_others"}}` right
-after each `hello` and whenever they change, so a change takes effect without touching the machine.
-The machine's configuration can narrow them with the same three keys, and a key left out sets no
-limit. xixo link does only what both allow, xixo counts only what both allow, and the folders in the
-configuration stay the hard limit. When the configuration holds something back, the card says so.
-
-### The connection
-
-xixo link connects to `/cable` with `Authorization: DPoP <token>` and a DPoP proof for `GET` on
-that URL. `ApplicationCable::Connection` takes such a connection only when the token's audience is
-the tenant's resource, the token is bound to the key that made the proof, the proof is fresh and
-used once, the token carries `xixo:link`, its subject is its own client, and an active
-`machine` in the tenant holds that client's ID. A connection without an `Authorization` header is
-a person's browser, and the two never mix: `GraphqlChannel` refuses a machine, and `LinkChannel`
-refuses a person. Every fifteen seconds the channel closes a connection whose token has expired or
-whose machine was archived, and xixo link connects again with a new token.
-
-On `hello`, xixo records the machine's hostname, operating system, architecture, xixo link version,
-folders, model servers, what its configuration allows, and its warnings,
-and clears `offline_host`. `health` adds uptime, load, memory, and disks every minute, and replaces
-the warnings. A warning is a sentence xixo link writes about something keeping it from working
-fully, such as a shared folder it may not read; xixo keeps at most 16, each up to 500 characters,
-and shows them on the machine's card. When the connection closes, the machine goes offline with when it was last
-seen, unless a newer connection has taken its place. A machine not heard from for three minutes is
-not connected either way. What xixo keeps is trimmed and checked first: folders must be clean
-absolute paths, and services are only ollama and LM Studio. `hello` also carries the configuration's own `tools`, `lend`, and `extracts_for_others`, which xixo combines with the machine's access level. Lending and helping others decide who reads what: a machine that lends lets another read the files it cannot, and a machine that helps others joins the pool that reads uploads, cloud files, and lent files. See [extraction](/concepts/analysis/#extraction). A hello also resumes the analyses parked for want of a machine that the machine can now serve.
-
-### Asking a machine
-
-Each question to a machine is an `link_exchanges` row with a request ID. xixo broadcasts
-`{request, verb, args}` on the machine's stream and waits for a `reply` with that ID, so a job in
-the worker reaches a machine connected to a web process. `Resource::Machine` asks in four ways:
-
-| Method | Does |
-| --- | --- |
-| `ask(verb, args, within:)` | Sends any verb and returns the reply's result. Fails when xixo link refuses or says nothing for thirty seconds. |
-| `exchanged(verb, args, within:) { \|answer\| }` | Sends any verb and yields the answer, whose `file(entry)` gathers a file xixo link streamed back. The exchange and every chunk are deleted when the block returns. |
-| `read(folder, path)` | Asks for one file in a shared folder and returns it as a temporary file. |
-| `upload(io)` | Holds bytes for xixo link as chunks of at most 256 KiB and returns the upload's ID and size. The machine fetches it once from `/link/uploads/:id` within fifteen minutes, with its DPoP-bound token and a proof for that URL, and each chunk is deleted as it is sent. |
-
-Bytes from xixo link arrive as `chunk {request, seq, data}` frames. A file xixo link sends back
-with an answer has an ID of its own, and its chunks name the open question they belong to in `of`.
-xixo gathers the chunks in order into a temporary file and fails when xixo link stops sending for a
-minute or sends more than it said. Chunks are kept in whatever order they arrive, after the reply
-too. A reply or chunk is taken only from the machine that was asked, and a chunk is taken only for a
-`read` or a file. One question holds at most 256 files and 4 GiB, a machine holds at most 64 open
-questions and 8 GiB received, and exchanges older than two hours are deleted by
-`ForgetLinkExchangesJob`. A question asked inside a database transaction, as analysis asks, is
-written and awaited on a connection of its own, so the channel sees it at once.
-
-A `filesystem` names one of the folders xixo link said it shares. Attaching one xixo link does
-not share is refused, and a folder xixo link stops sharing is unusable. Every path xixo link lists
-must be relative and stay inside the folder. The folders, and which of them are writable, are set
-only by the machine's configuration, which `xixo-link setup` writes on the machine. Nothing xixo sends
-over the connection changes them, and xixo link refuses any path outside them.
-
-A write is a `write {folder, path, upload, size, replace}` question. xixo link fetches the upload
-the way it fetches one to extract, writes it to a temporary file beside its target, syncs it, and
-moves it into place. It creates folders on the way inside the shared folder only, and refuses a
-read-only folder, a link anywhere on the path, a name a walk skips, and bytes that do not match the
-size. It replaces an existing file only when xixo asks it to, which xixo does only for a path the
-catalog already holds on that resource, so a file someone else put there is never overwritten.
+xixo sends these to xixo link whenever they change. The machine's own configuration can narrow them
+with `tools`, `lend`, and `extracts_for_others`. xixo link does only what both allow, and the card
+says when the configuration holds something back. The shared folders, and which of them are
+writable, are set only on the machine, and nothing xixo sends changes them.
 
 ### Tools a machine offers
 
-A machine offers MCP clients the tools its access level gives it, as described in
-[what xixo may do with a machine](#what-xixo-may-do-with-a-machine), narrowed by any `tools` list in
-its configuration. xixo link says what its configuration allows in `hello`, and xixo keeps only the
-names it knows. A client reaches them
-through the `resource` tool at `/mcp`, as commands on the machine, and never through a port on the
-machine: each call is a question on the connection xixo link already holds open. xixo link refuses
-the verb of a tool that xixo's settings or its configuration leave out, and xixo lists and accepts
-only the commands of the tools the machine offers, so neither side can widen what the other allows.
-A machine that offers no tools answers `health` and `discover` alone.
+A machine offers MCP clients the tools its level and its configuration allow. A client reaches them
+as commands on the machine through the `resource` tool at `/mcp`, never through a port on the
+machine. Neither side can widen what the other allows.
 
-| Tool | Command | Verb | Does |
-| --- | --- | --- | --- |
-| `browse` | `browse` | `browse` | Lists the shared folders, or up to 200 files in one, with a cursor to read on. |
-| `search` | `search` | `find` | Matches the query against xixo's index of the machine's folders, then against the paths of its files, ignoring case. The walk stops after 100 matches, 20,000 files, or ten seconds. |
-| `read` | `read` | `peek` | Sends up to 256 KiB of a file. |
-| `write` | `write` | `place` | Writes a file of at most 1 MiB into a writable folder. |
-| `extract` | `extract` | `examine` | Runs the machine's extractors on a file and answers with their steps, and none of the files they make. |
-| `models` | `chat` | `model` | Asks a model server on the machine one question. |
+| Tool | Command | Does |
+| --- | --- | --- |
+| `browse` | `browse` | Lists the shared folders, or the files in one. |
+| `search` | `search` | Finds files by xixo's index of the machine's folders, then by their paths on the machine. |
+| `read` | `read` | Sends up to 256 KiB of a file. |
+| `write` | `write` | Writes a file of at most 1 MiB into a writable folder. It overwrites a file only when asked to. |
+| `extract` | `extract` | Runs the machine's extractors on a file and answers with what they read. |
+| `models` | `chat` | Asks a model server on the machine one question. |
 
-The machine's other settings still apply. `read` sends bytes only from a machine that lends, at the
-`files` or `writing` level with a configuration that allows `lend`; from any other machine, or one that is offline, it answers with the text and summary
-analysis drew out of the file and says that the bytes stay on the machine. `write` reaches only the
-folders the configuration marks writable, and xixo lists it only for a machine that has one. `chat`
-is listed only for a machine that reported a model server. xixo link sends the question to
-`127.0.0.1` on the port it probed for that kind of server, Ollama on 11434 or LM Studio on 1234, as an
-OpenAI-compatible chat completion. It takes no address, follows no redirect, and caps the prompt at
-64 KiB, the answer at 64 KiB, and the time at 90 seconds.
+- Every command needs `xixo:resources:read`, and `write` also needs `xixo:resources:command`.
+- `browse`, `write`, `extract`, `chat`, and the walk of the machine's folders answer only the
+  machine's operators and administrators. The operators are the masks subjects listed under **Who
+  operates it**. Anyone else gets `search` over xixo's index, and `read` of what analysis drew out
+  of the file.
+- `read` sends the file's bytes only from a machine that lends. From any other machine, or one that
+  is offline, it answers with what analysis drew out of the file.
+- `chat` sends the question only to a model server on the machine's own loopback address. It takes
+  no address and follows no redirect.
+- One call that waits on a machine runs on it at a time, and one for each person across every
+  machine. Another is told the machine is busy.
+- A folder attached as one person's `filesystem`, and a folder that holds a file kept to one person,
+  are out of reach of every other person's token.
+- `browse`, `search`, `read`, and `extract` count as reading the catalog, and `write` and `chat` as
+  reaching outward, for an agent's [catalog or web](/concepts/agents/#catalog-or-web) rule.
 
-Every command needs `xixo:resources:read`, and `write` also needs `xixo:resources:command`.
-`browse`, `write`, `extract`, `chat`, the walk in `search`, and the bytes `read` sends answer only a
-token for one of the machine's operators, or an administrator's. The operators are masks subjects
-the machine lists under **Who operates it**. The administrator who approves a machine is
-its first operator, and the first administrator xixo sees after **This server** appears operates it.
-Anyone else's token gets `search` over xixo's index and `read` of what analysis drew out, and the
-other commands are neither listed nor accepted.
-
-A `write`, an `extract`, a `chat`, and the walk in `search` each wait on the machine for an answer.
-One such call waits on a machine at a time, and one for each person across every machine; another
-is told the machine is busy and to try again once the first answers. `extract` waits at most two
-minutes and `chat` 90 seconds.
-
-`browse`, `search`, `read`, and `extract` count as reading the catalog, so an agent run that has read
-the web cannot use them, and `write` and `chat` count as reaching outward, so an agent run that has
-read the catalog cannot use them. A folder attached as one person's `filesystem` resource, and a folder that
-holds a file kept to one person, such as storage that holds someone's private upload, are out of
-reach of every other person's token. xixo records each call as an audit event on
-the `mcp` channel, with its arguments. The tools stop short of running anything on the machine: no
-tool takes a command line, a program, or an address.
+No tool takes a command line, a program, or an address. xixo records each call in the audit log. See
+[change what xixo may do](/guides/add-a-machine/#change-what-xixo-may-do).
 
 ### xixo link beside the server
 
-Every install runs xixo link beside the server, as the `xixo-link` service of the example compose. It
-starts at the `writing` level and helps others, so it is in the pool, and it is asked first while it has the
-extractor, since the bytes are already on the server. It has no database and no keys, and sees
-only its own state and the folders mounted into it. It enrolls itself through a directory
-it shares with the worker, named by `XIXO_LOCAL_LINK`: it leaves a `wanted` file, `EnrollLocalLinkJob`
-leaves it a single-use enrollment token readable by its user alone, and it writes back the client it
-enrolled as, which the job binds to the `local` machine, **This server**. A connection from that
-client before the job has bound it is turned away to try again, and starts the job at once. It
-binds a client only within twelve minutes of handing out a token, once for each token, and never one another machine is
-enrolled as. A client named any other way is refused, and the reason shows on the machine's card.
-Deleting xixo link's state volume enrolls it again. The job reads nothing behind a link. See [extraction](/concepts/analysis/#extraction) for what it is asked.
+Every install runs xixo link beside the server, as the `xixo-link` service of the example compose.
+It has no database, and sees only its own state and the folders mounted into it. It enrolls itself
+through a folder it shares with the worker, so it needs no link-up command. Deleting its state
+volume enrolls it again. See [xixo link beside the
+server](/guides/self-hosting/#xixo-link-beside-the-server).
 
 ## Health, internal stores, archiving, and deleting
 
-A check calls the type's `check!` and records `checked_at` and `check_error`. A resource is healthy
-when it has been checked and the last check raised no error. An `openai-compatible` resource with an
-agent, embedding, or transcription model first asks only whether the server lists its models. If it
-does, the check sets `probing_since` and hands the rest to a `CheckResourceJob`, which tries tool
-calls, the context window, embeddings, and transcription. The resource reads as checking until that
-job records its result, and keeps its last `checked_at` and `check_error` meanwhile. A probe that has
-not finished in fifteen minutes stops reading as checking. `ScheduleChecksJob` runs every ten minutes. It
-finds resources that were never checked, not checked in six hours, or failed a check more than ten
-minutes ago, and checks each one in its own job, so a resource that stopped answering shows it before a sync or a tool call reaches it. It skips
-a resource that is syncing, since the sync tests it better. Checking an MCP server asks it again for
-its tools, so tools it adds or removes reach the proxy within six hours.
+A check tests that a resource answers, and records when it ran and any error. A resource is healthy
+when it has been checked and the last check passed. A model backend's check also tries tool calls,
+the context window, embeddings, and transcription in the background, and reads as checking until
+that finishes. Every ten minutes, xixo checks each resource that was never checked, was last checked
+more than six hours ago, or failed a check more than ten minutes ago, except one that is syncing.
+Checking an MCP server asks it again for its tools.
 
-xixo keeps two stores for itself: `children`, for what is extracted from a file, and `derived`, for
-previews, thumbnails, and the frames read from an animation or a video. Both are database resources, and neither is ever offered as a place for an
-upload. Neither is listed or reachable by key through GraphQL or MCP. Neither can be archived,
-synced, scheduled, or made a default, because xixo writes into them regardless of those settings.
+xixo keeps two stores for itself: `children`, for files extracted from other files, and `derived`,
+for previews, thumbnails, and frames. Neither is offered for an upload, listed, archived, synced, or
+made a default.
 
-Archiving sets `archived_at` and deletes nothing. An archived resource is left out of capability
-queries, placement, the defaults, and the sync schedule. Restoring it clears the timestamp.
+**Put away** archives a resource and deletes nothing. An archived resource is left out of placement,
+the defaults, and the sync schedule, and can be brought back. Only an archived resource can be
+deleted, so deleting always takes two steps. Deleting is refused while a run is open.
 
-Only an archived resource can be deleted, so deleting always takes two steps. `deleteResource`
-refuses a resource that is still in use, one with a sync or another run open, an internal store, and
-a transport that another resource is still reached through, archived or not. A personal resource
-can be deleted only by its owner, because `Resource.reachable_by` hides it from everyone else.
+Deleting removes the resource's references, its runs, and its row, so its key is free again. Each
+file left with no originals is then forgotten, unless a note, an expiry, or an edge someone made
+keeps it. See [noticing what is gone](/concepts/references/#noticing-what-is-gone). The deletion and
+each feed it forgets are recorded in the audit log.
 
-Deleting removes the resource's references, its runs, and its row, so its key is free to attach
-again. Each feed that pointed into it is then handed to `ForgetPlacelessJob`, which forgets the
-`xixo:file` feeds left with no originals, unless a note, a lifetime, or an edge someone made keeps
-them (see [noticing what is gone](/concepts/references/#noticing-what-is-gone)), and reindexes the
-rest. Forgetting a feed deletes the previews, thumbnails, and extracted children xixo stored for it
-in its internal stores.
-
-Deleting does not reach into the source, so the files in a bucket, a folder, or a mailbox stay
-where they are. A `database` resource is the exception, because its files live in xixo's own
-database, and they are deleted with it. A resource connected through masks keeps its connection in
-masks until it is removed there. The deletion and each feed it forgets are recorded in the audit
-log.
+Deleting does not reach into the source, so the files in a bucket, a folder, or a mailbox stay where
+they are. A `database` resource is the exception, because its files live in xixo's own database. A
+resource connected through masks keeps its connection in masks until it is removed there.

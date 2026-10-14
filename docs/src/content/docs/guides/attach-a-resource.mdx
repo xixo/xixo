@@ -4,179 +4,63 @@ description: Add storage, a model backend, a mailbox, a web source, or another r
 ---
 
 At the end of this guide, a new [resource](/concepts/resources/) is attached, checked, and in use.
-You need to be signed in with `xixo:resources:command`, which the browser app asks for at sign-in.
-A resource everyone can use also needs `xixo:settings:admin`. See [who changes a
-resource](/concepts/resources/#who-changes-a-resource).
-
-## Where it goes
+You need `xixo:resources:command`, which the browser app asks for at sign-in. A resource everyone
+can use also needs an administrator. See
+[who changes a resource](/concepts/resources/#who-changes-a-resource).
 
 **Resources** shows one card per machine. **This server**, the machine xixo runs on, comes first,
-then each [linked machine](/guides/add-a-machine/). A resource sits on the card of the machine it
-lives on or is reached through:
-
-- A folder sits on the machine that shares it.
-- A model server or another service reached over a [tailnet](/guides/tailnet/) sits on the linked
-  machine at the address it dials. When no linked machine is at that address, it sits on **This
-  server**, which says the tailnet's name, such as **through home**.
-- Everything else, such as a bucket, a mailbox, or the web, is reached from **This server**, and so
-  is the tailnet itself.
+then each [linked machine](/guides/add-a-machine/). A folder or a model server sits on the card of
+the machine it is on. A bucket, a mailbox, the web, and most other types are reached from **This
+server**.
 
 ## Attach it
 
-1. Choose your avatar in the top right corner, then **Resources** in the sidebar.
-2. Choose **Add to** followed by the machine's name at the foot of its card. **Add** at the top of
-   the page asks which machine first, starting at **This server**.
+1. Choose your avatar in the top right corner, then **Resources**.
+2. Choose **Add to** followed by the machine's name at the foot of its card.
 3. Pick what to add:
-   - **Folders it shares** lists the folders the machine shares that are not attached yet. Picking
-     one opens the **A folder** form with the folder filled in.
-   - **Model servers it found** lists the Ollama and LM Studio servers xixo link found on the
-     machine. When xixo reaches the machine over a tailnet, **Add** attaches the model server in one
-     click, through that tailnet, and checks it. Then choose **Change** to name a model for each
-     role. Otherwise **Set up** opens the **A model backend** form with a **Base URL** to check.
-   - On **This server**, **Reached from here** opens the list of every other type, grouped under
-     **Where your files live**, **The web**, **Mail, calendars and contacts**, **Models and tools**,
-     and **Where you work**. **Everything** opens the whole list.
-
-   Only an administrator adds a folder, or anything else to a linked machine.
-4. Under **Name it**, fill in the first field. For most types it is labeled **A name for it**. For
-   **Object storage** it is **The bucket's name**, and for **An MCP server** it is **The prefix its
-   tools answer under**. The name must be unique among resources of that type, and it cannot be
-   changed later.
-5. Optionally fill in **Called**, the name shown in listings.
-6. Under **Who can use it**, choose **Everyone here** or **Only me**. Without the admin scope only
-   **Only me** can be chosen. See [a personal resource](#a-personal-resource).
-7. Fill in the fields under **Connection**. Required fields are marked with an asterisk. For a
-   type that can be reached through a network, such as a tailnet, set **Reached through** first.
-   See [a resource on a network](#a-resource-on-a-network).
+   - Under **Folders it shares**, pick a folder the machine shares. This opens **A folder** with the
+     folder filled in.
+   - Under **Model servers it found**, choose **Add** to attach an Ollama or LM Studio server in one
+     step. A model server that answers only on its own machine is added through that machine, at
+     `127.0.0.1`. Choose **Set up** instead to open **A model backend** with a **Base URL** to
+     check.
+   - On **This server**, under **Reached from here**, choose a group or **Everything**, then a
+     type.
+4. Under **Name it**, fill in the first field. The name must be unique among resources of that type,
+   and it cannot be changed later.
+5. Optionally, fill in **Called**, the name shown in listings.
+6. Under **Who can use it**, choose **Everyone here** or **Only me**. See
+   [a personal resource](#a-personal-resource).
+7. Fill in the fields under **Connection**. Required fields are marked with an asterisk. Every
+   type's fields are in the [resource reference](/reference/resources/).
 8. Choose **Attach it**.
 
-xixo saves the resource and checks it straight away. When the check passes, the dialog closes. When
-it fails, the resource is still attached, and the dialog shows **Attached, but it did not answer**
-with the error. See [if it doesn't work](#if-it-doesnt-work).
+Only an administrator adds a folder, or anything else on a linked machine.
 
-## What each type asks for
+xixo checks the resource right away. When the check passes, the dialog closes. When it fails, the
+resource is still attached, and the dialog shows **Attached, but it did not answer** with the error.
+See [if it doesn't work](#if-it-doesnt-work).
 
-The fields for every type, with their help text, are listed in the
-[resource reference](/reference/resources/). The common ones:
+A model backend added with **Add** has no models yet. Choose **Change** on its row to name a model
+for each role.
 
-| Card | Type | Asks for |
-| --- | --- | --- |
-| **Object storage** | `s3` | **Endpoint**, **Access key**, **Secret key**, and optionally **Region**, **Prefix**, and **Address the bucket by path** |
-| **A folder** | `filesystem` | **Folder**, one a machine shares, picked under **Reached through** |
-| **WebDAV** | `webdav` | **Collection URL**, and a username and password if the server wants them |
-| **Web search** | `search` | **Provider** (`exa`, `brave`, or `tavily`) and **API key** |
-| **Fetch a page** | `curl` | Nothing |
-| **The web** | `web` | Optionally **Render width** and a **Watchlist** |
-| **A feed** | `rss` | **Feed URL** |
-| **Weather** | `weather` | **Provider** and **Units**, and an **API key** for Open-Meteo's paid service |
-| **Places** | `places` | Nothing, or your own **Search server** and **Nearby server** |
-| **A mailbox** | `imap` | **Server**, **Username**, **Password**, and optionally **Port**, **Over TLS**, and **Mailbox** |
-| **Calendars**, **Contacts** | `caldav`, `carddav` | **Collection URL**, and a username and password if the server wants them |
-| **A model backend** | `openai-compatible` | **Base URL**, a model for each role you want it to serve, and an **API key** if the backend wants one |
-| **An MCP server** | `mcp` | **Address** and **Authentication** |
-| **GitHub** | `github` | **Access token** and **Repositories** |
-| **Notion** | `notion` | **Internal integration secret** |
-| **Slack** | `slack` | **Bot token** |
-| **A git repository** | `git` | **Repository URL**, and an **Access token** for a private repository |
+:::note
+**Places** with **Name where photos were taken** turned on sends each photo's coordinates to its
+search server. It is off until you turn it on.
+:::
 
-**A folder** names one of the folders a machine shares, xixo link beside the server
-included. See [add a machine](/guides/add-a-machine/). A model backend's **Agent model** must call tools. Its **Embedding model** must produce vectors of the width
-the search index was built for, `XIXO_EMBEDDING_DIMENSIONS`.
+## Connect an account through masks
 
-To give [questions](/guides/ask/) the web, attach **Web search** to search it, **Fetch a page** to read
-pages, and **The web** to keep pages as items. Attach **Weather** so a question about the weather is
-answered with the forecast itself. Each weather resource is one provider and key, so attach another
-to use a second. Attach **Places** so a question can find an address, name coordinates, or look for
-what is near a place. It uses OpenStreetMap's public Nominatim and Overpass servers, which ask for
-about one request a second, so point it at your own for heavy use. **Name where photos were taken**
-sends the coordinates in each photo's EXIF to the search server and catalogs the photo by the
-address it names. It is off until you turn it on. **The web** writes its snapshots to default storage.
-
-## Accounts connected through masks
-
-**Google Drive** and **OneDrive** use your own account, and so does **An MCP server** with
-**Authentication** set to **Your own account, through masks**.
+**Google Drive**, **OneDrive**, and **An MCP server** with **Authentication** set to **Your own
+account, through masks** use your own account. See
+[resources connected through masks](/concepts/resources/#resources-connected-through-masks).
 
 1. Attach it as above. The button reads **Attach and connect**.
-2. masks asks for your consent, and signs you in to the provider if needed.
-3. The browser returns to **Resources**, and the resource syncs from then on.
+2. Approve the connection in masks, and sign in to the provider if it asks.
 
-A resource that has not finished connecting shows **not connected** and a **Connect** button.
-When the account stops working, it shows **needs reconnecting** and a **Reconnect** button.
-**Google Drive** and **OneDrive** start as **Only me**. See [resources connected through masks](/concepts/resources/#resources-connected-through-masks).
-
-## Check it
-
-Each resource is one row on its machine's card: its name, a line saying what it is, and how many
-items it holds. A row shows a state only when something needs you: **not working**, **offline**,
-**checking**, **syncing**, or one of the connection states above, with the error below it. A row
-under a machine that is offline stays quiet, since the machine's card already says when it was last
-seen. **offline** on a row means the machine it lives on is off the network it is reached through.
-Hover over it to see when the machine was last seen. Its scheduled syncs wait until the machine is
-back, and then start. **Details** on a row shows its key, type, what it is reached through, what it
-does, its sync schedule, and when it was last checked.
-
-1. Choose **Check** from the **⋯** menu on the resource's row.
-2. xixo reports that the resource answers, or shows the error on the row. A model server reads
-   **checking** while xixo tries its models in the background, and the row updates when that
-   finishes.
-
-xixo also checks every resource on its own every six hours.
-
-## Choose the defaults
-
-A tenant has one default storage and one default inference resource. The line at the top of
-**Resources** names both, such as **Drops land in files on This server** and **Questions go to
-ollama on studio**. Choosing a name scrolls to its row.
-
-- Choose **Take drops** from the **⋯** menu on a storage resource's row. The row then reads
-  **drops land here**. Uploads that no agent placed land there, and so do snapshots from the web.
-- Choose **Take questions** from the **⋯** menu on a model backend's row. The row then reads
-  **answers questions**. xixo prefers it when more than one resource could serve a role, and uses
-  another one while its last check is failing.
-
-Making one resource the default clears the flag on the previous one. A personal resource cannot be
-a default.
-
-## Schedule syncs
-
-A resource that can sync shows its schedule under **Details**, such as **on demand** or
-**every 30 min**.
-
-1. Choose **Details** on its row, then the schedule. A **Sync every** field opens.
-2. Enter a number of minutes. The minimum is one.
-3. Choose **Keep**.
-
-Clearing the field and choosing **Keep** sets the resource to sync on demand only. Choose the
-**Sync now** from the **⋯** menu to start one now. See [syncing](/concepts/resources/#syncing).
-
-## Change it
-
-1. Choose **Change** from the **⋯** menu on the resource's row.
-2. Edit **Called** or any field under **Connection**. A secret left empty keeps the value it holds.
-3. Choose **Save it**.
-
-The type and the name cannot be changed. The resource is checked again after saving.
-
-## Watch pages on the web
-
-A `web` resource with a **Watchlist** takes each address on it again every time it syncs. A page
-that changed becomes a new version of its item.
-
-1. Choose **Change** from the **⋯** menu on the web resource's row.
-2. Enter addresses under **Watchlist**, one per line.
-3. Choose **Save it**.
-
-Its **Details** then show a schedule, and its menu **Sync now**. Each address must be `http` or `https`, carry no
-username or password, and name a host. A host written as a private or reserved IP address is
-refused unless `XIXO_ALLOW_PRIVATE_FETCH` is set, and every host is checked again on each request
-the page makes. A watchlist holds up to 100 addresses.
-
-An address taken off the watchlist is marked gone after the next sync. An address that fails to
-render is skipped and logged in the run, and the sync carries on with the rest. Emptying the
-watchlist of a resource that has a schedule is refused until the schedule is cleared. An agent
-adds an address with the `resource` tool's `watch` command and takes one off with `unwatch`.
-Taking the last address off with `unwatch` also clears the schedule.
+The browser returns to **Resources**, and the resource syncs from then on. A resource that has not
+finished connecting shows **not connected** and a **Connect** button. When the account stops
+working, it shows **needs reconnecting** and a **Reconnect** button.
 
 ## A resource on a network
 
@@ -184,53 +68,106 @@ A type such as **WebDAV**, **A mailbox**, or **A model backend** can be reached 
 xixo is on, such as a [tailnet](/guides/tailnet/).
 
 1. Under **Connection**, set **Reached through** to the network.
-2. Choose a machine from **On** followed by the network's name. It lists the machines the network
-   reaches, each with its address, and marks the ones that are offline. A machine where a model
-   server or a mailbox answers on its usual port names it, such as **ollama**.
-3. xixo fills in the address field with the machine's address on the network, and the name with
-   the machine's name if you have not typed one. A model server found on its usual port gets its
-   full **Base URL**.
-4. Check the address, adding a port or path the service needs, and fill in the other fields.
+2. Pick a machine from **On** followed by the network's name. It lists the machines the network
+   reaches, marks the ones that are offline, and names a model server or mailbox found on its usual
+   port.
+3. Check the address xixo filled in, and add a port or path the service needs.
 
-The `resource` tool's `discover` command lists the same machines over MCP, and the `discovered`
-query lists them over GraphQL.
+## Check it
+
+Each row shows a resource's name and what it does. A storage resource also shows how many items it
+holds. A row shows a state only when something needs you, such as **not working**, **offline**, or
+**checking**, with the error below it.
+
+1. Choose **Check** from the **⋯** menu on the resource's row.
+
+A model server reads **checking** while xixo tries its models, and the row updates when that
+finishes. xixo also checks every resource every six hours, and a failing or offline one every ten
+minutes. **Details** on a row shows its key, type, what it does, its sync schedule, and when it was
+last checked.
+
+## Choose the defaults
+
+A tenant has one default storage and one default model backend. The line at the top of
+**Resources** names both, such as **Drops land in files on This server**. Only an administrator
+changes them, and a personal resource cannot be a default.
+
+- To make a storage resource the default, choose **Take drops** from its **⋯** menu. Uploads that no
+  agent placed, and snapshots from the web, land there.
+- To make a model backend the default, choose **Take questions** from its **⋯** menu. xixo prefers
+  it when more than one resource could serve a role, and uses another while its check is failing.
+
+## Schedule syncs
+
+1. Choose **Details** on the resource's row.
+2. Choose the schedule, such as **on demand**. A **Sync every** field opens.
+3. Enter a number of minutes, or leave it empty to sync on demand only.
+4. Choose **Keep**.
+
+To sync now, choose **Sync now** from the **⋯** menu. See [syncing](/concepts/resources/#syncing).
+
+## Change it
+
+1. Choose **Change** from the **⋯** menu on the resource's row.
+2. Edit **Called** or any field under **Connection**. A secret left empty keeps the value it holds.
+3. Choose **Save it**.
+
+The type and the name cannot be changed. xixo checks the resource again after saving.
+
+## Watch pages on the web
+
+A `web` resource takes each address on its **Watchlist** again every time it syncs. A page that
+changed becomes a new version of its item.
+
+1. Choose **Change** from the **⋯** menu on the web resource's row.
+2. Enter `http` or `https` addresses under **Watchlist**, one per line, up to 100.
+3. Choose **Save it**.
+4. [Schedule syncs](#schedule-syncs) for the resource.
+
+An address taken off the watchlist is marked gone after the next sync. An agent adds an address
+with the `resource` tool's `watch` command and takes one off with `unwatch`.
 
 ## A personal resource
 
-Choose **Only me** under **Who can use it** while attaching. The row shows **only you**. Nobody else
-sees the resource or reaches it through a tool, and an agent uses it only in a run you started. What
-it syncs, and what such an agent writes, is still cataloged for everyone in the tenant. This choice cannot be changed after attaching.
+Choose **Only me** under **Who can use it** while attaching. You cannot change this later. The row
+shows **only you**.
+
+- Nobody else sees the resource or reaches it through a tool.
+- What it syncs is cataloged for you alone.
+- An agent uses it only in a run you started, and what that agent writes is cataloged for everyone.
+
+**Google Drive** and **OneDrive** start as **Only me**. Without an administrator, **Only me** is the
+only choice. See [only mine, or everyone's](/concepts/resources/#only-mine-or-everyones).
 
 ## Put it away
 
-Choose **Put away** from the **⋯** menu on the resource's row. The resource stops syncing and is no longer a default or
-a place for uploads. What it cataloged stays searchable. To bring it back, choose **Put away** at the
-top of the page to show put-away resources, then **Put back** on its row.
+Choose **Put away** from the **⋯** menu on the resource's row. The resource stops syncing and is no
+longer a default. What it cataloged stays searchable.
+
+To bring it back:
+
+1. Choose **Put away** at the top of the page.
+2. Choose **Put back** on its row.
 
 ## Delete it
 
-A resource can be deleted once it is put away.
+1. [Put the resource away](#put-it-away).
+2. Choose **Put away** at the top of the page.
+3. Choose **Delete** on the resource's row.
+4. Read what it removes, then choose **Delete it**.
 
-1. Choose **Put away** at the top of the page to show put-away resources.
-2. Choose **Delete** on the resource's row.
-3. Read what it removes, then choose **Delete it**.
-
-xixo stops pointing at everything the resource cataloged and frees its key, so a resource can be
-attached again under the same key. An item found nowhere else is forgotten, unless it has a note, a
-lifetime, or a tag or connection someone made. The files in the source stay where they are. A
-personal resource can be deleted only by the person who attached it. A transport is refused while
-another resource is reached through it.
+xixo stops pointing at what the resource cataloged and frees its key. An item found nowhere else is
+forgotten, unless it has a note, a lifetime, or a tag or connection someone made. The files in the
+source stay where they are. A resource that another resource is reached through cannot be deleted.
 
 :::caution
 A `database` resource keeps its files in xixo, so deleting it deletes them.
 :::
 
-## Over GraphQL
+## Over GraphQL and MCP
 
-`resourceTypes` lists every type that can be attached and the fields each one takes.
-`attachResource` takes `type`, `key`, an optional `name`, `settings` with one entry per field, and
-`personal`. `resourceTypes` needs `xixo:resources:read`, and `attachResource` needs
-`xixo:resources:command`, and also `xixo:settings:admin` unless `personal` is true.
+`attachResource` takes `type`, `key`, an optional `name`, `settings` with one entry per field,
+`personal`, and `via`. `resourceTypes` lists each type's fields.
 
 ```graphql
 mutation {
@@ -251,27 +188,21 @@ mutation {
 }
 ```
 
-A field the type does not declare is dropped, and a missing required field is refused. For a type
-connected through masks, `connectUrl` is where to send the browser. `checkResource`,
-`setDefaultStorage`, `setDefaultInference`, `setSyncInterval`, `updateResource`, `archiveResource`,
-and `deleteResource` do what the buttons do. See the [GraphQL reference](/reference/graphql/).
-
-Over MCP, the `resource` tool lists and checks resources. See
-the [MCP reference](/reference/mcp/#resource).
+For a type connected through masks, `connectUrl` is where to send the browser. The other buttons
+have mutations of their own. See the [GraphQL reference](/reference/graphql/). Over MCP, the
+`resource` tool lists and checks resources, and attaches one that needs no secret. See the
+[MCP reference](/reference/mcp/#resource).
 
 ## If it doesn't work
 
 - **`no inference origins are permitted — set XIXO_INFERENCE_ORIGINS`** or **`... is not one of
-  XIXO_INFERENCE_ORIGINS`**. A model backend's **Base URL** must use an origin listed in
-  `XIXO_INFERENCE_ORIGINS`. Add it and restart xixo, then choose **Check**.
-- **`... does not serve ...`**. A model backend was given a model it
-  does not have. Pull the model into the backend, or correct the name with
-  **Change**.
-- **`... resolves to ..., which is not a public address`**. xixo refuses private and local addresses.
-  For object storage on a private network, list its origin in `XIXO_S3_ORIGINS`. See the
+  XIXO_INFERENCE_ORIGINS`.** A model backend's **Base URL** must use an origin listed in
+  `XIXO_INFERENCE_ORIGINS`. Add it, restart xixo, then choose **Check**.
+- **`... does not serve ...`.** The model backend does not have a model it was given. Pull the model
+  into the backend, or correct the name with **Change**.
+- **`... resolves to ..., which is not a public address`.** xixo refuses private and local
+  addresses. For object storage on a private network, list its origin in `XIXO_S3_ORIGINS`. See the
   [environment reference](/reference/environment/).
-- **`... is needed`**. A required field was left empty.
-- **That did not connect**. masks refused the connection, you declined it, or masks could not be
+- **`... is needed`.** A required field was left empty.
+- **That did not connect.** masks refused the connection, you declined it, or masks could not be
   reached. The message says which. Choose **Connect** to try again.
-- **Take drops** or **Take questions** is refused. The resource is personal, or it does not serve
-  storage or inference.

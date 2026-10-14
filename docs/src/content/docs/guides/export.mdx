@@ -3,88 +3,59 @@ title: Export your catalog
 description: Copy the original files behind your catalog into a storage resource you can read outside xixo.
 ---
 
-This guide copies the original bytes of every feed that matches a filter into a storage resource,
-where any tool that reads that storage can read them. You need a signed-in account with
-`xixo:catalog:write`, and at least one attached resource that serves `storage`. See
-[resources](/concepts/resources/) and [attaching a resource](/guides/attach-a-resource/).
+This guide copies the original files behind the items that match a filter into a storage resource,
+where any tool that reads that storage can read them. You need `xixo:catalog:write`, and at least
+one `s3`, `filesystem`, or `webdav` resource. See [attaching a resource](/guides/attach-a-resource/).
 
 ## What an export writes
 
-An export starts an `export` run and queues `ExportItemsJob` on the `export` queue. The job walks
-every [feed](/concepts/feeds/) that has at least one [reference](/concepts/references/) and matches
-the filter. For each one it takes an original reference held on some other resource, downloads the
-bytes, and uploads them to the destination.
-
-- Each file is written at `<source resource key>/<locator key>`. A file from the resource `photos`
-  at `2024/beach.jpg` lands at `photos/2024/beach.jpg`.
-- In an `s3` resource, the bucket is the resource's key, and the path is the object key from the
-  bucket's root. The resource's `prefix` does not apply.
-- In a `filesystem` resource, the path is relative to the shared folder, and the folder must be one
-  the machine's config marks writable.
-- Only original bytes are copied. Previews, thumbnails, analyses, titles, tags, and edges stay in
+- Each file is written at `<source resource key>/<path in the source>`. A file from the resource
+  `photos` at `2024/beach.jpg` lands at `photos/2024/beach.jpg`.
+- In an `s3` resource, that path starts at the bucket's root. The resource's **Prefix** does not
+  apply.
+- A `filesystem` destination must be a folder its machine shares writable.
+- Only the original files are copied. Previews, analyses, titles, tags, and connections stay in
   xixo.
-- Each copy is recorded as another reference on its feed, so the feed lists the destination among its
-  locations.
-- A feed with no original reference, or whose only original is already on the destination, is
-  skipped.
-- Exporting again to the same destination skips every copy whose source version has not changed. A
-  changed source is written over the existing copy at the same path.
+- Each copy is added to its item as another place the file lives.
+- An item with no original, or whose only original is already on the destination, is skipped.
+- Exporting again to the same destination skips every copy whose original has not changed. A changed
+  original is written over its copy.
 
 ## Export from the app
 
-1. Open the catalog. To export part of it, pick a type or type a search in the bar first. The
-   dialog starts with both filled in.
-2. Open the **More** menu (the three dots) and choose **Export these…**.
+1. Open the catalog. To export part of it, pick a type or type a search first. The dialog starts
+   with both filled in.
+2. Open the **More** menu and choose **Export these…**.
 3. Under **Write them to**, pick a storage resource. Left empty, the export goes to the tenant's
-   default storage. If the tenant has none, **Export** stays disabled until you pick one.
-4. Narrow it with **Of type** and **Matching** if you want. **Matching** takes the same search you
-   would type in the bar. With both empty, every referenced feed is exported.
-5. Choose **Export**. The dialog closes and says the export is running.
-6. The export goes on as a run. It is `queued`, then `running`, and finishes `done`, `failed`,
-   `cancelled`, or `gated`. Follow it and read its log over [GraphQL](#export-over-graphql).
+   default storage. With no default, **Export** stays disabled until you pick one.
+4. Change **Of type** and **Matching** if you want. **Matching** takes the same search you would
+   type in the bar.
+5. Choose **Export**.
+
+The export goes on in the background as a run. To follow it, open the destination's **More** menu on
+**Resources** and choose **What it has done**.
 
 ## Export over GraphQL
 
-`exportFeeds` takes an optional `destinationId`, `query`, `type`, and `resourceId`, and needs
-`xixo:catalog:write`. `resourceId` limits the export to feeds with a reference on that resource.
+`exportFeeds` takes an optional `destinationId`, `query`, `type`, and `resourceId`. `resourceId`
+limits the export to items with a file on that resource. It needs `xixo:catalog:write`.
+
+```graphql
+mutation {
+  exportFeeds(input: { destinationId: "12", type: "xixo:file", query: "invoices 2025" }) {
+    run { id status }
+  }
+}
+```
+
+Query `run` with the run's id until `status` is `done` or `failed`, and call `cancelRun` to stop it.
 See the [GraphQL reference](/reference/graphql/).
-
-1. Find the destination's id. This query needs `xixo:resources:read`.
-
-   ```graphql
-   query {
-     resources { id key capabilities defaultStorage }
-   }
-   ```
-
-2. Start the export:
-
-   ```graphql
-   mutation {
-     exportFeeds(input: { destinationId: "12", type: "xixo:file", query: "invoices 2025" }) {
-       run { id status }
-     }
-   }
-   ```
-
-3. Poll the run until `status` is `done` or `failed`:
-
-   ```graphql
-   query {
-     run(id: "34") { status processed error logs }
-   }
-   ```
-
-To stop it, call `cancelRun` with the run's id.
 
 ## Export over MCP
 
-The `resource` tool exports with `do: "export"`. The token needs `xixo:resources:read` and
-`xixo:resources:command`. See [MCP](/reference/mcp/) and [scopes](/reference/scopes/).
-
-1. Call `resource` with no arguments to list resources, and pick one whose `capabilities` include
-   `storage`.
-2. Call it with that resource's key:
+1. Call the `resource` tool with no arguments to list resources. Pick one whose `capabilities`
+   include `storage`.
+2. Call it with that resource's key and `do: "export"`:
 
    ```json
    {
@@ -94,49 +65,44 @@ The `resource` tool exports with `do: "export"`. The token needs `xixo:resources
    }
    ```
 
-   `input` accepts `query`, `type`, `mime`, `tag`, `resource_id`, `folder`, `since`, and `before`.
-   The call answers with the run's `id` and `status`.
-3. Follow it with `do: "runs"` on the same key, and stop it with `do: "cancel"` and
-   `input: { "id": "<run id>" }`.
+3. Follow the run with `do: "runs"` on the same key.
 
-Each token can start `XIXO_RUN_BUDGET` runs an hour through MCP (20 by default). Syncs, exports, and
-moves share the budget.
+The token needs `xixo:resources:read` and `xixo:resources:command`. `do: "cancel"` with
+`input: { "id": "<run id>" }` stops the run. See the [MCP reference](/reference/mcp/) for every
+`input` key.
 
-## Fetch the files
+Each person can start `XIXO_RUN_BUDGET` runs an hour through MCP in each tenant (20 by default).
+Syncs, exports, moves, and analyses share the budget.
 
-Read the destination with any client for its type.
+## Read the files
 
-- For `s3`, list or copy the bucket with the provider's tools, for example
+- For `s3`, list or copy the bucket with the provider's tools, such as
   `aws s3 sync s3://archive ./archive --endpoint-url https://s3.example.com`.
-- For `filesystem`, copy the directory from the server. In the example Compose project it is inside
-  the `files` volume, at `/data/files/<tenant>/`.
+- For `filesystem`, copy the folder from its machine. On xixo link beside the server in the example
+  Compose project, the default storage is `/data/files/<tenant>/` in the `files` volume.
 - For `webdav`, use any WebDAV client.
+
+## Move the files to another xixo
+
+1. Export to an `s3` or `webdav` resource that the other xixo can reach.
+2. In the other xixo, attach the same bucket or share as a resource.
+3. Sync it. See [adding](/concepts/adding/#sync).
+
+The other xixo analyzes the files again. Titles, tags, and connections do not travel with them.
 
 To move files between two machines running xixo link, and remove each original once its copy
 checks out, see [move files between machines](/guides/move-files/).
 
-## Move the files to another xixo
-
-1. Export to an `s3` or `webdav` resource that the other deployment can reach.
-2. In the other xixo, attach the same bucket or share as a resource.
-3. Sync it. Every file it finds becomes a reference on a feed there, and is analyzed. See
-   [adding](/concepts/adding/#sync).
-
-Titles, tags, edges, and analyses are not part of the export. The new catalog analyzes the files
-again.
-
 ## If it doesn't work
 
-- **"this tenant has no default storage resource"**: pick a destination, or make a storage resource
-  the default with **Take drops** in its **⋯** menu on **Resources**.
-- **"`<key>` is not storage"**: the destination does not serve `storage`. Pick an `s3`,
-  `filesystem`, or `webdav` resource.
+- **"this tenant has no default storage resource"**: pick a destination, or choose **Take drops** in
+  a storage resource's **More** menu on **Resources** to make it the default.
+- **"`<key>` is not storage"**: pick an `s3`, `filesystem`, or `webdav` resource.
 - **The run ends `gated`**: an `export` gate is closed for the tenant, or `XIXO_ITERATORS_DISABLED`
   is set on the server.
-- **The run ends `failed`**: the destination refused a write. The job retries five times with a
-  growing wait before it fails the run, and the error is on the run. Check the destination from
-  **Resources**.
-- **The run stays `queued`**: no worker is running the `export` queue. See
+- **The run ends `failed`**: the destination refused a write. xixo tries five times before it fails
+  the run, and the error is on the run. Choose **Check** on the destination in **Resources**.
+- **The run stays `queued`**: no worker is running. See
   [self-hosting](/guides/self-hosting/#the-worker).
-- **"this token has started N runs in the last hour"**: the MCP run budget is spent. The count resets at
+- **"this token has started N runs in the last hour"**: the MCP run budget is spent. It resets at
   the start of each clock hour. An operator can raise `XIXO_RUN_BUDGET`, and `0` removes the limit.

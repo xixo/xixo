@@ -6,49 +6,130 @@ description: Run xixo in production with Postgres, OpenSearch, storage, and sign
 xixo ships as a container image. Point it at Postgres and OpenSearch, and it migrates itself on
 boot. Sign-in is built in: xixo serves its own [masks](https://github.com/masksrb/masks) at `/id`.
 
-```sh
-docker pull ghcr.io/xixo/xixo:latest
-```
-
 ## What it runs
 
 | | |
 | --- | --- |
-| Web process | The image's default command, `./bin/thrust ./bin/rails server`, listening on port 80 |
-| Worker process | `./bin/jobs`, from the same image |
-| xixo link beside the server | `ghcr.io/xixo/xixo-link`, which reads every file and holds no database or keys |
-| Postgres | Five databases: `xixo_production`, `xixo_production_cache`, `xixo_production_queue`, `xixo_production_cable`, and `xixo_production_masks` |
-| OpenSearch | The search index, at `OPENSEARCH_URL` |
-| masks | Built in, at `/id` on each tenant's origin. A masks server of your own instead, when `MASKS_ISSUER_TEMPLATE` names it |
+| Web | The image's default command, `./bin/thrust ./bin/rails server`, on port 80 |
+| Worker | `./bin/jobs`, from the same image |
+| xixo link beside the server | `ghcr.io/xixo/xixo-link`, which reads and writes the server's files |
+| Postgres | `xixo_production`, `xixo_production_cache`, `xixo_production_queue`, `xixo_production_cable`, and `xixo_production_masks` for the built-in masks |
+| OpenSearch | The search index |
 
-When the container runs the web command, `bin/docker-entrypoint` runs `bin/rails db:prepare`,
-`bin/rails xixo:tenants`, and `bin/rails xixo:resources` before it starts the server. Those create
-or migrate the databases, create every declared [tenant](/concepts/tenants/) in xixo and in the
-built-in masks, and declare the resources in `config/resources.yml` in every tenant. Any other
-command starts without them.
+When the container runs the web command, `bin/docker-entrypoint` runs these before the server
+starts:
 
-xixo stores where each file lives and what its analysis found. The bytes stay in the
-[resources](/concepts/resources/) they came from, or in the storage a file was placed in.
+- `bin/rails db:prepare` creates or migrates the databases.
+- `bin/rails xixo:tenants` creates every declared [tenant](/concepts/tenants/), in xixo and in the
+  built-in masks.
+- `bin/rails xixo:resources` declares the resources in `config/resources.yml` in every tenant.
+
+Any other command starts without them.
 
 ## Image tags
 
-| Tag | Pushed on | Platforms |
-| --- | --- | --- |
-| `:<version>`, such as `:0.2.0` | each server release | amd64 |
-| `:<major>.<minor>`, such as `:0.2` | each server release, moved to the newest patch | amd64 |
-| `:main` | every push to main | amd64 |
-| `:sha-<full commit sha>` | every push to main | amd64 |
-| `:latest` | every push to main | amd64 |
+| Tag | Pushed on |
+| --- | --- |
+| `:<version>`, such as `:0.2.0`, and `:<major>.<minor>`, such as `:0.2` | each server release |
+| `:main`, `:sha-<full commit sha>`, and `:latest` | every push to main |
 
-A server release is cut from main when a release pull request merges, with the version and its
-changes in `CHANGELOG.md` and a `server-v<version>` tag. Pin a version in production and read the
-changelog before you move it. `:latest` follows main.
+`ghcr.io/xixo/xixo` is built for amd64. `ghcr.io/xixo/xixo-link` is built for amd64 and arm64.
+
+A server release has a `server-v<version>` tag and its changes in `CHANGELOG.md`. Pin a version in
+production, and read the changelog before you change it. `:latest` follows main.
+
+## The database role
+
+In production xixo always connects as the role `xixo`, with the password in
+`XIXO_DATABASE_PASSWORD`. `POSTGRES_USER` is not read there. The official Postgres image makes
+`POSTGRES_USER` a superuser, so xixo cannot use it.
+
+1. Connect to Postgres as an administrator and create the role:
+
+   ```sql
+   CREATE ROLE xixo WITH LOGIN PASSWORD 'change-me' CREATEDB;
+   ```
+
+   `CREATEDB` lets `db:prepare` create the databases on first boot. To create them yourself, create
+   each one with `OWNER xixo` and leave `CREATEDB` off.
+
+2. Check that the role holds neither `SUPERUSER` nor `BYPASSRLS`:
+
+   ```sql
+   SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'xixo';
+   ```
+
+   Both must be `f`. Row-level security keeps each tenant's rows apart, and a role with either
+   attribute skips it. xixo and the built-in masks refuse to enter a tenant as such a role.
+
+## Encryption and secrets
+
+The database holds every resource's credentials and each tenant's masks client secret. xixo
+encrypts those columns with Active Record Encryption. The built-in masks derives its own keys from
+`SECRET_KEY_BASE`.
+
+| Secret | Protects |
+| --- | --- |
+| `SECRET_KEY_BASE` | Session cookies, and every key the built-in masks uses. Anyone who holds it can forge a session. Changing it signs everyone out of masks and makes its encrypted columns unreadable. |
+| `ENCRYPTION_PRIMARY_KEY`, `ENCRYPTION_DETERMINISTIC_KEY`, `ENCRYPTION_KEY_DERIVATION_SALT` | xixo's encrypted columns. |
+
+1. Generate `SECRET_KEY_BASE` in a xixo checkout:
+
+   ```sh
+   bin/rails secret
+   ```
+
+2. Generate the encryption keys in the same checkout:
+
+   ```sh
+   bin/rails db:encryption:init
+   ```
+
+3. Set the three values it prints as variables:
+
+   | Printed as | Variable |
+   | --- | --- |
+   | `primary_key` | `ENCRYPTION_PRIMARY_KEY` |
+   | `deterministic_key` | `ENCRYPTION_DETERMINISTIC_KEY` |
+   | `key_derivation_salt` | `ENCRYPTION_KEY_DERIVATION_SALT` |
+
+Production refuses to boot when any of the four is unset or starts with `dev_only_`, the prefix of
+the development values in `.env.example` and `compose.yml`.
+
+:::caution
+Keep the keys with your database backups, and never change them. Losing them makes every resource
+credential and every tenant's masks client secret unreadable, for good.
+:::
+
+## Tenants and hosts
+
+A tenant is a separate catalog with its own resources, feeds, and settings, at its own host. See
+[tenants](/concepts/tenants/).
+
+1. Declare the tenants with one of these. Setting both stops `xixo:tenants` with an error.
+
+   | | |
+   | --- | --- |
+   | `XIXO_TENANT=xixo` | One tenant answers on every host. |
+   | `XIXO_TENANTS=demo,acme` | Each tenant answers on hosts whose first label is its name, such as `demo.xixo.example.com`. |
+
+2. Set `XIXO_HOST_SUFFIX` to the domain xixo answers under, such as `xixo.example.com`. Rails then
+   answers `403` to any other `Host`, except at `/up`. Unset, Rails accepts every host.
+3. Set `XIXO_PUBLIC_ORIGIN` to the origin browsers use. `%{subdomain}` stands for the first label of
+   the host, such as `https://%{subdomain}.xixo.example.com`. With one tenant, leave out the
+   placeholder, such as `https://xixo.example.com`. Production refuses to boot without it.
+4. Point DNS for each tenant's host, or a wildcard under the suffix, at your reverse proxy.
+
+The proxy must terminate TLS and pass the original `Host` header, because xixo finds the tenant from
+the host. `RAILS_ASSUME_SSL` and `RAILS_FORCE_SSL` default to `true`.
+
+To add a tenant later, add it to `XIXO_TENANTS` and recreate the web container.
 
 ## Example `compose.yml`
 
 ```yaml
 x-xixo: &xixo
-  image: ghcr.io/xixo/xixo:latest
+  image: ghcr.io/xixo/xixo:0.2
   restart: unless-stopped
   environment:
     POSTGRES_HOST: postgres
@@ -109,7 +190,7 @@ services:
         condition: service_healthy
 
   link:
-    image: ghcr.io/xixo/xixo-link:latest
+    image: ghcr.io/xixo/xixo-link:0.2
     restart: unless-stopped
     environment:
       XIXO_LINK_XIXO: https://acme.xixo.example.com
@@ -188,12 +269,9 @@ volumes:
   caddy-data:
 ```
 
-`initdb/01-xixo.sql` creates the role xixo connects as, with the password in
-`XIXO_DATABASE_PASSWORD`:
-
-```sql
-CREATE ROLE xixo WITH LOGIN PASSWORD '...' CREATEDB;
-```
+`initdb/01-xixo.sql` holds the `CREATE ROLE` statement from [the database role](#the-database-role),
+with the password in `XIXO_DATABASE_PASSWORD`. Postgres runs it when its volume is first created.
+The `Caddyfile` sends every tenant's host to xixo:
 
 ```
 *.xixo.example.com {
@@ -201,189 +279,55 @@ CREATE ROLE xixo WITH LOGIN PASSWORD '...' CREATEDB;
 }
 ```
 
-What the file does:
+Notes on the file:
 
-- **OpenSearch asks for a password.** `OPENSEARCH_INITIAL_ADMIN_PASSWORD` sets the `admin` password
-  when the volume is first created, and it must be strong or OpenSearch refuses to start. xixo signs
-  in with `OPENSEARCH_USERNAME` and `OPENSEARCH_PASSWORD`. Traffic between the containers stays plain
-  HTTP, so keep Postgres and OpenSearch on a network that only xixo can reach, and publish no port
-  for either.
-- **masks sends mail through your SMTP server.** Invitations, password resets, and sign-in codes
-  go out from `MASKS_MAIL_FROM`. The built-in masks reads the same `MASKS_SMTP_*` variables as a
-  masks server. Without them, masks cannot send mail.
-- **The worker starts after the web container is healthy.** The web container migrates the
-  databases before it answers `/up`, so the worker never runs against a schema it does not know.
-- **Every service restarts** unless it was stopped by hand.
-- **Memory is capped.** OpenSearch gets three times its heap. xixo link gets 6 GB, because each
-  program it runs on a file may hold up to 4 GB, and exiftool up to 6. Raise both for a large catalog.
-- **xixo link reads every file, and holds nothing else.** It has no database password, no keys, and
-  no access to `storage`. It holds the `files` volume, where uploads land, because it is the only
-  container that writes a tenant's files. It dials xixo at its public address, so give `XIXO_LINK_XIXO` the tenant's
-  origin and `XIXO_LINK_ISSUER` its masks issuer, which is the origin followed by `/id` with the
-  built-in masks. On first boot it leaves a request in
-  `/handoff/<tenant>`, the worker answers it with a single-use enrollment token, and xixo link
-  registers its own key with masks. Its state volume holds that key; deleting the volume enrolls it
-  again. Run one xixo link for each tenant, each with its own `XIXO_LINK_HANDOFF` and state volume.
-  To let it read a folder on the host, mount the folder read-only and name it in
-  `XIXO_LINK_FOLDERS`, separated by colons. A folder it may also write is named in
-  `XIXO_LINK_WRITABLE` instead, and is created on boot when it is missing.
-  xixo decides what it may do: it starts at **Files and writing** and helps read other machines'
-  files, so it hands xixo the bytes of a file for downloads and previews, and reads uploads, files
-  from other places, and files other machines lend, ahead of any other machine while it has the
-  extractor. An administrator changes that on its card under **This server**. See
-  [what xixo may do with a machine](/concepts/resources/#what-xixo-may-do-with-a-machine). Its
-  config sets no limit of its own unless you set `XIXO_LINK_LEND` or
-  `XIXO_LINK_EXTRACTS_FOR_OTHERS` to `true` or `false`, or `XIXO_LINK_TOOLS` to the
-  [tools](/concepts/resources/#tools-a-machine-offers) it may offer MCP clients, separated by
-  commas. An empty `XIXO_LINK_TOOLS` offers none. With helping others turned off and no other
-  machine helping, uploads wait, parked, until one links up. A folder that holds a file kept to one
-  person stays out of reach of everyone else's token.
-- **Chromium keeps its sandbox.** The image runs as an unprivileged user, and Docker's default seccomp
-  profile gives Chromium the namespaces its sandbox needs. Leave `XIXO_CHROME_NO_SANDBOX` unset, and
-  never run the worker privileged.
+- `OPENSEARCH_INITIAL_ADMIN_PASSWORD` sets the `admin` password when the volume is first created.
+  OpenSearch refuses to start when it is weak.
+- Traffic between the containers is plain HTTP. Keep Postgres and OpenSearch on a network that only
+  xixo reaches, and publish no port for either.
+- masks sends invitations, password resets, and sign-in codes from `MASKS_MAIL_FROM` through the
+  `MASKS_SMTP_` server. Without them, masks sends no mail.
+- The worker waits for the web container to report healthy, so it never runs before the migrations.
+- OpenSearch gets three times its heap. xixo link gets 6 GB, because a program it runs on one file
+  may use up to 4 GB, and exiftool up to 6 GB.
+- Chromium in the worker keeps its sandbox. Leave `XIXO_CHROME_NO_SANDBOX` unset, and never run the
+  worker privileged.
 
-## The database role
+## Sign in for the first time
 
-In production xixo always connects as the role `xixo`. `POSTGRES_USER` is not read there. The
-password comes from `XIXO_DATABASE_PASSWORD`.
+Each xixo tenant is a client of a masks tenant with the same name. By default xixo serves that masks
+itself, at `/id` on each tenant's origin, such as `https://acme.xixo.example.com/id`.
 
-1. Connect to the Postgres server as an administrator and create the role:
-
-   ```sql
-   CREATE ROLE xixo WITH LOGIN PASSWORD 'change-me' CREATEDB;
-   ```
-
-   `CREATEDB` lets `db:prepare` create the databases on first boot. To create them yourself
-   instead, create each one with `OWNER xixo` and leave `CREATEDB` off.
-
-2. Confirm the role holds neither `SUPERUSER` nor `BYPASSRLS`:
-
-   ```sql
-   SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'xixo';
-   ```
-
-   Both must be `f`. Row-level security keeps each tenant's rows apart, and a role holding either
-   attribute is exempt from it. xixo and the built-in masks both refuse to enter any tenant when they
-   connect as such a role.
-
-The official Postgres image makes `POSTGRES_USER` a superuser, so xixo cannot use it. The
-development stack creates the `xixo` role in `db/docker-entrypoint-initdb.d/01-app-role.sql`, with a
-development password.
-
-## Encryption & secrets
-
-Per tenant, the database holds the masks client's secret and registration token, and every resource's
-credentials. xixo encrypts those columns with Active Record Encryption (AES-256-GCM). Reading them
-needs the keys as well as the database.
-
-The built-in masks signs its sessions and encrypts its own columns with keys derived from
-`SECRET_KEY_BASE`, under labels of its own. Changing `SECRET_KEY_BASE` signs everyone out of masks
-and makes its encrypted columns unreadable.
-
-| Secret | Protects |
-| --- | --- |
-| `SECRET_KEY_BASE` | The session cookies, and every key the built-in masks uses. Anyone holding it can forge a session. |
-| `ENCRYPTION_PRIMARY_KEY` | The encrypted columns. |
-| `ENCRYPTION_DETERMINISTIC_KEY` | Columns looked up by value. Rails requires it. |
-| `ENCRYPTION_KEY_DERIVATION_SALT` | The per-column keys derived from the two above. |
-
-1. Generate `SECRET_KEY_BASE` in a xixo checkout:
+1. Start the stack:
 
    ```sh
-   bin/rails secret
+   docker compose up -d
    ```
 
-2. Generate the Active Record encryption keys in the same checkout:
-
-   ```sh
-   bin/rails db:encryption:init
-   ```
-
-   It prints three values. Set them as environment variables:
-
-   | Printed as | Variable |
-   | --- | --- |
-   | `primary_key` | `ENCRYPTION_PRIMARY_KEY` |
-   | `deterministic_key` | `ENCRYPTION_DETERMINISTIC_KEY` |
-   | `key_derivation_salt` | `ENCRYPTION_KEY_DERIVATION_SALT` |
-
-   Do not use the `dev_only_` values from `.env.example` or `compose.yml`. Production refuses to boot
-   when any of the four is unset or starts with `dev_only_`.
-
-:::caution
-Keep the encryption keys with your database backups, and unchanged for the life of the database.
-Losing them makes every resource credential and every tenant's masks client secret unreadable,
-permanently.
-:::
-
-## Tenants and hosts
-
-A tenant is a separate catalog with its own resources, feeds, and settings, at its own host. See
-[tenants](/concepts/tenants/) for how they are kept apart.
-
-1. Declare the tenants. Set exactly one of these. Setting both stops `xixo:tenants` with an error.
-
-   | | |
-   | --- | --- |
-   | `XIXO_TENANT=xixo` | One tenant answers on every host. |
-   | `XIXO_TENANTS=demo,acme` | Each tenant answers on hosts whose first label is its name, such as `demo.xixo.example.com`. |
-
-2. Set `XIXO_HOST_SUFFIX` to the domain xixo answers under, such as `xixo.example.com`. Rails then
-   accepts that domain and its subdomains and refuses other `Host` headers. `/up` is exempt. Left
-   unset, Rails checks no hosts at all.
-3. Set `XIXO_PUBLIC_ORIGIN` to the origin browsers use. `%{subdomain}` is replaced by the first
-   label of the host:
-
-   ```sh
-   XIXO_PUBLIC_ORIGIN=https://%{subdomain}.xixo.example.com
-   ```
-
-   With a single tenant, give the origin without the placeholder, such as
-   `https://xixo.example.com`. The origin followed by `/mcp` is the audience every access token
-   must name. Production refuses to boot without it.
-4. Point DNS for each tenant's host, or a wildcard under the suffix, at the reverse proxy.
-
-`RAILS_ASSUME_SSL` and `RAILS_FORCE_SSL` default to `true`. The proxy must terminate TLS and pass the
-original `Host` header, because xixo resolves the tenant from the host.
-
-## Signing in through masks
-
-xixo signs people in through masks. Each xixo tenant is a client of a masks tenant with the same
-name. By default xixo serves that masks itself. Set `MASKS_ISSUER_TEMPLATE` to sign in through a
-masks server you run apart from xixo.
-
-### The built-in masks
-
-The built-in masks needs no variables of its own. It serves each tenant at `/id` on that tenant's
-origin, such as `https://acme.xixo.example.com/id`, and keeps its tables in its own database,
-`xixo_production_masks`.
-
-1. Start xixo. `bin/rails xixo:tenants` prints a setup token for each masks tenant that has no
-   account yet:
+2. Find the setup token that `xixo:tenants` prints for each masks tenant with no account yet:
 
    ```sh
    docker compose logs xixo | grep "masks:"
    ```
 
-   To choose the token yourself, set `MASKS_SETUP_TOKEN` to a value of at least 24 characters.
-2. Open the tenant in a browser. xixo sends you to masks, which asks for the setup token and
-   creates the first account. That account owns the masks tenant.
-3. Approve **xixo** when masks asks. xixo stores the credentials it receives, and you are signed in.
+   To choose the token yourself, set `MASKS_SETUP_TOKEN` to at least 24 characters before you
+   start.
 
-On the first sign-in after it connects, xixo asks masks for the administrator privilege. The account
-that owns the masks tenant holds it, so that person becomes xixo's administrator. Invite everyone
-else from masks at `/id/manage`.
+3. Open the tenant in a browser and click **Get started…**.
+4. Enter the setup token when masks asks for it.
+5. Create the first account. That account owns the masks tenant.
+6. Approve **xixo** when masks asks. You are signed in.
 
-The built-in masks reads the other `MASKS_` variables a masks server reads, such as
-`MASKS_MAIL_FROM` and `MASKS_SMTP_ADDRESS`. See the
-[masks ENV vars](https://masks.pages.dev/reference/environment/). xixo sets its tenants and its
-public origin from `XIXO_TENANT`, `XIXO_TENANTS`, and `XIXO_PUBLIC_ORIGIN`, so masks ignores
-`MASKS_TENANT`, `MASKS_TENANTS`, and `MASKS_PUBLIC_ORIGIN_TEMPLATE`.
+The account that owns the masks tenant becomes xixo's administrator on its first sign-in. Invite
+everyone else from masks at `/id/manage`.
+
+The built-in masks reads the other variables a masks server reads, such as `MASKS_SMTP_PORT`. See
+the [masks ENV vars](https://masks.pages.dev/reference/environment/). It ignores `MASKS_TENANT`,
+`MASKS_TENANTS`, and `MASKS_PUBLIC_ORIGIN_TEMPLATE`, because xixo sets them from its own variables.
 
 ### A masks server of your own
 
-Run masks apart from xixo to sign several apps in through one masks, or to keep accounts on a host
-of their own.
+Run masks apart from xixo to sign several apps in through one masks.
 
 1. Set `MASKS_ISSUER_TEMPLATE` to the issuer URL of the masks tenant each xixo tenant signs in
    through. `%{subdomain}` works as it does in `XIXO_PUBLIC_ORIGIN`:
@@ -392,106 +336,108 @@ of their own.
    MASKS_ISSUER_TEMPLATE=https://%{subdomain}.auth.example.com
    ```
 
-   With it set, xixo does not load the built-in masks, does not route `/id`, and creates no
-   `xixo_production_masks` database.
-2. After xixo is running, open each tenant in a browser. A masks account allowed to approve
-   connections approves it, and xixo stores the credentials it receives. See
-   [signing in](/concepts/tenants/#signing-in).
+   With it set, xixo does not serve `/id` and creates no `xixo_production_masks` database.
 
-For MCP clients to register themselves, the masks tenant has to allow dynamic registration. See
+2. Set `XIXO_LINK_ISSUER` on xixo link beside the server to the same issuer.
+3. Start xixo and open each tenant in a browser.
+4. Sign in with a masks account that may approve connections, and approve **xixo**.
+
+For MCP clients to register themselves, the masks tenant must allow dynamic registration. See
 [connecting an agent](/guides/connect-an-agent/#allow-dynamic-registration-in-masks).
+
+## xixo link beside the server
+
+xixo opens no file itself. The `link` container runs xixo link, which reads every file for the
+server, writes uploads into the `files` volume, and runs the programs that read documents, images,
+and recordings. See [machines](/concepts/resources/#what-xixo-may-do-with-a-machine).
+
+Run one for each tenant, each with its own `XIXO_LINK_HANDOFF` and state volume:
+
+| | |
+| --- | --- |
+| `XIXO_LINK_XIXO` | The tenant's origin. |
+| `XIXO_LINK_ISSUER` | The tenant's masks issuer: the origin followed by `/id` with the built-in masks. |
+| `XIXO_LINK_HANDOFF` | `/handoff/<tenant>`, in the volume the web and worker containers mount at `XIXO_LOCAL_LINK`. |
+| `XIXO_LINK_WRITABLE` | Folders it may read and write, separated by colons. Each one is created on boot when it is missing. |
+| `XIXO_LINK_FOLDERS` | Folders it may only read, separated by colons. Mount each one read-only. |
+
+It enrolls itself after the first sign-in connects the tenant to masks:
+
+1. xixo link leaves a request in `/handoff/<tenant>`.
+2. The worker answers with a single-use enrollment token.
+3. xixo link registers its own key with masks, and keeps it in its state volume.
+
+Deleting the state volume makes it enroll again. It shows on the **Resources** page as
+**This server**, with its access set to **Files and writing**. An administrator changes that on its
+card.
 
 ## Storage
 
 xixo uses storage in two places.
 
-- **Staging.** Uploads are staged through Active Storage before a job places them. The default,
-  `XIXO_STAGING_SERVICE=local`, writes to `/rails/storage` in the container, so the web and worker
-  containers must share that directory. To stage in S3-compatible storage instead, set
-  `XIXO_STAGING_SERVICE=s3` and the `XIXO_STAGING_BUCKET`, `XIXO_STAGING_ENDPOINT`,
-  `XIXO_STAGING_REGION`, `XIXO_STAGING_ACCESS_KEY_ID`, and `XIXO_STAGING_SECRET_ACCESS_KEY`
-  variables.
-- **Catalog storage.** Files are kept in [resources](/concepts/resources/) that serve `storage`.
-  `config/resources.yml` declares a `filesystem` resource named `files` as every tenant's default
-  storage: the folder `/data/files/<tenant>` on xixo link beside the server, reached through the
-  `local` machine. xixo link writes it, so that folder must be in xixo link's `XIXO_LINK_WRITABLE`
-  and on a volume mounted into the `link` container. Until xixo link connects, a placed upload waits. Attach
-  `s3` or `webdav` resources from the app as well. See
+- **Staging.** Uploads wait in Active Storage until a job places them. The default,
+  `XIXO_STAGING_SERVICE=local`, writes to `/rails/storage`, so the web and worker containers must
+  share it. To stage in S3-compatible storage, set `XIXO_STAGING_SERVICE=s3` and the other
+  `XIXO_STAGING_` variables on the [ENV vars](/reference/environment/#storage) page.
+- **Catalog storage.** `config/resources.yml` gives every tenant a `filesystem` resource named
+  **Files** as its default storage, at `/data/files/<tenant>` on xixo link beside the server. That
+  folder must be in `XIXO_LINK_WRITABLE`, on a volume mounted into the `link` container. Until xixo
+  link connects, a placed upload waits. To keep files somewhere else, see
   [attaching a resource](/guides/attach-a-resource/).
 
 ## Private networks
 
-xixo refuses to reach a private, loopback, or link-local address on a resource's behalf. A service
-on the same private network needs its origin listed:
+xixo refuses to reach a private, loopback, or link-local address for a resource. List the origins of
+services on your own network, separated by commas:
 
 | Variable | Lets through |
 | --- | --- |
 | `XIXO_S3_ORIGINS` | An `s3` endpoint, such as a MinIO container at `http://minio:9000` |
 | `XIXO_MCP_ORIGINS` | An MCP server attached as a resource |
 | `XIXO_SEARCH_ORIGINS` | A self-hosted web search backend |
-| `XIXO_INFERENCE_ORIGINS` | Every model backend, public or private, such as `https://api.openai.com,http://ollama:11434` |
+| `XIXO_INFERENCE_ORIGINS` | Every model server, public or private, such as `https://api.openai.com,http://ollama:11434` |
 
-Each lists origins separated by commas. A private address whose origin is not listed stays refused.
-`XIXO_INFERENCE_ORIGINS` names public backends too. A model backend whose origin is not listed is
-unusable.
-See [addresses](/concepts/adding/#addresses) and [security](/concepts/security/).
-
-A service on a Tailscale or Headscale network is reached through a `tailnet` resource instead. See
-[reach a tailnet](/guides/tailnet/).
+A model server whose origin is not in `XIXO_INFERENCE_ORIGINS` is unusable, unless xixo reaches it
+through a machine or a tailnet. A service on a Tailscale or Headscale network is reached through a
+`tailnet` resource. See [reach a tailnet](/guides/tailnet/) and [security](/concepts/security/).
 
 ## Transcription
 
-Audio and video are transcribed by the resource that serves the `transcription` role. Without one,
-each recording is analyzed without a transcript, and the analysis logs `no model backend serves
-transcription`. Any server that answers OpenAI's `/audio/transcriptions` works. whisper.cpp's
-`whisper-server` runs a ggml model on the machine with the best GPU:
+Audio and video are transcribed by a resource that serves the `transcription` role. Without one,
+each recording is analyzed without a transcript. Any server that answers OpenAI's
+`/audio/transcriptions` works, such as whisper.cpp's `whisper-server`:
 
-```sh
-curl -fL -o ggml-base.en.bin \
-  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
-whisper-server -m ggml-base.en.bin --host 0.0.0.0 --port 11435 \
-  --inference-path /v1/audio/transcriptions
-```
+1. Download a model on the machine with the best GPU. `ggml-base.en.bin` transcribes English, and
+   the models without `.en` transcribe other languages.
 
-Attach an `openai-compatible` resource with the base URL `http://<host>:11435/v1` and any name as
-its **Transcription model**, since whisper.cpp answers with the model it was started with. List its
-origin in `XIXO_INFERENCE_ORIGINS`, or reach it through a [tailnet](/guides/tailnet/). Its check
-sends a second of silence and passes when the server answers. `ggml-base.en.bin` is 148 MB and
-transcribes English. The other models in the same repository trade size for accuracy, and the ones
-without `.en` transcribe other languages.
+   ```sh
+   curl -fL -o ggml-base.en.bin \
+     https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
+   ```
 
-## Minimum environment
+2. Start the server:
 
-Every variable xixo reads, with its default, is on the [ENV vars](/reference/environment/) page. A
-production deployment sets at least these:
+   ```sh
+   whisper-server -m ggml-base.en.bin --host 0.0.0.0 --port 11435 \
+     --inference-path /v1/audio/transcriptions
+   ```
 
-| | |
-| --- | --- |
-| Database | `POSTGRES_HOST`, `POSTGRES_PORT`, `XIXO_DATABASE_PASSWORD` |
-| Search | `OPENSEARCH_URL` |
-| Secrets | `SECRET_KEY_BASE`, `ENCRYPTION_PRIMARY_KEY`, `ENCRYPTION_DETERMINISTIC_KEY`, `ENCRYPTION_KEY_DERIVATION_SALT` |
-| Tenancy | `XIXO_TENANT` or `XIXO_TENANTS`, `XIXO_HOST_SUFFIX`, `XIXO_PUBLIC_ORIGIN` |
-| Sign-in | Nothing for the built-in masks. `MASKS_ISSUER_TEMPLATE` for a masks server of your own |
-| Mail | `MASKS_MAIL_FROM`, `MASKS_SMTP_ADDRESS` |
-| Storage | On xixo link: `XIXO_LINK_WRITABLE` |
+3. Attach an `openai-compatible` resource with the base URL `http://<host>:11435/v1`. Give it any
+   name as its **Transcription model**, because whisper.cpp answers with the model it started with.
+4. Add the origin to `XIXO_INFERENCE_ORIGINS`, or reach the server through a machine or a
+   [tailnet](/guides/tailnet/).
 
 ## The worker
 
-`./bin/jobs` starts Solid Queue, which runs every job and the recurring schedule in
-`config/recurring.yml`. It has worker pools, set in `config/queue.yml`:
+`./bin/jobs` starts Solid Queue, which runs every job and the schedule in `config/recurring.yml`.
+`BULK_CONCURRENCY`, `ANALYSIS_CONCURRENCY`, and `ANALYSIS_THREADS` size its pools. See
+[jobs](/reference/environment/#jobs).
 
-| Queues | Threads | Processes |
-| --- | --- | --- |
-| `sync`, `export`, `default`, `move` | 5 | `BULK_CONCURRENCY` (default 1) |
-| `analysis` | `ANALYSIS_THREADS` (default 4) | `ANALYSIS_CONCURRENCY` (default 1) |
-
-The worker shells out to Chromium for snapshots. Every other program run on a file runs in xixo link,
-which the xixo link image includes. The worker runs in its own container so that analysis does not slow
-down web requests, and so the two scale separately. To run jobs inside the web process on a small host, set
-`SOLID_QUEUE_IN_PUMA=1` on the web container and run no worker.
-
-Syncs and exports checkpoint as they go, so a worker restarted during one resumes from its last
-checkpoint. Set `XIXO_ITERATORS_DISABLED=true` to stop every iterating job in every tenant.
+- Raise `ANALYSIS_CONCURRENCY` when analyses wait in the queue. Chromium holds a core while it
+  renders a snapshot.
+- On a small host, set `SOLID_QUEUE_IN_PUMA=true` on the web container and run no worker.
+- Syncs and exports save their place as they go, so a restarted worker carries on from there.
+- `XIXO_ITERATORS_DISABLED=true` stops every sync, analysis, export, and reindex in every tenant.
 
 Follow job progress in the worker's log:
 
@@ -501,27 +447,15 @@ docker compose logs -f worker
 
 ### Mission Control at /jobs
 
-Mission Control is mounted at `/jobs`, on any tenant's host. Its HTTP basic authentication is on,
-and xixo sets no user or password for it, so it answers `401` to every request. The dashboard
-lists the jobs of every tenant, because Solid Queue's tables sit outside row-level security. Leave it
-closed, or block `/jobs` at the proxy.
-
-## System requirements
-
-xixo has no fixed CPU or memory floor. The models are the largest cost, and they run wherever the
-inference resource points, outside these containers.
-
-| | |
-| --- | --- |
-| OpenSearch | A 512 MB heap is enough for a personal catalog. Give the container about three times the heap. |
-| Worker | Chromium holds a core while it renders. Raise `ANALYSIS_CONCURRENCY` when analyses queue. |
-| xixo link | LibreOffice, Tesseract, and FFmpeg each hold a core while they read a file. It answers four requests at once. |
-| Web | `RAILS_MAX_THREADS` (default 3) sizes Puma's threads. |
+Mission Control is mounted at `/jobs` on every tenant's host. Its HTTP basic authentication is on,
+and xixo sets no user or password for it, so it answers `401` to every request. It would list every
+tenant's jobs, because Solid Queue's tables sit outside row-level security. Leave it closed, or
+block `/jobs` at the proxy.
 
 ## Health check
 
 `GET /up` checks the database, the search index, the queue, and the workers. It is served outside
-any tenant, is exempt from the host check, and is not logged.
+any tenant, skips the host check, and is not logged.
 
 ```sh
 docker compose exec -T xixo curl -fsS http://localhost/up
@@ -536,91 +470,74 @@ docker compose exec -T xixo curl -fsS http://localhost/up
 | `database` | The primary database does not answer. |
 | `search` | OpenSearch does not answer within two seconds, or its cluster is red. |
 | `queue` | A job has waited more than ten minutes for a worker. |
-| `worker` | No worker has sent a heartbeat in the last five minutes, or in `XIXO_WORKER_QUIET_SECONDS`. It always passes with `SOLID_QUEUE_IN_PUMA` set. |
+| `worker` | No worker has sent a heartbeat in `XIXO_WORKER_QUIET_SECONDS`, 300 by default. It always passes with `SOLID_QUEUE_IN_PUMA` set. |
 
 `/up` answers `503` when `database` or `search` fails, and `200` otherwise. A late queue or a quiet
-worker is listed in the body without failing the check, so a restart of the web container does
-not follow from a slow worker.
+worker shows in the body without failing, so a slow worker does not restart the web container.
 
-The worker has a check of its own. `bin/jobs-healthy` exits `0` when a worker on the same host sent
-a heartbeat within the same window, and `1` with the reason when none did. It reads the queue
-database directly and does not boot Rails.
+`bin/jobs-healthy` checks the worker. It exits `0` when a worker on the same host sent a heartbeat
+within the same window, and `1` with the reason when none did.
 
 ## Upgrade
 
 1. Read `CHANGELOG.md` for every release between the one you run and the one you move to.
-2. Back up the catalog. A migration cannot be undone by starting the old image again, and the
-   backup is how you go back. See [back up](/guides/back-up-and-restore/#back-up).
-
-   ```sh
-   docker compose exec -T postgres pg_dump -U postgres -Fc xixo_production > xixo-before-upgrade.dump
-   ```
-
-3. Change the image to the new version, then pull it and recreate the containers:
+2. Back up the catalog. Starting the old image again does not undo a migration. See
+   [back up](/guides/back-up-and-restore/#back-up).
+3. Change the image tags in `compose.yml` to the new version.
+4. Pull the images and recreate the containers:
 
    ```sh
    docker compose pull
    docker compose up -d
    ```
 
-4. The web container runs `db:prepare` on start, which applies new migrations, then `xixo:tenants`
-   and `xixo:resources`. In the example file, the worker waits for the web container to report
-   healthy, so it starts only after the migrations ran.
+The web container applies new migrations on start, and the worker starts after it reports healthy.
+To go back, [restore](/guides/back-up-and-restore/#restore) the backup and start the old version.
 
-To go back, restore the backup and start the old version. See
-[restore](/guides/back-up-and-restore/#restore).
+### Upgrading from 0.1
 
-### Moving to xixo link's folders
+From 0.2, xixo link beside the server reads and writes the `files` resource. A migration moves every
+`filesystem` resource to a folder on xixo link beside the server, at the path the server used, so
+`files` becomes `/data/files/<tenant>`. Before you upgrade:
 
-From this release, xixo opens no file itself, and xixo link beside the server reads and writes the
-`files` resource. A migration turns every `filesystem` resource into a folder on xixo link beside
-the server, at the path the server used: `files` becomes `/data/files/<tenant>`, keeping its key,
-its files, and its place as default storage. Before upgrading:
+1. Mount the volume that held `/data/files` into the `link` container at `/data/files`, read-write.
+2. Set `XIXO_LINK_WRITABLE` to `/data/files/<tenant>` on each tenant's xixo link.
+3. Give xixo link, which runs as uid 1000, ownership of the files:
 
-1. Mount the volume or host directory that held `/data/files` into the `link` container at `/data/files`,
-   read-write, and set `XIXO_LINK_WRITABLE` to `/data/files/<tenant>` for each tenant's xixo link.
-2. Remove `XIXO_FILESYSTEM_ROOTS` and the `/data/files` mount from the web and worker containers.
-   Leave the variable set until the upgrade has migrated if its first directory is not
-   `/data/files`, since the migration reads it to find where each tenant's files were.
-3. xixo link runs as uid 1000. Make sure it owns the files, or can write the folder:
-   `docker compose run --rm --user root --entrypoint chown link -R 1000:1000 /data/files`.
+   ```sh
+   docker compose run --rm --user root --entrypoint chown link -R 1000:1000 /data/files
+   ```
 
-A `filesystem` resource whose root was another directory on the server becomes a folder at that
-path on xixo link beside the server. Mount it into the `link` container at the same path, and name it in
-`XIXO_LINK_FOLDERS` or `XIXO_LINK_WRITABLE`, or it stays unusable until you do.
+4. Remove the `/data/files` mount from the web and worker containers.
+5. Remove `XIXO_FILESYSTEM_ROOTS` from the web and worker containers after the migration ran. The
+   migration reads it to find where each tenant's files were.
 
-To add a tenant, add it to `XIXO_TENANTS` and recreate the web container. It is created on boot with
-the `files` resource.
+A `filesystem` resource with a root in another directory moves to that path. Mount the directory
+into the `link` container at the same path, and name it in `XIXO_LINK_FOLDERS` or
+`XIXO_LINK_WRITABLE`. Until you do, the resource is unusable.
 
 ## If it doesn't work
 
 - **Every page answers `404 Unknown tenant`**: no tenant variable is set, or the host's first label
   names no declared tenant.
+- **Requests answer `403`**: the request's host is outside `XIXO_HOST_SUFFIX`.
 - **`Tenant::Exposed`, naming the role**: the database role holds `SUPERUSER` or `BYPASSRLS`. Remove
   them with `ALTER ROLE xixo NOSUPERUSER NOBYPASSRLS;`.
 - **`Tenant::TenancyConflict`**: both `XIXO_TENANT` and `XIXO_TENANTS` are set. Remove one.
 - **The container exits with `XIXO_PUBLIC_ORIGIN is not set`**: set it to the origin browsers use.
 - **The container exits with `Switch::Invalid`**: a switch holds a value other than `true` or
   `false`. The error names it.
-- **The container exits with `masks in engine mode needs a database of its own`**: the built-in masks
-  found no `masks` entry in `config/database.yml`. Use the image's own configuration.
 - **No setup token in the logs**: the masks tenant already has an account. Sign in with it, or set
   `MASKS_RECOVER` as the masks docs describe.
-- **Requests answer `403`**: the request's host is outside `XIXO_HOST_SUFFIX`.
 - **Uploads stage but never land**: the worker is not running, or it cannot read the web
   container's `/rails/storage`. Check `docker compose ps` and `docker compose logs worker`.
 - **"shares /data/files/&lt;tenant&gt; read-only"** or **"no longer shares"**: xixo link beside the
-  server does not list the `files` folder in `XIXO_LINK_WRITABLE`, or the volume holding it is not
-  mounted into the `link` container.
-- **An `s3` resource on the private network fails its check**: add its origin to
-  `XIXO_S3_ORIGINS`.
+  server does not list the folder in `XIXO_LINK_WRITABLE`, or its volume is not mounted into the
+  `link` container.
+- **An `s3` resource on your network fails its check**: add its origin to `XIXO_S3_ORIGINS`.
 
 ## Next steps
 
-```sh
-curl https://acme.xixo.example.com/.well-known/oauth-protected-resource
-```
-
-The metadata names the tenant's resource URL, its masks issuer, and every `xixo:` scope. Then open the
-tenant in a browser, set up the first account, and
-[attach a resource](/guides/attach-a-resource/).
+- [Attach a resource](/guides/attach-a-resource/) to catalog files from another place.
+- [Add a machine](/guides/add-a-machine/) to read the files on a computer.
+- [Connect an agent](/guides/connect-an-agent/) to search the catalog from an MCP client.

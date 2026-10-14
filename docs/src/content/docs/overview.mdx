@@ -4,15 +4,14 @@ description: What xixo catalogs, where it reads from, and the two interfaces to 
 ---
 
 xixo catalogs files and records that already live somewhere else. You attach the places they live,
-such as buckets, directories, mailboxes, calendars, feeds, wikis, and repositories. xixo reads each
-one and builds a single index over all of them. You can search that index, ask questions of it, and
-export from it. The bytes stay in their original places. xixo stores where each thing lives and
-what its analysis found.
+such as folders on your machines, buckets, mailboxes, calendars, RSS feeds, Notion, and git
+repositories. xixo reads each one and builds a single index over all of them. You can search that
+index, ask questions of it, and export from it. The bytes stay in their original places. xixo stores
+where each thing lives and what its analysis found.
 
 Two interfaces reach the same catalog. The browser app uses [GraphQL](/reference/graphql/), and
-the [MCP endpoint](/concepts/agents/) serves a model. Both accept the same access token, which
-[masks](https://github.com/masksrb/masks) issues. Each interface calls the domain layer directly,
-and neither is built on the other.
+AI agents use the [MCP endpoint](/concepts/agents/). Both accept the same access token, which
+[masks](https://github.com/masksrb/masks) issues.
 
 ## Key concepts
 
@@ -22,10 +21,10 @@ and neither is built on the other.
 | [References](/concepts/references/) | where a feed's bytes live, and how xixo notices a change to them |
 | [Adding things](/concepts/adding/) | uploads, notes, fetched pages, snapshots, and syncs, and how xixo chooses where a file is stored |
 | [Analysis](/concepts/analysis/) | how xixo reads a feed: the steps, its text, what a model described, and the summary |
-| [Resources](/concepts/resources/) | the places xixo reads from, writes to, and sends requests to |
+| [Resources](/concepts/resources/) | the places xixo reads from, writes to, and sends requests to, and the machines that run xixo link |
 | [Search](/concepts/search/) | the index, and how lexical and semantic results are combined |
-| [Agents and MCP](/concepts/agents/) | the five tools, and the agent loop that calls them |
-| [Tenants](/concepts/tenants/) | isolation between tenants, and signing in through masks |
+| [Agents and MCP](/concepts/agents/) | the five tools, the agent that calls them, and how a question is answered |
+| [Tenants](/concepts/tenants/) | isolation between tenants, settings, and signing in through masks |
 | [Security](/concepts/security/) | each threat xixo defends against, and the defense |
 
 Start with the [quickstart](/quickstart/). The reference pages are generated from the code, or

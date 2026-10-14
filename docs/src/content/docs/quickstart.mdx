@@ -3,125 +3,97 @@ title: Quickstart
 description: The ways to use xixo, and where to go next for each.
 ---
 
-xixo is an indexer for personal data. You can try it on your own machine with `./dev`, run its
-container image on a server, point an MCP client at it, or build on its GraphQL API. Pick the path
-that fits, and follow its link for the full guide.
+xixo is an indexer for personal data. Try it on your own machine with `./dev`, run its container
+image on a server, point an MCP client at it, or build on its GraphQL API.
 
 ## Try it locally
 
-The repository runs the whole stack in containers with `./dev`. It needs Docker with Compose, Ruby,
-and a masks checkout beside it for sign-in.
+`./dev` runs the whole stack in containers. It needs Docker with Compose, Ruby, and a masks
+checkout beside xixo for sign-in.
 
-```sh
-git clone https://github.com/xixo/xixo.git
-git clone https://github.com/masksrb/masks.git
-masks/dev
-xixo/dev
-```
+1. Clone both repositories side by side:
 
-Rails, Vite, the worker, this site, and the three backing services all reload when you edit a file.
-xixo answers at `http://xixo.localhost:8180`, and this documentation at
-`http://xixo.localhost:8181`. You do not need to edit `/etc/hosts`, because `*.localhost` already
-resolves.
+   ```sh
+   git clone https://github.com/xixo/xixo.git
+   git clone https://github.com/masksrb/masks.git
+   ```
 
-```sh
-./dev          # build and run in the foreground
-./dev down     # stop, keeping the volumes
-./dev reset    # delete the volumes and start over
-./dev test
-```
+2. Start masks:
 
-`./dev help` describes the other commands.
+   ```sh
+   masks/dev
+   ```
 
-| Port | Service | Override |
-| --- | --- | --- |
-| 8180 | xixo, at `http://xixo.localhost:8180` | `XIXO_PORT` |
-| 8181 | these docs | `XIXO_DOCS_PORT` |
-| 8182 | Vite | `XIXO_VITE_PORT` |
-| 5434 | Postgres | `XIXO_POSTGRES_PORT` |
-| 9201 | OpenSearch | `XIXO_OPENSEARCH_PORT` |
-| 9000, 9001 | MinIO and its console | `XIXO_MINIO_PORT`, `XIXO_MINIO_CONSOLE_PORT` |
+3. Start xixo in another terminal:
 
-The stack serves one tenant, `xixo`, on every host. `./dev --multi` declares the tenants `demo` and
-`acme` instead, at `http://demo.xixo.localhost:8180` and `http://acme.xixo.localhost:8180`. Each one
-signs in against the masks tenant of the same name. See [tenants](/concepts/tenants/).
+   ```sh
+   xixo/dev
+   ```
+
+xixo answers at `http://xixo.localhost:8180`, and these docs at `http://xixo.localhost:8181`.
+`*.localhost` already resolves, so there is no `/etc/hosts` to edit. The stack serves one tenant,
+`xixo`. See [development](/reference/development/) for the other commands, the ports, and
+`./dev --multi`.
 
 ### Sign in
 
-xixo has no accounts of its own. It signs people in through masks, which has to be running first.
-`MASKS_ISSUER` names the masks server and defaults to `http://masks.localhost:12345`. The masks dev
-stack's setup token is `masks-dev`.
+xixo has no accounts of its own. It signs people in through the masks dev stack at
+`http://masks.localhost:12345`, whose setup token is `masks-dev`.
 
 1. Open `http://xixo.localhost:8180`.
-2. masks asks you to sign in with an account that is allowed to approve connections, and then to
-   approve xixo. masks sends the client credentials to xixo directly, server to server.
-3. xixo then signs you in. On later visits the button reads **Sign in**.
+2. Click **Get started…**.
+3. Sign in to masks with an account that may approve connections. On a fresh masks, enter the setup
+   token `masks-dev` and create the first account.
+4. Approve **xixo** when masks asks. You are signed in.
+
+On later visits the button reads **Sign in**.
 
 ### Resources
 
-The first time the stack starts, `bin/rails db:prepare` creates the database and runs
-`db/seeds.rb`. The seeds attach resources to the tenant:
+The first time the stack starts, `db/seeds.rb` attaches resources to the tenant. They include
+**Default storage**, which keeps uploads in Postgres up to 64 MB each, a MinIO bucket,
+**Snapshots**, and **Local models**, which is Ollama on the host.
 
-| | |
-| --- | --- |
-| **Default storage** (`database`) | Storage in Postgres, up to 64 MB per file. It is the default storage, so uploads go here unless the agent picks another place. |
-| **Object storage** (`items-xixo`) | A bucket in the stack's MinIO. The seeds create the bucket. |
-| **Snapshots** (`web`) | Headless Chrome, which saves web pages as snapshots. |
-| **Local models** (`ollama`) | Ollama on the host at `http://host.docker.internal:11434/v1`, with a model for every role. It is the default inference resource. |
-
-To see them, click your avatar in the header to open **Settings**, then open **Resources**.
-**Add** adds another resource, and [attaching a resource](/guides/attach-a-resource/)
-describes each type. `./dev seed` runs the seeds again without deleting anything.
+To see them all, click your avatar in the header, then **Resources**. To add another, click
+**Add**, and see [attaching a resource](/guides/attach-a-resource/). `./dev seed` runs the seeds
+again without deleting anything.
 
 ### Models
 
-The models run on the host, outside the containers. `brew bundle` installs Ollama. Pull the models
-that the seeds name:
+The models run on the host, outside the containers. `brew bundle` installs Ollama.
 
-```sh
-ollama pull gemma3:4b
-ollama pull llama3.1:8b
-ollama pull qwen3:8b
-ollama pull nomic-embed-text
-```
+1. Start Ollama with a context large enough for the agent. The default of 4,096 tokens makes the
+   agent lose the start of its prompt.
 
-| Role | Model |
-| --- | --- |
-| `fast`, `vision` | `gemma3:4b` |
-| `smart` | `llama3.1:8b` |
-| `agent` | `qwen3:8b` |
-| `embedding` | `nomic-embed-text` |
+   ```sh
+   OLLAMA_CONTEXT_LENGTH=32768 ollama serve
+   ```
 
-If Ollama was not running when the seeds ran, the
-seeds print a warning and xixo skips summaries until the resource answers. After you start Ollama,
-click **Check** on **Local models**. The check fails and names the missing models until each one is
-pulled.
+2. Pull the models the seeds name:
 
-:::note
-Ollama gives each model a 4,096-token context by default. That is too small for the agent, which
-loses the start of its prompt. Start Ollama with `OLLAMA_CONTEXT_LENGTH=32768`.
-:::
+   ```sh
+   ollama pull gemma3:4b
+   ollama pull llama3.1:8b
+   ollama pull qwen3:8b
+   ollama pull nomic-embed-text
+   ```
+
+3. On the **Resources** page, click **Check** on **Local models**. The check names any model that is
+   still missing.
+
+Until the check passes, xixo analyzes files without summaries.
 
 ### The first file
 
-Drop a file anywhere on the catalog. The upload returns as soon as the file is staged, and the
-worker does the rest. It analyzes the file, the [agent](/concepts/agents/) connects it to tags and
-picks a resource that accepts it, and xixo writes the bytes there. The file's page shows the
-analysis as it runs. xixo refuses an upload that no active resource can accept, and says why. See
-[adding things](/concepts/adding/) and [analysis](/concepts/analysis/).
+Drop a file anywhere on the catalog. xixo stages it, analyzes it, and places it in a resource that
+accepts it. The file's page shows the analysis as it runs. See [adding things](/concepts/adding/)
+and [analysis](/concepts/analysis/).
 
 ## Run it with Docker
 
-xixo ships as a container image, `ghcr.io/xixo/xixo`. The same image runs the web process and the
-worker. It needs Postgres and OpenSearch, serves its own masks at `/id` to sign people in, and
-migrates itself on boot.
-
-```sh
-docker pull ghcr.io/xixo/xixo:latest
-```
-
-See [self-hosting](/guides/self-hosting/) for an example `compose.yml`, the secrets, tenants, and
-storage.
+xixo ships as a container image, `ghcr.io/xixo/xixo`, which runs both the web process and the
+worker. It needs Postgres and OpenSearch, and serves its own masks at `/id`. See
+[self-hosting](/guides/self-hosting/).
 
 ## Connect an agent
 
@@ -131,15 +103,14 @@ Point an MCP client that supports OAuth at `/mcp`:
 claude mcp add --transport http xixo http://xixo.localhost:8180/mcp
 ```
 
-xixo answers the first request with `401` and the protected-resource metadata, which names masks.
-The client registers with masks and requests a token itself, so this works only if the masks tenant
-allows dynamic client registration. The tools the client sees depend on the scopes it is granted.
-See [connecting an agent](/guides/connect-an-agent/) and the [MCP reference](/reference/mcp/).
+The client registers with masks and requests a token itself, so the masks tenant must allow dynamic
+client registration. The tools the client sees depend on the scopes it is granted. See
+[connecting an agent](/guides/connect-an-agent/) and the [MCP reference](/reference/mcp/).
 
 ## Build on the API
 
-Everything the browser app does goes through `/graphql`. A page served by xixo uses its session
-cookie, and `xixo` wraps that with typed documents for every operation the app uses:
+Everything the browser app does goes through `/graphql`. On a page that xixo serves, the `xixo`
+package sends the session cookie and has a typed document for every operation the app uses:
 
 ```sh
 npm install xixo graphql
@@ -154,7 +125,7 @@ const { data } = await client.query(SearchDocument, { query: "lease" }).toPromis
 ```
 
 Any other client sends a masks access token as `Authorization: Bearer`. The token's audience is the
-tenant's origin followed by `/mcp`, the same token an MCP client holds:
+tenant's origin followed by `/mcp`, the same as an MCP client's token:
 
 ```sh
 curl https://xixo.example.com/graphql \
@@ -164,12 +135,3 @@ curl https://xixo.example.com/graphql \
 ```
 
 See the [GraphQL reference](/reference/graphql/) for every field and the scope it needs.
-
-## Read the docs
-
-- [Overview](/overview/) says what xixo catalogs and lists the key concepts.
-- [Attach a resource](/guides/attach-a-resource/), [ask the catalog](/guides/ask/), and
-  [export your catalog](/guides/export/) cover what people do in the app.
-- [Security](/concepts/security/) describes what xixo protects and how.
-- [Resource types](/reference/resources/) lists every place xixo reads from, and
-  [ENV vars](/reference/environment/) every setting a deployment makes.

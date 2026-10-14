@@ -4,7 +4,9 @@ description: The dev stack, its commands and test suites, and the ENV vars it re
 ---
 
 `./dev` runs xixo for development. It needs Docker with Compose, and Ruby. It runs Rails, Vite, the
-worker, the documentation site, PostgreSQL, OpenSearch, and MinIO in the foreground, all reloading.
+worker, xixo link beside the server, the documentation site, PostgreSQL, OpenSearch, MinIO, and a
+test MCP server in the foreground. Rails, Vite, the worker, and the docs reload when you edit a
+file.
 
 ## Commands
 
@@ -48,7 +50,7 @@ need assets that a checkout does not hold. Build them once, and again after mask
 
 | Suite | |
 | --- | --- |
-| `unit` | Models, jobs, channels, machines, tools, analyzers, and `lib`, under `test/unit`. |
+| `unit` | Everything below the HTTP layer, under `test/unit`. |
 | `server` | Requests to the Rails app, under `test/server`, signing in through a fake masks issuer. |
 | `embedded` | The built-in masks, under `test/embedded`. It boots xixo with masks mounted at `/id` and walks a fresh install from masks' first-run setup to a signed-in session. |
 | `corpus` | The summary of the reference corpus, under `test/corpus`. |
@@ -58,7 +60,6 @@ The Rails suites clear `XIXO_TENANT` and `XIXO_TENANTS`, so they run against sev
 way the stack was started. CI runs each suite through `./dev test`.
 
 ## ENV vars
-
 
 Read by `./dev`, the compose files, the seeds, and the test suite. A deployed server ignores them.
 
@@ -87,6 +88,7 @@ Read by `./dev`, the compose files, the seeds, and the test suite. A deployed se
 | `MASKS_CLIENT_PATH` | none | Where the `Gemfile` finds the masks client. When that directory holds a `masks.gemspec`, the gem comes from it. Otherwise the gem comes from RubyGems, or from `../masks/client` under `Gemfile.local`. Compose sets it to `/masks/client` as a build argument. |
 | `MASKS_SERVER_DIR` | `../masks/engine` | The masks engine checkout that compose builds and mounts into the containers, for the built-in masks. |
 | `MASKS_SERVER_PATH` | none | Where the `Gemfile` finds the masks engine for the built-in masks. When that directory holds a `masks-server.gemspec`, the gem comes from it, and its pages need the assets that `bin/rake masks:engine_assets` builds in masks' `server/`. Otherwise the gem comes from RubyGems. Compose sets it to `/masks/engine` as a build argument. |
+| `XIXO_LINK_FOLDER` | `./tmp/link-folder` | The folder on the host that compose shares read-only with xixo link beside the server, at `/folders`. |
 | `XIXO_LINK_HOST` | `xixo.localhost` | The host the dev stack's xixo link signs in through with `./dev --embedded`. `./dev --multi --embedded` sets it to `demo.xixo.localhost`. |
 | `MASKS_CONTAINER` | `masks-masks-1` | The masks container that `./dev delegation` runs its setup in. |
 | `MASKS_TENANT` | `masks` | The masks tenant that `./dev delegation` signs in through. |
@@ -98,8 +100,8 @@ Read by `./dev`, the compose files, the seeds, and the test suite. A deployed se
 
 ### Seeds
 
-`bin/rails db:seed` gives each tenant an `s3` resource when `S3_ENDPOINT` is set, and an
-`openai_compatible` resource when `OLLAMA_URL` is set, and another when `WHISPER_URL` is set.
+`bin/rails db:seed` attaches a few resources to each tenant. These variables add the `s3` and
+`openai-compatible` ones.
 
 | Variable | Default | |
 | --- | --- | --- |

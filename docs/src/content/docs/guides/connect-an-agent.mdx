@@ -4,106 +4,84 @@ description: Point Claude Code, Claude Desktop, or another MCP client at xixo ov
 ---
 
 At the end of this guide, an MCP client can search and file the catalog through `/mcp`. You need a
-running xixo that is connected to masks, and an account in the masks tenant it signs in with.
+running xixo that is connected to masks, and an account in the masks tenant it signs in with. See
+[agents and MCP](/concepts/agents/) for how the endpoint works.
 
 ## Allow dynamic registration in masks
 
 An MCP client registers itself with masks the first time it connects. The masks tenant has to allow
 that.
 
-1. Open the masks tenant's settings.
-2. Under **Dynamic registration**, choose **On**, or **On, limited to these scopes**.
-3. If you limit it, list `openid`, `profile`, `email`, `offline_access`, and every scope in the
-   [table below](#choose-the-scopes). A client asks for every scope xixo offers, and masks refuses
-   the whole request with `invalid_scope` when one of them is beyond the limit.
+1. Open the masks console. With the built-in masks, it is at `/id/manage` on the tenant's origin.
+2. Choose **Settings**, then **General**.
+3. Under **Dynamic registration**, choose **On**, or **On, limited to these scopes**.
+4. If you limit it, list `openid`, `profile`, `email`, `offline_access`, `xixo:catalog:read`,
+   `xixo:catalog:write`, `xixo:web:read`, `xixo:web:keep`, `xixo:mcp:call`,
+   `xixo:resources:read`, and `xixo:resources:command`.
 
-`MASKS_DYNAMIC_REGISTRATION` on the masks deployment overrides the tenant's choice.
+A client asks for every scope xixo offers, and masks refuses the whole request when one of them is
+outside the limit. To limit what a client may do, use the client's own controls, such as Claude's
+per-tool permissions. `MASKS_DYNAMIC_REGISTRATION` on the masks deployment overrides the tenant's
+choice.
 
-## Claude Code
+## Connect Claude Code
 
-1. Add the server. Use your xixo address followed by `/mcp`:
+1. Add the server, using your xixo address followed by `/mcp`:
 
    ```sh
-   claude mcp add --transport http xixo http://xixo.localhost:8180/mcp
+   claude mcp add --transport http xixo https://xixo.example.com/mcp
    ```
 
-2. Start `claude` and run `/mcp`. Choose `xixo`, then authenticate.
-3. The browser opens masks. Sign in, and approve the scopes the client asks for.
-4. Back in Claude Code, `/mcp` lists `xixo` as connected, with its tools.
+2. Start `claude` and run `/mcp`.
+3. Choose `xixo`, then authenticate.
+4. Sign in to masks in the browser that opens, and approve the scopes.
 
-## Claude and other clients
+`/mcp` in Claude Code then lists `xixo` as connected, with its tools.
 
-Any MCP client that speaks OAuth and registers itself dynamically can connect. Give it the `/mcp`
-URL, such as `https://xixo.example.com/mcp`. The address without `/mcp` answers `404`, and the
-resource the metadata names is the `/mcp` URL, which a client checks against the address it was
-given.
+## Connect Claude or another client
 
-In Claude, open **Settings → Connectors**, choose **Add custom connector**, and enter a name and the
-`/mcp` URL. Claude sends you to masks to sign in and approve, and then lists the xixo tools under the
-connector, where you choose which ones it may call without asking.
+Any MCP client that supports OAuth and registers itself dynamically can connect. Give it the `/mcp`
+URL, such as `https://xixo.example.com/mcp`.
+
+In Claude:
+
+1. Open **Settings**, then **Connectors**.
+2. Choose **Add custom connector**.
+3. Enter a name and the `/mcp` URL.
+4. Sign in to masks and approve the scopes.
 
 :::note
 Claude Desktop reaches a custom connector from Anthropic's servers, so the address has to be public.
-`xixo.localhost` works only for a client running on the same machine, such as Claude Code.
+A `localhost` address works only for a client on the same machine, such as Claude Code.
 :::
 
-## What the client does
+## What the token reaches
 
-You do not configure any of this. It is listed so you can follow it in a log.
-
-1. The client calls `/mcp` without a token. xixo answers `401` with a `WWW-Authenticate` header that
-   names `/.well-known/oauth-protected-resource`.
-2. The client reads that document. It lists the `/mcp` URL as the resource, the masks issuer as the
-   authorization server, and every `xixo:` scope an MCP tool checks, with its description.
-3. The client registers with masks and sends you there to sign in and approve.
-4. The client calls `/mcp` again with the token masks issued.
-
-See [agents and MCP](/concepts/agents/) for how the endpoint is built.
-
-## Choose the scopes
-
-The tools a client sees depend on the scopes its token holds. A tool the token does not reach is
-left out of `tools/list`.
-
-| Scope | What it unlocks |
-| --- | --- |
-| `xixo:catalog:read` | `search`, and `feed` to read a feed |
-| `xixo:catalog:write` | `connect`, and `feed` to note, rename, analyze, create, place, or change a lifetime |
-| `xixo:resources:read` | `resource`, to list resources and ask them read-only commands |
-| `xixo:resources:command` | `move`, and `resource` commands that act |
-| `xixo:web:read` | `resource` searches on a web search resource |
-| `xixo:web:keep` | `resource` `snapshot` on a `web` resource, without `xixo:resources:command` |
-| `xixo:mcp:call` | the tools of every MCP server attached as a resource |
-
-xixo offers each of these scopes, and a client asks for all of them. A masks limit narrower than
-this table refuses every such client, so limit a client in the client instead, such as Claude's
-per-tool permissions. The full list is in the
-[scopes reference](/reference/scopes/), and each tool's arguments are in the
-[MCP reference](/reference/mcp/).
+A client sees only the tools its token's scopes reach. `xixo:web:read` lets the `resource` tool
+search the web, fetch a page, and look up weather and places. See the
+[scopes reference](/reference/scopes/) for every scope, and the [MCP reference](/reference/mcp/) for
+each tool.
 
 ## Check that it works
 
-Ask the agent to search the catalog for a word you know is in it. It calls `search` and returns
-feeds with their ids. Then ask it to list resources, which calls `resource` with no key.
-
-## If it does not connect
-
-The masks log shows each step the client took.
-
-| What you see | Why |
-| --- | --- |
-| The client never opens masks | The masks metadata at `/.well-known/oauth-authorization-server` has no `registration_endpoint`, so dynamic registration is off. |
-| masks redirects back with `invalid_scope` and `this client may not request` | The tenant's limit leaves out a scope xixo offers. Add the scopes it names. |
-| The client gets `404` | The address is missing `/mcp`. |
+1. Ask the agent to search the catalog for a word you know is in it. It calls `search` and returns
+   feeds with their ids.
+2. Ask it to list resources. It calls `resource` with no key.
 
 ## If it doesn't work
 
-- **The client never opens masks.** Dynamic registration is off in the masks tenant.
+The masks log shows each step the client took.
+
+- **The client never opens masks.** Dynamic registration is off in the masks tenant. The masks
+  metadata at `/.well-known/oauth-authorization-server` then has no `registration_endpoint`.
+- **masks redirects back with `invalid_scope` and `this client may not request`.** The tenant's
+  limit leaves out a scope xixo offers. Add the scopes it names.
+- **The client gets `404`.** The address is missing `/mcp`.
 - **`401` after signing in.** xixo refused the token, for example because masks issued it for a
-  different tenant. xixo records each refusal with its reason on the **Activity** page in Settings.
+  different tenant. xixo records each refusal with its reason under **Activity** in settings.
 - **`503` from `/mcp` or `/.well-known/oauth-protected-resource`.** masks is not answering. The
   response body says why.
 - **A tool is missing.** The token does not hold the scope for it. Authenticate again and approve
   the scope.
 - **`429 too many requests`.** The token made more than `XIXO_MCP_LIMIT` calls in a minute, 120 by
-  default. See the [environment reference](/reference/environment/).
+  default.

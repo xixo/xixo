@@ -3,16 +3,10 @@ title: ENV vars
 description: Every ENV var xixo reads, and where each one applies.
 ---
 
-xixo reads its configuration from the environment. This page lists every variable read by the web
-and worker processes and the Rake tasks. Each section covers one of these contexts:
-
-| Context | Reads |
-| --- | --- |
-| [Server](#server) | The web and worker processes of the `ghcr.io/xixo/xixo` image, and any other way of running xixo. Nearly everything on this page. |
-| [Rake task arguments](#rake-task-arguments) | Arguments to `bin/rails inference:corpus`. |
-
-The variables read by `./dev`, the compose files, the seeds, and the test suite are on the
-[Development](/reference/development/#env-vars) page. A deployed server does not read them.
+xixo reads its configuration from the environment. This page lists every variable the web and
+worker processes and the Rake tasks read. The variables read by `./dev`, the compose files, the
+seeds, and the test suite are on the [Development](/reference/development/#env-vars) page. A
+deployed server does not read them.
 
 `./dev reference` fails when the code reads a variable that neither page lists, or a page lists one
 the code no longer reads.
@@ -32,7 +26,7 @@ generate them.
 | --- | --- | --- |
 | `SECRET_KEY_BASE` | none | Signs and encrypts sessions and cookies. Read by Rails. xixo ships no credentials file, so without it Rails raises `Missing secret_key_base` in production. |
 | `ENCRYPTION_PRIMARY_KEY` | none | Encrypts the columns that hold secrets: each resource's credentials, and each tenant's masks client secret and registration access token. `bin/rails db:encryption:init` prints a value. Without it, the first read or write of one of those columns raises `ActiveRecord::Encryption::Errors::Configuration`. |
-| `ENCRYPTION_DETERMINISTIC_KEY` | none | Encrypts columns that are looked up by value. No column uses it yet, and Rails requires it to be set. |
+| `ENCRYPTION_DETERMINISTIC_KEY` | none | Encrypts columns that are looked up by value. No column uses it, and Rails requires it. |
 | `ENCRYPTION_KEY_DERIVATION_SALT` | none | Derives the per-column keys from the two above. |
 | `XIXO_PUBLIC_ORIGIN` | none | The origin browsers and agents use to reach each tenant, with `%{subdomain}` standing in for the first label of the host, such as `https://%{subdomain}.xixo.example.com`. A single tenant uses an origin without the placeholder, such as `https://xixo.example.com`. The origin followed by `/mcp` is the audience every access token must name, and the sign-in callback is built from it. Production refuses to boot without it. In development and test, xixo builds both from the request's `Host` header when it is unset. |
 | `MASKS_ISSUER_TEMPLATE` | none | The issuer URL of a masks server run apart from xixo, with `%{subdomain}` standing in as it does in `XIXO_PUBLIC_ORIGIN`, such as `https://%{subdomain}.auth.example.com`. With `XIXO_TENANT`, `%{subdomain}` in either template is the pinned tenant, whatever host a request names. Unset, xixo serves its own masks at `/id` on each tenant's origin, with its tables in a fifth database whose name ends in `_masks`. Read once at boot. See [signing in](/concepts/tenants/#signing-in). |
@@ -55,7 +49,7 @@ every `Host` header. See [security](/concepts/security/).
 | --- | --- | --- |
 | `XIXO_TENANT` | none | Declares a single tenant, such as `xixo`, and serves it at every host. |
 | `XIXO_TENANTS` | none | Declares several tenants, separated by commas or spaces, such as `demo,acme`. A request resolves to the tenant named by the first label of its host. |
-| `XIXO_HOST_SUFFIX` | none, or `xixo.test` in development | The domain xixo answers under, such as `xixo.example.com`. Rails accepts that domain and its subdomains and answers `403` to any other `Host`, except at `/up`. Unset in production, Rails accepts every host. xixo also refuses an MCP resource whose URL points at a host under this domain, so it cannot call itself. |
+| `XIXO_HOST_SUFFIX` | none, or `xixo.localhost` in development | The domain xixo answers under, such as `xixo.example.com`. Rails accepts that domain and its subdomains and answers `403` to any other `Host`, except at `/up`. Unset in production, Rails accepts every host. xixo also refuses an MCP resource whose URL points at a host under this domain, so it cannot call itself. |
 
 `bin/rails xixo:tenants` creates each declared tenant that does not exist, and the container
 entrypoint runs it before the server starts. Setting both variables stops that task with
@@ -65,9 +59,9 @@ that tenant nor stops xixo from serving it. See [tenants](/concepts/tenants/).
 
 ### Database
 
-xixo uses four PostgreSQL databases: the primary, a cache, a job queue, and Action Cable. Production
-connects to `xixo_production`, `xixo_production_cache`, `xixo_production_queue`, and
-`xixo_production_cable` as the role `xixo`. That role must hold neither `SUPERUSER` nor `BYPASSRLS`,
+xixo uses PostgreSQL databases for the primary data, a cache, a job queue, Action Cable, and the
+built-in masks. Production connects to `xixo_production`, `xixo_production_cache`,
+`xixo_production_queue`, `xixo_production_cable`, and `xixo_production_masks` as the role `xixo`. That role must hold neither `SUPERUSER` nor `BYPASSRLS`,
 because tenant isolation depends on row-level security. xixo refuses to enter any tenant when it
 connects as such a role.
 
@@ -87,7 +81,7 @@ connects as such a role.
 | `OPENSEARCH_URL` | `http://127.0.0.1:9201` | The OpenSearch server that holds the search index. The index's alias is `xixo_` followed by the Rails environment, and each tenant searches through an alias of its own. See [search](/concepts/search/). |
 | `OPENSEARCH_USERNAME` | none | The user xixo signs in to OpenSearch as, when its security plugin is on. |
 | `OPENSEARCH_PASSWORD` | none | The password for `OPENSEARCH_USERNAME`. |
-| `XIXO_EMBEDDING_DIMENSIONS` | `768` | The length of the vectors the index holds. The embedding model a tenant declares must return vectors of this length, and checking an inference resource fails when it does not. Changing it changes the index's mapping, so `RebuildSearchIndexJob` builds a new index at 3 a.m. See [rebuilding](/concepts/search/#rebuilding). |
+| `XIXO_EMBEDDING_DIMENSIONS` | `768` | The length of the vectors the index holds. The embedding model a tenant declares must return vectors of this length, and checking an inference resource fails when it does not. Changing it changes the index's mapping, so `RebuildSearchIndexJob` builds a new index within ten minutes. See [rebuilding](/concepts/search/#rebuilding). |
 | `XIXO_SEMANTIC_FLOOR` | `0.55` | The lowest cosine similarity a semantic match may have. A match must also score within `0.12` of the best match. Raising it returns fewer, closer matches. See [semantic search](/concepts/search/#semantic-search). |
 
 ### Storage
@@ -105,23 +99,22 @@ Uploads are staged through Active Storage before a job places them in a resource
 | `XIXO_STAGING_SECRET_ACCESS_KEY` | none | |
 | `XIXO_GIT_ROOT` | none | The directory where `git` resources keep their shallow bare clones, at `<root>/<tenant id>/<resource id>.git`. Unset, every `git` resource is unusable. |
 | `XIXO_LOCAL_LINK` | none | The directory the server shares with xixo link beside it. Each tenant whose xixo link runs there has a directory of its own under it, named by its subdomain. When it asks to enroll, the worker leaves it a single-use enrollment token readable by its user alone, and binds the client xixo link enrolled as to the `local` machine. Unset, nothing is extracted until xixo link on a machine is connected. |
-| `XIXO_LINK_FOLDER` | `./tmp/link-folder` | Development only: the folder on the host that the dev compose shares read-only with xixo link beside the server, at `/folders`. |
-| `XIXO_LINK_DIR` | `/opt/xixo-link` | Where the server finds the xixo link it hands to a machine that links up: the builds named `xixo-link-<os>-<arch>`, the `xixo-link.service` unit, and the `xixo-link.plist` launch agent. `/link.sh` offers each build it finds there. The server image builds xixo link for Linux and macOS on amd64 and arm64 there from `link/`. |
+| `XIXO_LINK_DIR` | `/opt/xixo-link` | Where the server finds the xixo link it hands to a machine that links up: the builds named `xixo-link-<os>-<arch>`, the systemd units, and the launch agent. `/link.sh` offers each build it finds there. The server image holds builds for Linux and macOS on amd64 and arm64. |
 
 ### Outbound connections
 
 xixo refuses to connect to loopback, private, link-local, and other reserved addresses. These
 variables open exceptions. Each `_ORIGINS` variable lists origins separated by commas, such as
 `http://minio:9000,https://search.internal.example.com`. An origin is a scheme, a host, and a port,
-and a URL matches when all three match. See [addresses](/concepts/adding/#addresses) and
-[security](/concepts/security/).
+and a URL matches when all three match. See
+[reaching addresses](/concepts/security/#reaching-addresses).
 
 | Variable | Default | |
 | --- | --- | --- |
 | `XIXO_S3_ORIGINS` | none | S3 endpoints an `s3` resource may reach at a private address, such as a MinIO container. |
 | `XIXO_MCP_ORIGINS` | none | MCP servers an `mcp` resource may reach at a private address. |
 | `XIXO_SEARCH_ORIGINS` | none | Search endpoints a `search` resource may reach at a private address, such as a self-hosted SearXNG. `XIXO_ALLOW_PRIVATE_FETCH` does not apply to `search` resources. |
-| `XIXO_INFERENCE_ORIGINS` | none | Every origin an `openai_compatible` resource may reach, public or private, such as `https://api.openai.com,http://ollama:11434`. A resource whose base URL is outside the list is unusable, and with the list empty every one is, unless it is reached through a transport. |
+| `XIXO_INFERENCE_ORIGINS` | none | Every origin an `openai-compatible` resource may reach, public or private, such as `https://api.openai.com,http://ollama:11434`. A resource whose base URL is outside the list is unusable, and with the list empty every one is, unless it is reached through a machine or a tailnet. |
 | `XIXO_TAILSCALE_SOCKET` | none | The socket of a tailscaled that xixo shares a network with, such as `/var/run/tailscale/tailscaled.sock`. Set, xixo declares a `tailnet` resource in every tenant beside those in `config/resources.yml`, and resources reached through it may connect to addresses on the tailnet. See [reach a tailnet](/guides/tailnet/). |
 | `XIXO_ALLOW_PRIVATE_FETCH` | `false` | Lifts the address check for downloads, snapshots, and every resource that fetches URLs. The scheme check stays. |
 | `XIXO_GIT_PROTOCOLS` | `https` | The transports `git` resources may use, separated by commas, such as `https,ssh`. xixo passes the list to git as `GIT_ALLOW_PROTOCOL`. Only `http` and `https` URLs go through the address check. |
@@ -153,7 +146,7 @@ and every resource credential.
 | Variable | Default | |
 | --- | --- | --- |
 | `XIXO_MCP_LIMIT` | `120` | MCP requests per minute, counted per tenant and per bearer token, or per IP address for a request without one. A request over the limit receives a `429`. `0` refuses every request. |
-| `XIXO_RUN_BUDGET` | `20` | Syncs, exports, and analyses each subject may start over MCP per clock hour. `0` removes the limit. See [budgets and gates](/concepts/agents/#budgets-and-gates). |
+| `XIXO_RUN_BUDGET` | `20` | Syncs, exports, analyses, and moves one person may start over MCP in a tenant per clock hour. `0` removes the limit. See [budgets and gates](/concepts/agents/#budgets-and-gates). |
 | `XIXO_RUN_DEADLINE_HOURS` | `6` | How long a run or an analysis may stay open. Every 10 minutes, `ExpireOverdueJob` expires any that are past their deadline. `0` sets no deadline. |
 | `XIXO_RUN_RETENTION_DAYS` | `14` | How long finished runs are kept. `SweepRunsJob` deletes older ones at 4:20 a.m. `0` keeps them. |
 | `XIXO_AUDIT_RETENTION_DAYS` | `90` | How long audit events are kept. `SweepAuditEventsJob` deletes older ones at 4 a.m. `0` keeps them. |

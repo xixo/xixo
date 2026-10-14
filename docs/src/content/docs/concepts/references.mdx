@@ -3,138 +3,106 @@ title: References
 description: Where a feed's bytes live, how xixo notices a change, and what xixo deletes.
 ---
 
-A feed does not hold bytes. A reference points to them. It is a row that names a
-[resource](/concepts/resources/) and the location of the bytes inside it. A feed can have several
-references, such as the same file in a bucket and in an export of that bucket, and the feed
-describes what they have in common.
+A feed does not hold bytes. A reference points to them. It names a
+[resource](/concepts/resources/) and the place of the bytes inside it. A feed can have several
+references, such as the same file in a bucket and in an export of that bucket.
 
 ## Roles
 
 | Role | What it points to |
 | --- | --- |
 | `original` | the file or record itself, wherever it was synced from or placed |
-| `preview` | the hi-res JPEG, no longer on its longest edge than the **Hi-res size** setting, which a thumbnail opens and the image and page analyzers read so they do not render the file again |
-| `thumbnail` | a JPEG as wide as the **Thumbnail width** setting, for the catalog |
+| `preview` | the hi-res JPEG that a thumbnail opens and the vision model reads |
+| `thumbnail` | the small JPEG the catalog shows |
+| `frame` | a frame taken from an animation or a video for the vision model |
 
-`preview` and `thumbnail` are derived. An analysis renders both once for images, video, audio,
-PDFs, and captured pages, and stores them in the internal `derived` store, keyed
-`<feed id>/<role>.jpg`. Audio renders as a picture of its waveform. See
-[derive](/concepts/analysis/#extraction) for the sizes. That
-store and the `children` store are listed in `Resource::INTERNAL`. xixo keeps them for itself and
-never offers them as a place to store a file. Serving a thumbnail reads the bytes of the thumbnail
-reference, so it passes the same grant check as any other bytes.
-
-Everything that counts a feed's places counts originals only. That includes `Feed#reference`, the
-search document, `splitReference`, and `forgetFeed`.
+Analysis renders the derived roles into the internal `derived` store. Their sizes are
+[settings](/concepts/tenants/#settings). Everything that counts a feed's places, such as search and
+`forgetFeed`, counts originals only. Serving a thumbnail passes the same grant check as any other
+bytes.
 
 ## Locators
 
-`locator` is a JSON object in whatever form the resource needs to find the bytes again, such as a
-bucket and a key, a path, or a mailbox uid. `locator_key` is its stable string form, the path a
-person would recognize. A `locator_key` is unique within a resource. The model validates this, and
-a partial unique index on `(tenant, resource, locator_key)` enforces it, so one object in one place
-has exactly one reference. Syncing the object again finds that reference and does not create a
-second one.
+A reference's `locator` is whatever the resource needs to find the bytes again, such as a bucket and
+a key, a path, or a mailbox uid. Its `locator_key` is the path a person would recognize, and it is
+unique within a resource. So one object in one place has exactly one reference, and syncing it again
+finds that reference.
 
 ## Noticing change
 
-`version` is the value the resource gives for this revision of the bytes: an S3 or WebDAV ETag, a git
-SHA, a Notion `last_edited_time`, or the digest of a web capture. When a sync reports a version that
-differs from the stored one, the reference sets `changed_at` and clears `analyzed_at`, and the sync
-starts a new analysis. A cached analysis step that finished before `changed_at` runs again, so an
-analysis never describes bytes that have since changed.
+A reference's `version` is what the resource gives for this revision of the bytes, such as an ETag,
+a git commit, a Notion edit time, or the digest of a web capture. When a sync reports a different
+version, xixo marks the reference changed and analyzes the feed again. Every cached analysis step
+that finished before the change runs again, so an analysis never describes old bytes.
+
+When an export copies a feed into another resource, the copy records the version of the original it
+came from. The next export copies the file again only when the original has changed.
 
 ## Noticing what is gone
 
-Every object a sync walks past sets its reference's `seen_at`. When a sync finishes, xixo sets
-`gone_at` on each original reference in that resource that was last seen before the sync began,
-because the source no longer has it. This does not happen after a sync that was cancelled, ran past
-its deadline, was gated, or was a dry run. Nothing is deleted then. The feed, its analysis, and its
+Every object a sync walks past is marked seen. When a full sync finishes, each original in that
+resource that was not seen is marked gone. Nothing is deleted then. The feed, its analysis, and its
 notes stay, and the item page says where the file is no longer found. A later sync or `keep` that
-finds it again clears `gone_at`.
+finds the file again clears the mark.
 
-`ForgetGoneJob` runs every day at 4:50 a.m. in every tenant. It forgets each `xixo:file` feed whose
-originals all have a `gone_at` more than 30 days old (`Feed::GONE_FOR`), and records each one in the
-audit log. A feed with at least one original still found is left alone, and so is a feed that
-someone kept:
+A sync marks nothing gone when:
 
-- a feed with a note, which a person or an agent wrote,
-- a feed with an `expires_at`, which follows its own lifetime instead,
-- a feed with an edge that is not `inferred`, such as a tag or a connection a person or an agent
-  made, or a question's answer that drew on it (an edge to a content type does not count),
-- a feed with an analysis still open, until that analysis finishes, and
-- an extracted child, which goes with its parent.
+- it was cancelled, ran past its deadline, was gated, or was a dry run;
+- it walked only what changed, unless the source reports deletions itself, as git commits and a
+  OneDrive or Google Drive change list do;
+- a filesystem walk could not read a directory;
+- the resource is RSS, where an entry that scrolls out of the feed has not been removed;
+- it found nothing at all, as when a disk is not mounted. The resource's card says so instead.
 
-A kept feed stays in the catalog with its places marked as gone.
+A reference that was only kept by hand, and never seen by a sync, is never marked gone.
 
-Only a full walk can tell what is missing. A walk of only what changed has no information about what
-it did not visit, so it marks nothing as gone. The exception is a source that reports deletions
-itself, as the commits since a git checkpoint and a OneDrive delta do. A OneDrive delta also marks a
-file as gone when it moves out of the resource's folder.
+Every day at 4:50 a.m., xixo forgets each file whose originals have all been gone for more than 30
+days, and records each one in the audit log. A file is kept when it has:
 
-A reference that was only ever kept by hand has no `seen_at`, and a sync that does not reach it
-never marks it as gone. RSS does not detect deletions at all, because an entry that scrolls out of
-a feed's window has not been removed. A filesystem walk that could not read a directory marks
-nothing as gone, because the files it missed may still be there.
+- a note, which a person or an agent wrote;
+- an expiry, which it follows instead;
+- an edge a person or an agent made, such as a tag, or a question's answer that drew on it;
+- an analysis still open;
+- a parent, which it goes with.
 
-`source_version` belongs to a copy. When an export writes a feed into another resource, the new
-reference records the version of the original it was copied from. The next export compares the two
-versions and copies the file again only when the original has changed.
-
-## Moving between feeds
-
-`move_to!` moves a reference to another feed. If that feed already has a reference to the same
-place, xixo destroys the moved reference so there is no duplicate. In both cases, a `xixo:file` feed
-left with no originals is destroyed. `split!` is `move_to!` into a new feed with the same type, key,
-title, and expiry, and the new feed connects to everything the old one connects to and takes its
-note. `splitReference` refuses a feed that has only one original. Export, joining, and leaving are
-what move references.
+A kept file stays in the catalog with its places marked gone.
 
 ## Joining the same bytes
 
-`digest` is the SHA-256 of an original's bytes. Every original gets one: an analysis computes it
-before it reads anything, and a recurring job fills in any that are missing. An upload carries the
-digest it arrived with. For a file in a folder a machine shares, xixo link on the machine reports the
-digest with a `hash` request or with its extraction, so the file's bytes never cross to xixo for it.
+Every original gets a SHA-256 digest. An analysis computes it before it reads anything, an upload
+carries the one it arrived with, and xixo link reports it for a file in a folder a machine shares,
+so the bytes never cross to xixo for it.
 
-Two originals share a feed when they have the same join key, which is the digest together with the
-owner of the resource. A tenant's resources join each other, and a person's own resources join only
-that person's, so a feed never lists a personal place beside a shared one. Empty files, originals
-that are gone, originals on archived resources, and the extracted children an analysis stores for
-itself never join.
+Two originals with the same digest share a feed. A tenant's shared resources join each other, and a
+person's own resources join only that person's, so a feed never lists a personal place beside a
+shared one. Empty files, gone originals, originals on archived resources, and extracted children
+never join.
 
-When a digest is written, `settle!` finds the oldest feed that holds the same join key and joins
-the others to it. The joined feed's connections are added to the oldest feed, its note is appended
-unless the oldest feed's note already contains it, and the later of the two expiries is kept, with
-a feed that lasts forever outlasting any date. Its analyses, derived references, and extracted
-children are destroyed, because they describe the same bytes. A feed with an analysis still open
-is left alone until that analysis starts, because the analysis settles its own feed and stops
-without reading anything when the feed joins another. Each join is recorded in the audit log.
-
-## Leaving and keeping apart
+When two feeds join, the oldest one stays. It takes the other's connections and note, and the later
+of the two expiries. The other feed's analyses, renders, and extracted children are destroyed,
+because they describe the same bytes. Each join is recorded in the audit log.
 
 When a sync reports a new version for an original on a feed with other originals, that original
-leaves with `split!` before anything analyzes it. The analysis that follows computes the new digest,
-so a file saved again with the same bytes joins its old feed and is not analyzed, and a file whose
-bytes changed stays on its own.
+moves to a feed of its own before it is analyzed. A file saved again with the same bytes joins its
+old feed, and a file whose bytes changed stays on its own.
 
-On the item page, **Storage** lists each original, and one whose digest matches another original of
-the same feed says **the same bytes as another place**. **Keep apart** on an original calls
-`splitReference`, which moves it to a feed of its own and marks it `kept_apart`. A kept-apart
-original never joins. A new version clears the mark, so the original joins again once its bytes
-match something. **Keep apart** appears only on a feed with more than one original.
+## Keeping apart
+
+On the item page, **Storage** lists each original. One whose digest matches another original of the
+same feed says **the same bytes as another place**. On a feed with more than one original, **Keep
+apart** moves one to a feed of its own, which calls the `splitReference` mutation. The new feed
+keeps the title, expiry, connections, and note. A kept-apart original never joins, until a new
+version clears the mark.
 
 ## What xixo deletes
 
-Forgetting a feed destroys the row, its references, analyses, schedule, edges, and extracted
-children, and reports how many originals it pointed to. It does not touch the resources those
-originals live in, so the files stay where they are.
+Forgetting a feed destroys the feed, its references, analyses, schedule, edges, and extracted
+children. It does not touch the resources its originals live in, so the files stay where they are.
 
-Deleting a resource removes every reference into it. A `xixo:file` feed left with no originals is
-then forgotten at once, by the same rules as a feed that is gone, except that an open analysis does
-not keep it. See [archiving and deleting](/concepts/resources/#health-internal-stores-archiving-and-deleting).
+The exception is bytes that xixo made. A render or an extracted child in an internal store deletes
+its bytes when it is destroyed, and a file that was uploaded and never placed is deleted with its
+feed.
 
-The exception is bytes that xixo created. A reference in an internal store, such as a `preview` or
-`thumbnail` render or a child extracted from a message, deletes its blob when it is destroyed,
-because nothing outside xixo created it. A file that was uploaded and never placed is deleted with
-its feed, because it was only staged.
+Deleting a resource removes every reference into it. A file left with no originals is then forgotten
+at once, by the same rules as a file that is gone, except that an open analysis does not keep it.
+See [archiving and deleting](/concepts/resources/#health-internal-stores-archiving-and-deleting).

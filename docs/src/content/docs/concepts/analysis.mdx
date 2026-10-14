@@ -3,309 +3,154 @@ title: Analysis
 description: How xixo reads a feed, recorded as one row with its steps, its turns, and its log.
 ---
 
-Each time xixo reads a [feed](/concepts/feeds/), it writes one `Analysis` record. The record holds
-the cause, the status, each step's result, every turn the model took, and a log. A feed's current
-analysis is its last settled one. A new analysis starts with a copy of the current analysis's steps,
-so xixo does not repeat work whose result is still valid.
+Each time xixo reads a [feed](/concepts/feeds/), it writes one analysis. The analysis holds the
+cause, the status, each step's result, every turn a model took, and a log. A feed's current analysis
+is its last one that finished as `done` or `failed`. A new analysis starts with a copy of the
+current one's steps, so xixo does not repeat work whose result is still valid.
 
 | Cause | Raised by |
 | --- | --- |
 | `upload` | an upload, a note, or a fetched URL, as described in [adding things](/concepts/adding/) |
-| `sync` | a resource sync, a snapshot, an extracted child, or a parent whose children have all finished |
+| `sync` | a sync, a snapshot, an extracted child, or a parent whose children have all finished |
 | `keep` | the `resource` tool's `keep`, for one object that was not yet analyzed |
-| `schedule` | an address feed's schedule coming due |
-| `manual` | `runFeed`, `analyzeFeed`, the `feed` tool's `analyze`, or a job started without an analysis |
-| `ask` | `askCatalog`, and `analyzeFeed` on a note that was asked, as described in [asking](/concepts/agents/#asking) |
+| `schedule` | an address's schedule coming due |
+| `manual` | `runFeed`, `analyzeFeed`, or the `feed` tool's `analyze` |
+| `ask` | `askCatalog`, as described in [asking](/concepts/agents/#asking) |
 
-The status is `queued` or `running` while the analysis is open. It ends as `done` or `failed`,
-which count as settled, or as `cancelled` or `gated`, which do not. When an analysis settles, xixo
-marks the feed's embedding as stale and indexes the feed again for [search](/concepts/search/).
-Each log line and each status change is published on `analysisProgressed`.
+| Status | Means |
+| --- | --- |
+| `queued`, `running` | The analysis is open. |
+| `parked` | It waits for a machine that can read the file, as described in [extraction](#extraction). The item page shows **waiting**. |
+| `done`, `failed` | It finished. A finished analysis is indexed again for [search](/concepts/search/). |
+| `cancelled` | Someone pressed **Stop**, called `cancelAnalysis`, or it passed its deadline. |
+| `gated` | A [gate](/concepts/agents/#budgets-and-gates) stopped it. |
 
-`cancelAnalysis` moves a queued or running analysis to `cancelled`, and the job stops at its next
-check. It returns `cancelled: false` for an analysis that had already ended. The item page shows
-**Stop** beside an analysis in progress.
-
-An analysis gets a deadline when it opens: `XIXO_RUN_DEADLINE_HOURS` from then, 6 by default, or no
-deadline when it is 0. This deadline applies only while the analysis is queued. `ExpireOverdueJob`
-runs every ten minutes and cancels a queued analysis past its deadline, with the error
-`deadline passed`. When the job starts the analysis, it replaces the deadline with the start time
-plus the feed's timeout, as described in [after the analyzer](#after-the-analyzer).
-
-The log stops growing after 256,000 characters, and each line is truncated to 2,000. A turn stores
-its request truncated to 40,000 characters and the model's reply truncated to 4,000.
+A queued analysis is cancelled after `XIXO_RUN_DEADLINE_HOURS`, 6 by default, or never when it is
+`0`. Once it starts, it runs for its feed's timeout, as described in
+[after the analyzer](#after-the-analyzer).
 
 ## Steps
 
-A step is a named block. Its result is saved in `steps`, with the times it started and finished. If
-the block raises an error, the step saves the error and no result, so the next analysis runs it
-again. A saved result is reused and logged as `cached`, unless one of these is true:
+A step is a named piece of work whose result the analysis keeps. A step that raised an error keeps
+the error and no result, so the next analysis runs it again. A saved result is reused, and logged as
+`cached`, unless the step was forced, its bytes changed after it ran, or the prompt or the inference
+resource it used changed after it ran.
 
-- the step was forced;
-- the step's `after` time is later than its `finished_at`. The summary step sets `after` to the later
-  of the last prompt change and the inference resource's last update;
-- the reference the step read has a `changed_at` later than the step. When a file is stored again at
-  the same path, this makes the steps that described its old bytes run again.
+A feed's text is what its source says, and nothing a model wrote about it. It joins the `text`,
+`ocr`, `transcript`, `conversation`, and `place` steps. Search indexes it as the body, and the
+`feed` tool reads and searches it.
 
-A feed's text is what its source says, and nothing a model wrote about it. It is the results of
-five steps in this order: `text`, `ocr`, `transcript`, `conversation`, and `place`. Search indexes it
-as the body, passages are cut from it, and the `feed` tool reads and searches it. The summary,
-metadata, and every other step are left out of it.
+What a model saw in a picture or a video is kept apart, in the `caption` and `scenes` steps. Search
+finds a feed by them along with its summary, and an answer reads them as what a model described.
 
-What a model saw in a picture or a video is kept apart, as what the feed was described as. An
-image's `caption` step holds the vision model's description, and a video's `scenes` step holds a
-caption for each of its sampled frames. Search finds a feed by them along with its summary, and an
-answer reads them under the heading "As a model described what it shows".
-
-Four steps are bookkeeping: `placement`, `derived`, `answer`, and `drew_on`. They record where a
-file went, which previews were rendered, what the agent said, and which feeds an answer used.
-
-A feed's `details` field turns the steps of its current analysis into labelled rows, grouped by
-the step that produced them, and the item page shows them under **Details**. Nested values
-are flattened into one row each, a list of records such as attachments or events numbers each
-record, and a row an earlier step already showed is not repeated. Embedded metadata comes last.
-Text, tables, the summary, and the bookkeeping steps are left out.
-
-Some resources read only part of what the source holds. GitHub reads an issue's first 50 comments,
-Notion reads 2,000 blocks of each list and stops three levels down, and Slack reads one page of a
-thread's replies and names the first 1,000 members of a workspace. When a read leaves something out,
-the `dropped` step records what, such as "read 50 of 312" comments, the log says the same, and
-**Details** shows it under **Left out**. A git sync does not catalog a file larger than 2 MB. It
-writes the file's path and size to the sync run's log instead.
-
-The analyzers have limits of their own, and each one is recorded the same way. Text past 200,000
-characters is cut, and **Left out** says how much of it was read. OCR reads the first 30 pages of a
-PDF with no text layer, a calendar is read to its first 200 events and a vCard file to its first 500
-contacts, and the summary is written
-from the first 10,000 characters. A step that cuts something keeps the note with its result, so an
-analysis that reuses the step still shows it.
+The item page shows the steps under **Details**, grouped by the step that produced them. When a
+resource or an analyzer reads only part of something, such as the first 50 comments of a GitHub
+issue or the first 200,000 characters of a text, the `dropped` step records what was left out, and
+**Details** shows it under **Left out**.
 
 ## Extraction
 
 The server never opens a file's bytes. [xixo link](/concepts/resources/#machines-and-xixo-link)
-reads them and answers with the steps that describe the file, so a parser that a hostile file breaks
-runs in xixo link's sandbox, away from the catalog, its database, and its keys. Every install runs one
-beside the server, and each attached `machine` runs another.
+reads them and answers with the steps that describe the file. A parser that a hostile file breaks
+runs inside xixo link's sandbox, away from the catalog, its database, and its keys. Every install
+runs one xixo link beside the server, and each linked machine runs another.
 
-`Analyzer.for` picks an analyzer by the feed's mime type. It walks `Analyzer.all` in order and takes
-the first analyzer that claims the mime type:
+xixo picks an analyzer by the feed's mime type, and the analyzer asks for the matching extractor.
+Which machine reads the file depends on where it lives:
 
-`Pdf`, `Image`, `Media`, `Page`, `Doc`, `Epub`, `Xlsx`, `Calendar`, `Pkpass`, `Email`, `Entry`,
-`Contact`, `Data`, `Text`, `Fallback`
+- A file in a folder a machine shares is read on that machine, when the machine has the extractor.
+  Only what xixo link extracted and the file's SHA-256 reach xixo.
+- When the machine lacks the extractor and lends its files, the file goes to the pool. A machine
+  lends at the **Files** and **Files and writing** levels, unless its own configuration holds `lend`
+  back. When it does not lend, the file waits until that machine has the extractor.
+- An upload, a mail attachment, a file in a cloud resource, and anything else with no machine of its
+  own goes to the pool.
 
-The analyzer's name is the extractor it asks for. The analysis job sends the `extract` request before
-it opens a transaction:
+The pool is every connected machine whose **Help read other machines' files** switch is on, unless
+its own configuration holds `extracts_for_others` back. xixo link beside the server comes first,
+since the bytes are already on the server. Otherwise the machine with the fewest questions open is
+asked, and it fetches the bytes once over HTTPS.
 
-- A file in a folder a machine shares is read by xixo link on that machine, where it lies, when its
-  hello lists the extractor. Only what xixo link extracted and its SHA-256 reach xixo.
-- When it does not, and the machine lends its files, the file goes to the pool. A machine lends
-  when an administrator chooses **Files** or **Files and writing** for it and its own config does
-  not hold `lend` back. When the machine does not lend, its bytes stay on it and the file waits
-  until that machine lists the extractor.
-- An upload, a mail attachment, a file a cloud resource holds, and anything else with no machine of
-  its own goes to the pool.
+When no machine can read the file now, the analysis is parked. The machine's card on the
+**Resources** page counts the files waiting for it. When a machine says hello, xixo queues the
+parked analyses it can now serve, and it checks again every ten minutes. Analyzing a file again
+cancels its parked analysis. See [files a machine cannot
+read](/guides/add-a-machine/#files-a-machine-cannot-read).
 
-The pool is every connected machine in the tenant that helps read other machines' files and lists
-the extractor. A machine helps when its **Help read other machines' files** switch is on and its own
-config does not hold `extracts_for_others` back. xixo link beside the server comes first when it is in the pool, since the bytes are
-already on the server; otherwise the machine with the fewest questions open is asked. The chosen
-machine fetches the bytes once over HTTPS.
+The [extraction README](https://github.com/xixo/xixo/tree/main/link/internal/extract#extractors)
+lists each extractor, the types it reads, and the steps it returns. A few results are worth knowing:
 
-When no machine can read the file now, because the machine it lives on is offline, or because no
-machine that could read it is connected, the analysis is parked rather than tried again and again.
-A parked analysis keeps the kind of file it waits for and, when only one machine can read it, that
-machine. Its pass shows **waiting** with the reason, and the machine's card on the **Resources**
-page counts the files waiting for it; files any machine in the pool could read are counted above the
-cards. When a machine says hello, `ResumeParkedJob` queues the parked analyses it can now serve, at
-most 50 queued at a time, and comes back for the rest a minute later. `SweepParkedJob` does the same
-for every connected machine every ten minutes, and lets go of analyses waiting on a machine that was
-put away, so they find another way. Analyzing a file again cancels its parked analysis.
+- A PDF with less than 40 characters of text a page is read as a scan, by OCR on its first 30 pages.
+- An email's quoted history goes under a section named **Earlier in the thread**, so the summary is
+  written from the message itself. Each attachment becomes a child feed. Messages that share a
+  Message-ID, In-Reply-To, or References header are one thread, which the item page lists.
+- A workbook, a CSV file, and a TSV file keep their rows as tables, up to 5,000 rows a sheet, so an
+  answer can work out totals and counts over them.
+- A calendar, a vCard file, a workbook, and a document with headings are cut into sections, so a
+  passage and an answer can hold one event, contact, sheet, or section.
+- Images, video, audio, PDFs, and page captures get a thumbnail and a hi-res image, sized by the
+  [settings](/concepts/tenants/#settings). Audio is drawn as its waveform.
 
-The reply holds each step's result or error, what was cut, and the files xixo link made. The server
-keeps only the steps it knows, cuts `text` and `ocr` to 200,000 characters itself, and records the
-reply under the step `extracted`, so a second analysis of the same bytes with the same
-[settings](/concepts/tenants/#settings) asks nothing. A `Page` and an `Entry` carry no bytes. A page
-asks xixo link only for its images, with the `derive` request, and an entry's text stays on the
-server.
+## The analyzer
 
-The order matters. `text/calendar` and `text/csv` are both text types. They reach `Calendar` and
-`Data` only because those come before `Text`. `Fallback` claims everything else. It records the size,
-detects the format from magic bytes, reads the file as text if it looks printable, and lists the
-entries if the file is a zip, a tar, or a tar compressed with gzip. A tar is known by its `ustar`
-header and a gzip by the tar inside it. The listing leaves out the pax headers and `._` files that a
-tar made on a Mac carries. A gzip that holds anything other than a tar is not listed.
+Every analyzer runs the same sequence:
 
-xixo link decodes every file it reads as text the same way. A UTF-16 file with a byte order mark is
-read as UTF-16, a UTF-8 byte order mark is dropped, and valid UTF-8 is kept as it is. Anything else is
-read as Windows-1252, the superset of Latin-1 that older text files are almost always in.
+1. **Extract** on a machine, as described above.
+2. **Catalog children**, such as an email's attachments, when the feed is less than four levels
+   deep. The analyzer stops until every child has been analyzed, and then xixo analyzes the parent
+   again.
+3. **Analyze** what needs a model or another resource:
+   - An image is described by the model that serves the `vision` role. It gets the hi-res image with
+     its metadata removed, and the text OCR read off it to help. A GIF, WebP, or APNG sends several
+     frames, as the [settings](/concepts/tenants/#settings) say. With no model that reads images,
+     the image gets no summary, and its item page says which model to set.
+   - A photo with a GPS position is named by a **Places** resource that has **Name where photos were
+     taken** on.
+   - Audio and video are transcribed, up to the first hour, when a resource serves the
+     `transcription` role. Each line opens with its moment, such as `[00:03:12]`.
+   - Video frames are captioned when a resource serves the `vision` role.
+4. **Summarize** with the inference [resource](/concepts/resources/) that serves the analyzer's
+   role: `vision` for images and pages, `fast` for email and the fallback, and `smart` for the rest.
+   The summary reads the first 10,000 characters of the text. The prompt fences the text and tells
+   the model to treat it as data. The model returns a summary and up to 8 tags, and the feed is
+   [filed under](/concepts/feeds/#edges) the tags. The call is sent with the model backend's
+   **Effort on routine work**. With no resource for the role, there is no summary and no tags.
 
-For a PDF xixo link reads the text layer with `pdftotext`. When that yields fewer than 40 characters
-a page, the PDF is taken to be a scan: its first 30 pages are rendered at 200 dpi and read with
-`tesseract`.
-
-xixo link converts a Word, OpenDocument, or legacy `.doc` file to a PDF with LibreOffice, which gives
-it a page count. A `.docx` or `.odt` file's text is read from the document itself: each heading
-becomes a markdown heading at its level, so it starts a section of the outline, and each table row
-becomes one line with its cells separated by `|`. A legacy `.doc` file, and a document whose XML
-cannot be read, takes its text from the PDF.
-
-HTML in an email, an RSS or Atom entry, or a file read as text keeps its structure the same way. Each
-`h1` to `h6` becomes a markdown heading, and each paragraph, list item, and table row starts a line.
-
-For an email xixo link writes the sender, recipients, date, and subject, then the message's own text.
-A reply's quoted history, found by an `On … wrote:` line, a `-----Original Message-----` line, an
-Outlook header block, or `>` lines that run to the end, goes under a section named **Earlier in the
-thread**, so a passage holds either what this message says or what it quotes, and the summary is
-written from the message's own text. Each attachment comes back as a file, and the server catalogs it
-as a child feed. The `thread` step keeps the message's Message-ID, In-Reply-To, and References.
-Every message that shares one of them is in the same thread, and the `thread` field on a feed and the
-`feed` tool list the thread's messages the reader can read, oldest first, each with its sender.
-
-A calendar is written one line for each event, with its title, its date the way a person reads it,
-its place, and its description, and a vCard file one line for each contact. Each line is a section of
-the outline, named by the event's title and date or the contact's name, so a passage holds one event
-or one contact and an answer reads the ones the question is about.
-
-A workbook is written sheet by sheet into the text, each under its name, and `outline` records where
-each sheet starts. A workbook, and a CSV or TSV file, also keep each sheet's rows under the step
-`tables`, up to 5,000 rows a sheet. The header is the widest of a sheet's first ten rows, so a title
-above it is left out, and a totals row is dropped. An answer works totals and counts out over these
-rows. A CSV or TSV file is summarized from its tables' shape: the columns, two example rows, the
-values each text column holds most often, and the range of each number column and of a column whose
-values are mostly different, such as a date. Its rows never reach the summary, so a long ledger
-summarizes as quickly as a short one.
-
-An EPUB is a zip too, and its own extractor claims it first. It follows `META-INF/container.xml` to
-the package document and records the title, creators, publisher, date, language, subjects, and
-chapter paths under the step `book`. The `text` step starts with those details and continues with
-each chapter's text in reading order, one line per paragraph. A chapter listed in
-`META-INF/encryption.xml` is skipped, so a book sold with DRM is cataloged by its details alone.
-
-For an image xixo link asks `exiftool` for a photo's GPS coordinates, the GPS block of a raw photo
-included, and records them under the step `location`. A GPS block with no position in it reads as no
-location. When a **Places** resource has **Name where photos were taken** on, `Image` asks that
-resource for the address, records it under the step `place`, and tells the summary where the photo
-was taken. The vision model's description of the image is its summary, and `Image` keeps it under
-`caption` too. Before the hi-res image goes to the vision model, the server shrinks it to fit 1,024
-pixels on its longest edge, lays a transparent one on white, and saves it as a JPEG with no metadata,
-so no EXIF tags or GPS position reach the model. The prompt asks for what the picture shows, and for
-a first tag that says what kind of picture it is: photo, screenshot, scan, drawing, diagram, chart,
-or meme. The text OCR read off the image goes along to help the model tell what the image is about,
-and the model is told not to copy it out. That text stays searchable, and it is never shown as the
-summary. With no model that reads images, the image gets no summary, and its item page says why and
-which model to set. A GIF, WebP, or APNG records how many frames it has under the step `frames`. With more
-than one, xixo link sends frames spread evenly across it, the server keeps them in the `derived`
-store, and the vision model is sent them in order and told it is looking at an animation. How many
-frames it is sent is set by two [settings](/concepts/tenants/#settings), four by default.
-
-`Media` claims audio and video. xixo link's `probe` step records the length, streams, and tags such as
-title, artist, and album. For anything with a sound track, one `ffmpeg` pass records the `signal`
-step: integrated loudness and loudness range in LUFS, true peak, the silent spans, and the median
-spectral centroid and flatness. The summary prompt describes these as dynamics, brightness, and
-texture, and says when a recording is silent throughout. When a resource serves the
-`transcription` role, xixo link sends back the first hour as 16 kHz mono audio, and the `transcript`
-step sends that to the resource. With no such resource xixo link makes no audio, and once one is
-added the next analysis asks xixo link for it again. Each line
-of the transcript opens with the moment it was said, such as `[00:03:12]`. When a resource serves the `vision` role, the
-`scenes` step captions the video frames xixo link sent: one for each eight seconds, up to eight,
-taken from the middle of each stretch. Each caption is kept with its moment, and the summary reads them after the
-transcript.
-
-Every analyzer inherits the same sequence from `Analyzer::Base`:
-
-1. **Extract** on a machine, as described above. Besides the analyzer's own steps, xixo link
-   renders a thumbnail and a hi-res image for images, video, audio, PDFs, and pages, and audio gets a
-   picture of its waveform. The server stores them as references in the internal `derived` store,
-   under the step `derived`. Two [settings](/concepts/tenants/#settings) shared by everyone in the
-   tenant size them. **Thumbnail width** is 320 pixels by default, and a page capture's thumbnail is
-   the top of the page, cut square. **Hi-res size** bounds the longest edge, 1,500 pixels by default,
-   and a page capture keeps its full length at that width. The hi-res image is what a thumbnail opens
-   and what the vision model reads, except for a GIF: its item page plays the GIF itself when it is
-   8 MB or less, and a click opens the original. Changing either setting extracts an item again the
-   next time it is analyzed. xixo link also describes the file with `exiftool` under the step
-   `metadata`: EXIF, XMP, and IPTC from photos, camera and lens details, QuickTime and ID3 tags, PDF
-   and Office document properties, and the like, up to 200 named values. It skips plain text, JSON,
-   and XML, whose content is their own metadata.
-2. **Catalog children**, if xixo link sent any and the feed is less than four levels deep. For
-   example, an email's attachments become child feeds in the internal `children` store, and each is
-   analyzed on its own. The analyzer stops here until every child has been analyzed. When the last
-   child finishes, xixo analyzes the parent again.
-3. **Analyze** what needs a model or another resource: a photo's place, a recording's transcript, and
-   a video's scenes.
-4. **Summarize** with the inference [resource](/concepts/resources/) that serves the analyzer's role.
-   A text longer than 10,000 characters is summarized in one call from its first 10,000 characters,
-   which open with the names of its sections when it has an outline.
-   The role is `smart` by default, `vision` for images and pages, and `fast` for email and the
-   fallback. The call is sent with the backend's **Effort on routine work** as `reasoning_effort`, so
-   a reasoning model set to `none` summarizes without thinking first. The prompt fences the file's text and tells the model to treat it as data. It asks
-   for tags the way a person would label a folder: a topic, the kind of thing the file is, or the
-   name of a person, company, product, or place, and never an amount, a date, an address, or an
-   account or reference number. xixo reduces the model's answer to a summary
-   and up to 8 tags. It drops
-   stopwords and tags longer than four words. When the analysis finishes, the feed is
-   [filed under](/concepts/feeds/) the tags. If no resource
-   serves the role, there is no summary and no tags. When the call fails, the analysis ends as
-failed with the reason, and the item page shows it until a later analysis writes a summary. A
-change to an inference resource's settings analyzes again every file whose summary failed or was
-never written.
-
-If extract, analyze, or summarize fails, xixo skips that part and continues. The reference is marked
-analyzed either way.
+When extract, analyze, or summarize fails, xixo skips that part and continues. A failed summary ends
+the analysis as `failed`, with the reason on the item page until a later analysis writes one. A
+change to an inference resource analyzes again every file with no summary.
 
 ## After the analyzer
 
-`AnalyzeFeedJob` runs the analyzer. It checks [placement](/concepts/adding/#placement) first, so a
-file uploaded to a path it already occupies goes back to the same place. Then it runs the analyzer,
-unless the feed is an address, and then three more steps:
+After the analyzer, xixo:
 
-- **Filing.** xixo connects the feed to the `xixo:mime` feed for its content type.
-- **Considering.** For an address, and for a file that is still staged, the
-  [agent](/concepts/agents/) runs under the feed's own grant with the `search`, `feed`,
-  `connect`, and `resource` tools. For an address with a schedule, the prompt is the schedule's
-  prompt. For a staged file, it is `FILE_PROMPT`, which asks the agent to connect the feed to the
-  tags and feeds it belongs with and lists the places that would accept it. A file synced from a
-  resource is filed by its summary's tags alone, with no agent. The agent gets the schedule's turn allowance, or six turns, and stops
-  early after three failed tool calls in a row. If no resource serves the `agent` role, xixo skips
-  this step.
-- **Settling.** A file the agent did not place goes to the default storage.
+- **Files** the feed under the `xixo:mime` feed for its content type.
+- **Considers** an address or a staged file with the [agent](/concepts/agents/#the-agent). For an
+  address, the agent runs the schedule's prompt. For a staged file, it connects the feed to the tags
+  and feeds it belongs with, and may choose where to [place](/concepts/adding/#placement) it. A file
+  synced from a resource is filed by its summary's tags alone.
+- **Settles** a staged file that the agent did not place into the default storage.
 
-An `ask` analysis skips all of this. It runs no analyzer, no filing, and no placement. The job
-answers the question instead, and then rolls the conversation up into the note.
-[Asking](/concepts/agents/#asking) describes each part.
+An `ask` analysis skips all of this, and answers the question instead.
 
-An analysis runs for its feed's timeout, counted from when it starts. `setFeedTimeout`, or the feed
-form, sets any value from one minute to one day. A feed with no timeout set runs for ten minutes. An
-`ask` on such a feed starts small instead: the time per ask of the model backend that serves the
-`agent` role, or two minutes when that is not set. An agent that looks a question up on the web asks
-for more time while it runs, up to one day from the start. The analysis is done once the answer is
-saved, and the title and the conversation's summary follow it. `ExpireOverdueJob` cancels an analysis that runs past its deadline.
+An analysis runs for its feed's timeout, ten minutes by default. `setFeedTimeout`, or the feed form,
+sets any value from one minute to one day. An `ask` with no timeout set starts with the **Time per
+ask** of the model backend that serves the `agent` role, or two minutes. An agent that needs longer
+asks for more, up to one day from the start.
 
-Analysis jobs run on the `analysis` queue, with at most `ANALYSIS_PER_TENANT` (2 by default) running
-per tenant. A `Resource::Failed` error is retried with increasing waits, and the analysis
-fails if the last retry fails too. An analysis waiting for a machine is parked, as above. An `Analyzer::Failed` error, or a file with nowhere to go, is
-discarded and fails the analysis. Any other error fails the analysis and is raised again.
-
-One question is still open. Connecting two feeds does not analyze the feed on the other side again.
-That needs a way to stop one change from triggering a chain of analyses, such as a cooldown, a depth
-limit, or a cause that cannot write edges.
+Analysis jobs run at most `ANALYSIS_PER_TENANT` at a time in each tenant, 2 by default. A failed
+call to a resource is retried four more times, with longer waits, before the analysis fails.
 
 ## One model at a time
 
-Loading a model is slow on a single machine, and two models that do not fit in memory together
-unload each other on every call. xixo orders analysis work so that each model is used for as long as
-there is work for it.
+Loading a model is slow, and two models that do not fit in memory together unload each other on
+every call. So xixo orders bulk work by the model it needs:
 
-An analysis caused by `sync` reads and files a file in one job: it runs the analyzer, files the feed
-under its content type and tags, and settles it into storage. An address, or a file that is still
-staged, needs the agent, so its reading job puts the analysis back in `queued` and hands the feed to
-a filing job, which runs the agent. The analysis gets its timeout again when filing starts.
+- An analysis caused by a sync reads its file in a job whose priority comes from the model that
+  summarizes it. Roles that one model serves share a priority.
+- One that still needs the agent, such as a file that is not yet placed, hands its filing to a
+  second job at the priority of the `agent` model, which always comes last.
 
-Each job's queue priority comes from the model its work needs. `Lane` numbers every model the
-tenant's shared inference resources name, starting at 10, so roles served by one model share a
-priority. The model that serves the `agent` role always gets the last number. The reading job takes the priority of the analyzer's summary role, and the filing job takes
-the priority of the `agent` role. Solid Queue runs the lowest priority first, so a large sync
-summarizes everything with one model, then with the next, and files everything with the agent's
-model last.
-
-Every other cause runs in a single job at priority 0, ahead of any bulk work, because someone is
-waiting for it.
+A large sync therefore summarizes everything with one model, then the next, and files with the
+agent's model last. Every other cause runs at the highest priority, ahead of bulk work, because
+someone is waiting for it.

@@ -1,126 +1,101 @@
 ---
 title: Adding things
-description: How a file, a note, a URL, a question, or a synced record enters the catalog, and where its bytes are stored.
+description: How a file, a note, a page, a question, or a synced record enters the catalog, and where its bytes are stored.
 ---
 
-A file enters the catalog in one of two ways. A file you hand to xixo is staged, analyzed, and then
-placed in a resource. A record that a [resource](/concepts/resources/) already holds gets a
-reference to where it is, and xixo never moves it. Both ways end in an
-[analysis](/concepts/analysis/).
+Something enters the catalog in one of two ways:
 
-| Way in | Needs | Lands as |
-| --- | --- | --- |
-| `POST /uploads` | `xixo:catalog:write` | a staged file, cause `upload` |
-| `POST /share` | `xixo:catalog:write` | a staged file at `shared/<time>-<name>`, a note, a fetch, or a snapshot |
-| `addNote` | `xixo:catalog:write` | a staged `text/markdown` file at `notes/<time>-<name>.md` |
-| `fetchUrl` | `xixo:catalog:write` | a staged file at `downloads/<time>-<name>` |
-| `askCatalog` | `xixo:catalog:write` | a note keyed by the question, with no bytes, cause `ask` |
-| `snapshotUrl`, or the `resource` tool's `snapshot` | `xixo:catalog:write`, or `xixo:resources:command` | a page written directly to storage |
-| the `resource` tool's `keep` | `xixo:resources:command` | a reference to one object in a resource, cause `keep` |
-| sync | a resource that can sync | references, each analyzed once |
+- A file you hand to xixo is staged, analyzed, and then placed in a resource.
+- A record that a [resource](/concepts/resources/) already holds gets a reference to where it is.
+  xixo never moves it.
 
-`keep` records one object from a storage, git, GitHub, Notion, or Slack resource without syncing the
-whole resource. The object stays where it is, the same way a synced object does. `askCatalog` is
-described under [asking](/concepts/agents/#asking).
+Both ways end in an [analysis](/concepts/analysis/).
+
+| Way in | Lands as |
+| --- | --- |
+| `POST /uploads` | a staged file |
+| `POST /share` | a staged file under `shared/`, a note, a download, or a snapshot |
+| `addNote` | a staged markdown file under `notes/` |
+| `fetchUrl` | a staged file under `downloads/` |
+| `snapshotUrl`, or the `resource` tool's `snapshot` | a picture and the text of a page, written to storage |
+| `askCatalog` | a note keyed by the question, answered as described in [asking](/concepts/agents/#asking) |
+| the `resource` tool's `keep` | a reference to one object in a resource, without a sync |
+| a sync | a reference for each object in the resource |
+
+The routes and mutations need `xixo:catalog:write`. `keep` needs `xixo:resources:command`, and
+`snapshot` needs that or `xixo:web:keep`. See the [scopes reference](/reference/scopes/).
 
 ## Staging
 
-`POST /uploads` takes a multipart `file` and an optional `path`. The request answers `202` with the
-feed id, type, mime type, path, and analysis id before any byte reaches a resource. Active Storage
-holds the bytes until they are placed. It uses `Disk` locally, and the service that
-`XIXO_STAGING_SERVICE` names in production. xixo takes the mime type from the path's extension and
-ignores the content type the client declared. The request is refused with `422` when:
+A staged file waits in xixo until a resource takes it. xixo holds the bytes with Active Storage, on
+disk in development and in the service that `XIXO_STAGING_SERVICE` names in production.
 
-- no file was sent;
-- nothing usable is left of the path after cleaning, or the path is longer than 900 bytes;
-- no active store accepts that mime type at that size.
+`POST /uploads` takes a multipart `file` and an optional `path`. It answers `202` with the feed id,
+type, mime type, path, and analysis id before any byte reaches a resource.
 
-`POST /uploads` computes the SHA-256 of the file before it stages anything. When an original on one
-of the tenant's shared resources has the same digest, or another upload with the same digest is
-still staged, the file is not staged again. The request answers `200` with `duplicate: true`, the
-matching feed's id as `feed_id`, and that feed's path or title as `twin`. The name does not matter,
-so the same bytes under another name are a match. An original that is gone or kept apart is not a
-match. A recurring job computes the digest of originals that do not have one yet, up to 20 a
-minute in each tenant.
+- The mime type comes from the path's extension. xixo ignores the type the client declared.
+- A path already stored or staged reuses its feed.
+- When the same bytes are already on one of the tenant's shared resources, or already staged, the
+  file is not staged again. The request answers `200` with `duplicate: true`, the matching
+  `feed_id`, and its path or title as `twin`. The name does not matter. An original that is gone or
+  kept apart does not count.
 
-A path that is already stored or already staged uses the existing feed. `addNote` refuses an empty
-body and a body over one megabyte. It names an untitled note after its first line.
+The request is refused with `422` when no file was sent, when the path is empty after
+[cleaning](/concepts/security/#paths) or longer than 900 bytes, or when no active store accepts that
+mime type at that size.
 
-`fetchUrl` checks the address first, and refuses if the tenant has no store at all. It then starts
-a `fetch` run, and `FetchUrlJob` downloads the URL. xixo checks each redirect again, because a public
-host can redirect to an internal address such as `169.254.169.254`. The download follows at most
-four redirects, allows five seconds to connect and thirty to read, and fails on any status that is
-not a success. The limit is 100 MB. xixo checks it against `Content-Length` and again while the body
-streams, so a server that sends a false length is still cut off. The file is named from
-`Content-Disposition`, or from the last segment of the URL's path. If that name has no extension,
-xixo adds one from the content type. The final URL is saved as the file's source and copied to the
-stored reference.
+`addNote` refuses an empty body and a body over one megabyte. An untitled note takes its first line
+as its title.
+
+`fetchUrl` checks the address, refuses when the tenant has no storage, and starts a `fetch` run. The
+download allows 100 MB, four redirects, five seconds to connect, and thirty to read. It fails on any
+status that is not a success. The file is named from `Content-Disposition` or the URL's path, with
+an extension added from the content type when the name has none. The final URL is kept as the
+file's source. See [reaching addresses](/concepts/security/#reaching-addresses) for the address
+checks.
+
+`POST /share` takes what a phone's share sheet sends. Files are staged like uploads. A URL is
+downloaded when it names a file and the tenant has storage, and otherwise snapshotted through a
+`web` resource. With neither, or with only text, xixo keeps a note. See [install on a
+phone](/guides/install-on-a-phone/).
 
 ## Placement
 
-`Placement` decides where a staged file is stored. The candidates are the active resources that
-serve storage, accept the file's mime type, and allow its size. The internal `children` and
-`derived` stores are never candidates. Placement happens at one of three points in the analysis:
+Placement decides where a staged file is stored. The candidates are the active, shared resources
+that serve storage, accept the file's mime type, and allow its size. A file is placed at one of
+three points in its analysis:
 
-1. **`returned!`**, before the analyzer runs. If a file is already stored at this path, and that
-   resource still accepts it, the file goes back to that resource. The existing reference gets a
-   new `changed_at`, so the cached steps that described the old bytes are run again.
-2. **The agent**, if the file is still staged. The agent sees the candidates, with the default
-   storage marked, and is asked to call `feed` with `do: "place"`, a resource key, and a one-sentence
-   reason. The tool refuses a call without a reason, a resource that does not exist, and a resource
-   that does not accept the file.
-3. **`settled!`**, after the agent. A file that is still staged goes to the default storage if that
-   is a candidate, and otherwise to the first candidate by key. If there are no candidates, the
-   analysis fails and the file stays staged.
+1. **Return.** Before the analyzer runs, a file already stored at this path goes back to the same
+   resource, if that resource still accepts it. The steps that described the old bytes run again.
+2. **Agent.** A file that is still staged is offered to the [agent](/concepts/agents/#the-agent),
+   which may call `feed` with `do: "place"`, a resource key, and a one-sentence reason.
+3. **Default.** After the agent, a file that is still staged goes to the default storage if that is
+   a candidate, and otherwise to the first candidate by key. With no candidates, the analysis fails
+   and the file stays staged.
 
-Each placement writes a `placement` step with the resource, the path, `by` (`return`, `agent`, or
-`default`), and the reason, truncated to 500 characters. If another feed already holds that path in
-the chosen resource, xixo adds the feed's id to the file name so the other file is not overwritten.
-Once the reference is saved, xixo deletes the staged copy.
+Each placement records a `placement` step with the resource, the path, who placed it (`return`,
+`agent`, or `default`), and the reason. When another feed already holds that path, xixo adds the
+feed's id to the file name so neither file is overwritten. Once the file is stored, xixo deletes
+the staged copy.
 
 ## Snapshots
 
-A snapshot needs a `web` resource. The `web` resource renders the page in headless Chrome, in an
-incognito window. Ferrum's defaults turn off the same-origin policy and site isolation. xixo turns
-both back on, because a compromised renderer could otherwise read across origins. The browser also
-starts with flags that block new windows, permission prompts, the file system, notifications,
-speech, and pings.
+A snapshot needs a `web` resource. It renders the page in headless Chrome and stores a PNG and the
+page's text under `snapshots/`, in the storage the `web` resource names or in the default storage.
+The window is 1280 pixels wide unless **Render width** says otherwise. Snapshots skip staging,
+because a second visit would render a different page. The reference is keyed by the URL without its
+fragment, and the feed takes the page's title. See [rendering
+pages](/concepts/security/#rendering-pages) for how the browser is locked down.
 
-xixo checks the address once before the page loads. The browser still resolves hosts itself,
-follows redirects, and requests whatever the page asks for, so xixo intercepts every request too.
-`data:` and `blob:` requests pass. `http` and `https` requests pass only if the address check allows
-them. Every other scheme is aborted, so `file://` stays blocked even when private fetches are
-allowed.
-
-The browser also sends all of its traffic through `Snapshot::Egress`, a proxy that listens on
-loopback for the length of one render. For each connection, the proxy resolves the host, checks the
-address, and connects to the address it checked. A blocked address gets `403`. The browser has QUIC
-and non-proxied WebRTC turned off, so it cannot open a connection that skips the proxy. The request
-check and the proxy together stop a host name that resolves to a public address for the check and to
-a private address for the connection.
-
-The window is 1280 pixels wide by default, and can be set from 320 to 2560. A full-page capture is
-cut off at 20,000 pixels high. The PNG must be under 25 MB, and the whole render must finish within
-120 seconds. xixo writes the PNG and the page's text under `snapshots/` in the storage that the
-`web` resource names, or in the default storage. Snapshots skip staging, because a second visit
-would render a different page. The reference is keyed by the URL without its fragment, and the feed
-takes the page's title.
-
-A `web` resource can also keep a watchlist of addresses in `details["watchlist"]`. Each sync
-snapshots every address on it, one page per address, so a sync resumes after the last address it
-took. Each snapshot's version is a digest of its PNG, so a page that renders differently becomes a
-new version of the same reference and is analyzed again. An address that fails to render raises
-`Resource::Skipped`. The sync logs it, keeps its reference from being marked gone, and moves on. A
-missing browser stops the sync with `Resource::Unusable`. See
-[watch pages on the web](/guides/attach-a-resource/#watch-pages-on-the-web).
+A `web` resource's **Watchlist** holds addresses to snapshot again on every sync. A page that
+renders differently becomes a new version of the same item and is analyzed again. An address that
+fails to render is skipped, and the sync moves on. See [watch pages on the
+web](/guides/attach-a-resource/#watch-pages-on-the-web).
 
 ## Sync
 
-`Resource#sync!` claims the resource, so only one sync runs for it at a time, and starts a `sync`
-run. `ScheduleSyncsJob` does this every minute for each resource that is due. `SyncResourceJob`
-walks the resource page by page and saves a checkpoint after each page. A sync interrupted by a
-deploy resumes from the start of the page it was on. Every object the sync finds becomes a
-reference on a feed. xixo analyzes that feed only if all of these are true:
+A sync records a [reference](/concepts/references/) for each object it finds. xixo analyzes the
+feed only when all of these are true:
 
 - the reference has not been analyzed since it last changed;
 - no analysis of the feed is still open;
@@ -128,34 +103,4 @@ reference on a feed. xixo analyzes that feed only if all of these are true:
 
 After a failure, xixo waits for the bytes to change or for a day to pass, so a file that breaks the
 analyzer is not retried on every sync. Synced records already have a place, so xixo never places
-them.
-
-## Addresses
-
-`fetchUrl`, `snapshotUrl`, and every download or render request go through `PublicAddress`. It
-accepts only `http` and `https` URLs. It resolves the host name and refuses the URL if any of the
-resulting addresses is in a loopback, private, link-local, shared, documentation, multicast, or other
-reserved range, for IPv4 or IPv6. It checks an IPv4-mapped IPv6 address as the IPv4 address inside
-it. A host that does not resolve is refused. `XIXO_ALLOW_PRIVATE_FETCH` lifts the range check. It
-does not lift the scheme check.
-
-A resolver can return a public address to the check and a private address to the connection. To
-prevent that, xixo connects to the address it checked and does not look the name up a second time.
-The Host header and the TLS certificate still use the host name, and xixo resolves and checks each
-redirect again. These clients all work this way:
-
-- downloads, and every feed, WebDAV, and search request a resource makes;
-- the headless browser, through `Snapshot::Egress`;
-- the MCP client, for an MCP server attached as a resource;
-- git over `http` and `https`;
-- IMAP.
-
-An S3 resource refuses an endpoint at an internal address unless `XIXO_ALLOW_PRIVATE_FETCH` is set
-or the endpoint's origin is listed in `XIXO_S3_ORIGINS`. For an endpoint that is not listed, xixo
-also checks the address each connection reached, and closes the connection if the endpoint answered
-from a reserved address. The development stack lists its MinIO in `XIXO_S3_ORIGINS`.
-
-`Intake.key_for` cleans every path before anything is stored. Backslashes become slashes, control
-characters are removed, and empty, `.`, and `..` segments are dropped. The result is a relative key
-that cannot point outside the place where it is stored. Fetched names and note names are also
-reduced to a parameterized stem of at most 180 characters, plus an extension of at most 16.
+them. See [syncing](/concepts/resources/#syncing) for how a sync walks a resource.

@@ -1,13 +1,12 @@
 # Extraction
 
-xixo link turns a file's bytes into steps. Rails keeps everything that needs
-a model, the catalog, or the database: summaries, captions, transcription,
-scene captions, places, passages, embeddings, and the rows for child feeds
-and derived files.
+xixo link turns a file's bytes into steps. Rails keeps everything that needs a
+model, the catalog, or the database: summaries, captions, transcription, places,
+passages, embeddings, and the rows for child feeds and derived files.
 
 ## The request
 
-xixo asks with the `extract` verb.
+xixo asks with the `extract` verb:
 
 ```json
 {"request": "<id>", "verb": "extract", "args": {
@@ -20,19 +19,19 @@ xixo asks with the `extract` verb.
 }}
 ```
 
-`source` is either `{"folder", "path"}`, a file one of xixo link's folders
-shares, or `{"upload": id}`, bytes xixo link fetches from
-`<xixo>/link/uploads/<id>`, which must be exactly `size` bytes. `skip` names steps xixo already holds. `settings` carries the
-server's thumbnail width, preview width, the most frames and the percentage of
-frames read from an animation, and the seconds of audio to transcribe; a missing value takes the server's default.
+- `source` is a shared file, `{"folder", "path"}`, or an upload, `{"upload": id}`,
+  which xixo link fetches from `<xixo>/link/uploads/<id>` and which must be
+  exactly `size` bytes.
+- `skip` names steps xixo already holds.
+- `settings` holds the tenant's thumbnail width, preview width, the most frames
+  and the percentage of frames read from an animation, and the seconds of audio
+  to transcribe. A missing value takes the default shown above.
 
-xixo asks for thumbnails alone with the `derive` verb, which takes the same
-args and answers with only the `derived` step and its files. A page capture
-(`xixo/page`) uses it, since its text never leaves Rails.
+The `derive` verb takes the same arguments and answers with only the `derived`
+step and its files. A page capture (`xixo/page`) uses it, since its text never
+leaves Rails.
 
 ## The answer
-
-The reply's result is:
 
 ```json
 {
@@ -44,115 +43,67 @@ The reply's result is:
 }
 ```
 
-Each step holds a `result`, or an `error` when that step failed and the rest
-went on. A whole extraction fails only when the file cannot be opened or no
-extractor reads it. `dropped` says what was cut, one sentence for each thing.
-Each file's bytes arrive as `chunk` frames under its own `request_file` id,
-tagged `of` the extract request. `at` is a frame's time in seconds.
+- Each step holds a `result`, or an `error` when that step failed and the rest
+  went on. A whole extraction fails only when the file cannot be opened or no
+  extractor reads it.
+- `dropped` says what was cut, one sentence for each thing.
+- Each file's bytes arrive first as `chunk` messages under its own
+  `request_file` id, with `of` naming the extract request. A video frame also
+  holds `at`, its time in seconds.
 
-The extractor is chosen in this order, first match wins: pdf, image, media,
-doc, epub, xlsx, calendar, pkpass, email, contact, data, text, fallback.
-`extractors` in xixo link's hello lists the ones whose programs are present.
+## Extractors
 
-A name can have more than one extractor behind it. On macOS the `pdf`, `image`,
-`doc`, and `media` names also have extractors built on the mac reader and
-`textutil`, and the first one whose programs are present reads the file. They
-answer with the same steps. See
-[what a Mac reads](../../README.md#what-a-mac-reads) for the order and the
-differences.
+The first extractor in this list that handles the file's type reads it:
+
+| Extractor | Types | Steps | Package |
+| --- | --- | --- | --- |
+| `pdf` | PDF | `info`, `text`, and on macOS `outline` | [documents](documents/README.md) |
+| `image` | `image/*` | `dimensions`, `deviation`, `frames`, `location`, `ocr` | [documents](documents/README.md) |
+| `media` | `audio/*` and `video/*` | `probe`, `signal` | [rich](rich/README.md) |
+| `doc` | `.doc`, `.docx`, `.odt` | `info`, `text` | [documents](documents/README.md) |
+| `epub` | EPUB | `book`, `text` | [rich](rich/README.md) |
+| `xlsx` | `.xlsx`, `.xls`, `.ods` | `sheets`, `tables`, `outline`, `text` | [rich](rich/README.md) |
+| `calendar` | `text/calendar` | `events`, `outline`, `text` | `plain` |
+| `pkpass` | Apple Wallet passes | `pass`, `text` | `plain` |
+| `email` | `message/rfc822` | `headers`, `thread`, `attachments`, `text`, `outline` | [rich](rich/README.md) |
+| `contact` | `text/vcard` | `contacts`, `outline`, `text` | `plain` |
+| `data` | JSON, XML, CSV, and TSV | `shape`, `text`, and for CSV and TSV `tables` | `plain` |
+| `text` | other `text/*` types | `text` | `plain` |
+| `fallback` | everything else | `size`, `format`, `text` for printable files, `listing` for archives | `plain` |
+
+`extractors` in xixo link's `hello` lists the extractors whose programs are on
+the machine. On macOS, `pdf`, `image`, `doc`, and `media` each have a second
+extractor built on the mac reader or `textutil`, with the same steps. See
+[what a Mac reads](../../README.md#what-a-mac-reads).
+
+Text is cut at 200,000 characters. An outline's `from` is a character offset
+into `text`.
 
 ## Steps every extractor gets
 
-| Step | When | Result |
-|---|---|---|
-| `metadata` | not text, JSON, or XML | an object of exiftool tags, group prefixes dropped, plumbing tags left out, at most 200 tags, values cut at 500 characters, lists joined with `, `; on a Mac without exiftool, the tags the mac reader or `textutil -info` names, under exiftool's names |
-| `derived` | images, video, audio, PDFs, page captures | `{"thumbnail": "thumbnail.jpg", "preview": "preview.jpg"}`, with both files attached in the roles `thumbnail` and `preview` |
+| Step | For | Result |
+| --- | --- | --- |
+| `metadata` | every type except text, JSON, and XML | The exiftool tags, at most 200, each value cut at 500 characters. On a Mac without exiftool, the tags the mac reader or `textutil -info` reads, under exiftool's names. |
+| `derived` | images, video, audio, PDFs, and page captures | `{"thumbnail", "preview"}`, with both files attached in those roles. |
 
 A thumbnail is `settings.thumbnail` pixels wide. A preview fits within
 `settings.preview` pixels on its longest edge, except a page capture's, which
-keeps its full length at that width. Video takes the frame one second in,
-audio draws its waveform, a PDF renders its first page, and a camera raw uses
-its embedded preview when that is at least 1,024 pixels wide. Neither file
-keeps the original's metadata, so the EXIF tags and the location a camera
-writes stay in the original alone. Both are converted to sRGB.
-
-## text
-
-Any `text/*` type except calendars and vCards.
-
-| Step | Result |
-|---|---|
-| `text` | the file decoded by its byte order mark, as UTF-8, or as Windows-1252, trimmed, at most 200,000 characters |
-
-## data
-
-`application/json`, `application/xml`, `text/csv`, `text/tab-separated-values`.
-
-| Step | Result |
-|---|---|
-| `shape` | `{"format": "json", "keys": [...]}` with the first 50 top-level keys in order, `{"format": "csv", "columns": [...], "rows": n}`, `{"format": "invalid", "error": "..."}`, or `{"format": "unknown"}` for XML and anything else |
-| `tables` | `.csv` and `.tsv` only: `[{"name", "columns", "rows"}]`, the header found in the first ten rows as the widest one, total rows left out, at most 5,000 rows; empty when the file does not parse |
-| `text` | as `text` |
-
-## calendar
-
-`text/calendar`.
-
-| Step | Result |
-|---|---|
-| `events` | up to 200 objects with any of `summary`, `description`, `location`, `dtstart`, `dtend`, `organizer`, `status`, `uid`, each unescaped and cut at 1,000 characters |
-| `outline` | `[{"name", "from"}]`, one section per event named by its summary and date, `from` a character offset into `text` |
-| `text` | one line per event: summary, the start written out as a date, location, and description, joined with ` · ` |
-
-A start such as `20261012T093000Z` reads as `Monday, October 12, 2026, 09:30 UTC`.
-
-## contact
-
-`text/vcard`.
-
-| Step | Result |
-|---|---|
-| `contacts` | up to 500 objects; `fn`, `title`, `org`, `note`, `bday`, `nickname`, `role` are strings, `email`, `tel`, `url`, `impp`, and `adr` are lists, and `name` is the structured name joined with spaces |
-| `outline` | one section per contact, named by its full name, its name, or its first email |
-| `text` | one line per contact: name, org, title, emails, phones, addresses, and note, joined with ` · ` |
-
-## pkpass
-
-`application/vnd.apple.pkpass`.
-
-| Step | Result |
-|---|---|
-| `pass` | `{"style", "organization", "description", "logo_text", "serial_number", "relevant_date", "expiration_date", "fields": [{"label", "value"}]}` from `pass.json`, or an error when the bundle is not a zip, has no `pass.json`, or it is not JSON |
-| `text` | the pass's values, then one `label: value` line per field |
-
-## fallback
-
-Everything else.
-
-| Step | Result |
-|---|---|
-| `size` | `{"bytes": n}` |
-| `format` | `{"declared": mime, "observed": "zip" \| "gzip" \| "pdf" \| "executable" \| "audio" \| "media" \| "image" \| "tar" \| "text" \| "binary", "printable": bool}` from the first 8 KiB |
-| `text` | printable files only; HTML, XHTML, SVG, XML, or anything starting with `<` has its markup stripped, headings kept as `#` lines |
-| `listing` | zip, tar, and gzipped tar: the first 200 entry names, leaving out pax headers and `._` AppleDouble files |
-
-## media, email, epub, and xlsx
-
-These are in [rich/README.md](rich/README.md).
+keeps its full length. Video takes the frame one second in, audio draws its
+waveform, and a PDF renders its first page. Both files are sRGB and keep none
+of the original's metadata, so a photo's location stays in the original only.
 
 ## Programs
 
-Every program runs under `Limited`: a deadline, a data limit on Linux and a
-file size limit set by `/bin/sh` with `ulimit -d` and `ulimit -f` just before
-the program starts, and its whole process group killed past the deadline. macOS
-refuses `ulimit -d`, so there the data limit is skipped and the file size limit
-stays. On macOS each program also runs under `sandbox-exec`, which lets it
-write only inside the extraction's work folder and reach no network; the
-[xixo link README](../../README.md#the-sandbox) describes the profile. The data limit is 4 GiB, except for `exiftool`,
-which gets 6 GiB. Its zip reader sizes a buffer from a zip64 local header's
-4 GiB placeholder size, so a small docx, xlsx, odt, ods, or epub written with
-zip64 headers needs about 5 GiB of address space while touching only a few
-megabytes. `exiftool`, `vipsthumbnail`,
-`vipsheader`, `ffmpeg`, `ffprobe`, `pdftoppm`, and `simple_dcraw` are used
-here; an extractor names the ones it needs, and one whose programs are missing
-is left out of `extractors`.
+Every program runs with a deadline, and its whole process group is killed past
+it. `/bin/sh` sets a data limit with `ulimit -d` and a file size limit with
+`ulimit -f` just before the program starts. Both are 4 GiB, except that
+exiftool gets 6 GiB of data, since its zip reader sizes a buffer from a zip64
+header's 4 GiB placeholder. macOS refuses `ulimit -d`, so there the file size
+limit holds alone.
+
+On macOS each program also runs under `sandbox-exec`, which lets it write only
+inside the extraction's work folder and reach no network. See
+[the sandbox](../../README.md#the-sandbox).
+
+An extractor names the programs it needs. One whose programs are missing is
+left out of `extractors`.

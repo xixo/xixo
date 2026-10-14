@@ -95,9 +95,9 @@ The client uses urql's document cache.
 
 ### `xixo/actioncable`
 
-|                                           |                                                                                                                                                                                                      |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `actionCableExchange({ channel?, url? })` | Returns a urql subscription exchange over Action Cable. `channel` defaults to `GraphqlChannel`. Without a `url`, the consumer reads the page's `action-cable-url` meta tag, or connects to `/cable`. |
+|                                                          |                                                                                                                                                                                                                                                           |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `actionCableExchange({ channel?, url?, onConnection? })` | Returns a urql subscription exchange over Action Cable. `channel` defaults to `GraphqlChannel`. Without a `url`, the consumer reads the page's `action-cable-url` meta tag, or connects to `/cable`. `onConnection(open)` runs when the connection opens or closes. |
 
 ## Development
 

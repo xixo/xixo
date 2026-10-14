@@ -4,146 +4,123 @@ description: What xixo protects, the defense for each threat, and where each is 
 ---
 
 xixo reads other people's files, fetches pages from the web, and hands text to models that call
-tools. Each of those is a way in. This page lists the threats and the defense for each, and links to
-the page that describes it in full.
+tools. Each of those is a way in. This page lists the threats and the defense for each.
 
-| Threat | Defense | Section |
+| Threat | Defense | Described in |
 | --- | --- | --- |
-| One tenant reading another's catalog | Two isolation layers, one enforced by Postgres | [Tenant isolation](#tenant-isolation) |
-| A token issued for somewhere else | Issuer, audience, and tenant checked on every request | [Tokens](#tokens) |
-| A stolen database dump | Credentials and client secrets encrypted at rest | [Secrets at rest](#secrets-at-rest) |
+| One tenant reading another's catalog | Two isolation layers, one enforced by Postgres | [Isolation](/concepts/tenants/#isolation) |
+| A token issued for somewhere else | Issuer, audience, and tenant checked on every request | [Signing in](/concepts/tenants/#signing-in), [tokens](#tokens) |
+| A stolen database dump | Secrets encrypted at rest | [Secrets at rest](#secrets-at-rest) |
 | A resource or a URL that points inside the network | Every address resolved, checked, and pinned | [Reaching addresses](#reaching-addresses) |
 | A page that attacks the browser rendering it | A locked-down Chrome behind a checking proxy | [Rendering pages](#rendering-pages) |
 | A stored file that runs script when opened | A sandbox, and downloads for anything active | [Serving files](#serving-files) |
-| A path or id that reaches past what a resource was attached to | Every key cleaned and encoded, every scope checked | [Paths](#paths) |
+| A path or id that reaches past what a resource was attached to | Every key cleaned and encoded | [Paths](#paths) |
+| A file built to break a parser | Parsers run in xixo link, away from the catalog | [Reading files](#reading-files) |
 | Text that gives a model instructions | Fenced prompts, narrow grants, and confined runs | [Models and prompt injection](#models-and-prompt-injection) |
-| A client that calls too often or runs too long | Rate limits, run budgets, and gates | [Limits](#limits) |
-| An action nobody can account for | An audit event for every call and refusal | [Audit](#audit) |
-
-## Tenant isolation
-
-Every request and every job runs inside exactly one tenant.
-
-| Layer | What it does |
-| --- | --- |
-| `TenantScoped` | Scopes every query in the app to `Current.tenant`. |
-| Row-level security | `FORCE ROW LEVEL SECURITY` and a `tenant_isolation` policy on every tenant table, Active Storage's included. |
-
-- Outside a tenant, the policy matches no rows, so even `Model.unscoped` returns nothing.
-- A Postgres role with `SUPERUSER` or `BYPASSRLS` skips every policy. xixo checks its role once per
-  process and refuses to enter a tenant as either. See [the database role](/guides/self-hosting/#the-database-role).
-- A job records the tenant it was enqueued in, and a job enqueued outside a tenant raises.
-- All tenants share one OpenSearch index. Each searches through its own filtered alias, and xixo
-  refuses a search with no tenant.
-
-See [tenants](/concepts/tenants/#isolation) and [search](/concepts/search/#tenants).
+| One person's private files reaching another | Readers recorded on every feed | [Only mine, or everyone's](/concepts/resources/#only-mine-or-everyones) |
+| A client that calls too often or runs too long | Rate limits, run budgets, and gates | [Budgets and gates](/concepts/agents/#budgets-and-gates) |
+| An action nobody can account for | An audit event for every call and refusal | [Audit](/concepts/agents/#audit) |
+| A credential in an error message | Every error scrubbed | [Errors](#errors) |
 
 ## Tokens
 
-`/graphql`, `/mcp`, `/uploads`, `/share`, and `/references/:id/content` each verify a masks access token. A
-token is accepted only when its issuer is this tenant's masks issuer, its audience is this tenant's
-origin followed by `/mcp`, and any `tenant` claim names this tenant. Production refuses to boot
-without `XIXO_PUBLIC_ORIGIN`, so the audience never comes from a request's `Host` header.
+`/graphql`, `/mcp`, `/uploads`, `/share`, and `/references/:id/content` each verify a masks access
+token, as described in [signing in](/concepts/tenants/#signing-in). Production refuses to boot
+without `XIXO_PUBLIC_ORIGIN`, so a request's `Host` header never chooses the token's audience.
 
-- The scopes a token holds decide what it reaches. A GraphQL field that names a scope refuses a
-  token without it, and an MCP tool the token cannot use is left out of `tools/list`. See
-  [scopes](/reference/scopes/).
-- The session cookie is `HttpOnly`, `Secure` in production, and `SameSite=Lax`, so a request another
-  site starts does not carry it.
-- A browser request carrying the session cookie also needs the page's CSRF token. A request with a
-  bearer token does not.
-- `POST /share` receives what a phone's share sheet sends, which carries no CSRF token. It accepts a
-  cookie-only request when the browser marks it `Sec-Fetch-Site: none` or `same-origin` and any
-  `Origin` it sends is this tenant's origin. A browser that sends no `Sec-Fetch-Site` must send this
-  origin as `Origin`. A post from another site, including another tenant's subdomain, is refused.
+- A token's scopes decide what it reaches. A GraphQL field that names a scope refuses a token
+  without it, and an MCP tool the token cannot use is left out of `tools/list`. See the [scopes
+  reference](/reference/scopes/).
+- The session cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` in production.
+- A browser request that carries the session cookie also needs the page's CSRF token. A request with
+  a bearer token does not.
+- `POST /share` receives a phone's share sheet, which sends no CSRF token. It accepts a request with
+  only the cookie when the browser marks it `Sec-Fetch-Site: none` or `same-origin` and any `Origin`
+  it sends is this tenant's origin. A post from another site, another tenant's subdomain included,
+  is refused.
+- A page on another site may call `/mcp` and read `/.well-known/oauth-protected-resource`, so an MCP
+  client that runs in a browser can connect. The browser sends no cookies on those calls, so the
+  page acts only with a token it holds.
 - An `Mcp-Session-Id` belongs to the subject that opened it. xixo refuses it from anyone else.
-- A page on another site may read `/.well-known/oauth-protected-resource` and call `/mcp`, so an MCP
-  client that runs in a browser can connect. The answer is open to any origin but never to a request
-  that carries cookies, so such a page acts only with a token it holds.
-- `xixo:settings:admin` is never requested at sign-in. masks grants it only to a person whose scopes
-  there cover it. Without it, a token changes only its own personal resources and none of the shared
-  ones or the defaults.
-
-See [signing in](/concepts/tenants/#signing-in) and [agents and MCP](/concepts/agents/).
 
 ## Secrets at rest
 
-| Column | Holds |
-| --- | --- |
-| `resources.credentials` | Every secret a resource was attached with: access keys, API keys, passwords, and delegation secrets. |
-| `tenants.client_secret`, `tenants.registration_access_token` | The tenant's masks client. |
+Active Record Encryption encrypts every secret xixo stores:
 
-These are encrypted with Active Record Encryption. The resource form reads back only the names of
-the secret fields that have a value, and the audit log records which fields were set but never their
-values. Rails filters secrets, tokens, and passwords from the request log. See
-[encryption & secrets](/guides/self-hosting/#encryption--secrets).
+- `resources.credentials`, which holds every secret a resource was attached with, such as access
+  keys, API keys, passwords, and delegation secrets.
+- `tenants.client_secret` and `tenants.registration_access_token`, which belong to the tenant's
+  masks client.
 
-For a resource connected through masks, such as Google Drive, masks keeps the
-provider's tokens, and xixo holds a delegation secret that masks revokes if it is ever used twice.
-See [resources connected through masks](/concepts/resources/#resources-connected-through-masks).
+The resource form reads back only the names of the secret fields that have a value. The audit log
+records which fields were set and never their values. Rails filters secrets, tokens, and passwords
+from the request log. For a resource connected through masks, masks keeps the provider's tokens. See
+[resources connected through masks](/concepts/resources/#resources-connected-through-masks) and
+[encryption and secrets](/guides/self-hosting/#encryption-and-secrets).
 
 ## Reaching addresses
 
-`PublicAddress` checks every URL xixo fetches on someone's behalf: downloads, feeds, WebDAV, search
-requests, MCP servers, git over HTTPS, and IMAP.
+xixo checks every address it reaches for someone: downloads, snapshots, feeds, WebDAV, search, MCP
+servers, git over HTTPS, and IMAP.
 
 - Only `http` and `https` are accepted.
-- The host is resolved, and the URL is refused if any address is loopback, private, link-local,
-  shared, documentation, multicast, or otherwise reserved, for IPv4 or IPv6.
-- xixo connects to the address it checked, so a resolver cannot answer the check with a public
-  address and the connection with a private one.
+- The host is resolved, and the address is refused if any result is loopback, private, link-local,
+  shared, documentation, multicast, or otherwise reserved, for IPv4 or IPv6. An IPv4 address inside
+  an IPv6 address is checked as IPv4. A host that does not resolve is refused.
+- xixo connects to the address it checked and does not look the name up again, so a resolver cannot
+  answer the check with a public address and the connection with a private one. The `Host` header
+  and the TLS certificate still use the name.
 - Each redirect is resolved and checked again.
+- A response from a download, a web API, or a model server is read with a size limit, so an answer
+  that never ends fails before it fills memory.
 
-An operator lists a private origin by service: `XIXO_S3_ORIGINS`, `XIXO_MCP_ORIGINS`, and
-`XIXO_SEARCH_ORIGINS`. `XIXO_INFERENCE_ORIGINS` lists every model backend a tenant may use, public
-ones included. `XIXO_ALLOW_PRIVATE_FETCH` lifts the range check for downloads, snapshots, and
-resources other than search, and still refuses other schemes. See
-[outbound connections](/reference/environment/#outbound-connections).
+An operator opens private addresses by service:
 
-xixo reads every response as it arrives and stops at a limit, so an answer that never ends is cut
-off before it fills memory. The limit is 8 MB for the APIs of GitHub, Notion, Slack, Google Drive,
-and Microsoft Graph, and 16 MB for a model backend, a streamed answer included. A response over its
-limit fails with the host and the limit in the error.
+| | |
+| --- | --- |
+| `XIXO_S3_ORIGINS` | S3 endpoints at a private address. An endpoint not listed is also checked on the address that answers. |
+| `XIXO_MCP_ORIGINS` | MCP servers at a private address. |
+| `XIXO_SEARCH_ORIGINS` | Search APIs at a private address. |
+| `XIXO_INFERENCE_ORIGINS` | Every model server a tenant may use, public ones included. A model server not listed is refused. |
+| `XIXO_ALLOW_PRIVATE_FETCH` | Lifts the range check for every address except search APIs and model servers. It does not allow another scheme. |
 
 A resource reached through a transport, such as a tailnet, connects only to addresses the transport
-covers. None of the settings above widen that. See
-[reaching through another resource](/concepts/resources/#reaching-through-another-resource).
+covers, and none of these settings widen that. See
+[reaching through another resource](/concepts/resources/#reaching-through-another-resource) and
+[outbound connections](/reference/environment/#outbound-connections).
 
 A git resource accepts only the protocols in `XIXO_GIT_PROTOCOLS`, `https` by default. It runs git
-with `protocol.file.allow=never`, no credential helper, no global or system config, and no redirects,
-and refuses a URL with a name or token in it.
-
-See [addresses](/concepts/adding/#addresses).
+with no `file` protocol, no credential helper, no global or system config, and no redirects, and
+refuses a URL with a name or token in it.
 
 ## Rendering pages
 
-A snapshot renders an untrusted page in headless Chrome.
+A [snapshot](/concepts/adding/#snapshots) renders an untrusted page in headless Chrome.
 
-- The page opens in an incognito window, with the same-origin policy and site isolation on.
-- New windows, permission prompts, the file system, notifications, and pings are blocked.
-- xixo intercepts every request the page makes. `data:` and `blob:` pass, `http` and `https` pass
-  only if the address check allows them, and every other scheme is aborted.
-- All traffic goes through `Snapshot::Egress`, a proxy on loopback that resolves, checks, and pins
-  each connection. QUIC and non-proxied WebRTC are off, so no connection skips it.
-- A render has 120 seconds, a height of 20,000 pixels, and 25 MB.
-
-See [snapshots](/concepts/adding/#snapshots).
+- The page opens in an incognito window. xixo turns the same-origin policy and site isolation back
+  on, which the browser library turns off by default.
+- New windows, permission prompts, the file system, notifications, speech, and pings are blocked.
+- xixo intercepts every request the page makes. `data:` and `blob:` pass. `http` and `https` pass
+  only if the address check allows them. Every other scheme, `file://` included, is aborted.
+- All traffic goes through a proxy on loopback that resolves, checks, and pins each connection. QUIC
+  and WebRTC outside the proxy are off, so no connection skips it.
+- A render has 120 seconds. The picture stops at 20,000 pixels high and 25 MB.
 
 ## The app's pages
 
-Every page xixo serves carries a `Content-Security-Policy`.
+Every page xixo serves carries a `Content-Security-Policy`:
 
-- Script runs only from xixo's own origin, or inline with a nonce made fresh for each page.
-- Pictures load from xixo, `data:` and `blob:` addresses, and the tenant's masks issuer, which draws
-  avatars. Requests go only to xixo itself.
+- Script runs only from xixo's own origin, or inline with a nonce made for each page.
+- Pictures load from xixo, `data:` and `blob:` addresses, and the tenant's masks issuer, which
+  serves avatars. Requests go only to xixo.
 - No plugin loads, `<base>` cannot move relative links, and no other site may frame a page.
 - Inline styles are allowed, since the interface library sets them.
 
 ## Serving files
 
-`/references/:id/content` streams a file's bytes, and needs `xixo:catalog:read`. A file can be an
-HTML page someone kept, an SVG from an email, or anything else a sync found, so xixo treats every
-file as hostile when it serves it.
+`/references/:id/content` streams a file's bytes and needs `xixo:catalog:read`. A file can be an
+HTML page someone kept, an SVG from an email, or anything a sync found, so xixo treats every file as
+hostile.
 
 - Every response carries `X-Content-Type-Options: nosniff` and a `Content-Security-Policy` of
   `sandbox`, which runs no script and gives the document an opaque origin.
@@ -151,118 +128,63 @@ file as hostile when it serves it.
   other type, HTML and SVG included, downloads.
 - A PDF is served without the sandbox, because Chrome refuses to start its viewer inside one.
 
-Active Storage's own routes are not drawn. Staged bytes are reached only through xixo.
+Active Storage's own routes are not drawn, so staged bytes are reached only through xixo.
 
 ## Paths
 
-- `Intake.key_for` cleans every path before anything is stored. Backslashes become slashes,
-  control characters are removed, and empty, `.`, and `..` segments are dropped.
-- An upload's type comes from its extension. xixo ignores the content type the client declared.
-- A filesystem resource is read and written only by xixo link on its machine, inside the folders
-  that machine's config shares. xixo link refuses a link anywhere on a path and writes only to a
-  folder its config marks writable.
-- A resource reads only what it was attached to. The prefix, folder, repositories, channels,
-  mailbox, or Google Drive query given when attaching it bound `get`, `list`, `search`, and a
-  caller's `put` as well as `keep` and a sync, even where its credential reaches further.
-- An id or path a caller names is sent percent-encoded, one segment at a time, and a `.` or `..`
-  segment is refused before any request is made. A Google Drive search escapes its backslashes and
-  quotes, and the resource's own query clause is grouped so a search cannot widen it.
+- Every path is cleaned before anything is stored. Backslashes become slashes, control characters
+  are removed, and empty, `.`, and `..` segments are dropped, so a key cannot point outside the
+  place it is stored.
+- A resource reads only what it was attached to. Its prefix, folder, repositories, channels,
+  mailbox, or query bound every command and every sync, even where its credential reaches further.
+- An id or path a caller names is sent percent-encoded, one segment at a time. A `.` or `..` segment
+  is refused before any request is made.
+- A folder on a machine is read and written only by xixo link, inside the folders its own
+  configuration shares. xixo link refuses a link anywhere on a path and writes only to a folder the
+  configuration marks writable.
 
-See [staging](/concepts/adding/#staging) and [where resources come from](/concepts/resources/#where-they-come-from).
+## Reading files
 
-## Updating xixo link
+The server never parses a file's bytes. [xixo link](/concepts/analysis/#extraction) does, so a file
+built to exploit a parser reaches nothing of the catalog or its database. xixo link runs in a
+container or a systemd sandbox, and every program it runs on a file, such as `ffmpeg` or
+`tesseract`, has a memory limit and is killed with everything it started when it runs past its time.
+The server keeps only the steps it knows from xixo link's answer, and cuts long text itself.
 
-xixo tells xixo link to update over its authenticated connection, with the version and the build's
-SHA-256. The rest happens on the machine:
-
-- xixo link builds the download address from the xixo address in its own config and the name of
-  its build, so the message cannot point it at another host. It follows no redirect.
-- A download that does not match the SHA-256 is deleted. The new binary must start and name the
-  version xixo sent before it replaces the old one.
-- xixo link refuses an older version unless xixo says it is rolling back.
-- On Linux, xixo link runs as the user who owns its folders and cannot change its own binary. The
-  system user `xixo-link-update` owns the binary and runs the updater, which reads only the
-  request xixo link leaves in `/run/xixo-link`, downloads from the configured address, and writes
-  only the binary's folder. It cannot read xixo link's keys. A file that takes over an extraction
-  program can ask for an update, and gets only the build xixo serves.
-- No step runs as root after the install.
+xixo link updates only to a build xixo serves. It downloads from the xixo address in its own
+configuration, follows no redirect, checks the SHA-256 xixo sent, and refuses an older version
+unless xixo says it is rolling back. On Linux a second system user owns the binary, so a program a
+file took over cannot replace xixo link. See [the xixo link
+README](https://github.com/xixo/xixo/tree/main/link#readme).
 
 ## Models and prompt injection
 
-A file, a page, or an email can contain text written to steer a model. xixo limits what that text
-can do.
+A file, a page, or an email can hold text written to steer a model. xixo limits what that text can
+do:
 
 - The summary prompt fences the file's text and tells the model it is data. The prompt that answers
   a question fences the question and the evidence the same way.
-- Each agent run acts under a grant of its own. The run that files an upload has no web. The run
-  that looks up a question about the world has no catalog. None of them can sync, export, write into
-  a resource, call an attached MCP server, or change settings.
-- An agent run reads from the catalog or from the web, never both. Once it has read a feed it did
-  not make, searched the catalog, or read a resource's files, xixo refuses every call that reaches
-  the web. Once it has searched the web, fetched a page, or kept one, xixo refuses every call that
-  reads the catalog or a resource's files. Text that tells the agent to send what it read to an
-  address therefore has nothing to send, or nowhere to send it.
-- An agent reaches a person's [personal resources](/concepts/resources/#only-mine-or-everyones) only
-  in a run that person started.
-- Every agent run is confined. Its writing tools refuse every feed except the one it runs for and the
-  ones it created, so a page that tells the agent to rewrite a note has no effect.
-- Every tool call is checked against the tool's schema before it runs. Three failed calls in a row
-  end the run.
-- A question about the catalog is answered with no tools at all. Arithmetic over a table runs in
-  xixo from a fixed set of operations, and the model only names them.
-- xixo checks every number in an answer against the evidence and the results it computed, and sends
-  an answer with a number from nowhere back once.
-- A [machine's tools](/concepts/resources/#tools-a-machine-offers) do only what its access in xixo
-  allows and its own configuration does not hold back, and none runs a program or takes an address. Reading caps at 256 KiB, writing
-  at 1 MiB into a writable folder with `xixo:resources:command`, and a question to the machine's model
-  at 64 KiB to a server on its loopback address. A file read through them is data, and the `resource`
-  tool's description says so.
-
-See [the agent](/concepts/agents/#the-agent) and [asking](/concepts/agents/#asking).
-
-## Limits
-
-| Limit | Counted per | Default |
-| --- | --- | --- |
-| `XIXO_MCP_LIMIT` | Token, or IP address without one, per minute | 120 |
-| `XIXO_RUN_BUDGET` | Subject, per clock hour, for analyses, syncs, and exports | 20 |
-| `XIXO_RUN_DEADLINE_HOURS` | A queued analysis, before it is cancelled | 6 |
-
-The server never parses a file's bytes. [xixo link](/concepts/analysis/#extraction) does, in a
-container or a systemd sandbox with no database, so a file built to exploit a parser reaches nothing
-of the catalog. Every program xixo link runs on a file, such as `soffice`, `ffmpeg`, `tesseract`,
-`pdftoppm`, and `exiftool`, runs in a process group of its own with at most 4 GiB of data memory, 6
-for `exiftool`, and is killed with everything it started when it runs past its time. The server
-keeps only the steps it knows from xixo link's answer, and cuts long text itself. `git` still runs
-on the server through `Command`, with the same memory limit and 5 minutes.
-
-A gate stops a kind of job for a tenant or a single record, and `XIXO_ITERATORS_DISABLED` stops
-every iterating job at once. See [budgets and gates](/concepts/agents/#budgets-and-gates).
-
-Mission Control at `/jobs` lists every tenant's jobs. It answers `401` to every request, because no
-password is set. See [Mission Control](/guides/self-hosting/#mission-control-at-jobs).
-
-## Audit
-
-Every tool call, refused authorization, rate-limited call, and some GraphQL mutations write an audit
-event. Each names its actor, the scope, the result, the IP address, and the request id. Arguments are
-summarized, and the value of any key that names a secret, password, token, or credential is replaced
-with `[redacted]`. Events are kept for `XIXO_AUDIT_RETENTION_DAYS`, 90 by default.
-
-See [audit](/concepts/agents/#audit).
+- A question about the catalog is answered with no tools. Arithmetic over a table runs in xixo, and
+  the model only names the operation. xixo sends back once an answer with a number that is not in
+  the evidence.
+- Each agent run has a grant of its own with narrow scopes. No agent can sync, export, write into a
+  resource, call an attached MCP server, or change settings. See [the
+  agent](/concepts/agents/#the-agent).
+- An agent run reads from the catalog or from the web, never both, so text that tells it to send
+  what it read somewhere has nothing to send or nowhere to send it. See [catalog or
+  web](/concepts/agents/#catalog-or-web).
+- An agent's writing tools change only the feeds its run made, and the feed a filing or scheduled
+  run is for. A page that tells the agent to rewrite a note has no effect.
+- A [machine's tools](/concepts/resources/#tools-a-machine-offers) take no command line, program, or
+  address.
 
 ## Errors
 
-An error often names the address it failed on, and an address can hold a credential. `Redaction`
-removes the name and password from every address in an error, and replaces the value of every query
+An error often names the address it failed on, and an address can hold a credential. xixo removes
+the name and password from every address in an error, and replaces the value of every query
 parameter whose name contains `token`, `key`, `sig`, `secret`, `passw`, `pwd`, `credential`, `auth`,
 `session`, or `code` with `[redacted]`.
 
-Every error xixo raises for a resource, a download, an address check, a snapshot, or an analyzer is
-scrubbed when it is made. What xixo keeps or sends is scrubbed again, so an error from a library is
-covered too:
-
-- a resource's check error
-- a run's or an analysis's error and log lines, a step's error, and a model turn's error
-- an audit event's summary, detail, and arguments
-- an MCP tool error, a GraphQL error from a mutation, and a failed file download
+Errors are scrubbed when xixo raises them, and again wherever xixo keeps or sends one, so an error
+from a library is covered too. That includes check errors, run and analysis errors and logs, audit
+events, MCP tool errors, GraphQL errors, and failed downloads.
