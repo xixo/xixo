@@ -368,7 +368,9 @@ It enrolls itself after the first sign-in connects the tenant to masks:
 3. xixo link registers its own key with masks, and keeps it in its state volume.
 
 Deleting the state volume makes it enroll again. It shows on the **Resources** page as
-**This server**. xixo may do everything with the folders it shares, and writes into the ones named in
+**This server**. Each folder it shares joins the catalog by itself. A folder the deployment declares,
+such as `files`, is everyone's, and any other is held for the administrator who signs in first. xixo
+may do everything with the folders it shares, and writes into the ones named in
 `XIXO_LINK_WRITABLE`.
 
 ## Storage

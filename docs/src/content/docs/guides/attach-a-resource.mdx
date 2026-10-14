@@ -18,8 +18,6 @@ server**.
 1. Choose your avatar in the top right corner, then **Resources**.
 2. Choose **Add to** followed by the machine's name at the foot of its card.
 3. Pick what to add:
-   - Under **Folders it shares**, pick a folder the machine shares. This opens **A folder** with the
-     folder filled in.
    - Under **Model servers it found**, choose **Add** to attach an Ollama or LM Studio server in one
      step. A model server that answers only on its own machine is added through that machine, at
      `127.0.0.1`. Choose **Set up** instead to open **A model backend** with a **Base URL** to
@@ -35,7 +33,9 @@ server**.
    type's fields are in the [resource reference](/reference/resources/).
 8. Choose **Attach it**.
 
-Only an administrator adds a folder, or anything else on a linked machine.
+Only an administrator adds anything on a linked machine. A folder a linked machine shares needs no
+step here, since it joins the catalog by itself. See
+[folders it shares](/guides/add-a-machine/#folders-it-shares).
 
 xixo checks the resource right away. When the check passes, the dialog closes. When it fails, the
 resource is still attached, and the dialog shows **Attached, but it did not answer** with the error.

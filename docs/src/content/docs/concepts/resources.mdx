@@ -49,6 +49,13 @@ names one of the folders xixo link shares, and xixo link lists, reads, hashes, a
 A folder is storage only when the machine's configuration marks it writable. The shipped `files`
 resource is `/data/files/<tenant>` on xixo link beside the server.
 
+Each folder a machine shares joins the catalog by itself. On each hello, xixo makes sure every
+shared folder has a `filesystem` resource reached through that machine, keyed by the machine and the
+folder's name, such as `media-documents`. A folder already attached is used, never doubled. A new
+folder syncs at once and then every hour. When the machine stops sharing a folder, xixo puts its
+resource away and keeps its items, and it brings the resource back when the folder is shared again.
+A folder somebody put away stays put away. Putting the machine away puts its folders away with it.
+
 A walk skips version control folders such as `.git`, dependency folders such as `node_modules`, and
 files an operating system leaves behind, such as `.DS_Store`. **Also skip** adds names or patterns
 of its own. xixo link also watches its shared folders. For a folder resource with a sync interval,
@@ -86,6 +93,13 @@ at a time.
 The person who attaches a resource chooses who can use it. **Everyone here** is the default for an
 administrator. **Only me** is the default for anyone else, who cannot attach a shared one. A type
 connected through masks starts as **Only me**.
+
+A folder a machine shares starts out held for the machine's operators, the masks subjects under
+**Who operates it**. The approving administrator is the first. Only they see the folder and what it
+syncs, and its feeds' readers are those operators. When the list changes, xixo changes the readers
+to match. An administrator who operates the machine can show the folder to everyone, or keep it for
+the operators again, with `setFolderForEveryone`. An administrator who is not an operator does not
+see the folder or its items.
 
 A personal resource is hidden from everybody but its owner: from the resources query, every mutation
 and tool that names a resource, and the tools a personal MCP server offers.
@@ -267,7 +281,8 @@ machine. Neither side can widen what the other allows.
 - One call that waits on a machine runs on it at a time, and one for each person across every
   machine. Another is told the machine is busy.
 - A folder attached as one person's `filesystem`, and a folder that holds a file kept to one person,
-  are out of reach of every other person's token.
+  are out of reach of every other person's token. A folder held for the machine's operators is out
+  of reach of every token that is not an operator's, an administrator's included.
 - `browse`, `search`, `read`, and `extract` count as reading the catalog, and `write` and `chat` as
   reaching outward, for an agent's [catalog or web](/concepts/agents/#catalog-or-web) rule.
 

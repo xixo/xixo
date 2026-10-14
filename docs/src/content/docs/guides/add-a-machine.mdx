@@ -1,10 +1,11 @@
 ---
 title: Add a machine
-description: Link up a machine with one command, approve it in xixo, and attach the folders it shares.
+description: Link up a machine with one command and approve it in xixo. The folders it shares join the catalog by themselves.
 ---
 
-This guide links up a machine, such as a home server or a desktop, and attaches the folders it
-shares. The machine runs xixo link, which dials out to xixo, so the machine opens no port. See
+This guide links up a machine, such as a home server or a desktop. The folders it shares join the
+catalog by themselves. The machine runs xixo link, which dials out to xixo, so the machine opens no
+port. See
 [machines and xixo link](/concepts/resources/#machines-and-xixo-link) for how it works.
 
 ## Requirements
@@ -145,20 +146,39 @@ send the machine uploads, mail attachments, cloud files, web pages, and files fr
 read. A newly approved machine starts with it on, and a change takes effect at once, without
 touching the machine.
 
-## Attach a folder
+## Folders it shares
 
-1. On **Resources**, choose **Add to** followed by the machine's name, at the foot of its card.
-2. Under **Folders it shares**, pick a folder. The list holds the ones not attached yet.
-3. Check the name xixo filled in.
-4. Choose **Attach it**.
-5. Sync it like any other resource.
+Each folder a machine shares joins the catalog by itself. There is nothing to attach.
 
-Only an administrator attaches a folder through a machine. A folder that overlaps one another
-owner holds on the same machine is refused. Syncing while the machine is not connected leaves the
-folder **offline** until xixo link is back.
+- When the machine connects, xixo adds a folder resource for each folder it shares, such as
+  `media-documents`, named **Documents on media**. On **This server** the key is the folder's name
+  alone, such as `files`. When the key is taken, xixo adds a number, such as `media-documents-2`.
+- A new folder syncs at once, then every hour. In between, xixo link tells xixo which files changed.
+- A folder someone already attached is used as it is, and never added twice.
+- When the machine stops sharing a folder, xixo puts the folder away. Its items stay in the catalog.
+  When the machine shares the folder again, xixo puts it back.
+- A folder you put away yourself stays put away.
+
+The machine's card lists each folder it shares, with its items, its state, and whether it is
+**Read and write** or **Read only**. Syncing while the machine is not connected leaves the folder
+**offline** until xixo link is back.
 
 A full sync that finds nothing in a folder where it found files before marks nothing gone, since an
 unmounted disk looks the same as an emptied folder. Its items stay until a sync finds files again.
+
+### Who sees the folders
+
+A folder a machine shares starts out held for the machine's operators. Its row shows **only its
+operators**.
+
+- Only the people listed under **Who operates it** see the folder and the items it holds. You
+  become the first operator when you approve the machine.
+- Anyone else, administrators included, does not see the folder or its items. To let someone see
+  them, add them to **Who operates it**. See [rename a machine](#rename-a-machine).
+- To let everyone here see a folder, open the menu on its row and choose **Show to everyone**. Only
+  an administrator who operates the machine can do this. **Keep for its operators** takes it back.
+
+When you are the only person in xixo, you see every folder your machines share.
 
 ## Attach a model server it found
 
@@ -172,8 +192,9 @@ xixo reaches the model server at the machine's tailnet address when the server a
 model server that answers only on its own machine is attached at `127.0.0.1` through the machine
 itself.
 
-When the line shows no **Add**, choose **Add to** followed by the machine's name, then **Set up**
-under **Model servers it found**, and check the **Base URL**.
+When the line shows no **Add**, choose **Add to** followed by the machine's name at the foot of its
+card, then **Set up** under **Model servers it found**, and check the **Base URL**. The card shows
+**Add to** only when xixo found a model server on the machine.
 
 ## Find machines on a tailnet
 
@@ -249,15 +270,17 @@ A file on a machine that is offline waits for the machine to come back.
 
 1. Open the menu on the machine's card and choose **Change**.
 2. Edit the name, or **Who operates it**, the masks subjects whose tokens may use the machine's
-   tools, one per line.
+   tools, one per line. The operators are also the people who see the folders it shares, unless an
+   administrator shows a folder to everyone. A machine that holds folders for its operators needs at
+   least one.
 
 The key stays the same.
 
 ## Remove a machine
 
-1. Open the menu on each folder and model server reached through the machine, and choose
-   **Put away**.
-2. Open the menu on the machine's card and choose **Put away**.
+1. Open the menu on each model server reached through the machine, and choose **Put away**.
+2. Open the menu on the machine's card and choose **Put away**. The folders it shares are put away
+   with it.
 
 Putting the machine away unenrolls it in masks, which revokes every token it holds, and closes xixo
 link's connection. xixo link then stops and stays stopped. When masks cannot be reached, the machine
