@@ -729,7 +729,7 @@ A machine running xixo link. A machine links itself up with one command from the
 | Command | Arguments | Does |
 | --- | --- | --- |
 | `health` | — | Reads the machine's uptime, load, memory, and disks from xixo link on it. |
-| `discover` | — | Lists the folders the machine shares, each with the type and address to attach it as a folder. |
+| `discover` | — | Lists the folders the machine shares. Each one joins the catalog by itself as a folder resource, and resource holds that resource's key when this token can see it. |
 | `browse` | `folder: string?` `prefix: string?` `cursor: string?` `limit: integer?` | Lists the files in a folder the machine shares, depth first in name order, at most 200 at a time. Left without a folder, it lists the shared folders. A cursor in the answer is passed back to read on. Needs the machine's config to allow browse, and a token for one of its operators. |
 | `search` | `query: string` `folder: string?` `limit: integer?` | Finds files on the machine for a query, at most 100 of each kind. It searches xixo's index of the machine's folders, which matches titles, paths, and text drawn out by analysis, and walks the folders on the machine for paths that hold the query, ignoring case, stopping after 20,000 files or ten seconds. Only a token for one of its operators walks the folders. Needs the machine's config to allow search. |
 | `read` | `folder: string` `path: string` | Reads up to 256 KiB of a shared file as text. When the machine's config sets lend to false, or the machine is offline, or the token is not one of its operators', it answers with what xixo drew out of the file instead, and says so. Needs the machine's config to allow read. |

@@ -33,6 +33,13 @@ class Resource < ApplicationRecord
   INTERNAL = { children: "Extracted children", derived: "Previews and thumbnails" }.freeze
   INTERNAL_MARK = "internal".freeze
   ADDRESSED_BY = %w[url endpoint base_url host].freeze
+  NOBODY = "xixo:nobody".freeze
+  OPERATED = <<~SQL.squish.freeze
+    resources.via_id IN (
+      SELECT operated.id FROM resources operated
+      WHERE operated.type = 'machine' AND jsonb_exists(operated.details -> 'operators', ?)
+    )
+  SQL
 
   TYPES = %w[
     s3 filesystem webdav caldav carddav imap rss web openai-compatible oauth-google database
@@ -54,6 +61,7 @@ class Resource < ApplicationRecord
   validate :via_is_this_tenants
   validate :via_leads_somewhere
   validate :a_transport_in_use_is_not_archived
+  validate :only_a_folder_on_a_machine_is_held_for_its_operators
 
   before_save :start_the_schedule, if: :sync_interval_changed?
   before_save :mirror_what_it_serves
@@ -62,8 +70,13 @@ class Resource < ApplicationRecord
   scope :active, -> { where(archived_at: nil) }
   scope :attended, -> { where.not(type: "database", key: INTERNAL.keys.map(&:to_s)) }
   scope :external, -> { where.not(type: "database").or(where.not(key: INTERNAL.keys.map(&:to_s))) }
-  scope :shared, -> { where(owner_subject: nil) }
-  scope :reachable_by, ->(grant) { where(owner_subject: [ nil, grant&.speaks_for ].uniq) }
+  scope :shared, -> { where(owner_subject: nil, for_operators: false) }
+  scope :reachable_by, ->(grant) {
+    held = where(owner_subject: [ nil, grant&.speaks_for ].uniq, for_operators: false)
+    next held if grant&.speaks_for.blank?
+
+    held.or(where(for_operators: true).where(OPERATED, grant.speaks_for))
+  }
   scope :managed_by, ->(grant) {
     next reachable_by(grant) if grant&.administers?
 
@@ -693,7 +706,29 @@ class Resource < ApplicationRecord
     owner_subject.present?
   end
 
+  def operators
+    for_operators? && via.respond_to?(:operators) ? via.operators : []
+  end
+
+  def readers
+    return [ owner_subject ] if personal?
+    return nil unless for_operators?
+
+    operators.presence || [ NOBODY ]
+  end
+
+  def audience
+    for_operators? ? :operators : owner_subject
+  end
+
+  def held_for
+    return "one person" if personal?
+
+    for_operators? ? "its operators" : "everyone"
+  end
+
   def managed_by?(grant)
+    return (grant&.administers? && operators.include?(grant.speaks_for)) || false if for_operators?
     return grant&.administers? || false if owner_subject.nil?
 
     grant&.speaks_for.present? && owner_subject == grant.speaks_for
@@ -907,6 +942,7 @@ class Resource < ApplicationRecord
         next unless public_send(:"#{column}?")
 
         next errors.add(column, "cannot be set on #{key}, which is only its owner's") if personal?
+        next errors.add(column, "cannot be set on #{key}, which only its machine's operators see") if for_operators?
         next if capabilities.include?(capability)
 
         errors.add(column, "cannot be set on #{self.class.sti_name}, which is not #{capability}")
@@ -974,10 +1010,21 @@ class Resource < ApplicationRecord
       end
     end
 
+    def in_use_through_it
+      Resource.active.where(via_id: id).where.not(id: id)
+    end
+
+    def only_a_folder_on_a_machine_is_held_for_its_operators
+      return unless for_operators?
+      return if is_a?(Resource::Filesystem) && via.is_a?(Resource::Machine) && owner_subject.nil?
+
+      errors.add(:for_operators, "is only for a folder that a machine shares, held for no one person")
+    end
+
     def a_transport_in_use_is_not_archived
       return unless persisted? && archived_at.present? && archived_at_changed?
 
-      dependents = Resource.active.where(via_id: id).where.not(id: id).pluck(:key)
+      dependents = in_use_through_it.pluck(:key)
       return if dependents.empty?
 
       errors.add(:archived_at,

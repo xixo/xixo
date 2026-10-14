@@ -86,11 +86,13 @@ class LinkChannelTest < ActionCable::Channel::TestCase
     connected
     perform :hello, HELLO
     media, unscheduled = Tenant.switch(@tenant) do
-      Resource::Filesystem.create!(key: "never-walked", details: { "folder" => "/srv/media" }, via: @machine, sync_interval: 3600)
+      Resource::Filesystem.create!(key: "never-walked", details: { "folder" => "/srv/media" }, via: @machine, sync_interval: 3600,
+                                   for_operators: true)
       [
         Resource::Filesystem.create!(key: "media", details: { "folder" => "/srv/media" }, via: @machine, sync_interval: 3600,
-                                     walked_at: 1.day.ago),
-        Resource::Filesystem.create!(key: "unscheduled", details: { "folder" => "/srv/media" }, via: @machine, walked_at: 1.day.ago)
+                                     walked_at: 1.day.ago, for_operators: true),
+        Resource::Filesystem.create!(key: "unscheduled", details: { "folder" => "/srv/media" }, via: @machine, walked_at: 1.day.ago,
+                                     for_operators: true)
       ]
     end
 

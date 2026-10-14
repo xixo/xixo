@@ -118,11 +118,13 @@ class Feed < ApplicationRecord
   end
 
   def owning_readers
-    owners = Reference.originals.where(feed_id: id).joins(:resource).distinct.pluck("resources.owner_subject")
-    return readers if owners.empty?
+    held = Resource.where(id: Reference.originals.where(feed_id: id).select(:resource_id)).includes(:via).to_a
+    return readers if held.empty?
+
+    owners = held.map(&:readers)
     return nil if owners.include?(nil)
 
-    owners.sort
+    owners.flatten.uniq.sort
   end
 
   def file? = type == FILE

@@ -29,6 +29,7 @@ class Resource
 
     include Tools
     include Updates
+    include SharedFolders
 
     serves :transport
 
@@ -156,9 +157,10 @@ class Resource
       def adopted_by!(grant)
         return unless grant&.administers? && grant.speaks_for.present?
 
-        where(key: LOCAL).where("NOT (resources.details ? 'operators')").update_all(
+        adopted = where(key: LOCAL).where("NOT (resources.details ? 'operators')").update_all(
           [ "details = details || jsonb_build_object('operators', jsonb_build_array(?::text))", grant.speaks_for ]
         )
+        local&.catalog_shared! if adopted.positive?
       end
 
       def binaries
@@ -322,7 +324,12 @@ class Resource
     end
 
     def command_discover
-      { "transport" => key, "nodes" => discovered }
+      held = Filesystem.visible_to(Current.grant).where(via_id: id).to_h { |folder| [ folder.folder, folder.key ] }
+      nodes = discovered.map do |node|
+        node.merge("resource" => held[node["services"].first["address"]]).compact
+      end
+
+      { "transport" => key, "nodes" => nodes }
     end
 
     def ask(verb, args = {}, within: ANSWERED_WITHIN)
@@ -391,6 +398,7 @@ class Resource
       tell!
       offer_update!
       restate_folders!
+      catalog_shared!
       ResumeParkedJob.perform_later(id) if Analysis.parked.exists?
       announce!
     end
@@ -464,7 +472,7 @@ class Resource
 
           held.archived_at = Time.current
           held.details = held.unenrolled_details if client.present?
-          held.save
+          held.save && held.put_away_shared!
         end
         next if done.nil?
 

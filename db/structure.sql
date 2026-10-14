@@ -693,7 +693,8 @@ CREATE TABLE public.resources (
     walked_at timestamp(6) without time zone,
     probing_since timestamp(6) without time zone,
     offline_host character varying,
-    offline_last_seen_at timestamp(6) without time zone
+    offline_last_seen_at timestamp(6) without time zone,
+    for_operators boolean DEFAULT false NOT NULL
 );
 
 ALTER TABLE ONLY public.resources FORCE ROW LEVEL SECURITY;
@@ -2495,6 +2496,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261014000000'),
 ('20261013200000'),
 ('20261013140000'),
 ('20261013010000'),

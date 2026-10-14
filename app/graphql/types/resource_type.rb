@@ -47,6 +47,9 @@ module Types
                        "personal resources, and an administrator also manages every shared one."
     field :personal, Boolean, null: false, method: :personal?,
           description: "Whether only the person who attached it can see and use it."
+    field :for_operators, Boolean, null: false, method: :for_operators?,
+          description: "Whether only the people who operate the machine it is on see it and what it cataloged. " \
+                       "A folder a machine shares starts this way, and an administrator can show it to everyone."
     field :delegated, Boolean, null: false, method: :delegated?,
           description: "Whether it reaches somebody's account elsewhere through masks."
     field :needs_connect, Boolean, null: false, method: :needs_connect?,

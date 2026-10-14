@@ -17,7 +17,7 @@ class Resource
 
     validate :reached_through_a_machine
     validate :folder_is_shared, if: -> { new_record? || will_save_change_to_details? || will_save_change_to_via_id? }
-    validate :folder_is_not_anothers, if: -> { new_record? || will_save_change_to_details? || will_save_change_to_via_id? || will_save_change_to_owner_subject? }
+    validate :folder_is_not_anothers, if: -> { new_record? || will_save_change_to_details? || will_save_change_to_via_id? || will_save_change_to_owner_subject? || will_save_change_to_for_operators? }
 
     class << self
       def attaching
@@ -353,13 +353,12 @@ class Resource
         return unless via.is_a?(Machine) && folder.start_with?("/")
 
         held = Filesystem.where(via_id: via_id).where.not(id: id).find do |other|
-          other.owner_subject != owner_subject && nested?(other.folder, folder)
+          other.audience != audience && nested?(other.folder, folder)
         end
         return if held.nil?
 
         errors.add(:folder, "#{folder} overlaps #{held.folder}, which another folder on #{via.key} holds for " \
-                            "#{held.personal? ? 'one person' : 'everyone'}. Each folder on a machine is held for " \
-                            "one owner")
+                            "#{held.held_for}. Each folder on a machine is held for one owner")
       end
 
       def nested?(one, other)

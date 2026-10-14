@@ -20,7 +20,8 @@ class Resource
 
       HELP = {
         health: "Reads the machine's uptime, load, memory, and disks from xixo link on it.",
-        discover: "Lists the folders the machine shares, each with the type and address to attach it as a folder.",
+        discover: "Lists the folders the machine shares. Each one joins the catalog by itself as a folder resource, " \
+                  "and resource holds that resource's key when this token can see it.",
         browse: "Lists the files in a folder the machine shares, depth first in name order, at most 200 at a time. " \
                 "Left without a folder, it lists the shared folders. A cursor in the answer is passed back to " \
                 "read on. Needs the machine's config to allow browse, and a token for one of its operators.",
@@ -260,7 +261,8 @@ class Resource
         def withheld?(folder)
           speaking = Current.grant&.speaks_for
           overlapping = Filesystem.where(via_id: id).select { |held| overlapping?(held.folder, folder) }
-          return true if overlapping.any? { |held| held.owner_subject.present? && held.owner_subject != speaking }
+          return true if overlapping.any? { |held| held.personal? && held.owner_subject != speaking }
+          return true if overlapping.any? { |held| held.for_operators? && !operators.include?(speaking) }
 
           Reference.where(resource_id: overlapping.map(&:id))
                    .where.not(feed_id: Feed.readable_to(speaking).select(:id))

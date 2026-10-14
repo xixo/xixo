@@ -165,7 +165,10 @@ class Reference < ApplicationRecord
   end
 
   def twins
-    Reference.joinable.where(digest: digest, resource: Resource.where(owner_subject: resource.owner_subject))
+    held = Resource.where(owner_subject: resource.owner_subject, for_operators: resource.for_operators?)
+    held = held.where(via_id: resource.via_id) if resource.for_operators?
+
+    Reference.joinable.where(digest: digest, resource: held)
   end
 
   def survivor
