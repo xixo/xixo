@@ -216,6 +216,7 @@ class Resource
 
           mac() {
             dir="$HOME/Library/Application Support/xixo-link"
+            shown="$(printf '%s%s' '~' "${dir#"$HOME"}")"
             agent="$HOME/Library/LaunchAgents/network.xixo.link.plist"
             service="gui/$(id -u)/network.xixo.link"
             replaced=''
@@ -227,9 +228,9 @@ class Resource
             fi
 
             if [ -n "$supervises" ]; then
-              step "Installing xixo link $version in $dir as an update. Full Disk Access stays as it is."
+              step "Installing xixo link $version in $shown as an update."
             else
-              step "Installing xixo link in $dir."
+              step "Installing xixo link in $shown."
             fi
             mkdir -p "$dir/bin" "$HOME/Library/LaunchAgents"
 
@@ -301,13 +302,13 @@ class Resource
             if grep -Eq "$HOME/(Desktop|Documents|Downloads|Library/Mobile Documents)|\\"/Volumes/" "$dir/config.json" 2> /dev/null; then
               say ""
               if [ -n "$supervises" ]; then
-                say "Full Disk Access stays as it was, since this update leaves $dir/bin/xixo-link in place."
+                say "Full Disk Access stays as it was, since this update leaves $shown/bin/xixo-link in place."
               else
                 say "${bold}One more step:${plain} macOS asks for your permission before xixo link reads Desktop, Documents, Downloads, iCloud Drive, or another disk."
                 say "  1. In System Settings, open Privacy & Security, then Full Disk Access. This script opened it for you."
                 [ -z "$replaced" ] || say "     Select any xixo-link already in the list, and remove it with the minus button."
                 say "  2. Drag xixo-link from the Finder window into the list. Or click the plus button, press Command-Shift-G, and enter:"
-                say "     $dir/bin/xixo-link"
+                say "     $shown/bin/xixo-link"
                 say "  3. Turn on the switch beside xixo-link. xixo link starts reading those folders within a minute."
                 open -R "$dir/bin/xixo-link" 2> /dev/null || true
                 open "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles" 2> /dev/null || true

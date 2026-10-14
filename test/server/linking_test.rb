@@ -123,7 +123,7 @@ class LinkingTest < ActionDispatch::IntegrationTest
     assert_includes response.body, %("$dir/bin/xixo-link" run -h 2>&1 | grep -q -- '-supervised')
     assert_includes response.body, '"$work/xixo-link" stage --releases "$dir/releases"'
     assert_includes response.body, "Full Disk Access stays as it was"
-    assert_includes response.body, 'say "     $dir/bin/xixo-link"'
+    assert_includes response.body, 'say "     $shown/bin/xixo-link"'
   end
 
   test "the builds, the service, and the launch agent download without a secret, and nothing else does" do
