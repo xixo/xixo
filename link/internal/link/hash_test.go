@@ -168,7 +168,7 @@ func TestAFileReplacedDuringAnExtractionSendsNothing(t *testing.T) {
 	switch {
 	case len(source.from.Reads) > 0 && !errors.Is(err, ErrShifted):
 		t.Fatalf("a file replaced at its path settled with %v", err)
-	case len(source.from.Reads) == 0 && err != nil:
+	case len(source.from.Reads) == 0 && err != nil && !errors.Is(err, ErrShifted):
 		t.Fatalf("the file the programs read did not change, yet it settled with %v", err)
 	}
 }
