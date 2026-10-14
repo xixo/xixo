@@ -6,6 +6,7 @@ import {
   memory,
   reads,
   upFor,
+  waitingOn,
   warning,
 } from '../../app/javascript/plain'
 
@@ -61,5 +62,28 @@ describe('plain words for resources', () => {
     expect(disks(health)).toEqual(['/: 2.0 GB of 100 GB free'])
     expect(warning(health)).toBe('Almost out of space on /')
     expect(warning({ ...health, disks: [] })).toBeNull()
+  })
+})
+
+describe('files waiting on a machine', () => {
+  test('files waiting for a model server on a machine that is asleep wait for it to come back', () => {
+    expect(waitingOn([{ kind: 'models', count: 110 }], false)).toBe(
+      '110 files wait for it to come back',
+    )
+  })
+
+  test('files waiting for a model server on a machine that is online wait for the server to answer', () => {
+    expect(waitingOn([{ kind: 'models', count: 1 }], true)).toBe(
+      '1 file waits for its model server to answer',
+    )
+    expect(
+      waitingOn(
+        [
+          { kind: 'models', count: 2 },
+          { kind: 'pdf', count: 3 },
+        ],
+        true,
+      ),
+    ).toBe('5 files wait for it to read PDFs')
   })
 })

@@ -2630,6 +2630,10 @@ a.tag:hover {
   color: var(--bad);
 }
 
+.pass-step[data-waiting="true"] .pass-name {
+  color: var(--away);
+}
+
 @media (max-width: 640px) {
   .pass-head {
     grid-template-columns: 5.5rem minmax(0, 1fr);

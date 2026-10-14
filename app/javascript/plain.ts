@@ -142,7 +142,11 @@ export function waitingOn(waiting: Waiting[], connected: boolean) {
 
   const kinds = kindsOf(waiting)
 
-  return kinds ? `${files(count)} for it to read ${kinds}` : files(count)
+  if (kinds) return `${files(count)} for it to read ${kinds}`
+  if (waiting.some((held) => held.kind === 'models'))
+    return `${files(count)} for its model server to answer`
+
+  return files(count)
 }
 
 export function waitingForAny(waiting: Waiting[]) {

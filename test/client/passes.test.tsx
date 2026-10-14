@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { fireEvent, screen } from '@testing-library/react'
 import { describe, expect, test } from 'vitest'
 import type { PassFragment } from 'xixo'
 import { Passes } from '../../app/javascript/components/Passes'
@@ -43,6 +43,46 @@ describe('Passes', () => {
     expect(
       screen.getByText('Waiting for a machine that can read audio and video.'),
     ).toBeTruthy()
+  })
+
+  test('a pass waiting for a model server says so, and its summary step is not marked failed', async () => {
+    const { client } = fakeClient({
+      AnalysisLog: () => ({ analysis: { id: '5', logs: '' } }),
+    })
+
+    show(
+      <Passes
+        passes={[
+          pass({
+            status: 'parked',
+            waiting: 'Waiting for geiger-m2 to come online.',
+            steps: {
+              summary: {
+                error: {
+                  class: 'Analyzer::Waiting',
+                  message: 'ollama: geiger-m2 is offline',
+                },
+              },
+              text: { result: 'milk' },
+            },
+          }),
+        ]}
+        onSettled={() => {}}
+      />,
+      client,
+    )
+
+    expect(
+      await screen.findByText('Waiting for geiger-m2 to come online.'),
+    ).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { expanded: false }))
+
+    const step = screen
+      .getByText('ollama: geiger-m2 is offline')
+      .closest('.pass-step')
+    expect(step?.getAttribute('data-failed')).toBe('false')
+    expect(step?.getAttribute('data-waiting')).toBe('true')
   })
 
   test('a pass stays on screen when an update arrives with nothing in it', async () => {

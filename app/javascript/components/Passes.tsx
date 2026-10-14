@@ -18,6 +18,12 @@ const CAUSES: Record<string, string> = {
   manual: 'asked for',
 }
 
+const WAITS = new Set(['Analyzer::Waiting', 'Analyzer::Unanswered'])
+
+export function waited(step: Step) {
+  return WAITS.has(step.error?.class ?? '')
+}
+
 interface Step {
   started_at?: string
   finished_at?: string
@@ -144,7 +150,8 @@ export function Passes({
                       <div
                         key={name}
                         className="pass-step"
-                        data-failed={Boolean(step.error)}
+                        data-failed={Boolean(step.error) && !waited(step)}
+                        data-waiting={waited(step)}
                       >
                         <span className="pass-name mono">{name}</span>
                         <span className="pass-took figure">{took(step)}</span>
