@@ -260,7 +260,7 @@ class Resource
     end
 
     def connected?
-      machine["connected"] == true && seen_at.present? && seen_at > QUIET_AFTER.ago
+      live?(machine) || (persisted? && live?(Resource.where(id: id).pick(:details).to_h["machine"].to_h))
     end
 
     def extracts_for_others
@@ -540,6 +540,12 @@ class Resource
           ActionCable.server.remote_connections.where(tenant: tenant, grant: nil, machine: self, client_id: client)
                      .disconnect(reconnect: false)
         end
+      end
+
+      def live?(held)
+        held["connected"] == true && Time.iso8601(held["seen_at"].to_s) > QUIET_AFTER.ago
+      rescue ArgumentError
+        false
       end
 
       def asked(verb, args, within: nil)
