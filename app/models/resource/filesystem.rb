@@ -168,7 +168,8 @@ class Resource
 
     def digest_of(locator)
       shared!
-      Fingerprint.reported(machine.ask("hash", { "folder" => folder, "path" => relative!(locator.to_h["path"]) }))
+      Fingerprint.reported(machine.ask("hash", { "folder" => folder, "path" => relative!(locator.to_h["path"]) },
+                                       within: hashing_within(locator.to_h["size"])))
     end
 
     def upload(name, body)

@@ -278,6 +278,23 @@ class FilesystemTest < ActiveSupport::TestCase
     end
   end
 
+  test "a large file's hash is given the time reading it takes, not the 30 seconds a listing gets" do
+    Tenant.switch(@tenant) do
+      folder = attached
+      waited = []
+      folder.machine.define_singleton_method(:ask) do |verb, args = {}, within: nil|
+        waited << [ verb, args["path"], within.to_i ]
+        { "sha256" => "a" * 64, "size" => 12_556_780_118 }
+      end
+
+      folder.digest_of({ "path" => "Punch-Drunk Love/film.mkv", "size" => 12_556_780_118 })
+      folder.digest_of({ "path" => "notes.txt", "size" => 5 })
+
+      assert_equal [ "hash", "Punch-Drunk Love/film.mkv", 7.minutes.to_i ], waited.first
+      assert_equal [ "hash", "notes.txt", 90 ], waited.last
+    end
+  end
+
   private
 
     def attached
