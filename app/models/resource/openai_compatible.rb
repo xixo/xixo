@@ -490,10 +490,11 @@ class Resource
       Rails.logger.warn "#{key}: a turn could not be recorded — #{e.message}"
     end
 
-    def summarize(prompt, role:, analysis: nil, images: [], temperature: nil, schema: nil)
+    def summarize(prompt, role:, analysis: nil, images: [], temperature: nil, schema: nil, partial: false)
       model = model_for(role)
       tries = attempts_for(role)
       last = nil
+      mended = nil
 
       tries.times do |index|
         answer = complete(prompt, model: model, role: role, analysis: analysis, attempt: index + 1, images: images,
@@ -503,7 +504,10 @@ class Resource
         return parsed if parsed.is_a?(Hash) && parsed.present?
 
         last = answer
+        mended = self.class.mended(answer).presence || mended if partial
       end
+
+      return mended if mended
 
       raise Resource::Unusable,
             "#{key}: #{model} did not answer with JSON in #{tries} tries — #{last.to_s.truncate(200)}"
@@ -532,6 +536,62 @@ class Resource
       end
 
       nil
+    end
+
+    CLOSING = { "{" => "}", "[" => "]" }.freeze
+
+    def self.mended(text)
+      body = text.to_s
+      start = body.index("{")
+      return nil if start.nil?
+
+      cut = cut_short(body[start..])
+      return nil if cut.nil?
+
+      parsed = JSON.parse(cut)
+      parsed.is_a?(Hash) ? parsed : nil
+    rescue JSON::ParserError
+      nil
+    end
+
+    def self.cut_short(body)
+      open = []
+      quoted = false
+      escaped = false
+      keyed = false
+      kept = nil
+
+      body.each_char.with_index do |char, index|
+        if quoted
+          if escaped then escaped = false
+          elsif char == "\\" then escaped = true
+          elsif char == '"'
+            quoted = false
+            kept = [ index, open.map(&:first) ] unless keyed
+          end
+          next
+        end
+
+        case char
+        when '"'
+          quoted = true
+          keyed = open.last == [ "{", :key ]
+        when "{" then open << [ "{", :key ]
+        when "[" then open << [ "[", nil ]
+        when ":" then open[-1] = [ "{", :value ] if open.last&.first == "{"
+        when "," then open[-1] = [ "{", :key ] if open.last&.first == "{"
+        when "}", "]"
+          open.pop
+          return nil if open.empty?
+
+          kept = [ index, open.map(&:first) ]
+        end
+      end
+
+      return nil if kept.nil? || open.empty?
+
+      ended, still = kept
+      body[0..ended] + still.reverse.map { |held| CLOSING.fetch(held) }.join
     end
 
     def self.objects(body)

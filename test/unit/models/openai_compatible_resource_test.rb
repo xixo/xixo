@@ -220,6 +220,37 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
     assert_equal({ "a" => { "b" => 2 } }, Resource::OpenaiCompatible.extract_json('x {"a":{"b":2}} y'))
   end
 
+  test "an answer cut off by its token budget keeps every value it finished" do
+    cut = "{\n\"entities\": [\"莫扎特\", \"萨列里先生\", \"维也纳\"],\n\"summary\": \"文件包含电影的字幕。\",\n\"tags\": [\"莫扎特\", \"电影"
+
+    assert_equal({ "entities" => %w[莫扎特 萨列里先生 维也纳], "summary" => "文件包含电影的字幕。", "tags" => [ "莫扎特" ] },
+                 Resource::OpenaiCompatible.mended(cut))
+  end
+
+  test "a cut answer drops a key that never got its value" do
+    assert_equal({ "summary" => "a note" }, Resource::OpenaiCompatible.mended('{"summary": "a note", "tags'))
+    assert_equal({ "entities" => [ "a \" b" ] }, Resource::OpenaiCompatible.mended('{"entities": ["a \\" b", "c'))
+  end
+
+  test "nothing is made of an answer with no finished value" do
+    assert_nil Resource::OpenaiCompatible.mended('{"entities": ["acm')
+    assert_nil Resource::OpenaiCompatible.mended("no json at all")
+    assert_nil Resource::OpenaiCompatible.mended('{"done": true}')
+  end
+
+  test "a summary cut off three times keeps what it finished when the caller takes part of an answer" do
+    3.times { @server.answer('{"entities": ["Mozart", "Salieri"], "summary": "Subtitles for Amadeus.", "tags": ["Moz') }
+
+    Tenant.switch(@tenant) do
+      assert_raises(Resource::Unusable) { @resource.summarize("Catalogue it.", role: :fast) }
+
+      3.times { @server.answer('{"entities": ["Mozart", "Salieri"], "summary": "Subtitles for Amadeus.", "tags": ["Moz') }
+      answer = @resource.summarize("Catalogue it.", role: :fast, partial: true)
+
+      assert_equal({ "entities" => %w[Mozart Salieri], "summary" => "Subtitles for Amadeus." }, answer)
+    end
+  end
+
   test "re-pointing the base url is dialled, not remembered" do
     Tenant.switch(@tenant) do
       @resource.check!

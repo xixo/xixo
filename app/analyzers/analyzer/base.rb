@@ -472,7 +472,8 @@ module Analyzer
              after: [ self.class.summary_after, inference.updated_at ].max,
              digest: Digest::SHA256.hexdigest([ inference.key, model, prompt ].to_json),
              about: { "resource" => inference.key, "model" => model, "role" => role.to_s }) do
-          shaped(inference.summarize(prompt, role: role, analysis: analysis, images: summary_images, schema: summary_schema))
+          shaped(inference.summarize(prompt, role: role, analysis: analysis, images: summary_images, schema: summary_schema,
+                                     partial: true))
         end
       rescue Resource::Unusable => e
         raise Analyzer::Failed, e.message
