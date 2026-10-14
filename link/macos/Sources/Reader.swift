@@ -18,7 +18,7 @@ commands:
   thumbnail  a JPEG of an image, pdf, video, or audio (--kind --out --width [--fit] [--crop top])
   frames     JPEG frames of a video (--at s,s) or an animation (--index n,n) (--out --width)
   media      the containers, streams, duration, and tags of audio or video
-  audio      16 kHz mono WAV of the first --seconds of audio (--out)
+  audio      16 kHz mono WAV of --seconds of audio from --from, the start by default (--out)
   signal     loudness, silences, and spectrum of the first --seconds of audio
   metadata   the fields an image, pdf, or media file names about itself (--kind)
 """

@@ -3,9 +3,7 @@ package rich
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -67,17 +65,8 @@ func (MacMedia) Extract(ctx context.Context, in extract.Input) (*extract.Output,
 	}
 
 	if probe.audio() && !in.Skipped("transcript") {
-		wav := filepath.Join(in.Work, "heard.wav")
-		var said map[string]any
-
-		if err := extract.AskMac(ctx, in.Run, extract.DefaultTime, &said, "audio", in.Path, "--out", wav, "--seconds", strconv.Itoa(span)); err != nil {
+		if err := macHeard(ctx, in, out, probe, span); err != nil {
 			out.Fail("audio", err)
-		} else {
-			if probe.Duration > float64(span) {
-				out.Drop("transcript", fmt.Sprintf("only the first %s of %s were heard", stamped(float64(span)), stamped(probe.Duration)))
-			}
-
-			out.Attach(extract.File{Role: "audio", Name: "heard.wav", MIME: "audio/wav", Path: wav})
 		}
 	}
 
@@ -88,6 +77,30 @@ func (MacMedia) Extract(ctx context.Context, in extract.Input) (*extract.Output,
 	}
 
 	return out, nil
+}
+
+func macHeard(ctx context.Context, in extract.Input, out *extract.Output, probe *Probe, span int) error {
+	parts := Parts(probe.Duration, span)
+
+	for index, part := range parts {
+		file := part.file(in.Work, index)
+		options := []string{"--out", file.Path, "--seconds", strconv.Itoa(part.Seconds)}
+
+		if from := int(part.From); from > 0 {
+			options = append(options, "--from", strconv.Itoa(from))
+		}
+
+		var said map[string]any
+		if err := extract.AskMac(ctx, in.Run, extract.DefaultTime, &said, "audio", in.Path, options...); err != nil {
+			return err
+		}
+
+		out.Attach(file)
+	}
+
+	partly(out, parts, probe.Duration, span)
+
+	return nil
 }
 
 func macProbed(ctx context.Context, in extract.Input) (*Probe, error) {

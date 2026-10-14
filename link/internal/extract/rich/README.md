@@ -11,8 +11,17 @@ Reads every `audio/*` and `video/*` type with `ffmpeg` and `ffprobe`.
   tags such as title, artist, and album.
 - `signal`, for audio: loudness, loudness range, peak, silences, and the
   spectrum's centroid and flatness.
-- An `audio` file, `heard.wav`, at 16 kHz mono for transcription, holding at
-  most `settings.transcribe` seconds.
+- `audio` files for transcription, `heard-0.wav` and on, at 16 kHz mono, each
+  with `at`, the second it starts from. All of them together hold at most
+  `settings.transcribe` seconds, one hour by default. Each holds at most ten
+  minutes, so no single transcription request carries a whole film:
+  - A recording no longer than `settings.transcribe` is heard whole, in
+    ten-minute parts.
+  - A longer one is heard in parts spread evenly across it. A 2.5-hour film
+    is heard as six ten-minute parts, one from the middle of each sixth.
+    `dropped` says how many parts were heard, and from how long a recording.
+  - ffmpeg seeks to each part before it decodes, so a part from the end of a
+    film reads little more than that part.
 - For video, up to eight `frame` files, JPEGs 768 pixels wide, one for every
   eight seconds, each with `at` in seconds, for scene captions.
 

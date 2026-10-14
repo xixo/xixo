@@ -384,19 +384,27 @@ func finite(value float64) bool {
 }
 
 func heard(ctx context.Context, in extract.Input, out *extract.Output, probe *Probe) error {
-	wav := filepath.Join(in.Work, "heard.wav")
 	span := in.Set.Settled().Transcribe
+	parts := Parts(probe.Duration, span)
 
-	if _, err := in.Run.Run(ctx, extract.DefaultTime, "ffmpeg", "-v", "error", "-y", "-i", in.Path, "-vn",
-		"-t", strconv.Itoa(span), "-ac", "1", "-ar", "16000", "-f", "wav", wav); err != nil {
-		return err
+	for index, part := range parts {
+		file := part.file(in.Work, index)
+
+		args := []string{"-v", "error", "-y"}
+		if part.From > 0 {
+			args = append(args, "-ss", strconv.FormatFloat(part.From, 'f', -1, 64))
+		}
+
+		args = append(args, "-i", in.Path, "-vn", "-t", strconv.Itoa(part.Seconds), "-ac", "1", "-ar", "16000", "-f", "wav", file.Path)
+
+		if _, err := in.Run.Run(ctx, extract.DefaultTime, "ffmpeg", args...); err != nil {
+			return err
+		}
+
+		out.Attach(file)
 	}
 
-	if probe.Duration > float64(span) {
-		out.Drop("transcript", fmt.Sprintf("only the first %s of %s were heard", stamped(float64(span)), stamped(probe.Duration)))
-	}
-
-	out.Attach(extract.File{Role: "audio", Name: "heard.wav", MIME: "audio/wav", Path: wav})
+	partly(out, parts, probe.Duration, span)
 
 	return nil
 }

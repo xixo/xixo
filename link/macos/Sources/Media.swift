@@ -216,7 +216,7 @@ func frames(_ arguments: Arguments) async throws -> Any {
     return ["frames": try await videoFrames(arguments, out: out, width: width)]
 }
 
-func reader(_ held: AVURLAsset, rate: Double, channels: Int, seconds: Double) async throws -> (AVAssetReader, AVAssetReaderAudioMixOutput) {
+func reader(_ held: AVURLAsset, rate: Double, channels: Int, from: Double, seconds: Double) async throws -> (AVAssetReader, AVAssetReaderAudioMixOutput) {
     let tracks = try await held.loadTracks(withMediaType: .audio)
 
     guard !tracks.isEmpty else { throw Failure("AVFoundation found no audio in the file") }
@@ -237,7 +237,7 @@ func reader(_ held: AVURLAsset, rate: Double, channels: Int, seconds: Double) as
     guard reading.canAdd(output) else { throw Failure("AVFoundation cannot decode the audio") }
 
     reading.add(output)
-    reading.timeRange = CMTimeRange(start: .zero, duration: CMTime(seconds: seconds, preferredTimescale: 600))
+    reading.timeRange = CMTimeRange(start: CMTime(seconds: from, preferredTimescale: 600), duration: CMTime(seconds: seconds, preferredTimescale: 600))
 
     guard reading.startReading() else {
         throw Failure("AVFoundation cannot decode the audio: \(reading.error?.localizedDescription ?? "unknown")")
@@ -246,8 +246,8 @@ func reader(_ held: AVURLAsset, rate: Double, channels: Int, seconds: Double) as
     return (reading, output)
 }
 
-func samples(_ held: AVURLAsset, rate: Double, channels: Int, seconds: Double, each: ([Float]) throws -> Void) async throws {
-    let (reading, output) = try await reader(held, rate: rate, channels: channels, seconds: seconds)
+func samples(_ held: AVURLAsset, rate: Double, channels: Int, from: Double = 0, seconds: Double, each: ([Float]) throws -> Void) async throws {
+    let (reading, output) = try await reader(held, rate: rate, channels: channels, from: from, seconds: seconds)
 
     while let buffer = output.copyNextSampleBuffer() {
         guard let block = CMSampleBufferGetDataBuffer(buffer) else { continue }
@@ -274,6 +274,7 @@ func samples(_ held: AVURLAsset, rate: Double, channels: Int, seconds: Double, e
 func heard(_ arguments: Arguments) async throws -> Any {
     let out = try arguments.path("out")
     let seconds = Double(try arguments.int("seconds", 3600))
+    let from = Double(try arguments.int("from", 0))
     let held = asset(arguments)
 
     guard FileManager.default.createFile(atPath: out, contents: nil),
@@ -285,7 +286,7 @@ func heard(_ arguments: Arguments) async throws -> Any {
     file.write(Data(count: 44))
     var written = 0
 
-    try await samples(held, rate: 16000, channels: 1, seconds: seconds) { chunk in
+    try await samples(held, rate: 16000, channels: 1, from: from, seconds: seconds) { chunk in
         let values = chunk.map { Int16($0.isFinite ? max(-1, min(1, $0)) * 32767 : 0).littleEndian }
         let pcm = values.withUnsafeBufferPointer { Data(buffer: $0) }
 

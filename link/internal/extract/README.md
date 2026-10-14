@@ -25,7 +25,8 @@ xixo asks with the `extract` verb:
 - `skip` names steps xixo already holds.
 - `settings` holds the tenant's thumbnail width, preview width, the most frames
   and the percentage of frames read from an animation, and the seconds of audio
-  to transcribe. A missing value takes the default shown above.
+  to transcribe, at most four hours. A missing value takes the default shown
+  above.
 
 The `derive` verb takes the same arguments and answers with only the `derived`
 step and its files. A page capture (`xixo/page`) uses it, since its text never
