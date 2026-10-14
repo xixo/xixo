@@ -10,7 +10,7 @@ class Resource
     OPEN_TIMEOUT = 5
     READ_TIMEOUT = 120
     VISION_TIMEOUT = 600
-    MAX_TOKENS = 1024
+    MAX_TOKENS = 2048
     TEMPERATURE = 0.2
     JSON_ATTEMPTS = 3
     VISION_JSON_ATTEMPTS = 10
@@ -31,6 +31,7 @@ class Resource
     HEARD_TYPE = "audio/wav"
     SAMPLE_RATE = 16_000
     EFFORTS = %w[none minimal low medium high].freeze
+    EFFORT_REFUSED = /answered 400\b.*reasoning/im
     AS_IT_LIKES = "model".freeze
     ASKING = "Represent this sentence for searching relevant passages: ".freeze
     KNOWN_PREFIXES = [
@@ -101,10 +102,12 @@ class Resource
           field("embedding_prefixes.document", "Document prefix",
                 help: "Put before what is catalogued when it is embedded. Left off, as above."),
           field("routine_effort", "Effort on routine work", kind: "choice", value: "",
-                options: [ { value: "", label: "As the model likes" } ] +
-                         EFFORTS.map { |effort| { value: effort, label: effort } },
-                help: "How hard a reasoning model thinks while filing what arrives. Sent as reasoning_effort. " \
-                      "Ollama takes none, and OpenAI minimal or low."),
+                options: [ { value: "", label: "none" } ] +
+                         (EFFORTS - [ "none" ]).map { |effort| { value: effort, label: effort } } +
+                         [ { value: AS_IT_LIKES, label: "As the model likes" } ],
+                help: "How hard a reasoning model thinks while it summarizes and files what arrives. Sent as " \
+                      "reasoning_effort. Left at none, a thinking model such as qwen3 writes its answer at once. " \
+                      "A server that refuses the setting is asked again without it."),
           field("ask_effort", "Effort on questions", kind: "choice", value: "",
                 options: [ { value: "", label: "none" } ] +
                          (EFFORTS - [ "none" ]).map { |effort| { value: effort, label: effort } } +
@@ -417,7 +420,8 @@ class Resource
     # runs it. json_mode is deliberately not set here — response_format and tools fight,
     # and a model forced into a JSON object cannot emit a tool call.
     def routine_effort
-      details.to_h["routine_effort"].presence
+      held = details.to_h["routine_effort"].presence || "none"
+      held == AS_IT_LIKES ? nil : held
     end
 
     def ask_effort
@@ -442,7 +446,7 @@ class Resource
       started = Time.current
 
       begin
-        message = streamed("/chat/completions", {
+        message = chatted({
           model: model, stream: true, max_tokens: agent_max_tokens, temperature: temperature,
           messages: messages, tools: tools, reasoning_effort: effort
         }.compact_blank, timeout: read_timeout)
@@ -587,9 +591,10 @@ class Resource
       end
 
       def its_routine_effort_is_known
-        return if routine_effort.nil? || EFFORTS.include?(routine_effort)
+        held = details.to_h["routine_effort"].presence
+        return if held.nil? || (EFFORTS + [ AS_IT_LIKES ]).include?(held)
 
-        errors.add(:details, "routine_effort is one of #{EFFORTS.join(', ')}")
+        errors.add(:details, "routine_effort is one of #{(EFFORTS + [ AS_IT_LIKES ]).join(', ')}")
       end
 
       def capabilities_known(model)
@@ -680,17 +685,31 @@ class Resource
           { role: "user", content: said(body, images) }
         ]
 
+        budget = effort == "none" ? max_tokens : [ max_tokens, agent_max_tokens ].max
         payload = { model: model, messages: messages, stream: true,
-                    max_tokens: max_tokens, temperature: temperature || self.temperature,
+                    max_tokens: budget, temperature: temperature || self.temperature,
                     reasoning_effort: effort }.compact
         payload[:response_format] = response_format(schema) if json_mode?
 
-        content = streamed("/chat/completions", payload,
-                           timeout: images.any? ? vision_timeout : read_timeout)["content"].to_s
+        message = chatted(payload, timeout: images.any? ? vision_timeout : read_timeout)
+        content = without_reasoning(message["content"].to_s)
+        return content if content.present?
 
-        raise Resource::Unusable, "#{key}: #{model} answered with nothing" if content.blank?
+        if message["reasoning"].present? || message["content"].to_s.include?("<think>")
+          raise Resource::Unusable,
+                "#{key}: #{model} spent its #{budget} token budget thinking and wrote no answer. " \
+                "Set its effort on routine work to none"
+        end
 
-        without_reasoning(content)
+        raise Resource::Unusable, "#{key}: #{model} answered with nothing"
+      end
+
+      def chatted(payload, timeout:)
+        streamed("/chat/completions", payload, timeout: timeout)
+      rescue Resource::Unusable => e
+        raise unless payload[:reasoning_effort] && e.message.match?(EFFORT_REFUSED)
+
+        streamed("/chat/completions", payload.except(:reasoning_effort), timeout: timeout)
       end
 
       def response_format(schema)
@@ -716,7 +735,7 @@ class Resource
       end
 
       def without_reasoning(text)
-        text.gsub(%r{<think>.*?</think>}m, "").strip
+        text.gsub(%r{<think>.*?(</think>|\z)}m, "").strip
       end
 
       def scrub(text)

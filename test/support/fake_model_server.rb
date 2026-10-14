@@ -33,6 +33,7 @@ class FakeModelServer
     @shown = {}
     @studio = nil
     @formats = []
+    @budgets = []
     @server = TCPServer.new("127.0.0.1", 0)
     @port = @server.addr[1]
     @thread = Thread.new { serve }
@@ -69,6 +70,7 @@ class FakeModelServer
       @shown = {}
       @studio = nil
       @formats = []
+      @budgets = []
     end
     self
   end
@@ -132,6 +134,15 @@ class FakeModelServer
 
   def answer_json(payload)
     answer(JSON.generate(payload))
+  end
+
+  def answer_thinking(thought)
+    @lock.synchronize { @answers << { reasoning: thought.to_s } }
+    self
+  end
+
+  def budgets
+    @lock.synchronize { @budgets.dup }
   end
 
   def answer_tool_call(name, arguments = {})
@@ -350,6 +361,7 @@ class FakeModelServer
     def streamed(queued)
       calls = queued.to_h[:tool_calls]
       deltas = if calls then calls.each_with_index.flat_map { |call, at| fragments(call, at) }
+      elsif queued.to_h[:reasoning] then [ { "content" => "", "reasoning" => queued[:reasoning] } ]
       else queued.to_h[:content].to_s.scan(/\S+\s*|\s+/).map { |word| { "content" => word } }
       end
       deltas = [ { "content" => "" } ] if deltas.empty?
@@ -393,6 +405,7 @@ class FakeModelServer
         @attachments << attached(content)
         @efforts << parsed["reasoning_effort"]
         @formats << parsed["response_format"]
+        @budgets << parsed["max_tokens"]
         @systems << Array(parsed["messages"]).find { |message| message["role"] == "system" }.to_h["content"]
       end
     rescue JSON::ParserError

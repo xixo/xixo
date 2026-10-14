@@ -59,12 +59,52 @@ class RoutineEffortTest < ActiveSupport::TestCase
     assert_equal [ "none" ], @server.efforts.uniq
   end
 
-  test "a backend with no routine effort lets the model think as it likes" do
+  test "a backend with no routine effort asks the model not to think" do
     backend
 
     filed
 
+    assert_equal [ "none" ], @server.efforts.uniq
+  end
+
+  test "a backend set to as the model likes sends no effort" do
+    backend("routine_effort" => "model")
+
+    filed
+
     assert_equal [ nil ], @server.efforts.uniq
+  end
+
+  test "a summary asked without thinking keeps the short budget, and one that may think gets the long one" do
+    held = backend("models" => { "smart" => "qwen3:8b" })
+    @server.answer_json(summary: "A note.", tags: [ "milk" ])
+    Tenant.switch(@tenant) { held.summarize("Say it.", role: :smart) }
+
+    Tenant.switch(@tenant) { held.update!(details: held.details.merge("routine_effort" => "model")) }
+    @server.answer_json(summary: "A note.", tags: [ "milk" ])
+    Tenant.switch(@tenant) { held.summarize("Say it.", role: :smart) }
+
+    assert_equal [ Resource::OpenaiCompatible::MAX_TOKENS, Resource::OpenaiCompatible::AGENT_MAX_TOKENS ], @server.budgets
+  end
+
+  test "a model that thinks through its whole budget is told to stop thinking, in plain words" do
+    held = backend("routine_effort" => "model", "models" => { "smart" => "qwen3:8b" })
+    3.times { @server.answer_thinking("Hmm, let me think about the milk.") }
+
+    error = Tenant.switch(@tenant) { assert_raises(Resource::Unusable) { held.summarize("Say it.", role: :smart) } }
+
+    assert_match(/spent its 8192 token budget thinking and wrote no answer. Set its effort on routine work to none/, error.message)
+  end
+
+  test "a server that refuses the effort is asked again without it" do
+    held = backend("models" => { "smart" => "qwen3:8b" })
+    @server.refuse(400, body: { error: "'reasoning_effort' must be one of low, medium, high" }.to_json)
+    @server.answer_json(summary: "A note about milk.", tags: [ "milk" ])
+
+    answered = Tenant.switch(@tenant) { held.summarize("Say it.", role: :smart) }
+
+    assert_equal "A note about milk.", answered["summary"]
+    assert_equal [ "none", nil ], @server.efforts
   end
 
   test "every agent is told today's date, and what it makes past and future" do
