@@ -59,7 +59,7 @@ func main() {
 			os.Exit(interrupted)
 		}
 
-		fmt.Fprintf(os.Stderr, "%s %s\n", terminal.For(os.Stderr).Red("Error:"), err)
+		fmt.Fprintf(os.Stderr, "%s %s\n", terminal.For(os.Stderr).Red("Error:"), sentence(err.Error()))
 
 		if errors.Is(err, link.ErrRevoked) {
 			os.Exit(revokedStatus)
@@ -402,4 +402,12 @@ func workDir() string {
 	}
 
 	return work
+}
+
+func sentence(said string) string {
+	if strings.HasSuffix(said, ".") {
+		return said
+	}
+
+	return said + "."
 }

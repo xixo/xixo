@@ -41,12 +41,15 @@ func status(ctx context.Context, configPath, stateDir string, out io.Writer) err
 
 	style := terminal.For(out)
 	xixo := terminal.Printable(config.Xixo)
-	linked, problem := lookup(ctx, config, state.State{Dir: stateDir})
+	linked, unlinked, problem := lookup(ctx, config, state.State{Dir: stateDir})
 
-	if linked != nil {
+	switch {
+	case linked != nil:
 		fmt.Fprintf(out, "%s is linked up with %s.\n\n", style.Bold(linked.Name), xixo)
-	} else {
+	case unlinked:
 		fmt.Fprintf(out, "This machine is not linked up with %s.\n%s\n\n", xixo, problem)
+	default:
+		fmt.Fprintf(out, "This machine is set up to link up with %s.\n%s\n\n", xixo, problem)
 	}
 
 	row := func(label, value string) {
@@ -93,16 +96,16 @@ func status(ctx context.Context, configPath, stateDir string, out io.Writer) err
 	return nil
 }
 
-func lookup(ctx context.Context, config *state.Config, held state.State) (*link.Linked, string) {
+func lookup(ctx context.Context, config *state.Config, held state.State) (*link.Linked, bool, string) {
 	_, err := held.Registration()
 
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
-		return nil, "Run the link-up command from Resources in xixo to link it up."
+		return nil, true, "Run the link-up command from Resources in xixo to link it up."
 	case errors.Is(err, fs.ErrPermission):
-		return nil, "Only the account xixo link runs as can read its keys. Run xixo-link status as that account, or with sudo."
+		return nil, false, "Only the account xixo link runs as can read its keys. Run xixo-link status as that account, or with sudo."
 	case err != nil:
-		return nil, err.Error()
+		return nil, false, sentence(err.Error())
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, lookedUpIn)
@@ -112,12 +115,12 @@ func lookup(ctx context.Context, config *state.Config, held state.State) (*link.
 
 	switch {
 	case err == nil:
-		return linked, ""
+		return linked, false, ""
 	case errors.Is(err, link.ErrUnknown), errors.Is(err, link.ErrRevoked):
-		return nil, "xixo no longer knows this machine. Run the link-up command again to link it up."
+		return nil, true, "xixo no longer knows this machine. Run the link-up command again to link it up."
 	}
 
-	return nil, "xixo did not say what it calls this machine: " + err.Error()
+	return nil, false, "xixo did not say what it calls this machine: " + sentence(err.Error())
 }
 
 func updates(linked *link.Linked) string {
@@ -156,6 +159,10 @@ func runningHere() string {
 		return "stopped"
 	}
 
+	if _, err := os.Stat("/etc/systemd/system/xixo-link.service"); err != nil {
+		return "not installed. Run the link-up command again to install it."
+	}
+
 	said, _ := exec.Command("systemctl", "is-active", "xixo-link").Output()
 
 	switch strings.TrimSpace(string(said)) {
@@ -171,7 +178,7 @@ func runningHere() string {
 		return "stopped"
 	}
 
-	return "not installed. Run the link-up command again to install it."
+	return "unknown, since systemctl did not answer. See it with systemctl status xixo-link"
 }
 
 func updatingHere() bool {
@@ -186,5 +193,7 @@ func updatingHere() bool {
 		return err == nil && bytes.Contains(agent, []byte("<string>self</string>"))
 	}
 
-	return exec.Command("systemctl", "is-enabled", "--quiet", "xixo-link-update.path").Run() == nil
+	_, err := os.Lstat("/etc/systemd/system/multi-user.target.wants/xixo-link-update.path")
+
+	return err == nil
 }

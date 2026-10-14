@@ -69,7 +69,7 @@ class Resource
             if [ "$status" -eq 130 ]; then
               printf '\\nStopped. Run the command again to finish linking up this machine.\\n' >&2
             elif [ "$status" -ne 0 ] && [ -z "$told" ]; then
-              printf 'xixo link did not finish linking up this machine. The message above says what went wrong.\\n' >&2
+              printf 'The link-up command stopped before it finished.\\n' >&2
             fi
           }
           trap finish EXIT
@@ -148,7 +148,7 @@ class Resource
               step "Installing xixo link in #{LIB}, /etc/xixo-link, and /etc/systemd/system."
             else
               step "Installing xixo link. sudo asks for your password to write to #{LIB}, /etc/xixo-link, and /etc/systemd/system."
-              sudo -v || fail "sudo did not accept a password, so nothing was installed. Run the command again, or run it as root."
+              sudo -v || fail "sudo did not get your password, so nothing was installed. Run the command again in a terminal, or run it as root."
             fi
 
             if ! id -u #{UPDATER} > /dev/null 2>&1; then
@@ -196,7 +196,7 @@ class Resource
             fi
             "$work/xixo-link" up
 
-            if systemctl is-active --quiet xixo-link; then
+            if as_root systemctl is-active --quiet xixo-link; then
               step "Restarting xixo link with the new version. This can take up to a minute."
             else
               step "Starting xixo link."
@@ -207,7 +207,7 @@ class Resource
             as_root systemctl restart xixo-link ||
               fail "systemd did not start xixo link. See why with: journalctl -u xixo-link -n 50"
             sleep 2
-            systemctl is-active --quiet xixo-link ||
+            as_root systemctl is-active --quiet xixo-link ||
               fail "xixo link stopped right after it started. See why with: journalctl -u xixo-link -n 50"
 
             done_line /var/lib/xixo-link/registration.json
