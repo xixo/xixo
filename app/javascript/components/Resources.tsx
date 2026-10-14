@@ -17,6 +17,7 @@ import {
   IconClock,
   IconCpu,
   IconDots,
+  IconFolder,
   IconHistory,
   IconLock,
   IconPencil,
@@ -28,6 +29,7 @@ import {
   IconSparkles,
   IconStar,
   IconTrash,
+  IconUsers,
 } from '@tabler/icons-react'
 import {
   type CSSProperties,
@@ -45,6 +47,7 @@ import {
   ResourcesDocument,
   SetDefaultInferenceDocument,
   SetDefaultStorageDocument,
+  SetFolderForEveryoneDocument,
   SetMachineHelpsOthersDocument,
   SetMachineUpdatesDocument,
   SetSyncIntervalDocument,
@@ -125,6 +128,7 @@ interface Resource {
   changeable: boolean
   manageable: boolean
   personal: boolean
+  forOperators: boolean
   delegated: boolean
   needsConnect: boolean
   movable?: boolean
@@ -181,6 +185,24 @@ interface Group {
   machine: Resource | null
   place: Place
   rows: Resource[]
+}
+
+type Mode = 'read' | 'write'
+
+const MODES: Record<Mode, string> = {
+  read: 'Read only',
+  write: 'Read and write',
+}
+
+function sharedAs(folders: string[], rows: Resource[]) {
+  return folders.map((folder) => ({
+    folder,
+    held: rows.filter(
+      (resource) =>
+        resource.type === 'filesystem' &&
+        `${resource.settings.folder ?? ''}` === folder,
+    ),
+  }))
 }
 
 const MACHINE = 'machine'
@@ -433,6 +455,10 @@ export function Resources() {
     ArchiveResourceDocument,
     'That resource could not be put away.',
   )
+  const audience = useAloud(
+    SetFolderForEveryoneDocument,
+    'Who sees that folder could not be changed.',
+  )
 
   const [putting, setPutting] = useState<string | null>(null)
   const remove = useAloud(
@@ -608,6 +634,18 @@ export function Resources() {
       }),
     putAway,
     remove: (resource) => setDeleting(resource),
+    showTo: async (resource, everyone) => {
+      const answered = await audience.execute({ id: resource.id, everyone })
+
+      if (!answered) return
+
+      say({
+        text: everyone
+          ? `Everyone here sees ${resource.key} now.`
+          : `Only the operators of its machine see ${resource.key} now.`,
+      })
+      refetch()
+    },
   }
 
   const drops = resources.find((resource) => resource.defaultStorage)
@@ -617,10 +655,11 @@ export function Resources() {
       .getElementById(`resource-${resource.id}`)
       ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
 
-  const row = (resource: Resource, group?: Group) => (
+  const row = (resource: Resource, group?: Group, mode?: Mode) => (
     <ResourceRow
       key={resource.id}
       resource={resource}
+      mode={mode ?? null}
       through={
         group?.place.local &&
         resource.via &&
@@ -811,9 +850,8 @@ export function Resources() {
           acts={acts}
           onAdd={() => setAdding({ place: group.place.key, choosing: false })}
           onChanged={refetch}
-        >
-          {placed(group.rows).map((resource) => row(resource, group))}
-        </MachineCard>
+          row={(resource, mode) => row(resource, group, mode)}
+        />
       ))}
 
       {!shelved && administrator && (
@@ -899,6 +937,7 @@ interface Acts {
   move: (resource: Resource) => void
   putAway: (resource: Resource, archived: boolean) => void
   remove: (resource: Resource) => void
+  showTo: (resource: Resource, everyone: boolean) => void
 }
 
 function MachineCard({
@@ -910,7 +949,7 @@ function MachineCard({
   acts,
   onAdd,
   onChanged,
-  children,
+  row,
 }: {
   group: Group
   landed: boolean
@@ -920,7 +959,7 @@ function MachineCard({
   acts: Acts
   onAdd: () => void
   onChanged: () => void
-  children: ReactNode
+  row: (resource: Resource, mode?: Mode) => ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const { machine: resource, place } = group
@@ -939,8 +978,15 @@ function MachineCard({
   const found = place.services.filter(
     (service) => !addedAs(place, service, group.rows),
   )
-  const addable = administrator || place.local
+  const addable =
+    (administrator || place.local) && (place.local || place.services.length > 0)
   const quickly = useQuickAdd(administrator, onChanged)
+  const shared = sharedAs(place.folders, group.rows)
+  const shown = new Set(
+    shared.flatMap(({ held }) => held.map((resource) => resource.id)),
+  )
+  const rest = placed(group.rows.filter((resource) => !shown.has(resource.id)))
+  const writable = new Set(machine?.writable ?? [])
 
   return (
     <section
@@ -1004,7 +1050,24 @@ function MachineCard({
           resource={resource}
           administrator={administrator}
           onChanged={onChanged}
-        />
+        >
+          {shared.length > 0 && (
+            <ul
+              className="machine-rows"
+              aria-label={`Folders ${resource.key} shares`}
+            >
+              {shared.map(({ folder, held }) => {
+                const mode: Mode = writable.has(folder) ? 'write' : 'read'
+
+                return held.length > 0 ? (
+                  held.map((folderResource) => row(folderResource, mode))
+                ) : (
+                  <Unheld key={folder} folder={folder} mode={mode} />
+                )
+              })}
+            </ul>
+          )}
+        </Shares>
       )}
 
       {found.map((service) => {
@@ -1045,7 +1108,7 @@ function MachineCard({
 
       {open && resource && <Details resource={resource} acts={acts} />}
 
-      <ul className="machine-rows">{children}</ul>
+      <ul className="machine-rows">{rest.map((resource) => row(resource))}</ul>
 
       {addable && (
         <button type="button" className="machine-add" onClick={onAdd}>
@@ -1057,14 +1120,38 @@ function MachineCard({
   )
 }
 
+function Unheld({ folder, mode }: { folder: string; mode: Mode }) {
+  return (
+    <li className="rrow">
+      <span className="rrow-icon">
+        <IconFolder size={17} stroke={1.7} />
+      </span>
+      <div className="rrow-main">
+        <div className="rrow-says">
+          <span className="mono">{folder}</span>
+          {' · '}
+          <span
+            className="machine-shared-mode"
+            data-writable={mode === 'write'}
+          >
+            {MODES[mode]}
+          </span>
+        </div>
+      </div>
+    </li>
+  )
+}
+
 function Shares({
   resource,
   administrator,
   onChanged,
+  children,
 }: {
   resource: Resource
   administrator: boolean
   onChanged: () => void
+  children: ReactNode
 }) {
   const help = useAloud(
     SetMachineHelpsOthersDocument,
@@ -1077,8 +1164,6 @@ function Shares({
   const machine = resource.machine
   if (!machine) return null
 
-  const writable = new Set(machine.writable)
-
   return (
     <div className="machine-shares">
       {machine.folders.length === 0 ? (
@@ -1088,22 +1173,7 @@ function Shares({
             : 'Shares no folders yet. Run the link-up command on the machine again with the folders to share.'}
         </p>
       ) : (
-        <ul
-          className="machine-shared"
-          aria-label={`Folders ${resource.key} shares`}
-        >
-          {machine.folders.map((folder) => (
-            <li key={folder} className="machine-shared-row">
-              <code className="machine-shared-path">{folder}</code>
-              <span
-                className="machine-shared-mode"
-                data-writable={writable.has(folder)}
-              >
-                {writable.has(folder) ? 'Read and write' : 'Read only'}
-              </span>
-            </li>
-          ))}
-        </ul>
+        children
       )}
       {administrator && machine.linked && (
         <div className="machine-switches">
@@ -1246,6 +1316,7 @@ function Unlinked({
 
 function ResourceRow({
   resource,
+  mode,
   through,
   away,
   landed,
@@ -1255,6 +1326,7 @@ function ResourceRow({
   acts,
 }: {
   resource: Resource
+  mode: Mode | null
   through: string | null
   away: boolean
   landed: boolean
@@ -1308,6 +1380,11 @@ function ResourceRow({
               <IconLock size={11} stroke={2} /> only you
             </span>
           )}
+          {resource.forOperators && (
+            <span className="rrow-badge" data-plain="true">
+              <IconLock size={11} stroke={2} /> only its operators
+            </span>
+          )}
         </div>
         <div className="rrow-says">
           {folder === null &&
@@ -1322,6 +1399,17 @@ function ResourceRow({
             <>
               <span className="mono">{folder}</span>
               {counted && ` · ${plural(resource.itemsCount, 'item')}`}
+              {mode && (
+                <>
+                  {' · '}
+                  <span
+                    className="machine-shared-mode"
+                    data-writable={mode === 'write'}
+                  >
+                    {MODES[mode]}
+                  </span>
+                </>
+              )}
             </>
           )}
         </div>
@@ -1519,6 +1607,24 @@ function More({
                   Change
                 </Menu.Item>
               )}
+              {administrator &&
+                resource.type === 'filesystem' &&
+                !resource.personal && (
+                  <Menu.Item
+                    leftSection={
+                      resource.forOperators ? (
+                        <IconUsers size={15} />
+                      ) : (
+                        <IconLock size={15} />
+                      )
+                    }
+                    onClick={() => acts.showTo(resource, resource.forOperators)}
+                  >
+                    {resource.forOperators
+                      ? 'Show to everyone'
+                      : 'Keep for its operators'}
+                  </Menu.Item>
+                )}
               <Menu.Divider />
               <Menu.Item
                 leftSection={<IconArchive size={15} />}

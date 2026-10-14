@@ -1,5 +1,5 @@
 import { Button, Modal } from '@mantine/core'
-import { IconChevronRight, IconCpu, IconFolder } from '@tabler/icons-react'
+import { IconCpu } from '@tabler/icons-react'
 import { type CSSProperties, useState } from 'react'
 import { AttachResourceDocument } from 'xixo'
 import { useMutation } from 'xixo/react'
@@ -45,34 +45,12 @@ export const SERVERS: Record<string, string> = {
   lmstudio: 'LM Studio',
 }
 
-function slug(text: string) {
-  return (
-    text
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'folder'
-  )
-}
-
 function port(url: unknown) {
   try {
     return Number(new URL(`${url}`).port) || null
   } catch {
     return null
   }
-}
-
-export function unadded(place: Place, held: Held[]) {
-  const taken = new Set(
-    held
-      .filter(
-        (resource) =>
-          resource.type === 'filesystem' && resource.machineId === place.id,
-      )
-      .map((resource) => `${resource.settings.folder ?? ''}`),
-  )
-
-  return place.folders.filter((folder) => !taken.has(folder))
 }
 
 export function addedAs(place: Place, service: Service, held: Held[]) {
@@ -172,8 +150,6 @@ export function AddTo({
   const [chosen, setChosen] = useState(start.key)
   const quickly = useQuickAdd(administrator, onAdded)
   const place = places.find((held) => held.key === chosen) ?? start
-  const folders = unadded(place, held)
-  const via = place.id ? place.key : null
 
   const quick = async (service: Service) => {
     const asked = quickFor(place, service)
@@ -206,40 +182,14 @@ export function AddTo({
           </div>
         )}
 
-        {administrator && place.id && (
-          <section className="addto-part">
-            <h3 className="label addto-label">Folders it shares</h3>
-            {folders.length > 0 ? (
-              <ul className="addto-list">
-                {folders.map((folder) => (
-                  <li key={folder}>
-                    <button
-                      type="button"
-                      className="addto-item"
-                      onClick={() =>
-                        onForm({
-                          type: 'filesystem',
-                          via,
-                          key: slug(folder.split('/').pop() ?? folder),
-                          settings: { folder },
-                        })
-                      }
-                    >
-                      <IconFolder size={18} stroke={1.7} />
-                      <span className="addto-item-name mono">{folder}</span>
-                      <IconChevronRight size={16} stroke={1.8} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="addto-quiet">
-                {place.folders.length > 0
-                  ? 'Every folder it shares is added.'
-                  : `${place.name} shares no folders yet. The config of xixo link on it lists them.`}
-              </p>
-            )}
-          </section>
+        {!place.local && (
+          <p className="addto-quiet">
+            {place.folders.length > 0
+              ? `Every folder ${place.name} shares joins the catalog by itself.`
+              : `${place.name} shares no folders yet. The link-up command names them.`}
+            {place.services.length === 0 &&
+              ` xixo found no model server on ${place.name}.`}
+          </p>
         )}
 
         {place.services.length > 0 && (

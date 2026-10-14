@@ -37,6 +37,7 @@ const resource = (overrides: Record<string, unknown>) => ({
   changeable: true,
   manageable: false,
   personal: false,
+  forOperators: false,
   delegated: false,
   needsConnect: false,
   connectedBy: null,
@@ -323,7 +324,7 @@ describe('Resources', () => {
     )
   })
 
-  test('adding to a machine offers the folders it shares that are not added, and adds a model server it found in one click', async () => {
+  test('adding to a machine says its folders join the catalog by themselves, and adds a model server it found in one click', async () => {
     const media = resource({
       id: '22',
       type: 'filesystem',
@@ -359,8 +360,12 @@ describe('Resources', () => {
       await screen.findByRole('button', { name: /Add to Studio/ }),
     )
     const dialog = await screen.findByRole('dialog', { name: 'Add to Studio' })
-    expect(within(dialog).getByText('/srv/photos')).toBeTruthy()
-    expect(within(dialog).queryByText('/srv/media')).toBeNull()
+    expect(
+      within(dialog).getByText(
+        'Every folder Studio shares joins the catalog by itself.',
+      ),
+    ).toBeTruthy()
+    expect(within(dialog).queryByText('/srv/photos')).toBeNull()
     expect(within(dialog).queryByText('Reached from here')).toBeNull()
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Add' }))
@@ -402,7 +407,11 @@ describe('Resources', () => {
       within(dialog).getByRole('button', { name: 'Studio' }),
     )
     expect(within(dialog).queryByText('Reached from here')).toBeNull()
-    expect(within(dialog).getByText('/srv/media')).toBeTruthy()
+    expect(
+      within(dialog).getByText(
+        'Every folder Studio shares joins the catalog by itself.',
+      ),
+    ).toBeTruthy()
   })
 
   test('a machine that went offline stays calm and says when it was last seen', async () => {
@@ -543,7 +552,7 @@ describe('Resources', () => {
     ).toEqual({ id: '40' })
   })
 
-  test('a machine card lists the folders it shares, marks the writable ones, and an administrator turns off helping others', async () => {
+  test('a machine card lists the folders it shares as the folders in the catalog, marks the writable ones, and an administrator turns off helping others', async () => {
     const sharing = resource({
       ...studio,
       machine: machineSaid({
@@ -553,9 +562,27 @@ describe('Resources', () => {
         heldBack: ['extract', 'lend'],
       }),
     })
+    const media = resource({
+      id: '22',
+      type: 'filesystem',
+      key: 'studio-media',
+      name: 'media on Studio',
+      itemsCount: 216,
+      defaultStorage: false,
+      syncable: true,
+      syncInterval: 3600,
+      forOperators: true,
+      manageable: true,
+      via: 'studio',
+      machineId: '7',
+      settings: { folder: '/srv/media' },
+    })
     const { client, asked } = fakeClient({
       ...QUIET,
-      Resources: () => ({ administrator: true, resources: [local, sharing] }),
+      Resources: () => ({
+        administrator: true,
+        resources: [local, sharing, media],
+      }),
       SetMachineHelpsOthers: () => ({
         setMachineHelpsOthers: {
           resource: {
@@ -578,11 +605,19 @@ describe('Resources', () => {
     const shared = within(card).getByRole('list', {
       name: 'Folders studio shares',
     })
+    const rows = within(shared).getAllByRole('listitem')
+    expect(rows).toHaveLength(2)
+    expect(within(rows[0]).getByRole('heading').textContent).toBe(
+      'media on Studio',
+    )
+    expect(within(rows[0]).getByText('only its operators')).toBeTruthy()
+    expect(rows[0].querySelector('.rrow-says')?.textContent).toBe(
+      '/srv/media · 216 items · Read only',
+    )
+    expect(rows[1].textContent).toBe('/srv/inbox · Read and write')
     expect(
-      within(shared)
-        .getAllByRole('listitem')
-        .map((row) => row.textContent),
-    ).toEqual(['/srv/mediaRead only', '/srv/inboxRead and write'])
+      within(card).getAllByRole('heading', { name: 'media on Studio' }),
+    ).toHaveLength(1)
     expect(within(card).queryByText('Files and writing')).toBeNull()
     expect(
       within(card).getByText(
@@ -599,6 +634,63 @@ describe('Resources', () => {
         .filter((ask) => ask.name === 'SetMachineHelpsOthers')
         .map((ask) => ask.variables),
     ).toEqual([{ id: '7', helpsOthers: false }])
+  })
+
+  test('an administrator shows a folder held for its operators to everyone', async () => {
+    const media = resource({
+      id: '22',
+      type: 'filesystem',
+      key: 'studio-media',
+      name: 'media on Studio',
+      defaultStorage: false,
+      forOperators: true,
+      manageable: true,
+      via: 'studio',
+      machineId: '7',
+      settings: { folder: '/srv/media' },
+    })
+    const { client, asked } = fakeClient({
+      ...QUIET,
+      Resources: () => ({
+        administrator: true,
+        resources: [local, studio, media],
+      }),
+      SetFolderForEveryone: () => ({
+        setFolderForEveryone: {
+          resource: { id: '22', forOperators: false, manageable: true },
+        },
+      }),
+    })
+
+    show(<Resources />, client, '/settings/resources')
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'More for studio-media' }),
+    )
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'Show to everyone' }),
+    )
+
+    expect(
+      asked.find((ask) => ask.name === 'SetFolderForEveryone')?.variables,
+    ).toEqual({ id: '22', everyone: true })
+  })
+
+  test('a machine with nothing to add but its folders has no Add to button', async () => {
+    const quiet = resource({
+      ...studio,
+      machine: machineSaid({ ...studio.machine, services: [] }),
+    })
+    const { client } = fakeClient({
+      ...QUIET,
+      Resources: () => ({ administrator: true, resources: [local, quiet] }),
+    })
+
+    show(<Resources />, client, '/settings/resources')
+
+    const card = await screen.findByRole('region', { name: 'Studio' })
+    expect(within(card).getByText('/srv/photos')).toBeTruthy()
+    expect(within(card).queryByRole('button', { name: /Add to/ })).toBeNull()
   })
 
   test('someone who is not an administrator sees what a machine shares, and no switches', async () => {

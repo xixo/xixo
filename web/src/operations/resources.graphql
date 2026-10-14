@@ -37,6 +37,7 @@ query Resources($archived: Boolean) {
     changeable
     manageable
     personal
+    forOperators
     delegated
     needsConnect
     connectedBy
@@ -184,6 +185,16 @@ mutation SetMachineHelpsOthers($id: ID!, $helpsOthers: Boolean!) {
         tools
         extractsForOthers
       }
+    }
+  }
+}
+
+mutation SetFolderForEveryone($id: ID!, $everyone: Boolean!) {
+  setFolderForEveryone(input: { id: $id, everyone: $everyone }) {
+    resource {
+      id
+      forOperators
+      manageable
     }
   }
 }
