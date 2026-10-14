@@ -604,6 +604,8 @@ func (a *Link) hashed(ctx context.Context, wanted Read) (Hashed, error) {
 	}
 	defer opened.Close()
 
+	defer opened.Forget()
+
 	stamp, known := digests.Of(opened.Info)
 	if a.Digests == nil || !known {
 		digest, err := digested(ctx, opened)

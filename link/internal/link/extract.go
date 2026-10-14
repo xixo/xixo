@@ -201,6 +201,8 @@ func (a *Link) source(ctx context.Context, wanted Extraction, work string) (stri
 		return "", Digest{}, ErrTooLarge
 	}
 
+	defer opened.Forget()
+
 	kept := filepath.Join(work, "source"+safeExtension(wanted.Source.Path))
 
 	digest, err := copied(ctx, kept, io.LimitReader(opened, MostUpload+1))
