@@ -162,7 +162,7 @@ module FakeDisk
             break
           end
 
-          entries << { "path" => name, "size" => stat.size, "modified_at" => stat.mtime.utc.iso8601 }
+          entries << { "path" => name, "size" => stat.size, "modified_at" => stat.mtime.utc.iso8601(9), "file" => "#{stat.dev}:#{stat.ino}" }
         end
 
         { "entries" => entries, "cursor" => (more ? entries.last["path"] : nil) }.compact
@@ -179,9 +179,11 @@ module FakeDisk
       end
 
       def hashed(machine, args)
-        bytes = confined(machine, args["folder"], args["path"]).binread
+        target = confined(machine, args["folder"], args["path"])
+        bytes = target.binread
+        stat = target.lstat
 
-        { "sha256" => Digest::SHA256.hexdigest(bytes), "size" => bytes.bytesize }
+        { "sha256" => Digest::SHA256.hexdigest(bytes), "size" => bytes.bytesize, "file" => "#{stat.dev}:#{stat.ino}" }
       end
 
       def written(machine, args)
@@ -198,7 +200,7 @@ module FakeDisk
         target.binwrite(bytes)
         stat = target.lstat
 
-        { "path" => args["path"], "size" => stat.size, "modified_at" => stat.mtime.utc.iso8601 }
+        { "path" => args["path"], "size" => stat.size, "modified_at" => stat.mtime.utc.iso8601(9), "file" => "#{stat.dev}:#{stat.ino}" }
       end
 
       def shared(machine, folder)

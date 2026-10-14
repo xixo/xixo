@@ -132,7 +132,7 @@ class Resource
     end
 
     def locator_for(entry)
-      { "path" => entry.path, "size" => entry.size, "modified_at" => entry.modified_at.utc.iso8601 }
+      { "path" => entry.path, "size" => entry.size, "modified_at" => entry.modified_at.utc.iso8601(9), "file" => entry.file }.compact
     end
 
     def locator_key_for(entry)
@@ -250,7 +250,15 @@ class Resource
       upload(scoped(key), body)
     end
 
-    Entry = Data.define(:path, :size, :modified_at)
+    FILE = /\A\d{1,20}:\d{1,20}\z/
+
+    Entry = Data.define(:path, :size, :modified_at, :file) do
+      def initialize(path:, size:, modified_at:, file: nil) = super
+    end
+
+    def keep!(object, cause: "sync")
+      moved(object, cause: cause) || super
+    end
 
     private
 
@@ -304,9 +312,47 @@ class Resource
         size = said["size"]
         raise Resource::Failed, "#{key}: xixo link listed a file without a size" unless size.is_a?(Integer) && size >= 0
 
-        Entry.new(path: relative!(said["path"]), size: size, modified_at: Time.iso8601(said["modified_at"].to_s))
+        file = said["file"].to_s if said["file"].to_s.match?(FILE)
+
+        Entry.new(path: relative!(said["path"]), size: size, modified_at: Time.iso8601(said["modified_at"].to_s), file: file)
       rescue ArgumentError
         raise Resource::Failed, "#{key}: xixo link listed a file without a time"
+      end
+
+      def moved(entry, cause:)
+        return nil unless entry.is_a?(Entry) && entry.file.present?
+        return nil if Reference.exists?(resource_id: id, locator_key: entry.path)
+
+        locator = locator_for(entry)
+        origin = Reference.originals.where(resource_id: id, version: version_for(locator))
+                          .where("feed_references.locator ->> 'file' = ?", entry.file)
+                          .order(Arel.sql("feed_references.gone_at IS NULL"), :id).first
+        return nil if origin.nil?
+
+        still = origin.gone_at.nil? ? entry_at(origin.locator_key) : nil
+        seen = cause == "sync" ? Time.current : origin.seen_at
+        return linked(origin, entry, locator, seen) if still&.file == entry.file
+
+        renamed(origin, entry, locator, seen)
+      end
+
+      def renamed(origin, entry, locator, seen)
+        before = File.basename(origin.locator_key.to_s)
+        origin.update!(locator_key: entry.path, locator: locator, mime: mime_for(entry), gone_at: nil, seen_at: seen)
+
+        feed = origin.feed
+        named = title_for(entry)
+        feed.update!(title: named) if feed.title == before
+        feed.update!(key: named) if feed.key == before
+        origin
+      end
+
+      def linked(origin, entry, locator, seen)
+        Reference.create!(
+          feed: origin.feed, resource: self, role: Reference::ORIGINAL, locator: locator, locator_key: entry.path,
+          mime: mime_for(entry), version: origin.version, digest: origin.digest, prior_digest: origin.prior_digest,
+          analyzed_at: origin.analyzed_at, changed_at: origin.changed_at, seen_at: seen
+        )
       end
 
       def ours?(path)

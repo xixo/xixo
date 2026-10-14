@@ -82,6 +82,7 @@ class Reference < ApplicationRecord
     return self if reported.blank?
 
     if version.present? && version != reported
+      self.prior_digest = digest if analyzed_at.present? && digest.present? && resource.respond_to?(:digest_of)
       self.changed_at = Time.current
       self.analyzed_at = nil
       self.digest = nil
@@ -94,6 +95,7 @@ class Reference < ApplicationRecord
 
   def awaiting_analysis?
     return false if analyzed_at.present?
+    return false if prior_digest.present? && digest.nil?
 
     attempts = feed.analyses.unscope(:order).where(created_at: (changed_at || created_at)..)
     return false if attempts.open.exists?
@@ -162,6 +164,18 @@ class Reference < ApplicationRecord
 
     self.digest = found
     true
+  end
+
+  def reconsider!
+    return if prior_digest.nil? || digest.nil?
+
+    if digest == prior_digest
+      update_columns(analyzed_at: Time.current, prior_digest: nil)
+    else
+      update_columns(prior_digest: nil)
+      leave!
+      feed.analyze!(cause: "sync") if awaiting_analysis?
+    end
   end
 
   def twins

@@ -25,7 +25,10 @@ class DigestReferencesJob < ApplicationJob
     end
 
     def fingerprint(reference)
-      reference.settle! if reference.fingerprint!
+      return unless reference.fingerprint!
+
+      reference.reconsider!
+      reference.settle!
     rescue StandardError => e
       Reference.where(id: reference.id).update_all(updated_at: Time.current)
       Rails.logger.warn("#{Current.tenant.subdomain} could not fingerprint reference #{reference.id}: #{e.class}: #{e.message.truncate(200)}")

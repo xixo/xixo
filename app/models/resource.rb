@@ -626,7 +626,7 @@ class Resource < ApplicationRecord
       title: title_for(object)
     )
 
-    reference.leave! if reference.saved_change_to_changed_at?
+    reference.leave! if reference.saved_change_to_changed_at? && reference.prior_digest.nil?
     reference.feed.analyze!(cause: cause) if reference.awaiting_analysis?
 
     if cause == "sync"

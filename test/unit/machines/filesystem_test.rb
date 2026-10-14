@@ -104,7 +104,7 @@ class FilesystemTest < ActiveSupport::TestCase
       assert_equal [ nil, "b/c.txt" ], asked.map { |args| args["cursor"] }
       assert_equal [ "/srv/media" ], asked.map { |args| args["folder"] }.uniq
       first = folder.locator_for(Resource::Filesystem::Entry.new(path: "a", size: 5, modified_at: Time.utc(2026, 10, 11, 12)))
-      assert_equal "2026-10-11T12:00:00Z:5", folder.version_for(first)
+      assert_equal "2026-10-11T12:00:00.000000000Z:5", folder.version_for(first)
     end
   end
 

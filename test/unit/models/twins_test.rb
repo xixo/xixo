@@ -259,6 +259,7 @@ class TwinsTest < ActiveSupport::TestCase
 
     def sync_and_analyze(resource)
       Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, resource.id) }
+      DigestReferencesJob.perform_now
       perform_enqueued_jobs(only: AnalyzeFeedJob)
     end
 end
