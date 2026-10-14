@@ -343,22 +343,24 @@ class Analysis < ApplicationRecord
     end
 
     def append(text)
-      Analysis.with_connection do |connection|
-        connection.select_value(
-          Analysis.sanitize_sql_array(
-            [ <<~SQL.squish, { line: "#{text}\n", limit: LOG_LIMIT, id: id } ]
-              UPDATE analyses
-                 SET logs = CASE WHEN length(coalesce(logs, '')) > :limit
-                                 THEN logs
-                                 ELSE coalesce(logs, '') || :line
-                            END,
-                     lines = lines + 1,
-                     updated_at = now()
-               WHERE id = :id
-              RETURNING lines
-            SQL
+      Analysis.uncached do
+        Analysis.with_connection do |connection|
+          connection.select_value(
+            Analysis.sanitize_sql_array(
+              [ <<~SQL.squish, { line: "#{text}\n", limit: LOG_LIMIT, id: id } ]
+                UPDATE analyses
+                   SET logs = CASE WHEN length(coalesce(logs, '')) > :limit
+                                   THEN logs
+                                   ELSE coalesce(logs, '') || :line
+                              END,
+                       lines = lines + 1,
+                       updated_at = now()
+                 WHERE id = :id
+                RETURNING lines
+              SQL
+            )
           )
-        )
+        end
       end
     end
 
