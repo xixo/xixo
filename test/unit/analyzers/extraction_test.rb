@@ -82,6 +82,28 @@ class ExtractionTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { assert_nil feed.reload.analysis.step("extracted").to_h["error"] }
   end
 
+  test "a lent file larger than a machine takes waits for its own machine, and is never downloaded" do
+    lend!(@machine)
+    FakeLink.local.extractors = %w[media]
+    feed = Tenant.switch(@tenant) { on_machine("film.mkv") }
+    Tenant.switch(@tenant) { feed.reference.update_columns(size: 12_556_780_118) }
+    asked = []
+
+    downloaded = ->(_locator) { raise "a film larger than a machine takes was downloaded" }
+    with_method(Resource::Filesystem, :download, downloaded) do
+      answering(asked, { "text" => "never" }) { analyze(feed) }
+    end
+
+    assert_empty FakeLink.asked
+    Tenant.switch(@tenant) do
+      analysis = feed.reload.analyses.last
+      assert_equal "parked", analysis.status
+      assert_equal @machine.id, analysis.waits_on_id
+      assert_match(/film.mkv is 11.7 GB, and a file read away from its machine is at most 4 GB, so only box can read it/,
+                   analysis.step("extracted").dig("error", "message"))
+    end
+  end
+
   test "the same file on two machines becomes one item by the digests the machines report" do
     other = machine_on(@tenant, key: "attic", folders: [ "/mnt/photos" ])
     first, second = Tenant.switch(@tenant) do

@@ -74,17 +74,31 @@ class Extraction
       raise waiting("#{machine.key}, where #{filename} lives, is not connected", machine: machine) unless machine.connected?
       raise Analyzer::Failed, "#{machine.key} no longer shares #{folder.folder}" unless machine.offered_folders.include?(folder.folder)
       return [ machine, { "folder" => folder.folder, "path" => reference.locator.to_h["path"].to_s } ] if reads?(machine)
-      return pooled if machine.lends?
+      return pooled(holder: machine) if machine.lends?
 
       raise waiting("#{machine.key} lacks #{wanted} and lends none of its files, so only it can read #{filename}",
                     machine: machine)
     end
 
-    def pooled
+    def pooled(holder: nil)
+      lendable!(holder)
+
       pool = Resource::Machine.pool.select { |machine| reads?(machine) }
       raise waiting("no connected machine that reads for others has #{wanted} to read #{filename}") if pool.empty?
 
       [ chosen(pool), nil ]
+    end
+
+    def lendable!(holder)
+      size = reference.try(:size).to_i
+      return if size <= LinkExchange::MOST_RECEIVED
+
+      held = ActiveSupport::NumberHelper.number_to_human_size(size)
+      most = ActiveSupport::NumberHelper.number_to_human_size(LinkExchange::MOST_RECEIVED)
+      raise Analyzer::Failed, "#{filename} is #{held}, and a file read away from where it lives is at most #{most}" if holder.nil?
+
+      raise waiting("#{filename} is #{held}, and a file read away from its machine is at most #{most}, " \
+                    "so only #{holder.key} can read it, once it has #{wanted}", machine: holder)
     end
 
     def chosen(pool)

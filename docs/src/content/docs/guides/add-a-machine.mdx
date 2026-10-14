@@ -274,7 +274,8 @@ card counts the files waiting. Do one of these:
 - Install the programs on the machine, then run the link-up command again, which restarts xixo
   link.
 - Leave lending on. A machine lends its files unless its config sets `lend` to false, and then a
-  connected machine that helps read files from other places reads a copy.
+  connected machine that helps read files from other places reads a copy. A file larger than 4 GB
+  is never lent, so a large film waits until its own machine has ffmpeg.
 
 A file on a machine that is offline waits for the machine to come back. A file on a machine that is
 too busy to take it, or that does not answer within 30 minutes, waits, and xixo asks again at the

@@ -58,11 +58,12 @@ runs one xixo link beside the server, and each linked machine runs another.
 xixo picks an analyzer by the feed's mime type, and the analyzer asks for the matching extractor.
 Which machine reads the file depends on where it lives:
 
-- A file in a folder a machine shares is read on that machine, when the machine has the extractor.
-  Only what xixo link extracted and the file's SHA-256 reach xixo.
+- A file in a folder a machine shares is read on that machine, where it lies, when the machine has
+  the extractor. xixo link makes no copy, so a file of any size is read. Only what xixo link
+  extracted and the file's SHA-256 reach xixo.
 - When the machine lacks the extractor and lends its files, the file goes to the pool. A machine
-  lends unless its own configuration sets `lend` to false. When it does not lend, the file waits
-  until that machine has the extractor.
+  lends unless its own configuration sets `lend` to false. When it does not lend, or the file is
+  larger than 4 GB, the file waits until that machine has the extractor.
 - An upload, a mail attachment, a file in a cloud resource, and anything else with no machine of its
   own goes to the pool.
 
