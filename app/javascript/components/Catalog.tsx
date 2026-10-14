@@ -208,7 +208,9 @@ function Listing({
     thinking.refetch()
   }, [settled, catalog.refetch, thinking.refetch])
 
-  const total = searching ? (found.data?.search.total ?? null) : null
+  const total = searching
+    ? (found.data?.search.total ?? null)
+    : (page?.total ?? null)
   const loading = searching ? found.loading : catalog.loading
   const error = searching ? found.error : catalog.error
   const next = page?.hasMore ? (page.nextCursor ?? null) : null
@@ -248,9 +250,15 @@ function Listing({
               </>
             ) : (
               <>
-                <span className="figure">{rows.length.toLocaleString()}</span>{' '}
-                {type ? pluralOf(type) : rows.length === 1 ? 'item' : 'items'}
-                {page?.hasMore ? ' so far' : ''}
+                <span className="figure">
+                  {(total ?? rows.length).toLocaleString()}
+                </span>{' '}
+                {type
+                  ? pluralOf(type)
+                  : (total ?? rows.length) === 1
+                    ? 'item'
+                    : 'items'}
+                {total === null && page?.hasMore ? ' so far' : ''}
                 {feed ? ' kept by this feed' : ''}
               </>
             )}

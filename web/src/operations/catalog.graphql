@@ -37,6 +37,7 @@ query Catalog(
   ) {
     hasMore
     nextCursor
+    total
     nodes {
       ...Row
     }

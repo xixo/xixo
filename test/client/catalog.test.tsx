@@ -5,7 +5,11 @@ import { Catalog } from '../../app/javascript/components/Catalog'
 import { UploadsProvider } from '../../app/javascript/components/Uploads'
 import { fakeClient, page, show } from './support/screen'
 
-function showCatalog(rows: unknown[], checklist = 'shown') {
+function showCatalog(
+  rows: unknown[],
+  checklist = 'shown',
+  feeds: unknown = page(rows),
+) {
   const fake = fakeClient({
     Settings: () => ({
       settings: [
@@ -16,7 +20,7 @@ function showCatalog(rows: unknown[], checklist = 'shown') {
       setup: { storage: false, inference: false, client: false },
     }),
     Feeds: () => ({ feeds: page([]) }),
-    Catalog: () => ({ feeds: page(rows) }),
+    Catalog: () => ({ feeds }),
     Types: () => ({ types: [] }),
   })
 
@@ -60,6 +64,31 @@ describe('Catalog', () => {
 
     expect(await screen.findByText('lease.pdf')).toBeTruthy()
     expect(screen.queryByText('Nothing kept yet')).toBeNull()
+  })
+
+  test('counts everything in the catalog, not only the rows loaded so far', async () => {
+    const row = {
+      id: '9',
+      type: 'xixo:file',
+      key: 'lease.pdf',
+      title: 'lease.pdf',
+      mime: 'application/pdf',
+      summary: null,
+      thumbnailUrl: null,
+      staged: false,
+      analyzedAt: null,
+      createdAt: new Date().toISOString(),
+      parent: null,
+    }
+    showCatalog([row], 'hidden', {
+      nodes: [row],
+      hasMore: true,
+      nextCursor: '9',
+      total: 4321,
+    })
+
+    expect(await screen.findByText('4,321')).toBeTruthy()
+    expect(screen.queryByText(/so far/)).toBeNull()
   })
 
   test('a hidden checklist is never asked for', async () => {

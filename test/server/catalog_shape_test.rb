@@ -59,6 +59,16 @@ class CatalogShapeTest < ActionDispatch::IntegrationTest
     assert_equal 1, counts[Feed::NOTE]
   end
 
+  test "a page of the catalog counts everything that matches, beyond the rows it holds" do
+    everything = execute(FEEDS, variables: {}).dig("data", "feeds", "nodes").size
+    body = execute("{ feeds(limit: 1) { total hasMore nodes { title } } }")
+
+    assert_operator everything, :>, 1
+    assert_equal 1, body.dig("data", "feeds", "nodes").size
+    assert body.dig("data", "feeds", "hasMore")
+    assert_equal everything, body.dig("data", "feeds", "total")
+  end
+
   test "a row names the file it was extracted from" do
     body = execute(<<~GQL, variables: { types: [ Feed::FILE ] })
       query($types: [String!]) { feeds(types: $types) { nodes { title parent { title } } } }
