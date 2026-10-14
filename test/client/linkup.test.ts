@@ -5,6 +5,7 @@ import {
   detected,
   folderList,
   quoted,
+  sharing,
 } from '../../app/javascript/linkup'
 
 describe('linking up a machine', () => {
@@ -33,6 +34,17 @@ describe('linking up a machine', () => {
       '/data/My Photos',
       '/srv/a b',
     ])
+  })
+
+  test('the folders a machine may write into say so', () => {
+    expect(sharing([])).toBe('Shares no folders yet.')
+    expect(sharing(['~/Documents'])).toBe('Shares ~/Documents.')
+    expect(sharing(['~/Documents', '~/Desktop-Backup:rw'])).toBe(
+      'Shares ~/Documents and ~/Desktop-Backup (read and write).',
+    )
+    expect(sharing(['/srv/a', '/srv/b', '/srv/inbox:rw'])).toBe(
+      'Shares /srv/a, /srv/b, and /srv/inbox (read and write).',
+    )
   })
 
   test('the system comes from the browser, among the ones this server serves', () => {

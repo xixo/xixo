@@ -22,6 +22,7 @@ import {
   FOLDERS,
   folderList,
   SYSTEMS,
+  sharing,
   systemOf,
 } from '../linkup'
 import { LinkMark } from './Mark'
@@ -185,9 +186,7 @@ export function LinkUpDialog({
             />
           ) : (
             <p className="linkup-quiet">
-              {shared.length > 0
-                ? `Shares ${shared.join(', ')}.`
-                : 'Shares no folders yet.'}{' '}
+              {sharing(shared)}{' '}
               <button
                 type="button"
                 className="linkup-change"
@@ -234,10 +233,12 @@ export function shortName(hostname: string) {
   return hostname.split('.')[0] || hostname
 }
 
-export function folderNames(folders: string[]) {
-  return folders.map(
-    (folder) => folder.split('/').filter(Boolean).pop() ?? folder,
-  )
+export function folderNames(folders: string[], writable: string[] = []) {
+  return folders.map((folder) => {
+    const name = folder.split('/').filter(Boolean).pop() ?? folder
+
+    return writable.includes(folder) ? `${name} (read and write)` : name
+  })
 }
 
 export function nameOf(request: LinkRequest) {
@@ -254,7 +255,7 @@ export function RequestCard({
   const about = [
     request.system ?? systemOf(request.os, request.arch),
     request.folders.length > 0
-      ? `shares ${folderNames(request.folders).join(', ')}`
+      ? `shares ${folderNames(request.folders, request.writable).join(', ')}`
       : 'shares no folders',
     request.remoteIp ? `from ${request.remoteIp}` : null,
   ].filter(Boolean)
