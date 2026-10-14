@@ -196,6 +196,13 @@ When the line shows no **Add**, choose **Add to** followed by the machine's name
 card, then **Set up** under **Model servers it found**, and check the **Base URL**. The card shows
 **Add to** only when xixo found a model server on the machine.
 
+A laptop sleeps, and its model server goes with it. A file whose summary needs that model server
+waits, and its pass says "Waiting for" the machine "to come online". When the machine links up
+again, xixo starts the waiting files, at most 50 queued at a time. A model server that is not running,
+busy, or out of reach is tried three times, and then the file waits for the next check, ten
+minutes later. After twelve such waits the pass fails and says why. A model the server does not
+have, or a request it refuses, fails at once.
+
 ## Find machines on a tailnet
 
 When xixo reaches a [tailnet](/guides/tailnet/), **Not linked yet** under the machine cards lists
@@ -264,7 +271,9 @@ card counts the files waiting. Do one of these:
 - Leave lending on. A machine lends its files unless its config sets `lend` to false, and then a
   connected machine that helps read files from other places reads a copy.
 
-A file on a machine that is offline waits for the machine to come back.
+A file on a machine that is offline waits for the machine to come back. A file on a machine that is
+too busy to take it, or that does not answer within 30 minutes, waits, and xixo asks again at the
+next check.
 
 ## Rename a machine
 

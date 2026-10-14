@@ -86,6 +86,16 @@ class Analysis < ApplicationRecord
     held_deadline
   end
 
+  def allow!(span)
+    ceiling = (started_at || created_at) + Feed::MAX_TIMEOUT
+
+    Analysis.where(id: id, status: "running").update_all([
+      "deadline = LEAST(GREATEST(COALESCE(deadline, now()), now() + make_interval(secs => ?)), ?)",
+      span.to_i, ceiling
+    ])
+    held_deadline
+  end
+
   def time_left
     due = held_deadline
     return nil if due.nil?
@@ -146,12 +156,22 @@ class Analysis < ApplicationRecord
 
   def waiting
     return nil unless parked?
+    return waiting_for_models if waits_for == Analyzer::MODELS
 
     reads = Resource::Machine::READ_AS.fetch(waits_for.to_s, "it")
     return "Waiting for a machine that can read #{reads}." if waits_on.nil?
     return "Waiting for #{waits_on.name}, where it lives, to come back." unless waits_on.connected?
+    return "Waiting for #{waits_on.name} to finish the work it already has." if waits_on.extracts?(waits_for)
 
     "Waiting for #{waits_on.name} to be able to read #{reads}, since it lends none of its files."
+  end
+
+  def waiting_for_models
+    return "Waiting for a model server to answer." if waits_on.nil?
+    return "Waiting for #{waits_on.name} to answer." unless waits_on.is_a?(Resource::Machine)
+    return "Waiting for #{waits_on.name} to come online." unless waits_on.connected?
+
+    "Waiting for the model server on #{waits_on.name} to answer."
   end
 
   def gated!

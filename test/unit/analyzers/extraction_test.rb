@@ -150,6 +150,47 @@ class ExtractionTest < ActiveSupport::TestCase
     end
   end
 
+  test "a machine too busy to take the file holds it until the sweep tries again" do
+    feed = Tenant.switch(@tenant) { on_machine("plan.txt") }
+    busy = ->(*, **) { raise Resource::Machine::Refusal, "box: xixo link said xixo link is busy with as much work as it queues; ask again later" }
+
+    with_method(Resource::Machine, :exchanged, busy) { analyze(feed) }
+
+    Tenant.switch(@tenant) do
+      analysis = feed.reload.analyses.last
+      assert_equal [ "parked", @machine.id, "text" ], [ analysis.status, analysis.waits_on_id, analysis.waits_for ]
+      assert_nil analysis.deadline
+      assert_equal "Waiting for box to finish the work it already has.", analysis.waiting
+
+      ResumeParkedJob.perform_now
+      assert_equal "queued", analysis.reload.status
+    end
+  end
+
+  test "a machine that does not answer in time holds the file, and is not asked again and again" do
+    feed = Tenant.switch(@tenant) { on_machine("plan.txt") }
+    silent = ->(verb, *, **) { raise Resource::Unreachable, "box: xixo link did not answer #{verb} in 30 minutes" }
+
+    assert_no_enqueued_jobs(only: AnalyzeFeedJob) do
+      with_method(Resource::Machine, :exchanged, silent) { analyze(feed) }
+    end
+
+    Tenant.switch(@tenant) { assert_equal "parked", feed.reload.analyses.last.status }
+  end
+
+  test "a refusal that is not about being busy is a failed read, not a wait" do
+    feed = Tenant.switch(@tenant) { on_machine("plan.txt") }
+    refused = ->(*, **) { raise Resource::Machine::Refusal, "box: xixo link said the file is gone" }
+
+    with_method(Resource::Machine, :exchanged, refused) { analyze(feed) }
+
+    Tenant.switch(@tenant) do
+      analysis = feed.reload.analyses.last
+      assert_not analysis.parked?
+      assert_match(/the file is gone/, analysis.step("extracted").dig("error", "message"))
+    end
+  end
+
   test "an upload goes to the local machine first, while it has the program, and to the least busy one when it does not" do
     local = pooled(machine_on(@tenant, key: "local", folders: []), %w[text pdf])
     Tenant.switch(@tenant) { local.update_columns(details: local.details.merge("local" => true)) }

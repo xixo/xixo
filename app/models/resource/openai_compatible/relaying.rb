@@ -7,6 +7,7 @@ class Resource
 
       RELAY_SLACK = 15
       UNKNOWN_VERB = /does not know the verb/
+      NOT_YET = /runs no model server of that kind|ask again later/
 
       module Held
         attr_writer :held
@@ -35,6 +36,8 @@ class Resource
           held_response(answered, reading)
         rescue Resource::Machine::Refusal => e
           raise Resource::Unusable, "#{key}: update xixo link on #{machine.key} by running the link-up command on it again" if e.message.match?(UNKNOWN_VERB)
+
+          raise Resource::Unreachable, e.message if e.message.match?(NOT_YET)
 
           raise Resource::Failed, e.message
         end

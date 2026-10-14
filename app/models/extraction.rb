@@ -1,6 +1,7 @@
 class Extraction
   WITHIN = 30.minutes
   MOST_FILES = 64
+  BUSY = /ask again later/
 
   Received = Data.define(:role, :name, :mime, :at, :file)
 
@@ -34,8 +35,13 @@ class Extraction
   rescue Resource::Offline => e
     close!
     raise waiting(e.message, machine: source.is_a?(Hash) && source["folder"] ? machine : nil)
+  rescue Resource::Unreachable => e
+    close!
+    raise waiting(e.message, machine: machine)
   rescue Resource::Machine::Refusal => e
     close!
+    raise waiting(e.message, machine: machine) if e.message.match?(BUSY)
+
     raise Analyzer::Failed, e.message
   rescue StandardError
     close!

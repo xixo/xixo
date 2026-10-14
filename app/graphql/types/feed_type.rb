@@ -25,8 +25,9 @@ module Types
           description: "What a model made of it, or until one has, the start of its text. The text OCR " \
                        "reads off an image is never shown here."
     field :unsummarized, String,
-          description: "Why a model has not written its summary: the error its last try ended with, or " \
-                       "what it lacked, such as a model that reads images. Empty once it has a summary."
+          description: "Why a model has not written its summary: what a waiting pass waits for, the error its " \
+                       "last try ended with, or what it lacked, such as a model that reads images. Empty once it " \
+                       "has a summary."
     field :details, [ Types::DetailType ], null: false,
           description: "Everything its last analysis read out of it that has a name and a value, " \
                        "such as embedded metadata, dimensions, and document info, grouped by where it came from."
@@ -85,7 +86,10 @@ module Types
     end
 
     def unsummarized
-      object.analysis&.unsummarized
+      settled = object.analysis
+      return nil if settled&.summary
+
+      object.analyses.parked.where(id: (settled&.id || 0)..).last&.waiting || settled&.unsummarized
     end
 
     def connected_count = object.connected.readable_by(context[:grant]).count

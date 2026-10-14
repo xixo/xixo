@@ -15,7 +15,24 @@ module Analyzer
     end
   end
 
+  class Unanswered < Waiting; end
+
+  MODELS = "models".freeze
   PROMPTS_CHANGED_AT = Time.utc(2026, 9, 7).freeze
+
+  def self.inferring(resource)
+    yield
+  rescue Resource::Offline => e
+    raise Waiting.new(e.message, kind: MODELS, machine: serving(resource))
+  rescue Resource::Unreachable => e
+    raise Unanswered.new(e.message, kind: MODELS, machine: serving(resource))
+  end
+
+  def self.serving(resource)
+    return nil if resource.nil?
+
+    resource.try(:relayed_by) || resource
+  end
 
   def self.all
     [

@@ -873,7 +873,9 @@ class Resource
 
       def refused!(response, uri)
         case response
-        when Net::HTTPTooManyRequests then raise Resource::Failed, "#{key}: #{uri.host} is busy"
+        when Net::HTTPTooManyRequests then raise Resource::Unreachable, "#{key}: #{uri.host} is busy"
+        when Net::HTTPBadGateway, Net::HTTPServiceUnavailable, Net::HTTPGatewayTimeout
+          raise Resource::Unreachable, "#{key}: #{uri.host} answered #{response.code}"
         when Net::HTTPServerError then raise Resource::Failed, "#{key}: #{uri.host} answered #{response.code}"
         else
           raise Resource::Unusable,
@@ -896,9 +898,13 @@ class Resource
             drain(response, uri.host, limit: MAX_BYTES, into: gathered)
           end
         end
-      rescue Net::OpenTimeout, Net::ReadTimeout
+      rescue Net::OpenTimeout
+        raise Resource::Unreachable, "#{key}: #{uri.host} did not answer in #{OPEN_TIMEOUT}s"
+      rescue Net::ReadTimeout
         raise Resource::Failed, "#{key}: #{uri.host} did not answer in #{timeout}s"
-      rescue SocketError, SystemCallError, OpenSSL::SSL::SSLError, IOError => e
+      rescue SocketError, SystemCallError, IOError => e
+        raise Resource::Unreachable, "#{key}: #{e.class} reaching #{uri.host}"
+      rescue OpenSSL::SSL::SSLError => e
         raise Resource::Failed, "#{key}: #{e.class} reaching #{uri.host}"
       end
 

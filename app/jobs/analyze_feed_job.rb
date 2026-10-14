@@ -15,6 +15,12 @@ class AnalyzeFeedJob < ApplicationJob
     job.fail_analysis(error)
   end
   discard_on(Analyzer::Waiting) { |job, error| job.park(error) }
+  retry_on Analyzer::Unanswered, wait: :polynomially_longer, attempts: 3 do |job, error|
+    job.park(error)
+  end
+
+  MOST_UNANSWERED = 12
+  UNANSWERED = "no answer".freeze
 
   WHOLE = "whole"
   READING = "reading"
@@ -50,9 +56,16 @@ class AnalyzeFeedJob < ApplicationJob
 
   def park(waiting)
     return if analysis.nil?
+    return analysis.finished!(error: "#{waiting.message}. xixo stopped waiting after #{MOST_UNANSWERED} tries") if worn_out?(waiting)
 
-    analysis.log_skip("parked", waiting.message)
+    analysis.log_skip("parked", (UNANSWERED if waiting.is_a?(Analyzer::Unanswered)), waiting.message)
     analysis.parked!(kind: waiting.kind, machine: waiting.machine)
+  end
+
+  def worn_out?(waiting)
+    return false unless waiting.is_a?(Analyzer::Unanswered)
+
+    analysis.reload.logs.to_s.scan(": parked : #{UNANSWERED} :").size >= MOST_UNANSWERED
   end
 
   def fail_analysis(error)
@@ -86,6 +99,8 @@ class AnalyzeFeedJob < ApplicationJob
         ensure
           analyzer.close!
         end
+
+        raise analyzer.waiting if analyzer.waiting
       end
 
       filed(feed)
@@ -228,7 +243,7 @@ class AnalyzeFeedJob < ApplicationJob
       Current.acting_for = feed.id
       Current.analysis = analysis
       Current.confined_to = Concurrent::Set.new([ feed.id ])
-      answered = agent.call(asked(feed))
+      answered = Analyzer.inferring(Resource.for_role(Resource::OpenaiCompatible::AGENT_ROLE)) { agent.call(asked(feed)) }
       analysis&.log_info("agent", answered.reason.to_s, answered.said)
       noted(answered)
     rescue Agent::Refused, Resource::Unusable => e

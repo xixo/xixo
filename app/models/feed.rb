@@ -71,7 +71,7 @@ class Feed < ApplicationRecord
   scope :unsummarized, -> {
     where(type: FILE).where(id: Reference.where.not(analyzed_at: nil).select(:feed_id))
                      .where.not(id: Analysis.where("steps -> 'summary' ? 'result'").select(:feed_id))
-                     .where.not(id: Analysis.open.select(:feed_id))
+                     .where.not(id: Analysis.where(status: [ *Analysis::OPEN, Analysis::PARKED ]).select(:feed_id))
   }
   scope :by_key, ->(value) { where(key: value.to_s) }
   scope :readable_by, ->(grant) { readable_to(grant&.speaks_for) }

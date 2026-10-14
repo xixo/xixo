@@ -577,7 +577,7 @@ class Resource
 
           if Time.current > deadline
             held.refuse!("no answer in #{within.inspect}")
-            raise Resource::Failed, "#{key}: xixo link did not answer #{verb} in #{within.inspect}"
+            raise Resource::Unreachable, "#{key}: xixo link did not answer #{verb} in #{within.inspect}"
           end
 
           waiting

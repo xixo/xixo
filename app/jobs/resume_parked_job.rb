@@ -43,12 +43,17 @@ class ResumeParkedJob < ApplicationJob
       end
 
       held = waits.filter_map { |on, kinds| served(on, kinds.uniq) }
+      held += asked.select { |machine| machine.offers?("models") }.map { |machine| thinking(machine) }
       held << stranded if machine_id.nil?
       held.reduce(:or) || Analysis.none
     end
 
     def stranded
       Analysis.parked.where.not(waits_on_id: nil).where.not(waits_on_id: Resource::Machine.active.select(:id))
+    end
+
+    def thinking(machine)
+      Analysis.parked.where(waits_on_id: machine.id, waits_for: Analyzer::MODELS)
     end
 
     def served(on, kinds)

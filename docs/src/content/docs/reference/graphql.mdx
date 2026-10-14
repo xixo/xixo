@@ -126,7 +126,7 @@ Resolves only for a token carrying `xixo:catalog:read`.
 | `status` | `String!` |  |
 | `steps` | `JSON!` |  |
 | `turns` | `JSON!` |  |
-| `waiting` | `String` | What a parked pass waits for: the machine its file lives on, or any machine that can read it. It starts again on its own when one links up. |
+| `waiting` | `String` | What a parked pass waits for: the machine its file lives on, any machine that can read it, or the model server that summarizes it. It starts again on its own when that machine links up or the model server answers. |
 
 ### AnalysisPage
 
@@ -428,7 +428,7 @@ Resolves only for a token carrying `xixo:catalog:read`.
 | `timeout` | `Int` | Seconds an analysis of it may run, when someone set it. Null gets the default. |
 | `title` | `String` |  |
 | `type` | `String!` | What it is, and how it renders: xixo:file, xixo:note, xixo:address, xixo:tag, xixo:mime. |
-| `unsummarized` | `String` | Why a model has not written its summary: the error its last try ended with, or what it lacked, such as a model that reads images. Empty once it has a summary. |
+| `unsummarized` | `String` | Why a model has not written its summary: what a waiting pass waits for, the error its last try ended with, or what it lacked, such as a model that reads images. Empty once it has a summary. |
 
 ### FeedAnalyzedPayload
 

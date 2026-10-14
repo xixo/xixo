@@ -12,7 +12,7 @@ module Analyzer
     CAPPED = %w[text ocr].freeze
     MOST_CHILDREN = 100
 
-    attr_reader :feed, :reference, :analysis
+    attr_reader :feed, :reference, :analysis, :waiting
 
     def initialize(feed, analysis: nil)
       @feed = feed
@@ -63,6 +63,8 @@ module Analyzer
         attempt { summarize! }
         attempt { captioned! }
         left_out!
+      rescue Analyzer::Waiting => e
+        @waiting = e
       ensure
         stamp_analyzed!
       end
@@ -242,6 +244,7 @@ module Analyzer
       end
 
       def extracted!(verb)
+        analysis&.allow!(Extraction::WITHIN)
         extraction = Extraction.new(reference, kind: self.class.kind, mime: feed.mime, verb: verb, skip: skipped_work).call
         @received.concat(extraction.files)
 
@@ -472,8 +475,11 @@ module Analyzer
              after: [ self.class.summary_after, inference.updated_at ].max,
              digest: Digest::SHA256.hexdigest([ inference.key, model, prompt ].to_json),
              about: { "resource" => inference.key, "model" => model, "role" => role.to_s }) do
-          shaped(inference.summarize(prompt, role: role, analysis: analysis, images: summary_images, schema: summary_schema,
-                                     partial: true))
+          answer = Analyzer.inferring(inference) do
+            inference.summarize(prompt, role: role, analysis: analysis, images: summary_images, schema: summary_schema,
+                                partial: true)
+          end
+          shaped(answer)
         end
       rescue Resource::Unusable => e
         raise Analyzer::Failed, e.message

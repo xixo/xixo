@@ -100,7 +100,7 @@ module Analyzer
         raise Analyzer::Failed, "the machine sent no audio of #{reference.filename} to transcribe" if wav.nil?
 
         wav.file.rewind
-        capped(listening.transcribe(wav.file.read))
+        capped(Analyzer.inferring(listening) { listening.transcribe(wav.file.read) })
       rescue Resource::Unusable, Resource::Failed => e
         raise Analyzer::Failed, e.message
       end
@@ -108,8 +108,11 @@ module Analyzer
       def scenes(shown, seeing)
         shown.filter_map do |frame|
           moment = stamped(frame.locator.to_h["at"].to_f)
-          said = seeing.summarize(format(SCENE, at: moment), role: :vision, analysis: analysis,
-                                  images: [ frame.download.read ], schema: CAPTION)["caption"].to_s.squish
+          seen = Analyzer.inferring(seeing) do
+            seeing.summarize(format(SCENE, at: moment), role: :vision, analysis: analysis,
+                             images: [ frame.download.read ], schema: CAPTION)
+          end
+          said = seen["caption"].to_s.squish
           { "at" => moment, "caption" => said } if said.present?
         end
       end
