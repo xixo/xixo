@@ -205,11 +205,13 @@ A machine links itself up, and an administrator approves it:
    them.
 4. On approval, xixo hands xixo link a one-time enrollment token from masks. xixo link registers
    itself with masks and gets a client whose private key never leaves the machine.
-5. xixo creates the `machine`, keyed by the first label of the host name, and makes the approving
-   administrator its first operator.
+5. xixo creates the `machine`, named and keyed by the first label of the host name, and makes the
+   approving administrator its first operator. It answers xixo link with the machine's name and
+   the address of its card, which xixo link prints.
 
 A request runs out after ten minutes, and each address and tenant can have only a few waiting at
-once. Running the command again on a linked machine updates xixo link and its configuration. A
+once. Running the command again on a linked machine updates xixo link and its configuration, and keeps
+the approval. A
 machine cannot be attached by hand. See [add a machine](/guides/add-a-machine/) for the steps.
 
 xixo link connects to xixo over a WebSocket, with a DPoP-bound masks token that carries `xixo:link`.

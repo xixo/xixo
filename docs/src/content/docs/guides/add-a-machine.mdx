@@ -33,15 +33,23 @@ only what it can read.
    curl -fsSL https://xixo.example.com/link.sh | sh -s -- ~/Documents ~/Desktop
    ```
 
-6. Wait for the command to print a link and a code:
+6. Wait for the step that asks xixo to approve the machine. It prints a link and a code:
 
    ```text
-   Open https://xixo.example.com/link/WDJB-MJHT to approve this machine.
-   It shows the code WDJB-MJHT.
+   4. Asking xixo to approve this machine.
+      Open this link to approve this machine:
+
+        https://xixo.example.com/link/WDJB-MJHT
+
+      Check that the page shows the code WDJB-MJHT, then choose Approve.
+      This command waits until you do. The request runs out in 10 minutes.
    ```
 
 7. [Approve the machine](#approve-the-machine). The command waits until you do, then starts xixo
-   link.
+   link and prints a summary, as in [check on a machine](#check-on-a-machine).
+
+The command numbers its steps and prints each one before it starts. When `sudo` needs a password,
+the line before it says why.
 
 Each folder must exist, and cannot hold a quotation mark, an apostrophe, a backslash, a colon, or a
 control character. Otherwise the command stops before it links up. On Debian or Ubuntu the command
@@ -63,8 +71,10 @@ settings for you.
 2. Drag `xixo-link` from the Finder window into the list.
 3. Turn on its switch.
 
-xixo link checks every 15 seconds and starts reading the folder by itself. Running the link-up
-command again replaces the binary, so grant access again after you do. See
+The command lists these steps last, with the exact path to add. xixo link checks every 15 seconds
+and starts reading the folder by itself. Running the link-up command again keeps the access and
+says so. Only a xixo link too old to update itself is replaced, and then the command lists the
+steps again. See
 [xixo link on macOS](https://github.com/xixo/xixo/tree/main/link#macos) for more.
 
 ## Approve the machine
@@ -82,13 +92,37 @@ Approve a machine only when it shows the same code. Anyone who can reach xixo ca
 machine, and the code is how you know the request came from the machine in front of you.
 :::
 
-xixo adds the machine to **Resources**, and you become its first operator. Its key is the first
-part of its hostname, such as `studio`, or `studio-2` when `studio` is taken. Once it connects, its
-card shows **online** beside its name.
+xixo adds the machine to **Resources**, and you become its first operator. Its name and its key
+are the first part of its hostname, such as `studio`. The key is `studio-2` when `studio` is
+taken. Once it connects, its card shows **online** beside its name.
 
-A request runs out after ten minutes, and the command prints "the request ran out. Run the command
-again". A denied machine prints "xixo denied this machine". Either way, run the command again to
-ask again.
+While it waits, the command says once a minute how long the request has left. A request runs out
+after ten minutes, and the command prints "Error: the request ran out before anyone approved it.
+Run the command again." A denied machine prints "Error: an administrator denied this machine in
+xixo. Run the command again to ask again."
+
+## Check on a machine
+
+The link-up command ends with a summary. `xixo-link status` prints the same one at any time, with
+no `sudo`:
+
+```text
+media is linked up with https://xixo.example.com.
+
+  In xixo    https://xixo.example.com/settings/resources/42
+  Version    0.5.0
+  Service    running
+  Updates    automatic
+  Folders    /srv/media  read only
+             /srv/inbox  read and write
+
+To check on xixo link:
+  systemctl status xixo-link
+  journalctl -u xixo-link -f
+```
+
+**In xixo** is the address of the machine's card. On a Mac the last two lines show the launch agent
+and its log. `xixo-link help` lists the other commands.
 
 ## Change what xixo may do
 
@@ -154,8 +188,8 @@ The folders live in the machine's own config, so xixo cannot widen them.
 
 1. Run the link-up command on the machine again, with the new folders.
 
-The machine prints "Already linked up as" followed by its key, and keeps its link. Run with no
-folders, the command keeps the folders it has.
+The machine prints "Already linked up as" followed by its name, and keeps its link and its
+approval. Run with no folders, the command keeps the folders it has.
 
 To change them by hand on Linux:
 
