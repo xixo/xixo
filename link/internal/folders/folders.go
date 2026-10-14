@@ -89,6 +89,7 @@ type Entry struct {
 	Path       string    `json:"path"`
 	Size       int64     `json:"size"`
 	ModifiedAt time.Time `json:"modified_at"`
+	File       string    `json:"file,omitempty"`
 }
 
 type Listing struct {
@@ -383,7 +384,7 @@ func (w *walker) descend(dir string) error {
 				return errFull
 			}
 
-			w.listed.Entries = append(w.listed.Entries, Entry{Path: name, Size: info.Size(), ModifiedAt: info.ModTime().UTC()})
+			w.listed.Entries = append(w.listed.Entries, Entry{Path: name, Size: info.Size(), ModifiedAt: info.ModTime().UTC(), File: identity(info)})
 		}
 	}
 
@@ -584,7 +585,7 @@ func (f *Folders) WriteModified(ctx context.Context, folder, name string, body i
 		return nil, err
 	}
 
-	return &Entry{Path: relative, Size: info.Size(), ModifiedAt: info.ModTime().UTC()}, nil
+	return &Entry{Path: relative, Size: info.Size(), ModifiedAt: info.ModTime().UTC(), File: identity(info)}, nil
 }
 
 func (f *Folders) overlaps(folder string) bool {

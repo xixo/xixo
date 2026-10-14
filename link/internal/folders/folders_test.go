@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"testing"
 )
@@ -84,6 +85,16 @@ func TestListWalksInOrderAndSkips(t *testing.T) {
 
 	if listed.Entries[1].Size != 1 || listed.Entries[1].ModifiedAt.IsZero() {
 		t.Fatalf("an entry lacks its size or time: %+v", listed.Entries[1])
+	}
+
+	opened, err := held.Open(shared, "a.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer opened.Close()
+
+	if runtime.GOOS != "windows" && (listed.Entries[1].File == "" || listed.Entries[1].File != opened.Identity) {
+		t.Fatalf("an entry names its file %q, but a hash names it %q", listed.Entries[1].File, opened.Identity)
 	}
 }
 
