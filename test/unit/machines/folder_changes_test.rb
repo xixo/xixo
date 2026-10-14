@@ -74,10 +74,13 @@ class FolderChangesTest < ActiveSupport::TestCase
   test "a file touched but not changed is hashed again and keeps its analysis" do
     later = 1.day.from_now.to_time
     File.utime(later, later, @root.join("film.mkv"))
+    File.utime(later, later, @root.join("notes.txt"))
 
     Tenant.switch(@tenant) do
       assert_no_difference -> { Analysis.count } do
-        walk
+        assert_enqueued_jobs 1, only: DigestReferencesJob do
+          walk
+        end
         @film.reload
         assert_nil @film.analyzed_at
         assert_nil @film.digest

@@ -629,6 +629,7 @@ class Resource < ApplicationRecord
 
     reference.leave! if reference.saved_change_to_changed_at? && reference.prior_digest.nil?
     reference.feed.analyze!(cause: cause) if reference.awaiting_analysis?
+    fingerprint_soon if reference.prior_digest.present? && reference.digest.nil?
 
     if cause == "sync"
       reference.update_columns(seen_at: Time.current, gone_at: nil)
@@ -654,6 +655,13 @@ class Resource < ApplicationRecord
     Reference.where(id: unchanged.map(&:first)).update_all(seen_at: Time.current)
     seen = unchanged.to_set { |_, locator_key, _| locator_key }
     objects.reject { |object| seen.include?(locator_key_for(object)) }
+  end
+
+  def fingerprint_soon
+    return if @fingerprinting
+
+    @fingerprinting = true
+    DigestReferencesJob.perform_later
   end
 
   def unchanged(object)
