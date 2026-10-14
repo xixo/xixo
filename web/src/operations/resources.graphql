@@ -60,9 +60,9 @@ query Resources($archived: Boolean) {
       seenAt
       uptime
       folders
+      writable
       extractors
       unread
-      access
       helpsOthers
       heldBack
       lends
@@ -173,14 +173,11 @@ mutation DenyLinkRequest($id: ID!) {
   }
 }
 
-mutation SetMachineAccess($id: ID!, $access: String, $helpsOthers: Boolean) {
-  setMachineAccess(
-    input: { id: $id, access: $access, helpsOthers: $helpsOthers }
-  ) {
+mutation SetMachineHelpsOthers($id: ID!, $helpsOthers: Boolean!) {
+  setMachineHelpsOthers(input: { id: $id, helpsOthers: $helpsOthers }) {
     resource {
       id
       machine {
-        access
         helpsOthers
         heldBack
         lends

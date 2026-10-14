@@ -269,6 +269,26 @@ class PersonalResourcesTest < ActionDispatch::IntegrationTest
     assert_equal %w[news/plan.txt], described[:references].pluck(:locator_key)
   end
 
+  test "a file in a personal folder on a machine that lends is fetched by its owner and nobody else" do
+    root = Pathname.new(Dir.mktmpdir("personal-machine"))
+    root.join("plan.txt").write("ada's plan")
+    reference = Tenant.switch(@tenant) do
+      folder = disk_folder(root, key: "ada-home", owner_subject: "ada")
+      feed = Feed.create!(type: Feed::FILE, key: "plan.txt", title: "plan.txt")
+      Reference.create!(feed: feed, resource: folder, locator_key: "plan.txt", locator: { "path" => "plan.txt" })
+        .tap { feed.settle_readers! }
+    end
+
+    get "/references/#{reference.id}/content", headers: headers("bob")
+    assert_response :not_found
+
+    get "/references/#{reference.id}/content", headers: headers("ada")
+    assert_response :ok
+    assert_equal "ada's plan", response.body
+  ensure
+    FileUtils.remove_entry(root) if root&.exist?
+  end
+
   test "a personal resource is never where everyone's drops land" do
     Tenant.switch(@tenant) do
       bucket = Resource::S3.new(key: "private-bucket", owner_subject: "ada", default_storage: true,

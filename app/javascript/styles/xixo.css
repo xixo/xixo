@@ -3750,18 +3750,54 @@ a.tag:hover {
   color: var(--accent);
 }
 
-.machine-access {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s2) var(--s4);
+.machine-shares {
+  display: grid;
+  gap: var(--s3);
 }
 
-.machine-access-says {
-  flex: 1 1 12rem;
+.machine-shares-none {
   margin: 0;
   color: var(--muted);
   font-size: var(--t-small);
+}
+
+.machine-shared {
+  display: grid;
+  gap: var(--s1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.machine-shared-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s1) var(--s3);
+  min-width: 0;
+}
+
+.machine-shared-path {
+  min-width: 0;
+  color: var(--bright);
+  overflow-wrap: anywhere;
+}
+
+.machine-shared-mode {
+  color: var(--soft);
+  font-size: var(--t-small);
+}
+
+.machine-shared-mode[data-writable="true"] {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.machine-switches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--s2) var(--s5);
 }
 
 .machine-found {

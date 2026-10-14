@@ -23,25 +23,26 @@ class Resource
         discover: "Lists the folders the machine shares, each with the type and address to attach it as a folder.",
         browse: "Lists the files in a folder the machine shares, depth first in name order, at most 200 at a time. " \
                 "Left without a folder, it lists the shared folders. A cursor in the answer is passed back to " \
-                "read on. Needs the machine to offer browse, and a token for one of its operators.",
+                "read on. Needs the machine's config to allow browse, and a token for one of its operators.",
         search: "Finds files on the machine for a query, at most 100 of each kind. It searches xixo's index of " \
                 "the machine's folders, which matches titles, paths, and text drawn out by analysis, and walks " \
                 "the folders on the machine for paths that hold the query, ignoring case, stopping after 20,000 " \
-                "files or ten seconds. Only a token for one of its operators walks the folders. Needs the machine to " \
-                "offer search.",
-        read: "Reads up to 256 KiB of a shared file as text. When the machine does not lend its files' bytes, or " \
-              "is offline, or the token is not one of its operators', it answers with what xixo drew out of the " \
-              "file instead, and says so. Needs the machine to offer read.",
-        write: "Writes a file of at most 1 MiB, given as text or base64, into a folder the machine marks writable. " \
-               "Without replace true it refuses to overwrite a file. Needs xixo:resources:command, a token for one " \
-               "of its operators, and the machine to offer write.",
+                "files or ten seconds. Only a token for one of its operators walks the folders. Needs the machine's " \
+                "config to allow search.",
+        read: "Reads up to 256 KiB of a shared file as text. When the machine's config sets lend to false, or the " \
+              "machine is offline, or the token is not one of its operators', it answers with what xixo drew out " \
+              "of the file instead, and says so. Needs the machine's config to allow read.",
+        write: "Writes a file of at most 1 MiB, given as text or base64, into a folder the machine shares writable. " \
+               "A folder is writable when the link-up command named it with :rw. Without replace true it refuses " \
+               "to overwrite a file. Needs xixo:resources:command, a token for one of its operators, and the " \
+               "machine's config to allow write.",
         extract: "Runs the machine's own extractors on a shared file and answers with the text and metadata they " \
-                 "draw out, without keeping anything. Needs the machine to offer extract, and a token for one of " \
-                 "its operators.",
+                 "draw out, without keeping anything. Needs the machine's config to allow extract, and a token for " \
+                 "one of its operators.",
         chat: "Asks a model server running on the machine, such as Ollama or LM Studio, one question and answers " \
               "with its reply, at most 64 KiB. kind picks the server when the machine runs more than one, and " \
-              "model picks the model, the server's first when left off. Needs the machine to offer models, and a " \
-              "token for one of its operators."
+              "model picks the model, the server's first when left off. Needs the machine's config to allow " \
+              "models, and a token for one of its operators."
       }.freeze
 
       HELD_BACK = {
@@ -62,7 +63,8 @@ class Resource
       EXTRACTED_WITHIN = 120.seconds
       ANSWERED_WITHIN_MODEL = 90.seconds
       WRITTEN_WITHIN = 60.seconds
-      STAYS = "the machine does not lend its files' bytes, so they stay on it; this is what xixo drew out of the file".freeze
+      STAYS = "xixo link's config on the machine sets lend to false, so its files' bytes stay on it; this is what " \
+              "xixo drew out of the file".freeze
       UNLISTED = "this token speaks for someone the machine does not list among its operators, so its files' bytes " \
                  "stay on it; this is what xixo drew out of the file".freeze
       AWAY = "the machine is not connected, so this is what xixo drew out of the file".freeze
@@ -228,9 +230,13 @@ class Resource
         end
 
         def unoffered(tool)
-          return "its access in xixo leaves #{tool} out. An administrator changes it on the machine's card" unless policy["tools"].include?(tool)
-          return "its config leaves #{tool} out of tools" unless offers?(tool)
-          return "it shares no folder writable" if tool == "write"
+          unless Array(machine["tools"]).include?(tool)
+            return "xixo link's config on it leaves #{tool} out of tools. Add #{tool} to tools in the config, or " \
+                   "remove tools to allow every tool"
+          end
+          if tool == "write"
+            return "it shares no folder writable. Run the link-up command on it again with a folder followed by :rw"
+          end
 
           "no model server answered on it"
         end

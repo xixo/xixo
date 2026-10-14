@@ -46,7 +46,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | --- | --- | --- | --- |
 | `addNote`<br />`input: AddNoteInput!` | [`AddNotePayload`](#addnotepayload) | `xixo:catalog:write` |  |
 | `analyzeFeed`<br />`input: AnalyzeFeedInput!` | [`AnalyzeFeedPayload`](#analyzefeedpayload) | `xixo:catalog:write` |  |
-| `approveLinkRequest`<br />`input: ApproveLinkRequestInput!` | [`ApproveLinkRequestPayload`](#approvelinkrequestpayload) | `xixo:resources:command` | Approves a machine asking to link up. xixo hands xixo link on it a single-use enrollment token for masks, and the machine shows up once it enrolls. It starts with Search access and helps read other machines' files. |
+| `approveLinkRequest`<br />`input: ApproveLinkRequestInput!` | [`ApproveLinkRequestPayload`](#approvelinkrequestpayload) | `xixo:resources:command` | Approves a machine asking to link up. xixo hands xixo link on it a single-use enrollment token for masks, and the machine shows up once it enrolls. xixo may do everything with the folders it shares, and it starts out helping read files from other places. |
 | `archiveResource`<br />`input: ArchiveResourceInput!` | [`ArchiveResourcePayload`](#archiveresourcepayload) | `xixo:resources:command` |  |
 | `askCatalog`<br />`input: AskCatalogInput!` | [`AskCatalogPayload`](#askcatalogpayload) | `xixo:catalog:write` |  |
 | `attachResource`<br />`input: AttachResourceInput!` | [`AttachResourcePayload`](#attachresourcepayload) | `xixo:resources:command` |  |
@@ -70,7 +70,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | `setDefaultStorage`<br />`input: SetDefaultStorageInput!` | [`SetDefaultStoragePayload`](#setdefaultstoragepayload) | `xixo:resources:command` |  |
 | `setFeedLifetime`<br />`input: SetFeedLifetimeInput!` | [`SetFeedLifetimePayload`](#setfeedlifetimepayload) | `xixo:catalog:write` |  |
 | `setFeedTimeout`<br />`input: SetFeedTimeoutInput!` | [`SetFeedTimeoutPayload`](#setfeedtimeoutpayload) | `xixo:catalog:write` |  |
-| `setMachineAccess`<br />`input: SetMachineAccessInput!` | [`SetMachineAccessPayload`](#setmachineaccesspayload) | `xixo:resources:command` | Sets what xixo may do with a machine. search browses, searches, and reads the text xixo drew out. files adds fetching whole files and running the machine's readers. writing adds writing into the folders the machine marks writable. xixo tells xixo link at once, and the machine's own config can only narrow it. |
+| `setMachineHelpsOthers`<br />`input: SetMachineHelpsOthersInput!` | [`SetMachineHelpsOthersPayload`](#setmachinehelpsotherspayload) | `xixo:resources:command` | Turns on or off whether a machine helps read files from elsewhere: uploads, mail attachments, cloud files, web pages, and files other machines lend. xixo tells xixo link at once, and the machine's own config can still keep it off. |
 | `setMachineUpdates`<br />`input: SetMachineUpdatesInput!` | [`SetMachineUpdatesPayload`](#setmachineupdatespayload) | `xixo:resources:command` | Turns automatic updates of xixo link on a machine on or off. When on, xixo tells xixo link to update to the build xixo ships each time it connects, and xixo link downloads it from xixo, checks it, and restarts into it. |
 | `setSetting`<br />`input: SetSettingInput!` | [`SetSettingPayload`](#setsettingpayload) | `xixo:settings:write` |  |
 | `setSyncInterval`<br />`input: SetSyncIntervalInput!` | [`SetSyncIntervalPayload`](#setsyncintervalpayload) | `xixo:resources:command` |  |
@@ -520,19 +520,18 @@ What xixo link on a machine last said about it. Resolves only for a token carryi
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `access` | `String!` | What xixo may do with the machine: search, files, or writing. An administrator changes it with setMachineAccess. |
 | `arch` | `String` |  |
 | `connected` | `Boolean!` | Whether xixo link is connected to xixo now. |
 | `current` | `Boolean` | Whether xixo link runs the build this xixo ships. Empty when xixo ships none for the machine's system and processor, and when xixo link is older than updates and does not say which build it runs. |
 | `disks` | [`[MachineDisk!]!`](#machinedisk) |  |
 | `extractors` | `[String!]!` | The kinds of file xixo link can read, by the programs installed on the machine. |
-| `extractsForOthers` | `Boolean!` | Whether the machine reads files from other places for xixo: uploads, mail attachments, cloud files, web pages, and files other machines lend. Its access and its own config both have to allow it. |
+| `extractsForOthers` | `Boolean!` | Whether the machine reads files from other places for xixo: uploads, mail attachments, cloud files, web pages, and files other machines lend. helpsOthers and the machine's own config both have to allow it. |
 | `folders` | `[String!]!` | The folders xixo link shares, as its own config lists them. |
-| `heldBack` | `[String!]!` | What its access asks for that the machine's own config holds back: tool names, lend, or extracts_for_others. |
-| `helpsOthers` | `Boolean!` | Whether xixo asks the machine to help read files from elsewhere. |
+| `heldBack` | `[String!]!` | What the machine's own config keeps off: tool names, lend, or extracts_for_others. xixo asks for every tool, for lending, and for helping others when helpsOthers is on. |
+| `helpsOthers` | `Boolean!` | Whether xixo asks the machine to help read files from elsewhere. An administrator changes it with setMachineHelpsOthers. |
 | `hostname` | `String` | The name the machine gives itself. |
 | `kind` | `String` | What kind of machine it is: laptop, desktop, all-in-one, or server. Empty when it cannot tell. |
-| `lends` | `Boolean!` | Whether the bytes of its files may leave the machine: to be opened or downloaded, and to be read by another machine when it lacks the program itself. Its access and its own config both have to allow it. |
+| `lends` | `Boolean!` | Whether the bytes of its files may leave the machine: to be opened or downloaded, and to be read by another machine when it lacks the program itself. It is on unless the machine's config sets lend to false. |
 | `linked` | `Boolean!` | Whether xixo link is enrolled as this machine, whether or not it is connected now. |
 | `load` | `[Float!]!` | The load average over one, five, and fifteen minutes. |
 | `memoryAvailable` | `BigInt` |  |
@@ -543,7 +542,7 @@ What xixo link on a machine last said about it. Resolves only for a token carryi
 | `seenAt` | `ISO8601DateTime` | When xixo link last said anything. |
 | `services` | [`[MachineService!]!`](#machineservice) | Model servers listening on the machine, with its tailnet address when it has one. |
 | `system` | `String` | The system and its version it reported when it linked up, such as macOS 26.0. |
-| `tools` | `[String!]!` | The tools the machine offers to MCP clients through xixo: browse, search, read, write, extract, and models. Its access and its own config both have to allow each one. |
+| `tools` | `[String!]!` | The tools the machine offers to MCP clients through xixo: browse, search, read, write, extract, and models. Its config allows each one unless its tools list leaves it out, and models needs a model server on the machine. |
 | `unread` | `[String!]!` | The kinds of file xixo link cannot read, because the machine lacks their programs. Such a file on this machine is read by a machine that reads for others when this one lends its files, and otherwise waits until this one can read it. |
 | `updates` | `Boolean!` | Whether xixo updates xixo link on the machine to the build it ships. An administrator turns it off with setMachineUpdates. |
 | `updatesItself` | `Boolean!` | Whether xixo link on the machine can update itself. It cannot when it runs in a container, which updates with its image, or when it was installed before xixo link updated itself. |
@@ -551,6 +550,7 @@ What xixo link on a machine last said about it. Resolves only for a token carryi
 | `version` | `String` | The version of xixo link. |
 | `waiting` | [`[WaitingFiles!]!`](#waitingfiles) | Files on this machine whose reading waits for it, by kind: it is offline, or it lacks their program and lends none of its files. |
 | `warnings` | `[String!]!` | What xixo link last said is keeping it from working fully, such as a shared folder it may not read, each as a sentence to show a person. |
+| `writable` | `[String!]!` | The shared folders xixo may write into. A folder is writable when the link-up command named it with :rw and the machine's config allows the write tool. |
 
 ### MachineChangedPayload
 
@@ -681,7 +681,7 @@ Resolves only for a token carrying `xixo:resources:read`.
 | `machine` | [`Machine`](#machine) | What xixo link on the machine last said, for a machine running xixo link. Empty for every other type. |
 | `machineId` | `ID` | The machine it lives on or is reached through. A folder names the machine running xixo link that shares it. One reached over a tailnet names the linked machine at the address it dials, when one is. Everything else names this server, the machine xixo runs on. Empty for a machine, and for anything when this server has no machine yet. |
 | `manageable` | `Boolean!` | Whether this token changes it, puts it away, or deletes it. A person manages their own personal resources, and an administrator also manages every shared one. |
-| `movable` | `Boolean!` | Whether files move in and out of it: a folder on a machine running xixo link that shares it writable and may write into it. |
+| `movable` | `Boolean!` | Whether files move in and out of it: a folder that a machine running xixo link shares writable. The link-up command shares a folder writable when it is named with :rw. |
 | `name` | `String` |  |
 | `needsConnect` | `Boolean!` | Whether somebody has to connect it through masks, or connect it again, before it answers. |
 | `nextSyncAt` | `ISO8601DateTime` |  |
@@ -805,9 +805,9 @@ Autogenerated return type of SetFeedTimeout.
 | `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
 | `feed` | [`Feed!`](#feed) |  |
 
-### SetMachineAccessPayload
+### SetMachineHelpsOthersPayload
 
-Autogenerated return type of SetMachineAccess.
+Autogenerated return type of SetMachineHelpsOthers.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -1223,15 +1223,14 @@ Autogenerated input type of SetFeedTimeout
 | `id` | `ID!` |  |
 | `seconds` | `Int` | How long an analysis of it may run, from a minute to a day. Left off, it gets the default. |
 
-### SetMachineAccessInput
+### SetMachineHelpsOthersInput
 
-Autogenerated input type of SetMachineAccess
+Autogenerated input type of SetMachineHelpsOthers
 
 | Argument | Type | Description |
 | --- | --- | --- |
-| `access` | `String` | search, files, or writing. |
 | `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
-| `helpsOthers` | `Boolean` | Whether the machine helps read files from elsewhere: uploads, mail attachments, cloud files, web pages, and files other machines lend. |
+| `helpsOthers` | `Boolean!` | Whether the machine helps read files from elsewhere. |
 | `id` | `ID!` |  |
 
 ### SetMachineUpdatesInput

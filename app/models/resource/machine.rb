@@ -26,13 +26,6 @@ class Resource
     LOCAL = "local".freeze
     MINTED = "minted_at".freeze
     CLIENT_ID = /\A[A-Za-z0-9._:-]{1,200}\z/
-    ACCESS = %w[search files writing].freeze
-    DEFAULT_ACCESS = "search".freeze
-    ASKED_TOOLS = {
-      "search" => %w[browse search read],
-      "files" => %w[browse search read extract],
-      "writing" => %w[browse search read extract write]
-    }.freeze
 
     include Tools
     include Updates
@@ -42,7 +35,6 @@ class Resource
     before_validation(on: :create) { operated_by!(Current.grant) }
 
     validate :shared_by_everyone
-    validates :access, inclusion: { in: ACCESS }
 
     after_commit :hang_up, on: %i[update destroy], if: -> { put_away_now? || client_replaced? }
 
@@ -55,10 +47,10 @@ class Resource
           names: "A name for the machine",
           fields: [
             field("operators", "Who operates it", kind: "lines",
-                  help: "The masks subjects, one per line, whose clients may browse its folders, read its files' " \
-                        "bytes, write into them, run its readers, and ask its model server. The administrator " \
-                        "who approves the machine is listed on their own. Anyone else reaches only what xixo " \
-                        "drew out of its files.")
+                  help: "The masks subjects, one per line, whose clients may use the machine's tools: browse its " \
+                        "folders, read its files' bytes, write into them, run its readers, and ask its model " \
+                        "server. The administrator who approves the machine is listed on their own. Anyone else " \
+                        "reaches a file on it only as an item, in a folder attached in xixo that they may see.")
           ]
         }
       end
@@ -67,7 +59,7 @@ class Resource
         create!(
           key: free_key(request.hostname), name: short(request.hostname).presence || request.hostname,
           details: {
-            "client_id" => client_id, "access" => DEFAULT_ACCESS, "helps_others" => true,
+            "client_id" => client_id, "helps_others" => true,
             "operators" => [ request.decided_by ].compact,
             "approved" => { "by" => request.decided_by, "at" => request.decided_at&.utc&.iso8601 }.compact,
             "about" => request.details.to_h.slice("system", "model", "kind").compact
@@ -220,22 +212,14 @@ class Resource
       details.to_h["local"] == true
     end
 
-    def access
-      held = details.to_h["access"]
-      return held if held.present?
-
-      local? ? "writing" : DEFAULT_ACCESS
-    end
-
     def helps_others?
       details.to_h["helps_others"] != false
     end
 
     def policy
-      tools = ASKED_TOOLS.fetch(access, ASKED_TOOLS[DEFAULT_ACCESS])
-      tools += [ "models" ] if model_kinds.any?
+      tools = model_kinds.any? ? Tools::NAMES : Tools::NAMES - [ "models" ]
 
-      { "tools" => Tools::NAMES & tools, "lend" => access != "search", "extracts_for_others" => helps_others? }
+      { "tools" => tools, "lend" => true, "extracts_for_others" => helps_others? }
     end
 
     def about
@@ -243,7 +227,7 @@ class Resource
     end
 
     def lends?
-      machine["lend"] == true && policy["lend"]
+      machine["lend"] == true
     end
 
     def writes?
@@ -251,18 +235,14 @@ class Resource
     end
 
     def held_back
-      ceiling = Array(machine["tools"])
-      tools = policy["tools"] - ceiling
-      tools += [ "lend" ] if policy["lend"] && machine["lend"] == false
-      tools += [ "extracts_for_others" ] if policy["extracts_for_others"] && machine["extracts_for_others"] == false
+      tools = policy["tools"] - Array(machine["tools"])
+      tools += [ "lend" ] if machine["lend"] == false
+      tools += [ "extracts_for_others" ] if helps_others? && machine["extracts_for_others"] == false
       heard_from? ? tools : []
     end
 
-    def set_access!(access: nil, helps_others: nil)
-      held = details.to_h
-      held = held.merge("access" => access) unless access.nil?
-      held = held.merge("helps_others" => helps_others) unless helps_others.nil?
-      update!(details: held)
+    def set_helps_others!(helps)
+      update!(details: details.to_h.merge("helps_others" => helps))
       tell!
       announce!
     end

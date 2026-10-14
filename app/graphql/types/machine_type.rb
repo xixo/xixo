@@ -27,6 +27,9 @@ module Types
     field :connected, Boolean, null: false, description: "Whether xixo link is connected to xixo now."
     field :seen_at, GraphQL::Types::ISO8601DateTime, description: "When xixo link last said anything."
     field :folders, [ String ], null: false, description: "The folders xixo link shares, as its own config lists them."
+    field :writable, [ String ], null: false,
+          description: "The shared folders xixo may write into. A folder is writable when the link-up command named " \
+                       "it with :rw and the machine's config allows the write tool."
     field :uptime, Float, description: "Seconds since the machine started."
     field :load, [ Float ], null: false, description: "The load average over one, five, and fifteen minutes."
     field :memory_total, GraphQL::Types::BigInt
@@ -38,28 +41,27 @@ module Types
           description: "The kinds of file xixo link cannot read, because the machine lacks their programs. " \
                        "Such a file on this machine is read by a machine that reads for others when this one lends " \
                        "its files, and otherwise waits until this one can read it."
-    field :access, String, null: false,
-          description: "What xixo may do with the machine: search, files, or writing. An administrator changes it " \
-                       "with setMachineAccess."
     field :helps_others, Boolean, null: false,
-          description: "Whether xixo asks the machine to help read files from elsewhere."
+          description: "Whether xixo asks the machine to help read files from elsewhere. An administrator changes " \
+                       "it with setMachineHelpsOthers."
     field :held_back, [ String ], null: false,
-          description: "What its access asks for that the machine's own config holds back: tool names, lend, or " \
-                       "extracts_for_others."
+          description: "What the machine's own config keeps off: tool names, lend, or extracts_for_others. xixo " \
+                       "asks for every tool, for lending, and for helping others when helpsOthers is on."
     field :lends, Boolean, null: false,
           description: "Whether the bytes of its files may leave the machine: to be opened or downloaded, and to " \
-                       "be read by another machine when it lacks the program itself. Its access and its own " \
-                       "config both have to allow it."
+                       "be read by another machine when it lacks the program itself. It is on unless the " \
+                       "machine's config sets lend to false."
     field :warnings, [ String ], null: false,
           description: "What xixo link last said is keeping it from working fully, such as a shared folder it " \
                        "may not read, each as a sentence to show a person."
     field :tools, [ String ], null: false,
           description: "The tools the machine offers to MCP clients through xixo: browse, search, read, write, " \
-                       "extract, and models. Its access and its own config both have to allow each one."
+                       "extract, and models. Its config allows each one unless its tools list leaves it out, and " \
+                       "models needs a model server on the machine."
     field :extracts_for_others, Boolean, null: false,
           description: "Whether the machine reads files from other places for xixo: uploads, mail attachments, " \
-                       "cloud files, web pages, and files other machines lend. Its access and its own config both " \
-                       "have to allow it."
+                       "cloud files, web pages, and files other machines lend. helpsOthers and the machine's own " \
+                       "config both have to allow it."
     field :waiting, [ Types::WaitingFilesType ], null: false,
           description: "Files on this machine whose reading waits for it, by kind: it is offline, or it lacks " \
                        "their program and lends none of its files."
@@ -82,6 +84,7 @@ module Types
     def connected = object.connected?
     def seen_at = object.seen_at
     def folders = object.offered_folders
+    def writable = object.writable_folders
     def uptime = health["uptime"]
     def load = Array(health["load"]).compact
     def memory_total = health.dig("memory", "total")
@@ -107,7 +110,6 @@ module Types
     def extracts_for_others = object.extracts_for_others
     def waiting = Types::WaitingFilesType.on(context, object.id)
     def linked = object.client_id.present?
-    def access = object.access
     def helps_others = object.helps_others?
     def held_back = object.held_back
 

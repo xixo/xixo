@@ -77,7 +77,7 @@ module FakeDisk
 
       Resource::Machine.create!(
         key: key, name: key.titleize,
-        details: { MARK => true, "client_id" => "disk-#{SecureRandom.hex(4)}", "access" => "writing",
+        details: { MARK => true, "client_id" => "disk-#{SecureRandom.hex(4)}",
                    "machine" => machine.merge("folders" => folders.sort, "writable" => writable.sort) }
       )
     end

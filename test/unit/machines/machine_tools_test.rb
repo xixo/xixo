@@ -95,41 +95,64 @@ class MachineToolsTest < ActiveSupport::TestCase
     end
   end
 
-  test "the access an administrator sets narrows what the machine offers, and xixo tells xixo link at once" do
-    offering(ALL, writable: [ "/srv/notes" ], services: [ { "kind" => "ollama", "port" => 11_434 } ], lend: true, access: "search")
+  test "xixo asks for every tool and for lending, and the help-others switch reaches xixo link at once" do
+    offering(ALL, writable: [ "/srv/notes" ], services: [ { "kind" => "ollama", "port" => 11_434 } ], lend: true)
 
     as_member do
       @machine.reload
-      assert_equal %w[health discover browse search read chat], @machine.commands.keys.map(&:to_s)
-      assert_not @machine.lends?
-      assert_empty @machine.writable_folders
-      assert_equal({ "tools" => %w[browse search read models], "lend" => false, "extracts_for_others" => true }, @machine.policy)
+      assert_equal %w[health discover browse search read write extract chat], @machine.commands.keys.map(&:to_s)
+      assert @machine.lends?
+      assert_equal [ "/srv/notes" ], @machine.writable_folders
+      assert_equal({ "tools" => %w[browse search read write extract models], "lend" => true, "extracts_for_others" => true },
+                   @machine.policy)
 
       told = []
       held = LinkChannel.method(:broadcast_to)
       LinkChannel.define_singleton_method(:broadcast_to) { |machine, message| told << [ machine.id, message ] }
       begin
-        @machine.set_access!(access: "files", helps_others: false)
+        @machine.set_helps_others!(false)
       ensure
         LinkChannel.define_singleton_method(:broadcast_to, held)
       end
 
-      assert_equal [ [ @machine.id, { "settings" => { "tools" => %w[browse search read extract models], "lend" => true,
+      assert_equal [ [ @machine.id, { "settings" => { "tools" => %w[browse search read write extract models], "lend" => true,
                                                       "extracts_for_others" => false } } ] ], told
-      assert @machine.reload.lends?
-      assert_not @machine.reads_for_others?
-      assert_equal %w[health discover browse search read extract chat], @machine.commands.keys.map(&:to_s)
+      assert_not @machine.reload.reads_for_others?
+      assert_not @machine.details.key?("access")
     end
   end
 
-  test "the machine's own config holds back what its access asks for" do
-    offering(%w[browse search], lend: false, access: "files")
+  test "xixo asks for models only once the machine reports a model server" do
+    offering(ALL)
+
+    as_member do
+      assert_equal %w[browse search read write extract], @machine.reload.policy["tools"]
+      assert_not_includes @machine.held_back, "models"
+    end
+  end
+
+  test "the machine's own config keeps tools and lending off, and xixo says what it keeps off" do
+    offering(%w[browse search], writable: [ "/srv/notes" ], lend: false)
 
     as_member do
       @machine.reload
       assert_equal %w[browse search], @machine.offered_tools
       assert_not @machine.lends?
-      assert_equal %w[read extract lend], @machine.held_back
+      assert_not @machine.writes?
+      assert_empty @machine.writable_folders
+      assert_equal %w[read write extract lend], @machine.held_back
+
+      error = assert_raises(ArgumentError) { @machine.command("extract", "folder" => "/srv/notes", "path" => "a.txt") }
+      assert_match(/config on it leaves extract out of tools. Add extract to tools in the config/, error.message)
+    end
+  end
+
+  test "a machine that shares no folder writable says how to share one" do
+    offering(ALL)
+
+    as_member do
+      error = assert_raises(ArgumentError) { @machine.reload.command("write", "folder" => "/srv/notes", "path" => "a.txt", "text" => "hi") }
+      assert_match(/shares no folder writable. Run the link-up command on it again with a folder followed by :rw/, error.message)
     end
   end
 
@@ -222,7 +245,7 @@ class MachineToolsTest < ActiveSupport::TestCase
       read = JSON.parse(text(called(key: "box", do: "read", input: { folder: "/srv/notes", path: "plans.md" })))
 
       assert_equal "the plans, as extracted", read["text"]
-      assert_match(/does not lend its files' bytes, so they stay on it/, read["note"])
+      assert_match(/sets lend to false, so its files' bytes stay on it/, read["note"])
       assert_empty @asked
     end
   end
@@ -406,9 +429,9 @@ class MachineToolsTest < ActiveSupport::TestCase
 
   private
 
-    def offering(tools, writable: [], services: [], lend: false, access: "writing")
+    def offering(tools, writable: [], services: [], lend: false)
       Tenant.switch(@tenant) do
-        @machine.reload.update!(details: @machine.details.merge("access" => access, "machine" => @machine.machine.merge(
+        @machine.reload.update!(details: @machine.details.merge("machine" => @machine.machine.merge(
           "tools" => tools, "writable" => writable, "services" => services, "lend" => lend
         )))
       end

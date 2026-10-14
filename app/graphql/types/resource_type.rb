@@ -71,8 +71,8 @@ module Types
           description: "For a model backend, which of its models describes images, or why none does and " \
                        "which model to set. Empty for every other type."
     field :movable, Boolean, null: false,
-          description: "Whether files move in and out of it: a folder on a machine running xixo link that shares " \
-                       "it writable and may write into it."
+          description: "Whether files move in and out of it: a folder that a machine running xixo link shares " \
+                       "writable. The link-up command shares a folder writable when it is named with :rw."
     field :held_credentials, [ String ], null: false,
           description: "The names of the encrypted fields that hold something, so a form can say " \
                        "one is set without saying what it is."

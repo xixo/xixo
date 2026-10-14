@@ -106,7 +106,7 @@ export function Move({ moving, onClose }: Props) {
             description={
               folders.length > 0
                 ? undefined
-                : 'A folder takes files when its machine shares it writable and may write into it.'
+                : 'A folder takes files when its machine shares it writable. Run the link-up command on the machine again with the folder followed by :rw.'
             }
             value={destination}
             onChange={setDestination}

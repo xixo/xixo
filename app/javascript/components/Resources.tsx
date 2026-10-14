@@ -6,7 +6,6 @@ import {
   Menu,
   NumberInput,
   Popover,
-  SegmentedControl,
   Switch,
 } from '@mantine/core'
 import {
@@ -46,7 +45,7 @@ import {
   ResourcesDocument,
   SetDefaultInferenceDocument,
   SetDefaultStorageDocument,
-  SetMachineAccessDocument,
+  SetMachineHelpsOthersDocument,
   SetMachineUpdatesDocument,
   SetSyncIntervalDocument,
   SyncResourceDocument,
@@ -146,7 +145,7 @@ interface Resource {
     folders: string[]
     extractors: string[]
     unread: string[]
-    access: string
+    writable: string[]
     helpsOthers: boolean
     heldBack: string[]
     lends: boolean
@@ -288,12 +287,7 @@ function system(machine: Resource) {
 function facts(machine: NonNullable<Resource['machine']>, place: Place) {
   if (!machine.linked && !machine.connected && !machine.seenAt) return []
 
-  const shared = place.folders.length
-
   return [
-    shared === 0
-      ? 'Shares no folders yet'
-      : `Shares ${plural(shared, 'folder')}`,
     reads(machine.extractors, machine.unread),
     heldBack(machine.heldBack),
     waitingOn(machine.waiting, machine.connected),
@@ -322,8 +316,14 @@ function linkVersion(machine: NonNullable<Resource['machine']>, place: Place) {
 }
 
 const HELD_BACK: Record<string, string> = {
+  browse: 'browsing',
+  search: 'searching',
+  read: 'reading files',
+  write: 'writing',
+  extract: 'running its readers',
+  models: 'its model server',
   lend: 'whole files',
-  extracts_for_others: "reading other machines' files",
+  extracts_for_others: 'reading files from other places',
 }
 
 function heldBack(held: string[]) {
@@ -932,6 +932,9 @@ function MachineCard({
       ? humane(resource.checkError)
       : null
   const said = machine ? facts(machine, place) : []
+  const heard = Boolean(
+    machine && (machine.linked || machine.connected || machine.seenAt),
+  )
   const low = machine ? warning(machine) : null
   const found = place.services.filter(
     (service) => !addedAs(place, service, group.rows),
@@ -996,8 +999,8 @@ function MachineCard({
 
       {said.length > 0 && <p className="machine-facts">{said.join(' · ')}</p>}
 
-      {resource && machine?.linked && (
-        <Access
+      {resource && heard && (
+        <Shares
           resource={resource}
           administrator={administrator}
           onChanged={onChanged}
@@ -1054,19 +1057,7 @@ function MachineCard({
   )
 }
 
-const LEVELS = [
-  { value: 'search', label: 'Search' },
-  { value: 'files', label: 'Files' },
-  { value: 'writing', label: 'Files and writing' },
-]
-
-const LEVEL_SAYS: Record<string, string> = {
-  search: 'Browse, search, and read the text xixo drew out.',
-  files: 'Also fetch whole files and run its readers.',
-  writing: 'Also write into the folders it marks writable.',
-}
-
-function Access({
+function Shares({
   resource,
   administrator,
   onChanged,
@@ -1075,7 +1066,10 @@ function Access({
   administrator: boolean
   onChanged: () => void
 }) {
-  const set = useAloud(SetMachineAccessDocument, 'That could not be changed.')
+  const help = useAloud(
+    SetMachineHelpsOthersDocument,
+    'That could not be changed.',
+  )
   const pause = useAloud(
     SetMachineUpdatesDocument,
     'That could not be changed.',
@@ -1083,55 +1077,66 @@ function Access({
   const machine = resource.machine
   if (!machine) return null
 
-  const change = async (asked: { access?: string; helpsOthers?: boolean }) => {
-    const answered = await set.execute({ id: resource.id, ...asked })
-    if (answered) onChanged()
-  }
-
-  const level =
-    LEVELS.find((held) => held.value === machine.access) ?? LEVELS[0]
-
-  if (!administrator)
-    return (
-      <p className="machine-access-says">
-        {level.label}. {LEVEL_SAYS[level.value]}
-      </p>
-    )
+  const writable = new Set(machine.writable)
 
   return (
-    <div className="machine-access">
-      <SegmentedControl
-        size="xs"
-        aria-label={`What xixo may do with ${resource.key}`}
-        value={level.value}
-        data={LEVELS}
-        disabled={set.loading}
-        onChange={(access) => change({ access })}
-      />
-      <span className="machine-access-says">{LEVEL_SAYS[level.value]}</span>
-      <Switch
-        size="xs"
-        label="Help read other machines' files"
-        checked={machine.helpsOthers}
-        disabled={set.loading}
-        onChange={(event) =>
-          change({ helpsOthers: event.currentTarget.checked })
-        }
-      />
-      {machine.updatesItself && (
-        <Switch
-          size="xs"
-          label="Update xixo link automatically"
-          checked={machine.updates}
-          disabled={pause.loading}
-          onChange={async (event) => {
-            const answered = await pause.execute({
-              id: resource.id,
-              automatic: event.currentTarget.checked,
-            })
-            if (answered) onChanged()
-          }}
-        />
+    <div className="machine-shares">
+      {machine.folders.length === 0 ? (
+        <p className="machine-shares-none">
+          {resource.key === LOCAL
+            ? 'Shares no folders yet.'
+            : 'Shares no folders yet. Run the link-up command on the machine again with the folders to share.'}
+        </p>
+      ) : (
+        <ul
+          className="machine-shared"
+          aria-label={`Folders ${resource.key} shares`}
+        >
+          {machine.folders.map((folder) => (
+            <li key={folder} className="machine-shared-row">
+              <code className="machine-shared-path">{folder}</code>
+              <span
+                className="machine-shared-mode"
+                data-writable={writable.has(folder)}
+              >
+                {writable.has(folder) ? 'Read and write' : 'Read only'}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {administrator && machine.linked && (
+        <div className="machine-switches">
+          <Switch
+            size="xs"
+            label="Help read files from other places"
+            description="Uploads, mail attachments, cloud files, web pages, and files from other machines"
+            checked={machine.helpsOthers}
+            disabled={help.loading}
+            onChange={async (event) => {
+              const answered = await help.execute({
+                id: resource.id,
+                helpsOthers: event.currentTarget.checked,
+              })
+              if (answered) onChanged()
+            }}
+          />
+          {machine.updatesItself && (
+            <Switch
+              size="xs"
+              label="Update xixo link automatically"
+              checked={machine.updates}
+              disabled={pause.loading}
+              onChange={async (event) => {
+                const answered = await pause.execute({
+                  id: resource.id,
+                  automatic: event.currentTarget.checked,
+                })
+                if (answered) onChanged()
+              }}
+            />
+          )}
+        </div>
       )}
     </div>
   )
@@ -1572,13 +1577,6 @@ function Details({ resource, acts }: { resource: Resource; acts: Acts }) {
     if (held) rows.push(['Machine', held])
     if (resource.via) rows.push(['Reached through', resource.via])
     if (machine.version) rows.push(['xixo link', machine.version])
-    if (machine.folders.length > 0)
-      rows.push([
-        'Folders',
-        <span key="folders" className="mono">
-          {machine.folders.join('\n')}
-        </span>,
-      ])
     if (machine.unread.length > 0)
       rows.push(['Cannot read', cannotRead(machine.unread)])
     rows.push([

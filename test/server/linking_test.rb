@@ -11,10 +11,10 @@ class LinkingTest < ActionDispatch::IntegrationTest
     mutation($id: ID!) { denyLinkRequest(input: { id: $id }) { request { id status } } }
   GQL
   REQUESTS = "{ linkRequests { id code status hostname os arch folders writable remoteIp machine { key } } }".freeze
-  ACCESS = <<~GQL.freeze
-    mutation($id: ID!, $access: String, $helpsOthers: Boolean) {
-      setMachineAccess(input: { id: $id, access: $access, helpsOthers: $helpsOthers }) {
-        resource { machine { access helpsOthers lends tools extractsForOthers } }
+  HELPS = <<~GQL.freeze
+    mutation($id: ID!, $helpsOthers: Boolean!) {
+      setMachineHelpsOthers(input: { id: $id, helpsOthers: $helpsOthers }) {
+        resource { machine { helpsOthers lends tools extractsForOthers } }
       }
     }
   GQL
@@ -297,8 +297,9 @@ class LinkingTest < ActionDispatch::IntegrationTest
 
     Tenant.switch(@tenant) do
       assert_equal [ "studio", "studio" ], [ machine.key, machine.name ]
-      assert_equal "search", machine.access
+      assert_not machine.details.key?("access")
       assert machine.helps_others?
+      assert_equal({ "tools" => %w[browse search read write extract], "lend" => true, "extracts_for_others" => true }, machine.policy)
       assert_equal [ "bob" ], machine.operators
       assert_equal "linked", LinkRequest.sole.status
       assert_equal machine, LinkRequest.sole.resource
@@ -345,17 +346,20 @@ class LinkingTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) { assert_equal "studio-2", Resource::Machine.enrolled("client-second").key }
   end
 
-  test "an administrator changes what xixo may do with a machine, and nobody else does" do
+  test "an administrator turns off whether a machine helps read files from elsewhere, and nobody else does" do
     machine = machine_on(@tenant, key: "box")
 
-    assert_match(/only an administrator changes what xixo may do/,
-                 graphql(Grant::SIGN_IN, ACCESS, id: machine.id, access: "files").dig("errors", 0, "message"))
-    assert_match(/everything is not search, files, or writing/,
-                 graphql(Grant::SCOPES, ACCESS, id: machine.id, access: "everything").dig("errors", 0, "message"))
+    assert_match(/only an administrator turns on or off whether a machine helps read files from elsewhere/,
+                 graphql(Grant::SIGN_IN, HELPS, id: machine.id, helpsOthers: false).dig("errors", 0, "message"))
+    Tenant.switch(@tenant) { assert Resource::Machine.find(machine.id).helps_others? }
 
-    held = graphql(Grant::SCOPES, ACCESS, id: machine.id, access: "writing", helpsOthers: false)
-    assert_equal({ "access" => "writing", "helpsOthers" => false }, held.dig("data", "setMachineAccess", "resource", "machine").slice("access", "helpsOthers"))
-    Tenant.switch(@tenant) { assert_equal "set_machine_access", AuditEvent.where(channel: "graphql").last.action }
+    held = graphql(Grant::SCOPES, HELPS, id: machine.id, helpsOthers: false)
+    assert_equal false, held.dig("data", "setMachineHelpsOthers", "resource", "machine", "helpsOthers")
+    Tenant.switch(@tenant) do
+      assert_not Resource::Machine.find(machine.id).helps_others?
+      assert_equal [ "set_machine_helps_others", { "key" => "box", "helps_others" => false } ],
+                   AuditEvent.where(channel: "graphql").last.values_at(:action, :arguments)
+    end
   end
 
   test "an administrator pauses updates of xixo link on a machine, and nobody else does" do

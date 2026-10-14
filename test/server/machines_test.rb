@@ -28,7 +28,7 @@ class MachinesTest < ActionDispatch::IntegrationTest
   test "a machine says which kinds of file it reads, which it cannot, whether it lends its files, and which tools it offers" do
     machine = machine_on(@tenant, folders: [ "/srv/media" ])
     Tenant.switch(@tenant) do
-      machine.update_columns(details: machine.details.deep_merge("access" => "files", "machine" => { "extractors" => %w[text pdf], "tools" => %w[read shell browse], "lend" => true }))
+      machine.update_columns(details: machine.details.deep_merge("machine" => { "extractors" => %w[text pdf], "tools" => %w[read shell browse], "lend" => true }))
     end
 
     body = graphql(Grant::SCOPES, "{ resources { key machine { extractors unread lends tools } } }")
@@ -38,6 +38,24 @@ class MachinesTest < ActionDispatch::IntegrationTest
     assert_equal Resource::Machine::EXTRACTORS - %w[text pdf], held["unread"]
     assert_equal true, held["lends"]
     assert_equal %w[browse read], held["tools"]
+  end
+
+  test "a machine says which shared folders xixo may write into, by what xixo link shares writable and its tools" do
+    machine = machine_on(@tenant, folders: [ "/srv/media", "/srv/inbox" ])
+    Tenant.switch(@tenant) do
+      machine.update_columns(details: machine.details.deep_merge("machine" => { "writable" => [ "/srv/inbox", "/etc" ], "tools" => %w[browse write] }))
+    end
+    asked = "{ resources { key machine { folders writable heldBack } } }"
+
+    held = graphql(Grant::SCOPES, asked).dig("data", "resources").find { |listed| listed["key"] == "box" }["machine"]
+    assert_equal [ "/srv/media", "/srv/inbox" ], held["folders"]
+    assert_equal [ "/srv/inbox" ], held["writable"]
+    assert_equal %w[search read extract], held["heldBack"]
+
+    Tenant.switch(@tenant) { machine.update_columns(details: machine.details.deep_merge("machine" => { "tools" => %w[browse] })) }
+
+    held = graphql(Grant::SCOPES, asked).dig("data", "resources").find { |listed| listed["key"] == "box" }["machine"]
+    assert_empty held["writable"]
   end
 
   test "files whose reading waits are counted on the machine they wait for, and apart when any machine will do" do

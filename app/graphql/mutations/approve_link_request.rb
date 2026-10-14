@@ -3,8 +3,8 @@
 module Mutations
   class ApproveLinkRequest < BaseMutation
     description "Approves a machine asking to link up. xixo hands xixo link on it a single-use enrollment token " \
-                "for masks, and the machine shows up once it enrolls. It starts with Search access and helps read " \
-                "other machines' files."
+                "for masks, and the machine shows up once it enrolls. xixo may do everything with the folders it " \
+                "shares, and it starts out helping read files from other places."
 
     argument :id, ID, required: true
 

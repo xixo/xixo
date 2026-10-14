@@ -69,7 +69,7 @@ const machineSaid = (overrides: Record<string, unknown>) => ({
   folders: [],
   extractors: ['pdf', 'text'],
   unread: [],
-  access: 'search',
+  writable: [],
   helpsOthers: true,
   heldBack: [],
   lends: false,
@@ -259,9 +259,10 @@ describe('Resources', () => {
     expect(within(server).getByText('Where xixo runs')).toBeTruthy()
     expect(
       within(server).getByText(
-        'Shares 1 folder · Reads every kind of file · xixo link 0.4.0, up to date',
+        'Reads every kind of file · xixo link 0.4.0, up to date',
       ),
     ).toBeTruthy()
+    expect(within(server).getByText('/data/files')).toBeTruthy()
     expect(within(server).getByText('Found Ollama on This server')).toBeTruthy()
     expect(within(server).getByText('Household')).toBeTruthy()
     expect(within(server).getByText('drops land here')).toBeTruthy()
@@ -542,21 +543,29 @@ describe('Resources', () => {
     ).toEqual({ id: '40' })
   })
 
-  test('an administrator changes what xixo may do with a machine on its card', async () => {
+  test('a machine card lists the folders it shares, marks the writable ones, and an administrator turns off helping others', async () => {
+    const sharing = resource({
+      ...studio,
+      machine: machineSaid({
+        ...studio.machine,
+        folders: ['/srv/media', '/srv/inbox'],
+        writable: ['/srv/inbox'],
+        heldBack: ['extract', 'lend'],
+      }),
+    })
     const { client, asked } = fakeClient({
       ...QUIET,
-      Resources: () => ({ administrator: true, resources: [local, studio] }),
-      SetMachineAccess: () => ({
-        setMachineAccess: {
+      Resources: () => ({ administrator: true, resources: [local, sharing] }),
+      SetMachineHelpsOthers: () => ({
+        setMachineHelpsOthers: {
           resource: {
             id: '7',
             machine: {
-              access: 'files',
-              helpsOthers: true,
+              helpsOthers: false,
               heldBack: [],
               lends: true,
               tools: [],
-              extractsForOthers: true,
+              extractsForOthers: false,
             },
           },
         },
@@ -566,23 +575,43 @@ describe('Resources', () => {
     show(<Resources />, client, '/settings/resources')
 
     const card = await screen.findByRole('region', { name: 'Studio' })
+    const shared = within(card).getByRole('list', {
+      name: 'Folders studio shares',
+    })
+    expect(
+      within(shared)
+        .getAllByRole('listitem')
+        .map((row) => row.textContent),
+    ).toEqual(['/srv/mediaRead only', '/srv/inboxRead and write'])
+    expect(within(card).queryByText('Files and writing')).toBeNull()
     expect(
       within(card).getByText(
-        'Browse, search, and read the text xixo drew out.',
+        /Its own config holds back running its readers, whole files/,
       ),
     ).toBeTruthy()
-    await userEvent.click(within(card).getByText('Files'))
+
     await userEvent.click(
-      within(card).getByLabelText("Help read other machines' files"),
+      within(card).getByLabelText(/^Help read files from other places/),
     )
 
-    const changes = asked
-      .filter((ask) => ask.name === 'SetMachineAccess')
-      .map((ask) => ask.variables)
-    expect(changes).toEqual([
-      { id: '7', access: 'files' },
-      { id: '7', helpsOthers: false },
-    ])
+    expect(
+      asked
+        .filter((ask) => ask.name === 'SetMachineHelpsOthers')
+        .map((ask) => ask.variables),
+    ).toEqual([{ id: '7', helpsOthers: false }])
+  })
+
+  test('someone who is not an administrator sees what a machine shares, and no switches', async () => {
+    const { client } = fakeClient({
+      ...QUIET,
+      Resources: () => ({ administrator: false, resources: [local, studio] }),
+    })
+
+    show(<Resources />, client, '/settings/resources')
+
+    const card = await screen.findByRole('region', { name: 'Studio' })
+    expect(within(card).getByText('/srv/photos')).toBeTruthy()
+    expect(within(card).queryByRole('switch')).toBeNull()
   })
 
   test('a machine card shows its xixo link version, and an administrator pauses its updates', async () => {

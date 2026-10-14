@@ -251,15 +251,14 @@ class FilesystemTest < ActiveSupport::TestCase
     FileUtils.remove_entry(root) if root&.exist?
   end
 
-  test "a folder's storage follows its machine's access and what xixo link says about writing when it says hello" do
+  test "a folder's storage follows what xixo link says about writing when it says hello" do
     Tenant.switch(@tenant) do
       folder = attached
       assert_empty folder.serving["accepts"]
 
-      @machine.greeted!({ "folders" => [ "/srv/media" ], "writable" => [ "/srv/media" ], "tools" => [ "write" ] }, session: "s2")
+      @machine.greeted!({ "folders" => [ "/srv/media" ], "writable" => [ "/srv/media" ], "tools" => [ "read" ] }, session: "s2")
       assert_empty folder.reload.serving["accepts"]
 
-      @machine.set_access!(access: "writing")
       @machine.greeted!({ "folders" => [ "/srv/media" ], "writable" => [ "/srv/media" ], "tools" => [ "write" ] }, session: "s3")
       assert_equal [ "*/*" ], folder.reload.serving["accepts"]
 

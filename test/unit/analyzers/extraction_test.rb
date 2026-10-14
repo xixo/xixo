@@ -65,16 +65,6 @@ class ExtractionTest < ActiveSupport::TestCase
     end
   end
 
-  test "a machine whose access keeps whole files on it reads its own files or waits, even when its config would lend" do
-    Tenant.switch(@tenant) { @machine.update_columns(details: @machine.details.deep_merge("access" => "search", "machine" => { "lend" => true })) }
-    feed = Tenant.switch(@tenant) { on_machine("budget.pdf") }
-
-    answering([], { "text" => "never" }) { analyze(feed) }
-
-    assert_empty FakeLink.asked
-    Tenant.switch(@tenant) { assert_equal "parked", feed.reload.analyses.last.status }
-  end
-
   test "a machine that lends sends a file it cannot read to a machine that reads for others" do
     lend!(@machine)
     feed = Tenant.switch(@tenant) { on_machine("budget.pdf") }
@@ -284,7 +274,7 @@ class ExtractionTest < ActiveSupport::TestCase
     end
 
     def lend!(machine)
-      Tenant.switch(@tenant) { machine.update_columns(details: machine.details.deep_merge("access" => "files", "machine" => { "lend" => true })) }
+      Tenant.switch(@tenant) { machine.update_columns(details: machine.details.deep_merge("machine" => { "lend" => true })) }
     end
 
     def pooled(machine, extractors)

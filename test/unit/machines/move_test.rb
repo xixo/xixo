@@ -91,8 +91,21 @@ class MoveTest < ActiveSupport::TestCase
       end
 
       assert_match(%r{mac shares /Users/jon/Desktop-Backup read-only}, refused.message)
-      assert_match(%r{/Users/jon/Desktop-Backup:rw}, refused.message)
+      assert_match(%r{run the link-up command there again with /Users/jon/Desktop-Backup:rw among its folders}, refused.message)
       assert_equal 0, Run.count
+    end
+  end
+
+  test "a folder shared writable takes a move with nothing set in xixo, and a config that leaves write out says so" do
+    Tenant.switch(@tenant) do
+      assert_equal @backup, Resource::Filesystem.find(@backup.id).movable!
+
+      held = Resource::Machine.find(@mac.id)
+      held.update!(details: held.details.merge("machine" => held.machine.merge("tools" => %w[browse search read extract])))
+
+      refused = assert_raises(Resource::Refused) { Resource::Filesystem.find(@backup.id).movable! }
+      assert_match(/xixo link's config on mac leaves write out of tools/, refused.message)
+      assert_match(/Add write to tools in the config on mac/, refused.message)
     end
   end
 
@@ -312,7 +325,6 @@ class MoveTest < ActiveSupport::TestCase
       Tenant.switch(@tenant) do
         held = Resource::Machine.find(machine.id)
         held.update!(details: held.details.merge(
-          "access" => "writing",
           "machine" => held.machine.merge("writable" => [ folder ], "tools" => Resource::Machine::Tools::NAMES, "lend" => true)
         ))
         held

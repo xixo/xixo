@@ -90,7 +90,6 @@ class McpMoveTest < ActionDispatch::IntegrationTest
       Tenant.switch(@tenant) do
         held = Resource::Machine.find(machine.id)
         held.update!(details: held.details.merge(
-          "access" => "writing",
           "machine" => held.machine.merge("writable" => [ folder ], "tools" => Resource::Machine::Tools::NAMES, "lend" => true)
         ))
         held
