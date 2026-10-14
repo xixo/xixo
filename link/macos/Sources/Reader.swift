@@ -32,9 +32,11 @@ struct Arguments {
         guard raw.count >= 2 else { throw Failure(usage) }
 
         command = raw[0]
-        input = raw[1]
 
-        guard input.hasPrefix("/") else { throw Failure("the input must be an absolute path") }
+        guard raw[1].hasPrefix("/") else { throw Failure("the input must be an absolute path") }
+
+        input = URL(fileURLWithPath: raw[1]).resolvingSymlinksInPath().path
+
         guard FileManager.default.isReadableFile(atPath: input) else { throw Failure("cannot read \(input)") }
 
         var held: [String: String] = [:]

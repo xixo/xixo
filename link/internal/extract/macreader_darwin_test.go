@@ -2,8 +2,10 @@ package extract
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -192,5 +194,52 @@ func TestTextutilReadsUnderTheSandbox(t *testing.T) {
 
 	if found := TextutilInfo(string(said)); len(found) == 0 || found[0].Value != "Bea Okonkwo" {
 		t.Fatalf("textutil said %q, read %+v", said, found)
+	}
+}
+
+func TestTheMacReaderReadsAFilmWhereItLiesUnderTheSandbox(t *testing.T) {
+	macReader(t)
+
+	run, work := sandboxed(t)
+	shared := t.TempDir()
+	placedIn(t, shared, map[string]string{"rich/testdata/clip-sound.mp4": "Film.mp4"})
+
+	file, err := os.Open(filepath.Join(shared, "Film.mp4"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	source, err := InPlace(file, work, ".mp4")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	reading := Reading(run, source)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	var probed map[string]any
+	if err := AskMac(ctx, reading, time.Minute, &probed, "media", source.Path); err != nil {
+		t.Fatal(err)
+	}
+
+	if fmt.Sprint(probed["duration"]) == "0" {
+		t.Fatalf("the mac reader probed nothing: %v", probed)
+	}
+
+	if rate, _ := strconv.Atoi(fmt.Sprint(probed["bit_rate"])); rate < 10_000 {
+		t.Fatalf("the mac reader measured the link's size, not the film's: %v", probed)
+	}
+
+	heard := filepath.Join(work, "heard.wav")
+
+	var said map[string]any
+	if err := AskMac(ctx, reading, time.Minute, &said, "audio", source.Path, "--out", heard, "--seconds", "5"); err != nil {
+		t.Fatal(err)
+	}
+
+	if info, err := os.Stat(heard); err != nil || info.Size() <= 44 {
+		t.Fatalf("no audio was cut: %v", err)
 	}
 }
