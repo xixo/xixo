@@ -9,6 +9,7 @@ class Analysis < ApplicationRecord
   DESCRIBED = %w[caption scenes].freeze
   BULK = %w[sync].freeze
   ASKED_PRIORITY = 0
+  EXPIRED = "deadline passed".freeze
 
   LOG_LIMIT = 256_000
   LINE_LIMIT = 2_000
@@ -39,6 +40,27 @@ class Analysis < ApplicationRecord
     create!(feed: feed, cause: cause, reference: reference,
             deadline: deadline || default_deadline,
             steps: feed.analysis&.steps || {})
+  end
+
+  def self.retry_failed!(since: nil)
+    on = Analyzer.serving(Resource.for_role(:smart))
+    feeds = Feed.where(id: unsettled(since).select(:feed_id)).to_a
+    return feeds.each { |feed| feed.analyze!(cause: "sync") }.size if on.nil?
+
+    feeds.each do |feed|
+      parked.where(feed: feed).update_all(status: "cancelled", finished_at: Time.current, updated_at: Time.current)
+      create!(feed: feed, cause: "sync", status: PARKED, waits_for: Analyzer::MODELS, waits_on: on,
+              steps: feed.analysis&.steps || {})
+    end
+
+    ResumeParkedJob.perform_later(on.is_a?(Resource::Machine) ? on.id : nil) if feeds.any?
+    feeds.size
+  end
+
+  def self.unsettled(since)
+    latest = where.not(cause: "ask").select("DISTINCT ON (analyses.feed_id) analyses.*").reorder(:feed_id, id: :desc)
+    ended = from(latest, :analyses).merge(where(status: "failed").or(where(status: "cancelled", error: EXPIRED)))
+    since ? ended.where(created_at: since..) : ended
   end
 
   def self.default_deadline
@@ -202,7 +224,7 @@ class Analysis < ApplicationRecord
   end
 
   def expired?
-    ended = { status: "cancelled", error: "deadline passed", finished_at: Time.current }
+    ended = { status: "cancelled", error: EXPIRED, finished_at: Time.current }
     return false if Analysis.past_deadline.where(id: id).update_all(ended).zero?
 
     assign_attributes(ended)

@@ -537,6 +537,13 @@ into the `link` container at the same path, and name it in `XIXO_LINK_FOLDERS` o
   server does not list the folder in `XIXO_LINK_WRITABLE`, or its volume is not mounted into the
   `link` container.
 - **An `s3` resource on your network fails its check**: add its origin to `XIXO_S3_ORIGINS`.
+- **Many files failed while a model server was away**: once it answers again, start them over. Each
+  file whose last analysis failed or ran out of time waits for the model server again, and xixo
+  starts them 50 at a time. Pass `since:` to go back only so far. `1` is the tenant's id.
+
+  ```sh
+  docker compose exec xixo bin/rails runner 'Tenant.switch(Tenant.find(1)) { puts Analysis.retry_failed!(since: 2.days.ago) }'
+  ```
 
 ## Next steps
 

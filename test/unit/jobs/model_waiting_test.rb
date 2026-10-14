@@ -176,6 +176,47 @@ class ModelWaitingTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { assert_not_includes Feed.unsummarized, @feed }
   end
 
+  test "failed and expired analyses go back to wait for the model server, each file once, with what they had read" do
+    on_laptop
+    other, asked, fine = Tenant.switch(@tenant) do
+      [ Feed.create!(type: Feed::FILE, key: "film.srt", title: "film.srt"),
+        Feed.create!(type: Feed::FILE, key: "question", title: "question"),
+        Feed.create!(type: Feed::FILE, key: "done.txt", title: "done.txt") ]
+    end
+
+    Tenant.switch(@tenant) do
+      Analysis.create!(feed: @feed, cause: "sync", status: "failed", error: "The summary failed. laptop is offline",
+                       steps: { "text" => { "result" => "remember the milk" } })
+      Analysis.create!(feed: other, cause: "sync", status: "done")
+      Analysis.create!(feed: other, cause: "sync", status: "cancelled", error: Analysis::EXPIRED)
+      Analysis.create!(feed: asked, cause: "ask", status: "failed", error: "no")
+      Analysis.create!(feed: fine, cause: "sync", status: "failed", error: "old")
+      Analysis.create!(feed: fine, cause: "manual", status: "done")
+
+      assert_enqueued_with(job: ResumeParkedJob, args: [ @machine.id ]) do
+        assert_equal 2, Analysis.retry_failed!
+      end
+
+      waiting = Analysis.parked.order(:id).to_a
+      assert_equal [ @feed, other ], waiting.map(&:feed)
+      assert_equal [ [ Analyzer::MODELS, @machine.id ] ], waiting.map { |held| [ held.waits_for, held.waits_on_id ] }.uniq
+      assert_equal "remember the milk", waiting.first.step_result("text")
+
+      assert_equal 0, Analysis.retry_failed!
+    end
+  end
+
+  test "retrying failures looks only as far back as asked" do
+    on_laptop
+
+    Tenant.switch(@tenant) do
+      Analysis.create!(feed: @feed, cause: "sync", status: "failed", error: "old", created_at: 3.days.ago)
+
+      assert_equal 0, Analysis.retry_failed!(since: 1.day.ago)
+      assert_equal 1, Analysis.retry_failed!(since: 4.days.ago)
+    end
+  end
+
   private
 
     def drained
