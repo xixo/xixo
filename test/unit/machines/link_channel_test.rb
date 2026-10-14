@@ -85,15 +85,19 @@ class LinkChannelTest < ActionCable::Channel::TestCase
   test "a change names the paths of a folder looked at again, and an overflow walks the whole folder" do
     connected
     perform :hello, HELLO
-    media = Tenant.switch(@tenant) do
-      Resource::Filesystem.create!(key: "on-demand", details: { "folder" => "/srv/media" }, via: @machine)
-      Resource::Filesystem.create!(key: "media", details: { "folder" => "/srv/media" }, via: @machine, sync_interval: 3600)
+    media, unscheduled = Tenant.switch(@tenant) do
+      Resource::Filesystem.create!(key: "never-walked", details: { "folder" => "/srv/media" }, via: @machine, sync_interval: 3600)
+      [
+        Resource::Filesystem.create!(key: "media", details: { "folder" => "/srv/media" }, via: @machine, sync_interval: 3600,
+                                     walked_at: 1.day.ago),
+        Resource::Filesystem.create!(key: "unscheduled", details: { "folder" => "/srv/media" }, via: @machine, walked_at: 1.day.ago)
+      ]
     end
 
     perform :changed, "folder" => "/srv/media", "paths" => [ "a/b.txt", "../etc/passwd", "/etc/passwd", "a//c", 5, "a/b.txt" ]
 
-    assert_equal [ [ @tenant.id, media.id, [ "a/b.txt" ] ] ],
-                 enqueued_jobs.select { |job| job["job_class"] == "SyncPathsJob" }.map { |job| ActiveJob::Arguments.deserialize(job["arguments"]) }
+    assert_equal [ [ @tenant.id, media.id, [ "a/b.txt" ] ], [ @tenant.id, unscheduled.id, [ "a/b.txt" ] ] ].sort,
+                 enqueued_jobs.select { |job| job["job_class"] == "SyncPathsJob" }.map { |job| ActiveJob::Arguments.deserialize(job["arguments"]) }.sort
 
     assert_no_enqueued_jobs(only: [ SyncPathsJob, SyncResourceJob ]) do
       perform :changed, "folder" => "/etc", "paths" => [ "passwd" ]

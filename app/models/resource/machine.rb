@@ -408,7 +408,7 @@ class Resource
       return if folder.nil? || !offered_folders.include?(folder)
 
       paths = Hello.listed(said["paths"]).first(Filesystem::MOST_CHANGED).select { |path| Filesystem.inside?(path) }.uniq
-      Filesystem.active.where(via_id: id).where.not(sync_interval: nil)
+      Filesystem.active.where(via_id: id).where.not(walked_at: nil)
                 .where("resources.details ->> 'folder' = ?", folder).find_each do |held|
         held.changed_later!(paths, everything: said["overflow"] == true)
       end
