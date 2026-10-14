@@ -296,3 +296,15 @@ func TestACancelForAnUnknownRequestChangesNothing(t *testing.T) {
 		t.Fatal("a cancel for another request stopped this one")
 	}
 }
+
+func TestADeadlineFarAwayIsHeldToADay(t *testing.T) {
+	held := &Link{}
+
+	work, done := held.requests.start(t.Context(), &Request{Request: "far", Within: 1e300})
+	defer done()
+
+	deadline, ok := work.Deadline()
+	if !ok || time.Until(deadline) > 24*time.Hour || time.Until(deadline) < 23*time.Hour {
+		t.Fatalf("the deadline is %v away", time.Until(deadline))
+	}
+}

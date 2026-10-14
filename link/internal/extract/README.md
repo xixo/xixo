@@ -9,7 +9,7 @@ passages, embeddings, and the rows for child feeds and derived files.
 xixo asks with the `extract` verb:
 
 ```json
-{"request": "<id>", "verb": "extract", "args": {
+{"request": "<id>", "verb": "extract", "within": 1800, "args": {
   "source": {"upload": "<upload id>"},
   "mime": "text/calendar",
   "filename": "dentist.ics",
@@ -22,6 +22,8 @@ xixo asks with the `extract` verb:
 - `source` is a shared file, `{"folder", "path"}`, or an upload, `{"upload": id}`,
   which xixo link fetches from `<xixo>/link/uploads/<id>` and which must be
   exactly `size` bytes. An upload is at most 4 GB.
+- `within` is xixo's deadline for the request, in seconds. See [waiting and
+  stopping](../../README.md#waiting-and-stopping).
 - `skip` names steps xixo already holds.
 - `settings` holds the tenant's thumbnail width, preview width, the most frames
   and the percentage of frames read from an animation, and the seconds of audio

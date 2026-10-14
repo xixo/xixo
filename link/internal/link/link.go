@@ -586,6 +586,8 @@ func (a *Link) laneFor(verb string) lane {
 
 var slow = map[string]bool{verbExtract: true, verbDerive: true, verbExamine: true}
 
+const mostWithin = 24 * time.Hour
+
 func (a *Link) gaveUp(ctx context.Context, work context.Context, asked *Request, when string) {
 	if ctx.Err() != nil {
 		return
@@ -604,7 +606,7 @@ func (o *requests) start(ctx context.Context, asked *Request) (context.Context, 
 	stop := func() { cancel(nil) }
 
 	if asked.Within > 0 {
-		within := time.Duration(asked.Within * float64(time.Second))
+		within := time.Duration(min(asked.Within, mostWithin.Seconds()) * float64(time.Second))
 		late, cancelLate := context.WithTimeoutCause(work, within, ErrLate)
 		work = late
 		stop = func() {
