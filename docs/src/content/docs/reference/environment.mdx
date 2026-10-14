@@ -131,7 +131,7 @@ server's disk, including other tenants' clones under `XIXO_GIT_ROOT`, and `ext` 
 
 | Variable | Default | |
 | --- | --- | --- |
-| `XIXO_TRANSCRIBE_SECONDS` | `3600` | How many seconds from the start of a recording are measured and sent to the resource that serves `transcription`. |
+| `XIXO_TRANSCRIBE_SECONDS` | `3600` | How many seconds of a recording are sent to the resource that serves `transcription`, at most 14400. A longer recording is heard in ten-minute parts spread across it. The signal is measured over this many seconds from the start. |
 | `XIXO_CHROME_PATH` | detected | The Chrome or Chromium binary used to render snapshots. Unset, xixo looks in the usual places for the platform. The image includes Chromium. Without a browser, `web` resources report themselves unusable. |
 | `XIXO_CHROME_NO_SANDBOX` | `false` | Starts Chrome with `--no-sandbox`, for a container that cannot give Chrome the namespaces its sandbox needs. |
 

@@ -96,11 +96,15 @@ module Analyzer
       def transcribe(listening)
         raise Analyzer::Failed, "#{reference.filename} carries no audio" unless audio?
 
-        wav = received("audio").first
-        raise Analyzer::Failed, "the machine sent no audio of #{reference.filename} to transcribe" if wav.nil?
+        parts = received("audio").sort_by { |part| part.at.to_f }
+        raise Analyzer::Failed, "the machine sent no audio of #{reference.filename} to transcribe" if parts.empty?
 
-        wav.file.rewind
-        capped(Analyzer.inferring(listening) { listening.transcribe(wav.file.read) })
+        said = parts.map do |part|
+          part.file.rewind
+          Analyzer.inferring(listening) { listening.transcribe(part.file.read, from: part.at.to_f) }
+        end
+
+        capped(said.compact_blank.join("\n"))
       rescue Resource::Unusable, Resource::Failed => e
         raise Analyzer::Failed, e.message
       end

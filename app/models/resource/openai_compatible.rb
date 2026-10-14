@@ -323,7 +323,7 @@ class Resource
       true
     end
 
-    def transcribe(audio)
+    def transcribe(audio, from: 0)
       model = model_for(TRANSCRIPTION_ROLE)
       fields = [
         [ "file", StringIO.new(audio.to_s.b), { filename: "heard.wav", content_type: HEARD_TYPE } ],
@@ -331,7 +331,7 @@ class Resource
         [ "response_format", "verbose_json" ]
       ]
 
-      lines(answer(dial("/audio/transcriptions"), TRANSCRIBE_TIMEOUT) { |uri| form(uri, fields) })
+      lines(answer(dial("/audio/transcriptions"), TRANSCRIBE_TIMEOUT) { |uri| form(uri, fields) }, from)
     end
 
     def self.silence(seconds = 1)
@@ -834,14 +834,20 @@ class Resource
         end
       end
 
-      def lines(heard)
+      def lines(heard, from = 0)
         segments = Array(heard["segments"])
-        return heard["text"].to_s.strip if segments.empty?
+        said = heard["text"].to_s.strip
+        return said if segments.empty? && (said.empty? || from.zero?)
+        return "[#{moment(from)}] #{said}" if segments.empty?
 
         segments.filter_map do |segment|
           said = segment["text"].to_s.strip
-          "[#{Time.at(segment['start'].to_f).utc.strftime('%H:%M:%S')}] #{said}" if said.present?
+          "[#{moment(from + segment['start'].to_f)}] #{said}" if said.present?
         end.join("\n")
+      end
+
+      def moment(seconds)
+        Time.at(seconds).utc.strftime("%H:%M:%S")
       end
 
       def posting(uri, body)

@@ -134,6 +134,27 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
     end
   end
 
+  test "a long recording heard in parts is transcribed part by part, each line at its moment in the whole" do
+    server = listening!.transcribes([ 2.0, "The ship leaves at dawn." ]).transcribes([ 61.5, "Nobody saw the letter." ], [ 70.0, " " ])
+    FakeLink.script = lambda do |*|
+      FakeLink.extracted(
+        { "probe" => { "duration" => 9000.0, "streams" => [ { "type" => "audio", "codec" => "aac", "channels" => 2 } ] } },
+        files: [ { role: "audio", name: "heard-1.wav", mime: "audio/wav", at: 1950.0 },
+                 { role: "audio", name: "heard-0.wav", mime: "audio/wav", at: 450.0 } ],
+        dropped: { "transcript" => "2 parts of 00:10:00 each, spread across 02:30:00, were heard" }, extractor: "media"
+      )
+    end
+
+    analyze_feed_at "standup.m4a"
+
+    Tenant.switch(@tenant) do
+      steps = steps_at("standup.m4a")
+
+      assert_equal "[00:07:32] The ship leaves at dawn.\n[00:33:31] Nobody saw the letter.", steps.dig("transcript", "result")
+      assert_equal 2, server.heard.size, "each part is its own request, so no request carries the whole film"
+    end
+  end
+
   test "a video's frames are captioned with the moment they come from" do
     require_relative "../../support/fake_model_server"
     server = FakeModelServer.current

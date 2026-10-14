@@ -107,8 +107,11 @@ Every analyzer runs the same sequence:
      the image gets no summary, and its item page says which model to set.
    - A photo with a GPS position is named by a **Places** resource that has **Name where photos were
      taken** on.
-   - Audio and video are transcribed, up to the first hour, when a resource serves the
-     `transcription` role. Each line opens with its moment, such as `[00:03:12]`.
+   - Audio and video are transcribed when a resource serves the `transcription` role. Each line
+     opens with its moment in the recording, such as `[00:03:12]`. A recording up to an hour long
+     is heard whole. A longer one is heard as six ten-minute parts spread across it, so the
+     transcript of a 2.5-hour film covers its beginning, middle, and end. Each part is its own
+     request to the transcription resource.
    - Video frames are captioned when a resource serves the `vision` role.
 4. **Summarize** with the inference [resource](/concepts/resources/) that serves the analyzer's
    role: `vision` for images and pages, `fast` for email and the fallback, and `smart` for the rest.
