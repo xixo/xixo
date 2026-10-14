@@ -712,11 +712,18 @@ func (a *Link) hashed(ctx context.Context, wanted Read) (Hashed, error) {
 
 	defer opened.Forget()
 
+	digest, err := a.digestOf(ctx, opened)
+	if err != nil {
+		return Hashed{}, err
+	}
+
+	return Hashed{Digest: digest, File: opened.Identity}, nil
+}
+
+func (a *Link) digestOf(ctx context.Context, opened *folders.Opened) (Digest, error) {
 	stamp, known := digests.Of(opened.Info)
 	if a.Digests == nil || !known {
-		digest, err := digested(ctx, opened)
-
-		return Hashed{Digest: digest, File: opened.Identity}, err
+		return digested(ctx, opened)
 	}
 
 	sum, err := a.Digests.Digest(ctx, stamp, func() (string, int64, digests.Stamp, error) {
@@ -738,10 +745,10 @@ func (a *Link) hashed(ctx context.Context, wanted Read) (Hashed, error) {
 		return digest.SHA256, digest.Size, held, nil
 	})
 	if err != nil {
-		return Hashed{}, err
+		return Digest{}, err
 	}
 
-	return Hashed{Digest: Digest{SHA256: sum, Size: stamp.Size}, File: opened.Identity}, nil
+	return Digest{SHA256: sum, Size: stamp.Size}, nil
 }
 
 func (a *Link) read(ctx context.Context, request string, wanted Read) {

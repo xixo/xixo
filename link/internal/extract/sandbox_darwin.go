@@ -17,7 +17,7 @@ func Sandbox() (Confiner, error) {
 	return confine, nil
 }
 
-func confine(work, program string) ([]string, error) {
+func confine(work, program string, reads []string) ([]string, error) {
 	if work == "" {
 		return nil, ErrNoWork
 	}
@@ -27,7 +27,7 @@ func confine(work, program string) ([]string, error) {
 		return nil, err
 	}
 
-	profile, err := Profile(real, program)
+	profile, err := Profile(real, program, reads...)
 	if err != nil {
 		return nil, err
 	}

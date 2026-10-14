@@ -459,3 +459,13 @@ func TestDocReadsAnUploadWithoutAnExtension(t *testing.T) {
 		t.Fatalf("info %#v %q", out.Steps["info"].Result, out.Steps["info"].Error)
 	}
 }
+
+func TestAnOfficeDocumentIsCopiedAndAPDFIsReadWhereItLies(t *testing.T) {
+	if !extract.Copies("application/msword", "a.doc") {
+		t.Fatal("a Word file is read in place, where LibreOffice may write beside it")
+	}
+
+	if extract.Copies("application/pdf", "a.pdf") {
+		t.Fatal("a PDF is copied")
+	}
+}

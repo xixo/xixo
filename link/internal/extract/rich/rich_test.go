@@ -427,3 +427,80 @@ func TestAMessageIsReadNoFurtherThanItsLimit(t *testing.T) {
 		t.Fatalf("read %d bytes, %v", len(held), err)
 	}
 }
+
+func TestAFilmIsReadWhereItLiesAndALegacyWorkbookIsCopied(t *testing.T) {
+	if extract.Copies("video/x-matroska", "film.mkv") {
+		t.Fatal("a film is copied")
+	}
+
+	if !extract.Copies("application/vnd.ms-excel", "old.xls") {
+		t.Fatal("a legacy workbook is read in place, where LibreOffice may write beside it")
+	}
+}
+
+func TestAFilmIsProbedHeardAndSeenWhereItLies(t *testing.T) {
+	needs(t, "ffmpeg", "ffprobe")
+
+	body, err := os.ReadFile(mustAbs(t, "testdata/clip-sound.mp4"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	shared := t.TempDir()
+	path := filepath.Join(shared, "Film.mp4")
+	if err := os.WriteFile(path, body, 0o444); err != nil {
+		t.Fatal(err)
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	work := t.TempDir()
+
+	source, err := extract.InPlace(file, work, ".mp4")
+	if err != nil {
+		t.Skip(err)
+	}
+
+	runner := extract.Limited{}
+	if confine, err := extract.Sandbox(); err == nil {
+		runner.Confine = confine
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	out, err := Media{}.Extract(ctx, extract.Input{
+		Path: source.Path, Name: "Film.mp4", MIME: "video/mp4", Work: work,
+		Run: extract.Reading(extract.Within(runner, work, 1<<30), source),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	probe := result[Probe](t, out, "probe")
+	if probe.Duration <= 0 || !probe.video() || !probe.audio() {
+		t.Fatalf("probe %+v", probe)
+	}
+
+	roles := map[string]int{}
+	for _, made := range out.Files {
+		roles[made.Role]++
+
+		if filepath.Dir(made.Path) != work {
+			t.Fatalf("%s was made outside the work folder", made.Path)
+		}
+	}
+
+	if roles["audio"] == 0 || roles["frame"] == 0 {
+		t.Fatalf("files %+v", out.Files)
+	}
+
+	listed, _ := os.ReadDir(shared)
+	if after, _ := os.ReadFile(path); len(listed) != 1 || string(after) != string(body) {
+		t.Fatal("the shared folder changed")
+	}
+}

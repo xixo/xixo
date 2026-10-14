@@ -441,6 +441,10 @@ func (o *Opened) Stat() (fs.FileInfo, error) {
 	return o.file.Stat()
 }
 
+func (o *Opened) File() *os.File {
+	return o.file
+}
+
 func (f *Folders) Open(folder, name string) (*Opened, error) {
 	relative, err := confined(name)
 	if err != nil {

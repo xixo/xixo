@@ -316,28 +316,33 @@ func (a *Link) examine(ctx context.Context, raw json.RawMessage) (any, error) {
 	}
 	defer os.RemoveAll(work)
 
-	path, digest, err := a.source(ctx, wanted, work)
+	source, err := a.source(ctx, wanted, work)
 	if err != nil {
 		return nil, err
 	}
+	defer source.close()
 
 	in := extract.Input{
-		Path: path,
+		Path: source.path,
 		Name: filepath.Base(wanted.Source.Path),
 		MIME: wanted.MIME,
-		Size: digest.Size,
+		Size: source.digest.Size,
 		Skip: map[string]bool{},
 		Work: work,
-		Run:  extract.Within(a.Runner, work, MostWork),
+		Run:  extract.Reading(extract.Within(a.Runner, work, MostWork), source.from),
 		Set:  wanted.Settings,
 	}
 
 	out, err := a.Extract(ctx, in)
+	if err == nil {
+		err = source.settled()
+	}
+
 	if err != nil {
 		return nil, err
 	}
 
-	held := Examined{Digest: digest, Extractor: out.Extractor, Steps: map[string]extract.Step{}, Dropped: out.Dropped}
+	held := Examined{Digest: source.digest, Extractor: out.Extractor, Steps: map[string]extract.Step{}, Dropped: out.Dropped}
 
 	for name, step := range out.Steps {
 		encoded, err := json.Marshal(step)

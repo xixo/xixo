@@ -8,12 +8,13 @@ import (
 	"strings"
 )
 
-type Confiner func(work, program string) ([]string, error)
+type Confiner func(work, program string, reads []string) ([]string, error)
 
 var (
 	ErrNoSandbox  = errors.New("this machine has no sandbox-exec")
 	ErrUnconfined = errors.New("xixo link runs no extraction program outside a sandbox, and this machine has none; set extract_unsandboxed in the config to run them anyway")
 	ErrNoWork     = errors.New("a sandboxed program needs a work folder")
+	ErrNoRead     = errors.New("a sandboxed program reads a shared file only by its absolute path")
 )
 
 var sandboxReads = []string{
@@ -37,7 +38,7 @@ var officeServices = []string{
 	"com.apple.pasteboard.1", "com.apple.PowerManagement.control",
 }
 
-func Profile(work, program string) (string, error) {
+func Profile(work, program string, reads ...string) (string, error) {
 	if work == "" || !filepath.IsAbs(work) {
 		return "", ErrNoWork
 	}
@@ -60,6 +61,16 @@ func Profile(work, program string) (string, error) {
 		held.WriteString("(allow file-read-metadata" + literals(ancestors(filepath.Clean(program))) + ")\n")
 		held.WriteString("(allow iokit-open (iokit-user-client-class" + quotedAll(readerClients) + "))\n")
 		held.WriteString("(allow mach-lookup (global-name" + quotedAll(readerServices) + "))\n")
+	}
+
+	for _, read := range reads {
+		if !filepath.IsAbs(read) {
+			return "", ErrNoRead
+		}
+
+		read = filepath.Clean(read)
+		held.WriteString("(allow file-read-metadata" + literals(ancestors(read)) + ")\n")
+		held.WriteString("(allow file-read* (literal " + quoted(read) + "))\n")
 	}
 
 	if filepath.Base(program) == "soffice" {

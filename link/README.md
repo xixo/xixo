@@ -290,6 +290,10 @@ the shared folders. systemd confines it:
   xixo link's user could read it.
 - It cannot write anywhere else, gain privileges, reach devices, or see other
   processes.
+- Extraction programs run inside the same limits, with no sandbox of their own.
+  They read a shared file where it lies, through the file xixo link opened, so
+  they never follow a symbolic link out of the folder. A folder shared
+  read-only cannot be written by them.
 - It and its programs share `MemoryMax=2G`. A program the kernel stops for
   memory fails one extraction, and xixo link keeps running.
 - It and its programs run at a low priority, so the machine's own work comes
@@ -408,11 +412,13 @@ can. xixo link's own path checks still keep xixo to the shared folders.
 ### The sandbox
 
 On macOS every extraction program runs under `sandbox-exec`, with a profile xixo
-link writes for that run. xixo link copies a shared file into the extraction's
-work folder first, so the programs never read the shared folders. The profile:
+link writes for that run. A shared file is read where it lies, with no copy.
+The profile:
 
 - denies everything by default, and allows reading the system and Homebrew
   folders and the work folder
+- allows reading the one shared file the extraction reads, and nothing else in
+  the shared folders
 - allows writing only inside the work folder
 - allows no network
 

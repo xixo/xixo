@@ -49,6 +49,8 @@ type Limited struct {
 	Budget  int64
 	Confine Confiner
 	Refused error
+	Inherit *os.File
+	Reads   []string
 }
 
 func Within(run Runner, dir string, budget int64) Runner {
@@ -152,7 +154,7 @@ func (l Limited) command(program string, args []string) ([]string, error) {
 		work = l.Dir
 	}
 
-	prefix, err := l.Confine(work, program)
+	prefix, err := l.Confine(work, program, l.Reads)
 	if err != nil {
 		return nil, err
 	}
@@ -188,6 +190,15 @@ func (l Limited) RunTo(ctx context.Context, limit time.Duration, stdout io.Write
 	command.Stderr = stderr
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
+	if l.Inherit != nil {
+		inherited, err := inheriting(l.Inherit)
+		if err != nil {
+			return err
+		}
+
+		command.ExtraFiles = inherited
+	}
+
 	if err := command.Start(); err != nil {
 		return err
 	}
@@ -220,6 +231,18 @@ func (l Limited) RunTo(ctx context.Context, limit time.Duration, stdout io.Write
 			return fmt.Errorf("%s: %w", program, ErrStopped)
 		}
 	}
+}
+
+func inheriting(file *os.File) ([]*os.File, error) {
+	fd := int(file.Fd())
+	if fd < 3 {
+		return nil, ErrNotInPlace
+	}
+
+	held := make([]*os.File, fd-2)
+	held[fd-3] = file
+
+	return held, nil
 }
 
 type capped struct {

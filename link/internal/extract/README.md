@@ -21,7 +21,7 @@ xixo asks with the `extract` verb:
 
 - `source` is a shared file, `{"folder", "path"}`, or an upload, `{"upload": id}`,
   which xixo link fetches from `<xixo>/link/uploads/<id>` and which must be
-  exactly `size` bytes.
+  exactly `size` bytes. An upload is at most 4 GB.
 - `skip` names steps xixo already holds.
 - `settings` holds the tenant's thumbnail width, preview width, the most frames
   and the percentage of frames read from an animation, and the seconds of audio
@@ -92,6 +92,31 @@ keeps its full length. Video takes the frame one second in, audio draws its
 waveform, and a PDF renders its first page. Both files are sRGB and keep none
 of the original's metadata, so a photo's location stays in the original only.
 
+## Where the file is read
+
+A shared file is read where it lies, with no copy, so a film of any size is
+read on the machine that shares it. The work folder holds a link named
+`source` with the file's extension, and every program and every Go extractor
+reads the file through it.
+
+- On Linux the link points at the file xixo link opened, through
+  `/proc/self/fd`. Each program gets that open file, so a symbolic link or a
+  file swapped in at the path is never read.
+- On macOS the link points at the file's own path, and the sandbox lets the
+  programs read that one file and nothing else in the shared folder.
+- xixo link names the file's SHA-256 from that open file, and asks its
+  remembered SHA-256 values first, so a film it hashed for a sync is not read
+  again.
+- When the extraction ends, xixo link checks the file once more. When its
+  size, modification time, or change time moved, or another file took its
+  path, xixo link sends nothing and refuses the request with an error that
+  says the file changed. xixo asks again later.
+
+The `doc` and `xlsx` extractors still copy the file into the work folder,
+since LibreOffice may write lock and backup files beside the document it
+opens. A copy holds at most 4 GB. An upload is always a file in the work
+folder.
+
 ## Programs
 
 Every program runs with a deadline, and its whole process group is killed past
@@ -102,8 +127,8 @@ header's 4 GiB placeholder. macOS refuses `ulimit -d`, so there the file size
 limit holds alone.
 
 On macOS each program also runs under `sandbox-exec`, which lets it write only
-inside the extraction's work folder and reach no network. See
-[the sandbox](../../README.md#the-sandbox).
+inside the extraction's work folder, read only the one shared file it extracts,
+and reach no network. See [the sandbox](../../README.md#the-sandbox).
 
 An extractor names the programs it needs. One whose programs are missing is
 left out of `extractors`.

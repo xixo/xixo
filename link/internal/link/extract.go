@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -34,7 +35,8 @@ const (
 var (
 	ErrNoUpload   = errors.New("an upload is named by a uuid")
 	ErrUploadSize = errors.New("the upload's size does not match what arrived")
-	ErrTooLarge   = errors.New("the upload is larger than xixo link keeps")
+	ErrTooLarge   = errors.New("xixo link takes a copy of at most 4 GB, so only the machine that shares a larger file reads it")
+	ErrShifted    = errors.New("the file changed while xixo link extracted it, so xixo link sent nothing; ask again once it settles")
 	uploadClient  = dial.Fetcher()
 	uploadName    = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 )
@@ -100,12 +102,13 @@ func (a *Link) extraction(ctx context.Context, asked *Request, deriving bool) {
 	}
 	defer os.RemoveAll(work)
 
-	path, digest, err := a.source(ctx, wanted, work)
+	held, err := a.source(ctx, wanted, work)
 	if err != nil {
 		a.refuse(ctx, asked.Request, err)
 
 		return
 	}
+	defer held.close()
 
 	named := wanted.Filename
 	if named == "" {
@@ -113,13 +116,13 @@ func (a *Link) extraction(ctx context.Context, asked *Request, deriving bool) {
 	}
 
 	in := extract.Input{
-		Path: path,
+		Path: held.path,
 		Name: filepath.Base(named),
 		MIME: wanted.MIME,
-		Size: digest.Size,
+		Size: held.digest.Size,
 		Skip: map[string]bool{},
 		Work: work,
-		Run:  extract.Within(a.Runner, work, MostWork),
+		Run:  extract.Reading(extract.Within(a.Runner, work, MostWork), held.from),
 		Set:  wanted.Settings,
 	}
 
@@ -128,6 +131,10 @@ func (a *Link) extraction(ctx context.Context, asked *Request, deriving bool) {
 	}
 
 	out, err := a.extracted(ctx, in, deriving)
+	if err == nil {
+		err = held.settled()
+	}
+
 	if err != nil {
 		a.refuse(ctx, asked.Request, err)
 
@@ -158,7 +165,7 @@ func (a *Link) extraction(ctx context.Context, asked *Request, deriving bool) {
 		steps = map[string]extract.Step{}
 	}
 
-	a.reply(ctx, asked.Request, Extracted{Digest: digest, Extractor: out.Extractor, Steps: steps, Dropped: out.Dropped, Files: sent})
+	a.reply(ctx, asked.Request, Extracted{Digest: held.digest, Extractor: out.Extractor, Steps: steps, Dropped: out.Dropped, Files: sent})
 }
 
 func (a *Link) extracted(ctx context.Context, in extract.Input, deriving bool) (*extract.Output, error) {
@@ -186,24 +193,121 @@ func (a *Link) extracted(ctx context.Context, in extract.Input, deriving bool) (
 	return out, nil
 }
 
-func (a *Link) source(ctx context.Context, wanted Extraction, work string) (string, Digest, error) {
+type sourced struct {
+	path   string
+	digest Digest
+	from   *extract.Source
+	opened *folders.Opened
+	before fs.FileInfo
+}
+
+func (s *sourced) settled() error {
+	if s.from == nil {
+		return nil
+	}
+
+	after, err := s.opened.Stat()
+	if err != nil {
+		return err
+	}
+
+	if !unchanged(s.before, after) {
+		return ErrShifted
+	}
+
+	for _, read := range s.from.Reads {
+		there, err := os.Stat(read)
+		if err != nil || !os.SameFile(there, after) || !unchanged(s.before, there) {
+			return ErrShifted
+		}
+	}
+
+	return nil
+}
+
+func unchanged(before, after fs.FileInfo) bool {
+	held, known := digests.Of(before)
+	now, _ := digests.Of(after)
+
+	if known {
+		return held == now
+	}
+
+	return before.Size() == after.Size() && before.ModTime().Equal(after.ModTime())
+}
+
+func (s *sourced) close() {
+	if s.opened == nil {
+		return
+	}
+
+	s.opened.Forget()
+	s.opened.Close()
+}
+
+func (a *Link) source(ctx context.Context, wanted Extraction, work string) (*sourced, error) {
 	if wanted.Source.Upload != "" {
-		return a.fetch(ctx, wanted, work)
+		path, digest, err := a.fetch(ctx, wanted, work)
+		if err != nil {
+			return nil, err
+		}
+
+		return &sourced{path: path, digest: digest}, nil
 	}
 
 	opened, err := a.Folders.Open(wanted.Source.Folder, wanted.Source.Path)
 	if err != nil {
-		return "", Digest{}, err
+		return nil, err
 	}
+
+	named := wanted.Filename
+	if named == "" {
+		named = wanted.Source.Path
+	}
+
+	if !extract.Copies(wanted.MIME, filepath.Base(named)) {
+		held, err := a.inPlace(ctx, opened, work, safeExtension(wanted.Source.Path))
+		if !errors.Is(err, extract.ErrNotInPlace) {
+			if err != nil {
+				opened.Close()
+			}
+
+			return held, err
+		}
+	}
+
 	defer opened.Close()
 
+	path, digest, err := a.copySource(ctx, opened, work, safeExtension(wanted.Source.Path))
+	if err != nil {
+		return nil, err
+	}
+
+	return &sourced{path: path, digest: digest}, nil
+}
+
+func (a *Link) inPlace(ctx context.Context, opened *folders.Opened, work, extension string) (*sourced, error) {
+	digest, err := a.digestOf(ctx, opened)
+	if err != nil {
+		return nil, err
+	}
+
+	from, err := extract.InPlace(opened.File(), work, extension)
+	if err != nil {
+		return nil, err
+	}
+
+	return &sourced{path: from.Path, digest: digest, from: from, opened: opened, before: opened.Info}, nil
+}
+
+func (a *Link) copySource(ctx context.Context, opened *folders.Opened, work, extension string) (string, Digest, error) {
 	if opened.Size > MostUpload {
 		return "", Digest{}, ErrTooLarge
 	}
 
 	defer opened.Forget()
 
-	kept := filepath.Join(work, "source"+safeExtension(wanted.Source.Path))
+	kept := filepath.Join(work, "source"+extension)
 
 	digest, err := copied(ctx, kept, io.LimitReader(opened, MostUpload+1))
 	if err != nil {

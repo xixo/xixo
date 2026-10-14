@@ -195,3 +195,55 @@ func TestSandboxedLibreOfficeConverts(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestSandboxReadsASharedFileWhereItLiesAndNothingBesideIt(t *testing.T) {
+	run, work := sandboxed(t)
+
+	shared := t.TempDir()
+	film := filepath.Join(shared, "Film.mkv")
+	beside := filepath.Join(shared, "notes.txt")
+
+	if err := os.WriteFile(film, []byte("frames"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(beside, []byte("private"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	file, err := os.Open(filepath.Join(shared, "film.mkv"))
+	if err != nil {
+		file, err = os.Open(film)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	source, err := InPlace(file, work, ".mkv")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	reading := Reading(run, source)
+
+	if out, err := reading.Run(context.Background(), 10*time.Second, "cat", source.Path); err != nil || string(out) != "frames" {
+		t.Fatalf("the shared file was not read: %q %v", out, err)
+	}
+
+	if out, err := reading.Run(context.Background(), 10*time.Second, "cat", beside); err == nil || strings.Contains(string(out), "private") {
+		t.Fatalf("a file beside the shared file was read: %q", out)
+	}
+
+	if _, err := reading.Run(context.Background(), 10*time.Second, "sh", "-c", "echo x >> "+source.Path); err == nil {
+		t.Fatal("the shared file was written")
+	}
+
+	if body, _ := os.ReadFile(film); string(body) != "frames" {
+		t.Fatalf("the shared file holds %q", body)
+	}
+
+	if out, err := run.Run(context.Background(), 10*time.Second, "cat", source.Path); err == nil {
+		t.Fatalf("a runner that reads no shared file read it: %q", out)
+	}
+}
