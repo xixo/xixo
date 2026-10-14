@@ -61,7 +61,7 @@ module Tool
         return if spent.nil? || spent <= limit
 
         raise OverBudget,
-              "this token has started #{spent - 1} runs in the last hour, and #{limit} is the ceiling"
+              "you have started #{spent - 1} runs in the last hour, and #{limit} is the limit"
       end
 
       def audit(grant, arguments, status, started, detail = nil)

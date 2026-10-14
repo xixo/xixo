@@ -25,7 +25,7 @@ module Health
       end
 
       def worker?
-        return true if ENV["SOLID_QUEUE_IN_PUMA"].present?
+        return true if Switch.on?("SOLID_QUEUE_IN_PUMA")
 
         safely do
           heartbeat = SolidQueue::Process.where(kind: "Worker").maximum(:last_heartbeat_at)
