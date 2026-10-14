@@ -269,6 +269,7 @@ class ModelWaitingTest < ActiveSupport::TestCase
 
     def with_ask(script)
       original = Resource::Machine.instance_method(:ask)
+      original = original.super_method while original.owner != Resource::Machine
       Resource::Machine.define_method(:ask) do |verb, args = {}, within: Resource::Machine::ANSWERED_WITHIN|
         raise Resource::Offline, "#{key}: xixo link is not connected" unless connected?
 
