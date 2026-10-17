@@ -98,7 +98,7 @@ class Reference < ApplicationRecord
     return false if prior_digest.present? && digest.nil?
 
     attempts = feed.analyses.unscope(:order).where(created_at: (changed_at || created_at)..)
-    return false if attempts.open.exists?
+    return false if attempts.where(status: [ *Analysis::OPEN, Analysis::PARKED ]).exists?
 
     attempts.where(status: "failed", finished_at: RETRY_FAILED_AFTER.ago..).none?
   end

@@ -261,6 +261,17 @@ class SyncResourceJobTest < ActiveSupport::TestCase
     end
   end
 
+  test "a file whose analysis waits for a machine is not queued again by the next sync" do
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+    Tenant.switch(@tenant) { feed_at("notes.txt").analyses.update_all(status: Analysis::PARKED) }
+
+    3.times { Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) } }
+
+    Tenant.switch(@tenant) do
+      assert_equal [ Analysis::PARKED ], feed_at("notes.txt").analyses.pluck(:status)
+    end
+  end
+
   test "a file whose analysis failed waits for its bytes to change before it is queued again" do
     Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
     Tenant.switch(@tenant) do
