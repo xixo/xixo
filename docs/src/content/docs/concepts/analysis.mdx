@@ -25,9 +25,8 @@ current one's steps, so xixo does not repeat work whose result is still valid.
 | `cancelled` | Someone pressed **Stop**, called `cancelAnalysis`, or it passed its deadline. |
 | `gated` | A [gate](/concepts/agents/#budgets-and-gates) stopped it. |
 
-A queued analysis is cancelled after `XIXO_RUN_DEADLINE_HOURS`, 6 by default, or never when it is
-`0`. Once it starts, it runs for its feed's timeout, as described in
-[after the analyzer](#after-the-analyzer).
+A queued analysis has no deadline, so a file waits in line however long the line is. Once it
+starts, it runs for its feed's timeout, as described in [after the analyzer](#after-the-analyzer).
 
 ## Steps
 

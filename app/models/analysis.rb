@@ -33,12 +33,11 @@ class Analysis < ApplicationRecord
   scope :readable_by, ->(grant) { where(feed_id: Feed.readable_by(grant).select(:id)) }
   scope :settled, -> { where(status: SETTLED) }
   scope :newest_first, -> { reorder(id: :desc) }
-  scope :past_deadline, -> { open.where(deadline: ...Time.current) }
+  scope :past_deadline, -> { where(status: "running", deadline: ...Time.current) }
 
-  def self.open!(feed:, cause:, reference: nil, deadline: nil)
+  def self.open!(feed:, cause:, reference: nil)
     parked.where(feed: feed).update_all(status: "cancelled", finished_at: Time.current, updated_at: Time.current)
     create!(feed: feed, cause: cause, reference: reference,
-            deadline: deadline || default_deadline,
             steps: feed.analysis&.steps || {})
   end
 
@@ -61,12 +60,6 @@ class Analysis < ApplicationRecord
     latest = where.not(cause: "ask").select("DISTINCT ON (analyses.feed_id) analyses.*").reorder(:feed_id, id: :desc)
     ended = from(latest, :analyses).merge(where(status: "failed").or(where(status: "cancelled", error: EXPIRED)))
     since ? ended.where(created_at: since..) : ended
-  end
-
-  def self.default_deadline
-    budget = Rails.configuration.xixo.run_deadline
-
-    budget.to_i.zero? ? nil : budget.from_now
   end
 
   def open? = OPEN.include?(status)
@@ -146,7 +139,7 @@ class Analysis < ApplicationRecord
 
   def handed_off!
     moved = Analysis.where(id: id, status: OPEN)
-                    .update_all(status: "queued", started_at: nil, deadline: self.class.default_deadline)
+                    .update_all(status: "queued", started_at: nil, deadline: nil)
     return false if moved.zero?
 
     reload
@@ -167,7 +160,7 @@ class Analysis < ApplicationRecord
 
   def unparked!
     moved = Analysis.where(id: id, status: PARKED).update_all(
-      status: "queued", waits_for: nil, waits_on_id: nil, deadline: self.class.default_deadline, updated_at: Time.current
+      status: "queued", waits_for: nil, waits_on_id: nil, deadline: nil, updated_at: Time.current
     )
     return false if moved.zero?
 

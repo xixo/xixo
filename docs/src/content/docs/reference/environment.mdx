@@ -147,7 +147,7 @@ and every resource credential.
 | --- | --- | --- |
 | `XIXO_MCP_LIMIT` | `120` | MCP requests per minute, counted per tenant and per bearer token, or per IP address for a request without one. A request over the limit receives a `429`. `0` refuses every request. |
 | `XIXO_RUN_BUDGET` | `20` | Syncs, exports, analyses, and moves one person may start over MCP in a tenant per clock hour. `0` removes the limit. See [budgets and gates](/concepts/agents/#budgets-and-gates). |
-| `XIXO_RUN_DEADLINE_HOURS` | `6` | How long a run or an analysis may stay open. Every 10 minutes, `ExpireOverdueJob` expires any that are past their deadline. `0` sets no deadline. |
+| `XIXO_RUN_DEADLINE_HOURS` | `6` | How long a run may stay open. Every 10 minutes, `ExpireOverdueJob` expires any run past its deadline, and any running analysis past its feed's timeout. `0` sets no deadline. |
 | `XIXO_RUN_RETENTION_DAYS` | `14` | How long finished runs are kept. `SweepRunsJob` deletes older ones at 4:20 a.m. `0` keeps them. |
 | `XIXO_AUDIT_RETENTION_DAYS` | `90` | How long audit events are kept. `SweepAuditEventsJob` deletes older ones at 4 a.m. `0` keeps them. |
 

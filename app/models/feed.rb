@@ -526,8 +526,7 @@ class Feed < ApplicationRecord
     raise ArgumentError, "only a note can be asked" unless note?
     raise ArgumentError, "#{title || key} is still being answered" if analyses.open.exists?(cause: "ask")
 
-    Analysis.create!(feed: self, cause: "ask", question: question.to_s.squish, about: about,
-                     deadline: Analysis.default_deadline, steps: {}).tap do |held|
+    Analysis.create!(feed: self, cause: "ask", question: question.to_s.squish, about: about, steps: {}).tap do |held|
       AnalyzeFeedJob.set(priority: Analysis::ASKED_PRIORITY).perform_later(tenant_id, id, held.id)
     end
   end

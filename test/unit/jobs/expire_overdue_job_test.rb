@@ -19,12 +19,20 @@ class ExpireOverdueJobTest < ActiveSupport::TestCase
 
   test "an analysis whose job died is closed once its deadline passes, in every tenant" do
     mine = opened(@tenant, deadline: 1.minute.ago)
-    theirs = opened(@other, deadline: 1.minute.ago, status: "queued")
+    theirs = opened(@other, deadline: 1.minute.ago)
 
     ExpireOverdueJob.perform_now
 
     Tenant.switch(@tenant) { assert_equal [ "cancelled", "deadline passed" ], mine.reload.values_at(:status, :error) }
     Tenant.switch(@other) { assert_equal "cancelled", theirs.reload.status }
+  end
+
+  test "an analysis still waiting in the queue is never expired, however long the queue is" do
+    waiting = opened(@tenant, deadline: 1.minute.ago, status: "queued")
+
+    ExpireOverdueJob.perform_now
+
+    Tenant.switch(@tenant) { assert_equal "queued", waiting.reload.status }
   end
 
   test "an analysis still inside its deadline is left to finish" do

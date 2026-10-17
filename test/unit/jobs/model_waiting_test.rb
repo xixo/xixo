@@ -61,7 +61,7 @@ class ModelWaitingTest < ActiveSupport::TestCase
 
       assert_enqueued_with(job: AnalyzeFeedJob) { ResumeParkedJob.perform_now(@machine.id) }
       assert_equal "queued", analysis.reload.status
-      assert_not_nil analysis.deadline
+      assert_nil analysis.deadline
     end
   end
 
