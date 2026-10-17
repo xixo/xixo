@@ -1,5 +1,115 @@
 # Changelog
 
+## [0.3.0](https://github.com/xixo/xixo/compare/server-v0.2.0...server-v0.3.0) (2026-10-17)
+
+
+### Features
+
+* **link:** a long recording is heard in ten-minute parts spread across it, so a film's transcript covers the whole film and no part is too long to transcribe ([80e5010](https://github.com/xixo/xixo/commit/80e5010a5982e10c1b963ef95d6ff221dd7e555a))
+* **link:** a relayed write fetches its upload part by part while xixo is still receiving it ([3bd0ac5](https://github.com/xixo/xixo/commit/3bd0ac5ecef3e6eaa77357388e330619c3cbdbe9))
+* **link:** each file xixo link lists or writes names its device and inode, so xixo can tell a renamed file from a new one ([ad872a6](https://github.com/xixo/xixo/commit/ad872a616ce9a7f5fdbec9cac0841bf994e1438d))
+* **link:** linking up names the machine the way xixo shows it, links to its card, and says plainly what to do while it waits for approval ([34e95d8](https://github.com/xixo/xixo/commit/34e95d824318ef04adadd2d2dead12b08ef4b769))
+* **link:** the link-up command numbers its steps, says why sudo asks for a password, keeps apt's output in a log, and ends with a summary of the machine ([c7e5ddf](https://github.com/xixo/xixo/commit/c7e5ddf7ac78d3dd81f28670c3d328d0dd911404))
+* **link:** xixo link reads a part of a file by offset and length, and streams a write straight into the shared folder ([408d6f3](https://github.com/xixo/xixo/commit/408d6f38dd23aabe5e3e10d3ddd40d45907e03e2))
+* **link:** xixo link removes a file only when its bytes match a SHA-256 xixo names, and a write keeps the modification time it is given ([4c8112a](https://github.com/xixo/xixo/commit/4c8112a7ee8f453c1f8e65de0eeefa5947d34c7d))
+* **link:** xixo link updates itself to the build xixo names, checks its SHA-256, and goes back when the new one does not connect ([bd223c6](https://github.com/xixo/xixo/commit/bd223c6cf39e92cf9615f36bb8da8e60a8870a4c))
+* **link:** xixo-link status shows the machine's name, its card in xixo, its folders, and how to check on it, and xixo-link alone lists what it can do ([e0c4a1f](https://github.com/xixo/xixo/commit/e0c4a1f8ea3fe6b3b5ff984a8333d9aa8af63c6d))
+* **server:** a folder synced once follows every change xixo link sees, with or without a schedule ([20dea23](https://github.com/xixo/xixo/commit/20dea23f25cfc901ffd9d862012ef55ddfe14a3f))
+* **server:** a model backend learns which of its models read images, picks one for the vision role, and never sends an image to a model that cannot read it ([5d75a51](https://github.com/xixo/xixo/commit/5d75a510c1ef2975dc02a3f4508b21d954c469c6))
+* **server:** a recording heard in parts is transcribed part by part, and each line keeps its moment in the whole recording ([62ea6ac](https://github.com/xixo/xixo/commit/62ea6acb38829d685f5292a59ad8eeb233dde2f5))
+* **server:** a renamed or touched file in a folder keeps its analysis, and only new bytes are analyzed again ([6be3a64](https://github.com/xixo/xixo/commit/6be3a64e9a2a8e45d441751d524bf5b47e680862))
+* **server:** an MCP client in a browser reads the protected resource metadata and calls /mcp from another origin ([1e58e45](https://github.com/xixo/xixo/commit/1e58e45fba795ba0744e3965cbb7aec1ee2d3fc3))
+* **server:** every folder a machine shares is in the catalog, with no step to attach it ([01f4817](https://github.com/xixo/xixo/commit/01f481777d43a211a7469fc08fd80095f2066954))
+* **server:** failed analyses can be started over, and they wait for the model server before they run ([5d002de](https://github.com/xixo/xixo/commit/5d002deb8ce39f08169dc472451ca4c0d29c81ce))
+* **server:** move is an MCP tool of its own, with typed fields, and checks on or stops a move by its run ([fb2fe89](https://github.com/xixo/xixo/commit/fb2fe89e09d63e4329e407d97011dc2e180d5383))
+* **server:** xixo has full access to what a machine shares, and each folder's owner decides whether it is writable ([07576bd](https://github.com/xixo/xixo/commit/07576bdcca41f3ad626302173302f5d3ecbe597a))
+* **server:** xixo moves a folder or a selection of files from one machine to another, and removes each original only once its copy's SHA-256 matches ([0e373aa](https://github.com/xixo/xixo/commit/0e373aac654aca3056295771b07e408f0b02dd01))
+* **server:** xixo tells an out-of-date xixo link to update to the build it ships, and serves the mac reader and the Linux updater ([820bb37](https://github.com/xixo/xixo/commit/820bb37ca6730eefedcb6a51c3f3f045697fc91b))
+* **web:** a machine card lists the folders it shares as the folders in the catalog, with their items and sync state ([5d13329](https://github.com/xixo/xixo/commit/5d13329a894bf6608a20829ec8ef5855ee97fa9e))
+* **web:** a machine's card names its xixo link version, says whether it is up to date, and has a switch to pause its updates ([64a3e22](https://github.com/xixo/xixo/commit/64a3e220f9da6580ed06b73916d3e06e1869a22b))
+* **web:** a pass waiting for a model server says what it waits for, and its summary step reads as waiting, not failed ([d5861f4](https://github.com/xixo/xixo/commit/d5861f46cd65998b34f51c7f6c1aa3d758dfb538))
+* **web:** Move files… on a folder, Move these… in the catalog, and Move to… on a file pick a folder and follow the move ([4a6817e](https://github.com/xixo/xixo/commit/4a6817e1bc6978d286247dd95cd9d42d60ede586))
+* **web:** the link-up dialog and a machine asking to link up mark each folder xixo may write into as read and write ([eb379e6](https://github.com/xixo/xixo/commit/eb379e6095ba714498527fd2d9e275fd65d0e964))
+
+
+### Fixes
+
+* **link:** a hash names the file it read by device and inode, and a write syncs each folder it makes ([4b728de](https://github.com/xixo/xixo/commit/4b728de066bc875f0d5fc1841f8b9e01e800b3e9))
+* **link:** a Mac goes back to the last release that connected, since staging no longer removes the release xixo link runs from ([1c736e5](https://github.com/xixo/xixo/commit/1c736e543a932a291d4face5a7472547d066812d))
+* **link:** a Mac's link-up command shows its paths from ~, and names Full Disk Access once on a rerun ([1da6cb8](https://github.com/xixo/xixo/commit/1da6cb83bb00f7b6d6436f757fc5b815934527de))
+* **link:** a request's deadline is held to one day, and the extraction README names it ([52a05a1](https://github.com/xixo/xixo/commit/52a05a15ba0b4fd253add99e6361554cb5f864e1))
+* **link:** a rerun says it restarts xixo link whenever the service is installed, even while xixo link is already restarting into the new binary ([bb7805c](https://github.com/xixo/xixo/commit/bb7805cef6a37031be7328221de4f93b70907c9b))
+* **link:** a thumbnail and a preview keep none of the original's EXIF tags or location, and are converted to sRGB ([9a3147c](https://github.com/xixo/xixo/commit/9a3147cd55af65c3bdc2abf84b0fc3676fdc3c34))
+* **link:** systemd and the macOS parent give xixo link 15 and 10 seconds to stop, so a restart never waits 90 ([e142652](https://github.com/xixo/xixo/commit/e142652fcbcfbe99af502a7f515aed245488d47d))
+* **link:** the link-up command asks systemd as root whether xixo link runs, so a machine without D-Bus does not stop at the last step ([d00fb47](https://github.com/xixo/xixo/commit/d00fb476a9823aaea7d83716b3bcdadc54b822c7))
+* **link:** the mac reader follows the link to a shared file it reads in place, so a film's bit rate comes from the film's size ([9efed79](https://github.com/xixo/xixo/commit/9efed791ae15b97b65bbb0dbfbc0691e25fc712e))
+* **link:** xixo link stops a request xixo gave up on, and extractions wait in their own queue ([f9b1e58](https://github.com/xixo/xixo/commit/f9b1e58038d347db1a486e606158b918a2ba6f86))
+* **link:** xixo link stops within seconds when systemd asks, even in the middle of hashing a large file ([a876291](https://github.com/xixo/xixo/commit/a876291cedf6fab6d5726e0c38dd4105c5facafd))
+* **link:** xixo link takes --updates systemd only when systemd runs it on Linux and --updates self only on macOS, and the container beside the server refuses --updates ([217a5ab](https://github.com/xixo/xixo/commit/217a5abe78e922adca217c009d9b943f5e33211d))
+* **server:** /favicon.ico serves the xixo icon ([10d4db5](https://github.com/xixo/xixo/commit/10d4db5cbacd886bf284e718917bb8052428630c))
+* **server:** a download is picked from a fixed list of the five files xixo serves, so no request parameter names a path ([fdd41b6](https://github.com/xixo/xixo/commit/fdd41b657c6ba030d2c559b2ba1126da9c794a62))
+* **server:** a file larger than 4 GB is never lent to another machine, and waits for its own machine with a reason that says so ([db266f2](https://github.com/xixo/xixo/commit/db266f2b333652afaeac13f4b6803f10e88c8f67))
+* **server:** a folder file whose time or size changed is hashed within seconds, so an edited copy leaves its twin and a new version joins at once ([f668674](https://github.com/xixo/xixo/commit/f668674864864b46baa3988ea3757b31b53444f8))
+* **server:** a folder whose sync failed because its machine went offline syncs again when the machine says hello ([2816e5e](https://github.com/xixo/xixo/commit/2816e5e203a1153a9b544153b18e9c7a7d661c62))
+* **server:** a HEAD request to /mcp gets the same 405 as GET, since its own route answers both ([bc7b66d](https://github.com/xixo/xixo/commit/bc7b66d4a28f971a8fc671540c1e131486f8b240))
+* **server:** a job that loaded a machine minutes ago reads its latest check-in before calling it offline ([bebff62](https://github.com/xixo/xixo/commit/bebff6264010d0e383f010dcdc2f3113cf14b853))
+* **server:** a line an analysis logs twice in one job is kept twice ([6a7bdce](https://github.com/xixo/xixo/commit/6a7bdce2ab8d83e484347641d70e5c1de4bc1f0c))
+* **server:** a model backend's form has a Model field for every role left blank, so saving it keeps the default model ([883c909](https://github.com/xixo/xixo/commit/883c909d5aeb59d1d53e22e6765d3d5344abba99))
+* **server:** a move never removes an original that another machine reaches on the same disk ([ab6d80c](https://github.com/xixo/xixo/commit/ab6d80c1b1500a629dad2b1b71b3a26781e13505))
+* **server:** a move never removes the last copy of a file, even when two folders share a disk or two moves meet ([cd518ed](https://github.com/xixo/xixo/commit/cd518edd701aed39aae79fa2b4fa7b5adb672257))
+* **server:** a move of a large file keeps its exchanges fresh, so the hourly sweep never takes one that is still carrying bytes ([d666b30](https://github.com/xixo/xixo/commit/d666b303d12f576acf05771ec6b4dd57a0d6d261))
+* **server:** a subscriptions/listen request gets method not found, where it used to end in a 500 ([5d09121](https://github.com/xixo/xixo/commit/5d09121667f4d7cfb0ebca52811556389f9a2411))
+* **server:** a summary cut off by its token budget keeps the entities, summary, and tags the model finished ([2adbf23](https://github.com/xixo/xixo/commit/2adbf23c8674e0c8eab55503d804daccc98ea846))
+* **server:** a sync leaves a file whose analysis waits for a machine to wait, instead of cancelling it and queueing it again ([8cdd5b9](https://github.com/xixo/xixo/commit/8cdd5b9c6737a48559f435aa4b37462ae27b9116))
+* **server:** an analysis waits for a model server on a machine that is asleep, and starts again when the machine says hello ([b31930f](https://github.com/xixo/xixo/commit/b31930fba264600adf403fc49dda18d4dae85505))
+* **server:** an analysis waits in the queue however long the queue is, and its deadline starts when it runs ([6064d02](https://github.com/xixo/xixo/commit/6064d023d4d8941d3a3dbdf8a55bcab88591cba2))
+* **server:** an image is described rather than transcribed, and an item says why it has no summary when a model could not write one ([3a9d2ce](https://github.com/xixo/xixo/commit/3a9d2cea5afd423e0cf080a6434220b046822a58))
+* **server:** every file is extracted again at its next analysis, so a preview made before EXIF was stripped is replaced ([9bc6990](https://github.com/xixo/xixo/commit/9bc6990ff59a543c35c8c7706b1c406965f2fbbb))
+* **server:** every page carries a Content-Security-Policy, so script runs only from xixo and no other site can frame it ([ad3eb90](https://github.com/xixo/xixo/commit/ad3eb905a90e5aea4bd1075d9f8d2934d79ca861))
+* **server:** images go only to a model its server says reads them, and every JSON request names its schema so LM Studio takes it ([ab9035c](https://github.com/xixo/xixo/commit/ab9035cdc0beb178bb489f98ed90107a4c8eb0f2))
+* **server:** link.sh runs setup, unit, and up from the download it checked, so the updater's user never hands root a binary ([4f4765c](https://github.com/xixo/xixo/commit/4f4765ccce9eb78a80df455ef23a7aa4299632bd))
+* **server:** only hashed Vite assets are cached for a year, and the service worker is revalidated on every load ([63c1464](https://github.com/xixo/xixo/commit/63c1464c887d7ef778023f229bb8d9307c5dd68e))
+* **server:** routine work asks a thinking model not to think unless its backend says otherwise, so qwen3 summaries get an answer ([d983a19](https://github.com/xixo/xixo/commit/d983a1961b59b86326684790f83cfdca136412b0))
+* **server:** the health check reads SOLID_QUEUE_IN_PUMA as a switch, so false means false, and the run budget error says you, since a person's tokens share one budget ([284c084](https://github.com/xixo/xixo/commit/284c084e959d11404afd6a4ae82140aebb505443))
+* **server:** the hourly job cleanup and the masks maintenance commands run from the default queue, which a worker always reads ([577f0de](https://github.com/xixo/xixo/commit/577f0de11f64abb31c59036beee7841e3c248b76))
+* **server:** the scheduler's recurring commands are enqueued again, so finished jobs are cleared every hour ([d6d2d28](https://github.com/xixo/xixo/commit/d6d2d2898e59a3e8c2c8d2fc26edac54dcb12bc9))
+* **server:** the session cookie is SameSite=Lax, so a request another site starts never carries it ([5f54156](https://github.com/xixo/xixo/commit/5f54156bbec9a3ce3b3f7be85653320853e6e7e0))
+* **server:** the web app manifest is served as application/manifest+json ([13a2d43](https://github.com/xixo/xixo/commit/13a2d43248785f16d6e266467dd0039ee635272f))
+* **server:** xixo tells xixo link the deadline of each request, and tells it to stop a request xixo gave up on ([d619ba5](https://github.com/xixo/xixo/commit/d619ba56f1f108841113f62ff4791cd42c05681c))
+* **server:** xixo waits for a folder file's hash as long as reading a file that size takes, so a large film is not asked for again every minute ([0db485e](https://github.com/xixo/xixo/commit/0db485ea1883d726935842a27ce3850bda3d6e50))
+* **web:** a machine linked before updates is told to run the link-up command once, even when its version matches the build xixo ships ([3446a3b](https://github.com/xixo/xixo/commit/3446a3b63a2898de34afa06057bb85457fa88081))
+* **web:** the catalog and an item's page stay up when an analysis update arrives with nothing in it ([66bb776](https://github.com/xixo/xixo/commit/66bb776e6bec2104287ed2aed9d48083c9205cb9))
+* **web:** the catalog shows how many items it holds, not how many rows have loaded ([c634440](https://github.com/xixo/xixo/commit/c6344400daf46d8bb82f07ba38e441df3b19f173))
+* **web:** the page shown when a view fails says plainly that only the page failed and what to do next ([86ec095](https://github.com/xixo/xixo/commit/86ec09596391dd0d145c5ec0a554d33728962c75))
+
+
+### Performance
+
+* **link:** measuring a recording's sound keeps two numbers per audio frame, not every line ffmpeg printed ([e00dd53](https://github.com/xixo/xixo/commit/e00dd53b5c14a5346cff9c40b11feb0e08f24e39))
+* **link:** on Linux, xixo link yields the processor and the disk to everything else, and reading a large file no longer pushes other files out of memory ([7a22896](https://github.com/xixo/xixo/commit/7a22896e08da8c639b2e280d72805d5554d496ab))
+* **link:** xixo link reads a shared file where it lies, so a film larger than 4 GB is extracted on the machine that shares it ([0dd438c](https://github.com/xixo/xixo/commit/0dd438c9628dd8dabdae0bb96f3c316a2cb8a49e))
+* **link:** xixo link remembers the SHA-256 of each large file it hashed, so asking again for an unchanged file reads nothing ([bcaaaa0](https://github.com/xixo/xixo/commit/bcaaaa0f2b9e79ca2131559e239ffa08644d3412))
+* **server:** a sync settles each page of unchanged files in one query, so a walk of 5,000 unchanged files takes 0.4 seconds instead of 4.6 ([bfe6a57](https://github.com/xixo/xixo/commit/bfe6a571048230ff544152f73b22a45593565691))
+
+
+### Documentation
+
+* a guide to moving files between machines, and the move command, mutation, and queue in the reference ([6d77257](https://github.com/xixo/xixo/commit/6d7725705c1cc3032a8689d4a59e8625a39be2ad))
+* adding a machine shows the numbered link-up steps, the summary xixo-link status prints, and a Mac rerun that keeps Full Disk Access ([305ba55](https://github.com/xixo/xixo/commit/305ba55684a9ef7c3cef6b98ad9b1b05e9975be2))
+* every concept page, guide, and README says what xixo does now, in fewer words ([2300fe7](https://github.com/xixo/xixo/commit/2300fe7ad406e0ee043a34111f4c4fdea6e61780))
+* **link:** the README describes the numbered install steps, xixo-link status and stage, the JSON answer to /link, and a Mac rerun that keeps Full Disk Access ([5abe57a](https://github.com/xixo/xixo/commit/5abe57aa0e70725558b109aadd7734a48a14b90d))
+* pages, READMEs, and comments no longer claim what xixo stopped doing ([8c60593](https://github.com/xixo/xixo/commit/8c6059356dded7bcb72fb2128aa524a6eb92f7a5))
+* the guides and the link README say how a sync of an unchanged folder reads nothing, and how a renamed or touched file keeps its analysis ([a421940](https://github.com/xixo/xixo/commit/a4219403a4d5347c2564f3a1cb58ca7e00dcc925))
+* the guides say a folder a machine shares joins the catalog by itself, and who sees it ([0c85844](https://github.com/xixo/xixo/commit/0c85844cbef47d955f963c9e0223a792b4efabdc))
+* the guides say xixo may do everything with what a machine shares, and that a folder is writable when the link-up command names it with :rw ([48efe2a](https://github.com/xixo/xixo/commit/48efe2aae852cff5ec9d57fe61eb8084914c663c))
+* the README points to docs.xixo.network and maps the code, and the docs hold the rest ([8459b50](https://github.com/xixo/xixo/commit/8459b50d24350619ab81b5317f3830082c4535ad))
+
+
+### Refactoring
+
+* **server:** queue.yml reads the masks worker's process count from EmbeddedIssuer.processes, which keeps the file valid YAML ([a7f2d6f](https://github.com/xixo/xixo/commit/a7f2d6fe83e0913c7f105d6f63910044da5961c3))
+* **server:** the built-in masks is chosen once at boot, its masks worker runs only when masks does, and its origin check reuses Tenant.origin_for ([3100b3c](https://github.com/xixo/xixo/commit/3100b3cfef0c24c04fd0de597e6b0462ba9d2f55))
+
 ## [0.2.0](https://github.com/xixo/xixo/compare/server-v0.1.1...server-v0.2.0) (2026-10-13)
 
 
