@@ -16,7 +16,7 @@ if File.file?(File.join(masks_client, "masks.gemspec"))
 elsif Bundler.default_gemfile.basename.to_s == "Gemfile.local"
   gem "masks", path: "../masks/client"
 else
-  gem "masks", "~> 0.11"
+  gem "masks", "~> 0.12"
 end
 
 masks_server = ENV["MASKS_SERVER_PATH"].to_s
@@ -24,7 +24,7 @@ masks_server = ENV["MASKS_SERVER_PATH"].to_s
 if File.file?(File.join(masks_server, "masks-server.gemspec"))
   gem "masks-server", path: masks_server, require: false
 else
-  gem "masks-server", "~> 0.8", require: false
+  gem "masks-server", "~> 0.9", require: false
 end
 
 gem "vite_rails"
