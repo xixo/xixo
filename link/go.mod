@@ -6,6 +6,7 @@ require (
 	github.com/coder/websocket v1.8.15
 	github.com/emersion/go-message v0.18.2
 	github.com/go-jose/go-jose/v4 v4.1.5
+	github.com/klauspost/compress v1.20.2
 	github.com/masksrb/masks/go v0.1.0
 	github.com/xuri/excelize/v2 v2.9.1
 	golang.org/x/net v0.61.0
@@ -14,7 +15,6 @@ require (
 )
 
 require (
-	github.com/klauspost/compress v1.20.2 // indirect
 	github.com/richardlehane/mscfb v1.0.4 // indirect
 	github.com/richardlehane/msoleps v1.0.4 // indirect
 	github.com/tiendc/go-deepcopy v1.6.0 // indirect

@@ -335,7 +335,6 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 		releases := set.String("releases", "", "the directory that holds each version of the part")
 		wanted := set.String("wanted", "", "the file xixo link writes while it wants the part")
 		status := set.String("status", "", "the file this command writes the part's state to")
-		home := set.String("state", "", "the directory the part keeps its own files in")
 
 		if err := parse(); err != nil {
 			return err
@@ -350,12 +349,12 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 			return fmt.Errorf("%q is not a part xixo link runs: name any of %s", set.Arg(0), strings.Join(parts.Known(), ", "))
 		}
 
-		if *releases == "" || *wanted == "" || *home == "" {
+		if *releases == "" || *wanted == "" {
 			return errors.New("part takes --releases, --wanted, and --state")
 		}
 
 		runner := &parts.Runner{
-			Recipe: recipe, Releases: *releases, Wanted: *wanted, State: *home, Status: *status,
+			Recipe: recipe, Releases: *releases, Wanted: *wanted, State: *stateDir, Status: *status,
 			Log: slog.New(slog.NewTextHandler(os.Stderr, nil)),
 		}
 
