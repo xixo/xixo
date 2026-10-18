@@ -119,9 +119,10 @@ resumed.
 
 On Linux, `xixo-link-part@.path` starts `xixo-link-part@NAME.service` when
 xixo link writes `/run/xixo-link/parts/NAME`, and the service exits on its own
-when that file goes away. The service runs as a dynamic user with its own state
-under `/var/lib/xixo-link-part/NAME`, the GPU devices allowed, and the same
-limits as `xixo-link.service` otherwise. On macOS, `xixo-link run` runs the
+when that file goes away. The service runs as the system user
+`xixo-link-part`, which the install makes, with its own state under
+`/var/lib/xixo-link-part/NAME`, the GPU devices allowed, and the same limits
+as `xixo-link.service` otherwise. On macOS, `xixo-link run` runs the
 part as its child, as the user, under `~/Library/Application Support/xixo-link/parts/NAME`.
 
 ## Commands

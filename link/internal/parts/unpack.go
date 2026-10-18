@@ -80,9 +80,9 @@ func extract(entries *tar.Reader, header *tar.Header, into string) error {
 
 	switch header.Typeflag {
 	case tar.TypeDir:
-		return os.MkdirAll(target, 0o755)
+		return made(target)
 	case tar.TypeReg:
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		if err := made(filepath.Dir(target)); err != nil {
 			return err
 		}
 
@@ -101,6 +101,10 @@ func extract(entries *tar.Reader, header *tar.Header, into string) error {
 			err = closed
 		}
 
+		if err == nil {
+			err = os.Chmod(target, mode)
+		}
+
 		return err
 	case tar.TypeSymlink:
 		if filepath.IsAbs(header.Linkname) {
@@ -111,7 +115,7 @@ func extract(entries *tar.Reader, header *tar.Header, into string) error {
 			return err
 		}
 
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		if err := made(filepath.Dir(target)); err != nil {
 			return err
 		}
 
@@ -121,6 +125,14 @@ func extract(entries *tar.Reader, header *tar.Header, into string) error {
 	default:
 		return nil
 	}
+}
+
+func made(dir string) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+
+	return os.Chmod(dir, 0o755)
 }
 
 func inside(root, name string) (string, error) {

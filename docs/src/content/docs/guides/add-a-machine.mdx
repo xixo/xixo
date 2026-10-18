@@ -211,8 +211,8 @@ machine by itself and keeps it running:
 4. xixo attaches it as **Ollama on** the machine's name, with a model named for each role, and makes
    it the default for inference when there is no other.
 
-On Linux the part runs as a service of its own, `xixo-link-part@models`, as a user systemd makes
-for it, with the GPU devices allowed and no view of the shared folders or home folders. On a Mac
+On Linux the part runs as a service of its own, `xixo-link-part@models`, as the system user
+`xixo-link-part`, with the GPU devices allowed and no view of the shared folders or home folders. On a Mac
 it runs as a child of xixo link, as you. A version that fails its health check is rolled back to
 the one before it, and the card says so.
 

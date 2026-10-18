@@ -6,7 +6,8 @@ After=network-online.target xixo-link.service
 
 [Service]
 Type=simple
-DynamicUser=yes
+User=xixo-link-part
+Group=xixo-link-part
 StateDirectory=xixo-link-part/%i
 StateDirectoryMode=0700
 RuntimeDirectory=xixo-link-part/%i
