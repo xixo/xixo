@@ -791,7 +791,6 @@ export function Resources() {
             closeAdding()
             setForm(next)
           }}
-          onAdded={refetch}
           onClose={closeAdding}
         />
       )}
