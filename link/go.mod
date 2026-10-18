@@ -14,6 +14,7 @@ require (
 )
 
 require (
+	github.com/klauspost/compress v1.20.2 // indirect
 	github.com/richardlehane/mscfb v1.0.4 // indirect
 	github.com/richardlehane/msoleps v1.0.4 // indirect
 	github.com/tiendc/go-deepcopy v1.6.0 // indirect
