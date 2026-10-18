@@ -252,11 +252,11 @@ xixo plans what a machine does from the machine's description, with fixed rules.
 three lines, each with a reason, and the approval page and the machine's card show them as
 switches:
 
-| Line | When it is possible | What it does |
-| --- | --- | --- |
-| Catalog | The machine shares folders. | Each shared folder joins the catalog by itself, read only or read and write as the machine says. |
-| Extract | The machine has readers installed. | The machine reads its own files, and joins the pool that reads uploads, mail attachments, cloud files, web pages, and the files machines lend, as described in [extraction](/concepts/analysis/#extraction). |
-| Models | A model server answers on the machine. | xixo attaches the model server through the machine, and makes it the default for inference when there is no other. |
+| Line    | When it is possible                    | What it does                                                                                                                                                                                                 |
+| ------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Catalog | The machine shares folders.            | Each shared folder joins the catalog by itself, read only or read and write as the machine says.                                                                                                             |
+| Extract | The machine has readers installed.     | The machine reads its own files, and joins the pool that reads uploads, mail attachments, cloud files, web pages, and the files machines lend, as described in [extraction](/concepts/analysis/#extraction). |
+| Models  | A model server answers on the machine. | xixo attaches the model server through the machine, and makes it the default for inference when there is no other.                                                                                           |
 
 A line that is not possible stays off, and its reason says why, such as "Its NVIDIA GeForce GTX
 1070 has no driver, so models run on another machine." Every possible line starts on. An
@@ -276,14 +276,14 @@ A machine offers MCP clients these tools. A client reaches them as commands on t
 the `resource` tool at `/mcp`, never through a port on the machine. `write` needs a folder the
 machine shares writable, and `chat` needs the plan's **Models** line on.
 
-| Tool | Command | Does |
-| --- | --- | --- |
-| `browse` | `browse` | Lists the shared folders, or the files in one. |
-| `search` | `search` | Finds files by xixo's index of the machine's folders, then by their paths on the machine. |
-| `read` | `read` | Sends up to 256 KiB of a file. |
-| `write` | `write` | Writes a file of at most 1 MiB into a writable folder. It overwrites a file only when asked to. |
-| `extract` | `extract` | Runs the machine's extractors on a file and answers with what they read. |
-| `models` | `chat` | Asks a model server on the machine one question. |
+| Tool      | Command   | Does                                                                                            |
+| --------- | --------- | ----------------------------------------------------------------------------------------------- |
+| `browse`  | `browse`  | Lists the shared folders, or the files in one.                                                  |
+| `search`  | `search`  | Finds files by xixo's index of the machine's folders, then by their paths on the machine.       |
+| `read`    | `read`    | Sends up to 256 KiB of a file.                                                                  |
+| `write`   | `write`   | Writes a file of at most 1 MiB into a writable folder. It overwrites a file only when asked to. |
+| `extract` | `extract` | Runs the machine's extractors on a file and answers with what they read.                        |
+| `models`  | `chat`    | Asks a model server on the machine one question.                                                |
 
 - Every command needs `xixo:resources:read`, and `write` also needs `xixo:resources:command`.
 - `browse`, `write`, `extract`, `chat`, and the walk of the machine's folders answer only the

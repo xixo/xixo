@@ -57,7 +57,7 @@ its approval. After that, xixo link [updates itself](#updates).
 {
   "xixo": "https://xixo.example.com",
   "issuer": "https://id.example.com",
-  "folders": ["/srv/media", {"path": "/data/files", "writable": true}]
+  "folders": ["/srv/media", { "path": "/data/files", "writable": true }]
 }
 ```
 
@@ -76,10 +76,10 @@ xixo plans what the machine does from that. An administrator approves the plan
 and changes it on the machine's card. Two keys in the configuration set a limit
 xixo cannot cross:
 
-| Key | Allows | Left out |
-| --- | --- | --- |
-| `lend` | xixo reading the bytes of a shared file, for a download, a preview, or an extraction on another machine | allowed |
-| `parts` | the parts named, out of `models` | all of them |
+| Key     | Allows                                                                                                  | Left out    |
+| ------- | ------------------------------------------------------------------------------------------------------- | ----------- |
+| `lend`  | xixo reading the bytes of a shared file, for a download, a preview, or an extraction on another machine | allowed     |
+| `parts` | the parts named, out of `models`                                                                        | all of them |
 
 ```json
 {
@@ -101,26 +101,26 @@ from starting.
 `xixo-link` alone, or `xixo-link help`, lists the commands. Each command takes
 `-h`.
 
-| Command | Does |
-| --- | --- |
-| `xixo-link status` | Prints the machine's name in xixo, the address of its card, the version, whether the service runs, whether updates are on, each folder as read only or read and write, and the commands that show the service and its log. It needs no root. Run by an account that cannot read the keys, it says so and prints the rest. |
-| `xixo-link setup --xixo URL --issuer URL [FOLDER ...]` | Writes the configuration, and prints nothing. Each folder must exist. End one with `:rw` to share it writable. A folder cannot hold a quotation mark, an apostrophe, a backslash, a colon, or a control character. Run again, it keeps every other key, and keeps the folders when none are given. |
-| `xixo-link unit --template PATH [--user NAME]` | Prints the systemd unit for the folders the configuration shares. |
-| `xixo-link up` | Links the machine up, as described in [linking up](#linking-up). A machine already linked prints "Already linked up as" and the name xixo shows for it. |
-| `xixo-link describe [FOLDER[:rw] ...]` | Prints the machine's description as JSON, as `up` sends it: hostname, system, processor, the folders, and the details in [linking up](#linking-up). With folders named, it describes those and checks that each exists. Without, it describes the folders in the configuration, or none when there is no configuration. |
-| `xixo-link enroll --token - [--name NAME]` | Reads an enrollment token from standard input, or from `XIXO_ENROLLMENT_TOKEN`, and registers xixo link's key with masks. `--name` defaults to the hostname. |
-| `xixo-link run [--updates systemd\|self] [--revoked-status N]` | Connects to xixo and serves it until it is stopped. On SIGTERM or SIGINT, it waits at most five seconds for the requests it is answering, then exits. `--updates systemd` works only on Linux under systemd, and `--updates self` only on macOS. Without it, xixo link ignores updates. |
-| `xixo-link update` | The Linux updater, run by `xixo-link-update.service`. |
-| `xixo-link stage [--releases DIR]` | On macOS, installs its own binary and the mac reader beside it as an [update](#on-macos): a new folder under `releases/`, named by the start of its SHA-256, with `releases/current` pointing at it. The install command runs it on a rerun. |
-| `xixo-link version` | Prints the version. |
+| Command                                                                                 | Does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `xixo-link status`                                                                      | Prints the machine's name in xixo, the address of its card, the version, whether the service runs, whether updates are on, each folder as read only or read and write, and the commands that show the service and its log. It needs no root. Run by an account that cannot read the keys, it says so and prints the rest.                                                                                                                                                                                                                                                                                                                                                                           |
+| `xixo-link setup --xixo URL --issuer URL [FOLDER ...]`                                  | Writes the configuration, and prints nothing. Each folder must exist. End one with `:rw` to share it writable. A folder cannot hold a quotation mark, an apostrophe, a backslash, a colon, or a control character. Run again, it keeps every other key, and keeps the folders when none are given.                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `xixo-link unit --template PATH [--user NAME]`                                          | Prints the systemd unit for the folders the configuration shares.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `xixo-link up`                                                                          | Links the machine up, as described in [linking up](#linking-up). A machine already linked prints "Already linked up as" and the name xixo shows for it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `xixo-link describe [FOLDER[:rw] ...]`                                                  | Prints the machine's description as JSON, as `up` sends it: hostname, system, processor, the folders, and the details in [linking up](#linking-up). With folders named, it describes those and checks that each exists. Without, it describes the folders in the configuration, or none when there is no configuration.                                                                                                                                                                                                                                                                                                                                                                             |
+| `xixo-link enroll --token - [--name NAME]`                                              | Reads an enrollment token from standard input, or from `XIXO_ENROLLMENT_TOKEN`, and registers xixo link's key with masks. `--name` defaults to the hostname.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `xixo-link run [--updates systemd\|self] [--revoked-status N]`                          | Connects to xixo and serves it until it is stopped. On SIGTERM or SIGINT, it waits at most five seconds for the requests it is answering, then exits. `--updates systemd` works only on Linux under systemd, and `--updates self` only on macOS. Without it, xixo link ignores updates.                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `xixo-link update`                                                                      | The Linux updater, run by `xixo-link-update.service`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `xixo-link stage [--releases DIR]`                                                      | On macOS, installs its own binary and the mac reader beside it as an [update](#on-macos): a new folder under `releases/`, named by the start of its SHA-256, with `releases/current` pointing at it. The install command runs it on a rerun.                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `xixo-link version`                                                                     | Prints the version.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `xixo-link install --xixo URL --issuer URL --from PATH [--user NAME] [FOLDER[:rw] ...]` | Installs xixo link from the build at `--from`. On Linux, as root: it makes the `xixo-link-update` and `xixo-link-part` accounts when they are missing, installs the binary in `/usr/local/lib/xixo-link` owned by the updater, links it from `/usr/local/bin`, writes the configuration for the folders, fetches the service template and the updater and part units from xixo and writes them to `/etc/systemd/system`, makes the state directory for `--user`, and enables the services. On macOS, as the user: it installs the binary and the mac reader, as an update when the installed xixo link supervises itself, writes the configuration, and writes the launch agent. It starts nothing. |
-| `xixo-link start` | Starts the service, or restarts it: `systemctl restart xixo-link` on Linux, as root, and the launch agent on macOS. |
-| `xixo-link uninstall` | Stops xixo link and removes it, its configuration, its state, and its parts from the machine. It puts nothing away in xixo. Linux needs root. |
-| `xixo-link join` | Reads `{"enrollment_token", "device_code", "name"}` as JSON on standard input, enrolls with masks as `enroll` does, and binds the machine with the device code as `up` does after approval. `xixo-link add` runs it over ssh. |
-| `xixo-link linked` | Prints the machine's name, key, and card address in xixo as JSON, with the machine's own token. |
-| `xixo-link login --xixo URL` | Signs you in to xixo from this computer, through the browser: it prints a link and a code, waits for your approval, and keeps the tokens in `~/.config/xixo-link/logins.json`, mode 0600. xixo starts the device grant with its own masks client, so the command line needs none. |
-| `xixo-link add HOST [FOLDER[:rw] ...] [--user NAME] [--off LINES] [--xixo URL]` | Links up a machine over ssh, as [linking over ssh](#linking-over-ssh) describes. `--off` names plan lines to leave off, separated by commas. `--xixo` picks the xixo when you are signed in to more than one. |
-| `xixo-link remove HOST [--xixo URL]` | Uninstalls xixo link on a machine over ssh and puts the machine away in xixo. |
+| `xixo-link start`                                                                       | Starts the service, or restarts it: `systemctl restart xixo-link` on Linux, as root, and the launch agent on macOS.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `xixo-link uninstall`                                                                   | Stops xixo link and removes it, its configuration, its state, and its parts from the machine. It puts nothing away in xixo. Linux needs root.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `xixo-link join`                                                                        | Reads `{"enrollment_token", "device_code", "name"}` as JSON on standard input, enrolls with masks as `enroll` does, and binds the machine with the device code as `up` does after approval. `xixo-link add` runs it over ssh.                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `xixo-link linked`                                                                      | Prints the machine's name, key, and card address in xixo as JSON, with the machine's own token.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `xixo-link login --xixo URL`                                                            | Signs you in to xixo from this computer, through the browser: it prints a link and a code, waits for your approval, and keeps the tokens in `~/.config/xixo-link/logins.json`, mode 0600. xixo starts the device grant with its own masks client, so the command line needs none.                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `xixo-link add HOST [FOLDER[:rw] ...] [--user NAME] [--off LINES] [--xixo URL]`         | Links up a machine over ssh, as [linking over ssh](#linking-over-ssh) describes. `--off` names plan lines to leave off, separated by commas. `--xixo` picks the xixo when you are signed in to more than one.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `xixo-link remove HOST [--xixo URL]`                                                    | Uninstalls xixo link on a machine over ssh and puts the machine away in xixo.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 Every command takes `--config PATH`, and `up`, `enroll`, `join`, `linked`, and
 `run` take `--state DIR`. The defaults are in [files on the machine](#files-on-the-machine).
@@ -129,28 +129,28 @@ Every command takes `--config PATH`, and `up`, `enroll`, `join`, `linked`, and
 
 On Linux xixo link runs as a systemd service:
 
-| Path | Holds |
-| --- | --- |
-| `/usr/local/lib/xixo-link/xixo-link` | The binary, owned by the `xixo-link-update` user, and `xixo-link.previous`, the one before the last update. |
-| `/usr/local/bin/xixo-link` | A link to the binary. |
-| `/etc/xixo-link/config.json` | The configuration. |
-| `/var/lib/xixo-link/` | The state: `key.json` and `dpop.json`, the keys xixo link signs with, and `registration.json`, its masks client. |
-| `/var/cache/xixo-link/work/` | Each extraction's private work folder, emptied when xixo link starts. |
-| `/var/cache/xixo-link/digests.json` | The SHA-256 of each file of 1 MB or more that xixo link read, as in [hashing](#hashing). |
-| `/etc/systemd/system/` | `xixo-link.service`, `xixo-link-update.service`, and `xixo-link-update.path`. |
+| Path                                 | Holds                                                                                                            |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `/usr/local/lib/xixo-link/xixo-link` | The binary, owned by the `xixo-link-update` user, and `xixo-link.previous`, the one before the last update.      |
+| `/usr/local/bin/xixo-link`           | A link to the binary.                                                                                            |
+| `/etc/xixo-link/config.json`         | The configuration.                                                                                               |
+| `/var/lib/xixo-link/`                | The state: `key.json` and `dpop.json`, the keys xixo link signs with, and `registration.json`, its masks client. |
+| `/var/cache/xixo-link/work/`         | Each extraction's private work folder, emptied when xixo link starts.                                            |
+| `/var/cache/xixo-link/digests.json`  | The SHA-256 of each file of 1 MB or more that xixo link read, as in [hashing](#hashing).                         |
+| `/etc/systemd/system/`               | `xixo-link.service`, `xixo-link-update.service`, and `xixo-link-update.path`.                                    |
 
 On macOS xixo link runs as the user whose files it shares:
 
-| Path | Holds |
-| --- | --- |
-| `~/Library/Application Support/xixo-link/bin/` | `xixo-link`, which the launch agent runs, and `xixo-mac-reader`. |
-| `~/Library/Application Support/xixo-link/releases/` | The updates, one folder each. |
-| `~/Library/Application Support/xixo-link/config.json` | The configuration. |
-| `~/Library/Application Support/xixo-link/state/` | The keys, the registration, and the update files. |
-| `~/Library/Caches/xixo-link/work/` | Each extraction's private work folder, emptied when xixo link starts. |
-| `~/Library/Caches/xixo-link/digests.json` | The SHA-256 of each file of 1 MB or more that xixo link read, as in [hashing](#hashing). |
-| `~/Library/LaunchAgents/network.xixo.link.plist` | The launch agent. |
-| `~/Library/Logs/xixo-link.log` | What xixo link logs. |
+| Path                                                  | Holds                                                                                    |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `~/Library/Application Support/xixo-link/bin/`        | `xixo-link`, which the launch agent runs, and `xixo-mac-reader`.                         |
+| `~/Library/Application Support/xixo-link/releases/`   | The updates, one folder each.                                                            |
+| `~/Library/Application Support/xixo-link/config.json` | The configuration.                                                                       |
+| `~/Library/Application Support/xixo-link/state/`      | The keys, the registration, and the update files.                                        |
+| `~/Library/Caches/xixo-link/work/`                    | Each extraction's private work folder, emptied when xixo link starts.                    |
+| `~/Library/Caches/xixo-link/digests.json`             | The SHA-256 of each file of 1 MB or more that xixo link read, as in [hashing](#hashing). |
+| `~/Library/LaunchAgents/network.xixo.link.plist`      | The launch agent.                                                                        |
+| `~/Library/Logs/xixo-link.log`                        | What xixo link logs.                                                                     |
 
 The state directory is mode 0700 and every file in it is mode 0600. The keys
 are made on the machine the first time xixo link enrolls and never leave it.
@@ -256,13 +256,13 @@ clock is wrong, is retried.
 
 xixo link speaks the Action Cable protocol on `LinkChannel`. It sends:
 
-| Action | When |
-| --- | --- |
-| `hello` | Once connected: the version, system, folders, the description `up` sends, whether the configuration lends, and warnings. |
-| `health` | After `hello`, and every minute: uptime, load, memory, and disk space. |
-| `reply` | When a request is answered, with `ok` and a `result` or an `error`. |
-| `chunk` | For each part of a file being read or made, base64 encoded, at most 256 KiB. |
-| `changed` | When files in a shared folder change, so xixo looks at those paths at once. |
+| Action    | When                                                                                                                     |
+| --------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `hello`   | Once connected: the version, system, folders, the description `up` sends, whether the configuration lends, and warnings. |
+| `health`  | After `hello`, and every minute: uptime, load, memory, and disk space.                                                   |
+| `reply`   | When a request is answered, with `ok` and a `result` or an `error`.                                                      |
+| `chunk`   | For each part of a file being read or made, base64 encoded, at most 256 KiB.                                             |
+| `changed` | When files in a shared folder change, so xixo looks at those paths at once.                                              |
 
 `warnings` holds sentences for the person who runs the machine, such as a shared
 folder that does not exist or that macOS keeps from xixo link.
@@ -276,13 +276,13 @@ xixo sends `update`, as in [updates](#updates), and `cancel`, as in [waiting
 and stopping](#waiting-and-stopping). It also sends requests, each naming a
 verb:
 
-| Verbs | Do |
-| --- | --- |
-| `list`, `read`, `hash`, `health` | List a shared folder, send a file's bytes, hash a file where it lies, and report health. |
-| `extract`, `derive` | Read a shared file or an upload into steps and files. See [extraction](internal/extract/README.md). |
-| `write`, `remove` | Place a file in a writable folder, and remove one whose size and SHA-256 xixo names. |
-| `browse`, `find`, `peek`, `place`, `examine`, `model` | Answer MCP clients. |
-| `relay` | Pass xixo's own requests on to a model server on the machine. |
+| Verbs                                                 | Do                                                                                                  |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `list`, `read`, `hash`, `health`                      | List a shared folder, send a file's bytes, hash a file where it lies, and report health.            |
+| `extract`, `derive`                                   | Read a shared file or an upload into steps and files. See [extraction](internal/extract/README.md). |
+| `write`, `remove`                                     | Place a file in a writable folder, and remove one whose size and SHA-256 xixo names.                |
+| `browse`, `find`, `peek`, `place`, `examine`, `model` | Answer MCP clients.                                                                                 |
+| `relay`                                               | Pass xixo's own requests on to a model server on the machine.                                       |
 
 A `list` names each file's path, size, modification time to the nanosecond, and
 `file`, its device and inode. xixo tells a renamed file by that `file`.
@@ -299,10 +299,10 @@ file. It never walks or reads these names: `.git`, `.hg`, `.svn`,
 
 xixo link keeps two queues, so a slow extraction never holds up a quick request:
 
-| Queue | Verbs | At once | Waiting |
-| --- | --- | --- | --- |
-| Extraction | `extract`, `derive`, `examine` | 2 | 16 |
-| Everything else | `list`, `read`, `hash`, `health`, and the rest | 4 | 64 |
+| Queue           | Verbs                                          | At once | Waiting |
+| --------------- | ---------------------------------------------- | ------- | ------- |
+| Extraction      | `extract`, `derive`, `examine`                 | 2       | 16      |
+| Everything else | `list`, `read`, `hash`, `health`, and the rest | 4       | 64      |
 
 A request that finds its queue full is refused at once with an error that says
 xixo link is busy. xixo then asks again later.
@@ -494,12 +494,12 @@ With the mac reader beside xixo link, a Mac reads every kind of file xixo sends
 to a machine with what macOS ships. Homebrew is optional. Each extractor uses
 the first of its programs that the Mac has:
 
-| Extractor | Programs, in order |
-| --- | --- |
-| `pdf` | the mac reader, then poppler and tesseract |
-| `image` | the mac reader, then vips, exiftool, tesseract, and libraw |
-| `media` | ffmpeg, then the mac reader |
-| `doc` | `textutil`, then LibreOffice and poppler |
+| Extractor | Programs, in order                                         |
+| --------- | ---------------------------------------------------------- |
+| `pdf`     | the mac reader, then poppler and tesseract                 |
+| `image`   | the mac reader, then vips, exiftool, tesseract, and libraw |
+| `media`   | ffmpeg, then the mac reader                                |
+| `doc`     | `textutil`, then LibreOffice and poppler                   |
 
 Every other extractor reads files in Go. A Mac without Homebrew has these gaps:
 
