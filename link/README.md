@@ -504,7 +504,12 @@ done
 
 The Go linker signs `darwin/arm64` binaries ad hoc, also on Linux, so they run
 on Apple silicon without a separate signing step. The xixo image builds all
-four into `/opt/xixo-link`, with the systemd units and the plist.
+four into `/opt/xixo-link`, with the systemd units, the plist, and a `version`
+file the server reads. A release build takes its version from
+`.release-please-manifest.json`. A build from main adds the commit after it,
+as `0.2.0+1a2b3c4`, through the `XIXO_COMMIT` build argument. The updater
+orders versions by the three numbers and ignores what follows the `+`, so a
+machine on `0.2.0` takes `0.2.0+1a2b3c4`, and takes `0.2.1` after it.
 
 The mac reader, `xixo-mac-reader`, is a Swift program that reads PDFs, images,
 audio, and video with the frameworks macOS ships. It builds only on a Mac with
@@ -514,8 +519,8 @@ the Xcode command line tools, as one binary for Apple silicon and Intel:
 make -C macos
 ```
 
-Each release builds it on a macOS runner, attaches it to the GitHub release,
-and hands it to the image build:
+Each release and each push to main builds it on a macOS runner and hands it to
+the image build. A release also attaches it to the GitHub release:
 
 ```sh
 docker build --build-context mac-reader=link/macos/build .

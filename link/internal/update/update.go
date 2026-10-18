@@ -30,7 +30,7 @@ const (
 )
 
 var (
-	released = regexp.MustCompile(`^\d{1,6}\.\d{1,6}\.\d{1,6}$`)
+	released = regexp.MustCompile(`^\d{1,6}\.\d{1,6}\.\d{1,6}(\+[0-9a-f]{7,40})?$`)
 	hexed    = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 	ErrMismatch  = errors.New("the download did not match the SHA-256 xixo sent")
@@ -115,7 +115,8 @@ func parts(version string) ([3]int, bool) {
 		return held, false
 	}
 
-	for i, part := range strings.Split(version, ".") {
+	numbered, _, _ := strings.Cut(version, "+")
+	for i, part := range strings.Split(numbered, ".") {
 		held[i], _ = strconv.Atoi(part)
 	}
 

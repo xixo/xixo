@@ -57,6 +57,10 @@ func TestCompareOrdersReleasedVersions(t *testing.T) {
 		{"0.3.1", "0.3.1", 0, true},
 		{"dev", "0.3.1", 0, false},
 		{"0.3", "0.3.1", 0, false},
+		{"0.2.0+1a2b3c4", "0.2.0", 0, true},
+		{"0.2.0+1a2b3c4", "0.2.0+9f8e7d6", 0, true},
+		{"0.2.1", "0.2.0+1a2b3c4", 1, true},
+		{"0.2.0+main", "0.2.0", 0, false},
 	}
 
 	for _, held := range cases {
@@ -88,6 +92,14 @@ func TestAnOlderVersionNeedsXixoToSayItRollsBack(t *testing.T) {
 
 	if err := Allowed("0.2.0", Target{Version: "0.3.0; rm -rf /", SHA256: sha}); !errors.Is(err, ErrUntold) {
 		t.Fatalf("a malformed version: %v", err)
+	}
+
+	if err := Allowed("0.2.0", Target{Version: "0.2.0+1a2b3c4", SHA256: sha}); err != nil {
+		t.Fatalf("a build from main after the release it names: %v", err)
+	}
+
+	if err := Allowed("0.2.0+1a2b3c4", Target{Version: "0.2.0", SHA256: sha}); err != nil {
+		t.Fatalf("the release a build from main is named after: %v", err)
 	}
 }
 
