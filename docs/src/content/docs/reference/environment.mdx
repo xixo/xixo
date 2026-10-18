@@ -99,7 +99,7 @@ Uploads are staged through Active Storage before a job places them in a resource
 | `XIXO_STAGING_SECRET_ACCESS_KEY` | none | |
 | `XIXO_GIT_ROOT` | none | The directory where `git` resources keep their shallow bare clones, at `<root>/<tenant id>/<resource id>.git`. Unset, every `git` resource is unusable. |
 | `XIXO_LOCAL_LINK` | none | The directory the server shares with xixo link beside it. Each tenant whose xixo link runs there has a directory of its own under it, named by its subdomain. When it asks to enroll, the worker leaves it a single-use enrollment token readable by its user alone, and binds the client xixo link enrolled as to the `local` machine. Unset, nothing is extracted until xixo link on a machine is connected. |
-| `XIXO_LINK_DIR` | `/opt/xixo-link` | Where the server finds the xixo link it hands to a machine that links up: the builds named `xixo-link-<os>-<arch>`, the systemd units, and the launch agent. `/link.sh` offers each build it finds there. The server image holds builds for Linux and macOS on amd64 and arm64. |
+| `XIXO_LINK_DIR` | `/opt/xixo-link` | Where the server finds the xixo link it hands to a machine that links up: the builds named `xixo-link-<os>-<arch>`, the systemd units, the launch agent, and `version`, the version those builds report. `/link.sh` offers each build it finds there. The server image holds builds for Linux and macOS on amd64 and arm64. Without `version`, the server offers the version in `.release-please-manifest.json`. |
 
 ### Outbound connections
 

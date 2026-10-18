@@ -14,7 +14,8 @@ class Resource
       MAC_DIR = "mac".freeze
       RELEASES = "https://github.com/xixo/xixo/releases/download".freeze
       MANIFEST = ".release-please-manifest.json".freeze
-      RELEASED = /\A\d+\.\d+\.\d+\z/
+      RELEASED = /\A\d+\.\d+\.\d+(\+[0-9a-f]{7,40})?\z/
+      VERSION = "version".freeze
       FILES = (%w[linux darwin].product(%w[amd64 arm64]).map { |os, arch| "xixo-link-#{os}-#{arch}" } + [ MAC_READER ]).freeze
 
       Build = Data.define(:os, :arch, :file, :path) do
@@ -86,6 +87,17 @@ class Resource
       end
 
       def version
+        built || manifest
+      end
+
+      def built
+        held = Machine.binaries.join(VERSION).read.strip
+        held if held.match?(RELEASED)
+      rescue SystemCallError
+        nil
+      end
+
+      def manifest
         held = JSON.parse(Rails.root.join(MANIFEST).read)["."].to_s
         held if held.match?(RELEASED)
       rescue SystemCallError, JSON::ParserError
@@ -94,15 +106,19 @@ class Resource
 
       def mac_reader
         held = version
-        "#{RELEASES}/server-v#{held}/#{MAC_READER}" if held
+        "#{RELEASES}/server-v#{numbered(held)}/#{MAC_READER}" if held
       end
 
       def released?(value)
         value.to_s.match?(RELEASED)
       end
 
+      def numbered(version)
+        version.to_s.split("+").first
+      end
+
       def older?(version, than)
-        released?(version) && released?(than) && Gem::Version.new(version) < Gem::Version.new(than)
+        released?(version) && released?(than) && Gem::Version.new(numbered(version)) < Gem::Version.new(numbered(than))
       end
 
       def digest(path)

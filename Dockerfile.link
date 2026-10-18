@@ -12,9 +12,11 @@ COPY link/go.mod link/go.sum ./
 RUN go mod download
 COPY link/ ./
 COPY .release-please-manifest.json /link/
+ARG XIXO_COMMIT=
 RUN version=$(sed -n 's/.*"\.": *"\([^"]*\)".*/\1/p' .release-please-manifest.json) && \
+    version="${version:-dev}${XIXO_COMMIT:++$(printf %.7s "$XIXO_COMMIT")}" && \
     CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
-      -ldflags "-s -w -X main.version=${version:-dev}" -o /out/xixo-link .
+      -ldflags "-s -w -X main.version=$version" -o /out/xixo-link .
 
 FROM docker.io/library/debian:$DEBIAN_VERSION-slim
 

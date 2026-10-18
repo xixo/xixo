@@ -1,0 +1,11 @@
+[Unit]
+Description=xixo update
+Documentation=https://docs.xixo.network/guides/self-hosting/
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/xixo
+ExecStart=/usr/bin/docker compose pull --quiet
+ExecStart=/usr/bin/docker compose up -d

@@ -38,12 +38,15 @@ COPY link/go.mod link/go.sum ./
 RUN go mod download
 COPY link/ ./
 COPY .release-please-manifest.json /link/
+ARG XIXO_COMMIT=
 RUN version=$(sed -n 's/.*"\.": *"\([^"]*\)".*/\1/p' .release-please-manifest.json) && \
+    version="${version:-dev}${XIXO_COMMIT:++$(printf %.7s "$XIXO_COMMIT")}" && \
     for os in linux darwin; do for arch in amd64 arm64; do \
       CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath \
-        -ldflags "-s -w -X main.version=${version:-dev}" -o /opt/xixo-link/xixo-link-$os-$arch . || exit 1; \
+        -ldflags "-s -w -X main.version=$version" -o /opt/xixo-link/xixo-link-$os-$arch . || exit 1; \
     done; done && \
-    cp xixo-link.service xixo-link-update.service xixo-link-update.path xixo-link.plist /opt/xixo-link/
+    cp xixo-link.service xixo-link-update.service xixo-link-update.path xixo-link.plist /opt/xixo-link/ && \
+    printf '%s\n' "$version" > /opt/xixo-link/version
 
 FROM scratch AS masks-client
 COPY vendor/.keep /

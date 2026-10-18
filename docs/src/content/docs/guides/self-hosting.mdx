@@ -35,8 +35,11 @@ Any other command starts without them.
 
 `ghcr.io/xixo/xixo` is built for amd64. `ghcr.io/xixo/xixo-link` is built for amd64 and arm64.
 
-A server release has a `server-v<version>` tag and its changes in `CHANGELOG.md`. Pin a version in
-production, and read the changelog before you change it. `:latest` follows main.
+A server release has a `server-v<version>` tag and its changes in `CHANGELOG.md`. An image built
+from main holds the same xixo link builds and mac reader as a release, and names its commit after
+the release it follows, such as `0.2.0+1a2b3c4`. A machine on `0.2.0` takes that build, and takes
+`0.2.1` after it. Pin a version in production and read the changelog before you change it, or
+follow `:main` to run every push. `:latest` follows main.
 
 ## The database role
 
@@ -495,6 +498,25 @@ within the same window, and `1` with the reason when none did.
 
 The web container applies new migrations on start, and the worker starts after it reports healthy.
 To go back, [restore](/guides/back-up-and-restore/#restore) the backup and start the old version.
+
+## Keep xixo up to date
+
+A timer on the host pulls the tag the compose file names and recreates the containers that changed.
+With `:0.2` it follows patch releases. With `:main` it follows every push.
+
+1. Copy [`deploy/xixo-update.service` and `deploy/xixo-update.timer`](https://github.com/xixo/xixo/tree/main/deploy)
+   to `/etc/systemd/system/`.
+2. Set `WorkingDirectory` in the service to the folder that holds your `compose.yml`.
+3. Start the timer:
+
+   ```sh
+   sudo systemctl enable --now xixo-update.timer
+   ```
+
+It runs two minutes after boot and every ten minutes after that. `journalctl -u xixo-update` shows
+each run. The timer runs on the host, so no container holds the Docker socket. Linked machines
+update themselves on their next hello, as [add a machine](/guides/add-a-machine/#keep-xixo-link-up-to-date)
+describes.
 
 ### Upgrading from 0.1
 

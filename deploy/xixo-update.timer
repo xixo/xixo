@@ -1,0 +1,10 @@
+[Unit]
+Description=xixo update, every ten minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+RandomizedDelaySec=1min
+
+[Install]
+WantedBy=timers.target

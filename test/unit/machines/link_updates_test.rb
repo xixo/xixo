@@ -49,6 +49,27 @@ class LinkUpdatesTest < ActionCable::Channel::TestCase
     assert fresh.current?
   end
 
+  test "an image built from main names its commit after the release, and that is neither a downgrade nor the release" do
+    File.write(File.join(@binaries, "version"), "#{SHIPPED}+1a2b3c4\n")
+
+    assert_equal "#{SHIPPED}+1a2b3c4", Resource::Machine::Downloads.version
+    assert_equal "#{Resource::Machine::Downloads::RELEASES}/server-v#{SHIPPED}/xixo-mac-reader", Resource::Machine::Downloads.mac_reader
+    assert_not Resource::Machine::Downloads.older?("#{SHIPPED}+1a2b3c4", SHIPPED)
+    assert_not Resource::Machine::Downloads.older?(SHIPPED, "#{SHIPPED}+1a2b3c4")
+    assert Resource::Machine::Downloads.older?("#{SHIPPED}+1a2b3c4", "999.0.0")
+
+    told = greeted("version" => SHIPPED, "sha256" => OLD, "updates" => "systemd")
+
+    assert_equal [ { "version" => "#{SHIPPED}+1a2b3c4", "sha256" => Digest::SHA256.hexdigest("linux binary"), "downgrade" => false } ],
+                 told
+  end
+
+  test "a version file that names no release is ignored" do
+    File.write(File.join(@binaries, "version"), "main\n")
+
+    assert_equal SHIPPED, Resource::Machine::Downloads.version
+  end
+
   test "a link on the build xixo ships hears nothing" do
     assert_empty greeted("version" => SHIPPED, "sha256" => Digest::SHA256.hexdigest("linux binary"), "updates" => "systemd")
     assert fresh.current?
