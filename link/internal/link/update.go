@@ -15,7 +15,7 @@ type Updater interface {
 }
 
 func (a *Link) greeting(hello machine.Hello) greeting {
-	held := greeting{Hello: hello, Tools: a.offered(), SHA256: a.Identity.SHA256, MacReader: a.Identity.MacReader}
+	held := greeting{Hello: hello, SHA256: a.Identity.SHA256, MacReader: a.Identity.MacReader}
 
 	if a.Updates != nil {
 		held.Updates = a.Updates.Mode()

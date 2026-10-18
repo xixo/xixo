@@ -65,17 +65,14 @@ type Link struct {
 	Digests  *digests.Cache
 	Extract  func(context.Context, extract.Input) (*extract.Output, error)
 
-	Lend              bool
-	ExtractsForOthers bool
-	Notices           []string
-	Tools             []string
-	ModelPorts        map[string]int
-	Unwatched         bool
+	Lend       bool
+	Notices    []string
+	ModelPorts map[string]int
+	Unwatched  bool
 
 	Updates  Updater
 	Identity update.Self
 
-	policy   policy
 	once     sync.Once
 	watching *watch.Watcher
 	wire     wire
@@ -415,12 +412,10 @@ func (a *Link) open(ctx context.Context) (*session, error) {
 }
 
 func (s *session) greet(ctx context.Context) error {
-	hello := s.Machine.Hello(ctx, s.Version, s.Folders.Names())
-	hello.Extractors = extract.AvailableTo(s.Runner)
+	hello := s.Machine.Hello(ctx, s.Version, s.Folders.Names(), extract.AvailableTo(s.Runner))
 	hello.Warnings = s.warnings()
 	hello.Writable = s.Folders.Writable()
 	hello.Lend = s.Lend
-	hello.ExtractsForOthers = s.ExtractsForOthers
 
 	if err := s.conn.Perform(ctx, "hello", s.greeting(hello)); err != nil {
 		return err
@@ -449,17 +444,10 @@ func (s *session) listen(ctx context.Context) {
 			}
 
 			told := struct {
-				Settings *Settings      `json:"settings"`
-				Update   *update.Target `json:"update"`
-				Cancel   string         `json:"cancel"`
+				Update *update.Target `json:"update"`
+				Cancel string         `json:"cancel"`
 			}{}
-			if json.Unmarshal(frame.Message, &told) == nil && told.Settings != nil {
-				s.Apply(*told.Settings)
-
-				continue
-			}
-
-			if told.Update != nil {
+			if json.Unmarshal(frame.Message, &told) == nil && told.Update != nil {
 				s.updateTo(ctx, *told.Update)
 
 				continue

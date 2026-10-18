@@ -18,45 +18,32 @@ import (
 
 const Scope = "xixo:link"
 
-const (
-	ToolBrowse  = "browse"
-	ToolSearch  = "search"
-	ToolRead    = "read"
-	ToolWrite   = "write"
-	ToolExtract = "extract"
-	ToolModels  = "models"
-)
+const PartModels = "models"
 
-var Tools = []string{ToolBrowse, ToolSearch, ToolRead, ToolWrite, ToolExtract, ToolModels}
+var Parts = []string{PartModels}
 
 type Config struct {
-	Xixo               string           `json:"xixo"`
-	Issuer             string           `json:"issuer"`
-	Folders            []folders.Shared `json:"folders"`
-	Lend               *bool            `json:"lend"`
-	ExtractsForOthers  *bool            `json:"extracts_for_others"`
-	ExtractUnsandboxed bool             `json:"extract_unsandboxed"`
-	Tools              []string         `json:"tools"`
-}
-
-func (c *Config) ToolCeiling() []string {
-	held := []string{}
-
-	for _, tool := range Tools {
-		if c.Tools == nil || slices.Contains(c.Tools, tool) {
-			held = append(held, tool)
-		}
-	}
-
-	return held
+	Xixo    string           `json:"xixo"`
+	Issuer  string           `json:"issuer"`
+	Folders []folders.Shared `json:"folders"`
+	Lend    *bool            `json:"lend"`
+	Parts   []string         `json:"parts"`
 }
 
 func (c *Config) LendCeiling() bool {
 	return c.Lend == nil || *c.Lend
 }
 
-func (c *Config) OthersCeiling() bool {
-	return c.ExtractsForOthers == nil || *c.ExtractsForOthers
+func (c *Config) PartCeiling() []string {
+	held := []string{}
+
+	for _, part := range Parts {
+		if c.Parts == nil || slices.Contains(c.Parts, part) {
+			held = append(held, part)
+		}
+	}
+
+	return held
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -85,9 +72,9 @@ func (c *Config) check() error {
 		return err
 	}
 
-	for _, tool := range c.Tools {
-		if !slices.Contains(Tools, tool) {
-			return fmt.Errorf("the tool %q is not one xixo link offers: name any of %s", tool, strings.Join(Tools, ", "))
+	for _, part := range c.Parts {
+		if !slices.Contains(Parts, part) {
+			return fmt.Errorf("the part %q is not one xixo link runs: name any of %s", part, strings.Join(Parts, ", "))
 		}
 	}
 

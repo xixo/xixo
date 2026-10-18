@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -17,7 +16,6 @@ import (
 	"github.com/xixo/xixo/link/internal/extract"
 	"github.com/xixo/xixo/link/internal/folders"
 	"github.com/xixo/xixo/link/internal/machine"
-	"github.com/xixo/xixo/link/internal/state"
 )
 
 const (
@@ -40,63 +38,20 @@ const (
 	ExamineUntil = 2 * time.Minute
 )
 
-var toolFor = map[string]string{
-	verbBrowse:  state.ToolBrowse,
-	verbFind:    state.ToolSearch,
-	verbPeek:    state.ToolRead,
-	verbPlace:   state.ToolWrite,
-	verbExamine: state.ToolExtract,
-	verbModel:   state.ToolModels,
-	verbRelay:   state.ToolModels,
-}
-
 var (
 	ErrNoQuery    = fmt.Errorf("a search names between 1 and %d characters to look for", MostQuery)
 	ErrPlacedSize = fmt.Errorf("a file written through a tool holds at most %d bytes", MostPlaced)
 	ErrNoFolder   = errors.New("this tool reads a shared file, named by folder and path")
 )
 
-type NotOffered struct {
-	Tool   string
-	ByXixo bool
-}
-
-func (e *NotOffered) Error() string {
-	if e.ByXixo {
-		return fmt.Sprintf("this machine does not offer the %s tool: xixo has not turned on %s for it", e.Tool, e.Tool)
-	}
-
-	return fmt.Sprintf("this machine does not offer the %s tool: its config leaves %s out of tools", e.Tool, e.Tool)
-}
-
 type greeting struct {
 	machine.Hello
-	Tools     []string `json:"tools"`
-	Updates   string   `json:"updates,omitempty"`
-	SHA256    string   `json:"sha256,omitempty"`
-	MacReader string   `json:"mac_reader,omitempty"`
-}
-
-func (a *Link) offered() []string {
-	held := []string{}
-
-	for _, tool := range state.Tools {
-		if slices.Contains(a.Tools, tool) {
-			held = append(held, tool)
-		}
-	}
-
-	return held
+	Updates   string `json:"updates,omitempty"`
+	SHA256    string `json:"sha256,omitempty"`
+	MacReader string `json:"mac_reader,omitempty"`
 }
 
 func (a *Link) tool(ctx context.Context, asked *Request) {
-	named := toolFor[asked.Verb]
-	if err := a.unoffered(named); err != nil {
-		a.refuse(ctx, asked.Request, err)
-
-		return
-	}
-
 	var answered any
 	var err error
 

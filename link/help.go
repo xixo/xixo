@@ -25,6 +25,7 @@ var commands = []about{
 	{"setup", "--xixo URL --issuer URL [FOLDER[:rw] ...]", "Save the address of xixo and the folders to share.", false},
 	{"unit", "--template PATH [--user NAME]", "Print the systemd service for this machine.", false},
 	{"up", "", "Link up this machine. It waits until an administrator approves it in xixo.", false},
+	{"describe", "[FOLDER[:rw] ...]", "Print what this machine is, as JSON: its system, processor, GPUs, disks, readers, and folders.", false},
 	{"stage", "[--releases DIR]", "Install this build as an update on a Mac, so Full Disk Access stays.", false},
 	{"enroll", "--token - [--name NAME]", "Enroll with a token, for the xixo link beside the server.", false},
 	{"run", "[--updates systemd|self]", "Connect to xixo and serve it. The service runs this.", false},

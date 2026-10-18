@@ -14,23 +14,34 @@ import (
 
 const (
 	mostAddresses = 8
+	mostGPUs      = 8
 	mostText      = 80
 )
+
+type GPU struct {
+	Maker  string `json:"maker"`
+	Model  string `json:"model"`
+	Memory uint64 `json:"memory"`
+	Driver string `json:"driver"`
+}
 
 type About struct {
 	User      string    `json:"user"`
 	System    string    `json:"system"`
 	Model     string    `json:"model"`
 	Kind      string    `json:"kind"`
+	Battery   bool      `json:"battery"`
 	CPUs      int       `json:"cpus"`
 	Memory    uint64    `json:"memory"`
+	GPUs      []GPU     `json:"gpus"`
 	Disks     []Disk    `json:"disks"`
 	Addresses []string  `json:"addresses"`
 	Version   string    `json:"version"`
+	Readers   []string  `json:"readers"`
 	Services  []Service `json:"services"`
 }
 
-func (m *Machine) About(ctx context.Context, version string, folders []string) About {
+func (m *Machine) About(ctx context.Context, version string, folders, readers []string) About {
 	health := m.Health(folders)
 	disks := []Disk{}
 
@@ -41,19 +52,44 @@ func (m *Machine) About(ctx context.Context, version string, folders []string) A
 	}
 
 	named := clipped(model())
+	battery := hasBattery()
+
+	if readers == nil {
+		readers = []string{}
+	}
 
 	return About{
 		User:      runsAs(),
 		System:    clipped(system()),
 		Model:     named,
-		Kind:      kind(named),
+		Kind:      kind(named, battery),
+		Battery:   battery,
 		CPUs:      runtime.NumCPU(),
 		Memory:    health.Memory.Total,
+		GPUs:      m.gpus(),
 		Disks:     disks,
 		Addresses: addresses(),
 		Version:   clipped(version),
+		Readers:   readers,
 		Services:  m.Services(ctx),
 	}
+}
+
+func (m *Machine) gpus() []GPU {
+	found := []GPU{}
+
+	for _, gpu := range m.GPUs() {
+		gpu.Maker = clipped(gpu.Maker)
+		gpu.Model = clipped(gpu.Model)
+		gpu.Driver = clipped(gpu.Driver)
+		found = append(found, gpu)
+
+		if len(found) == mostGPUs {
+			break
+		}
+	}
+
+	return found
 }
 
 func runsAs() string {

@@ -6,7 +6,6 @@ import (
 	"context"
 	"net"
 	"os"
-	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
@@ -35,24 +34,20 @@ type Health struct {
 }
 
 type Service struct {
-	Kind      string `json:"kind"`
-	Port      int    `json:"port"`
-	Address   string `json:"address"`
-	LocalOnly bool   `json:"local_only,omitempty"`
+	Kind string `json:"kind"`
+	Port int    `json:"port"`
 }
 
 type Hello struct {
-	Version           string    `json:"version"`
-	OS                string    `json:"os"`
-	Arch              string    `json:"arch"`
-	Hostname          string    `json:"hostname"`
-	Folders           []string  `json:"folders"`
-	Writable          []string  `json:"writable"`
-	Services          []Service `json:"services"`
-	Extractors        []string  `json:"extractors"`
-	Lend              bool      `json:"lend"`
-	ExtractsForOthers bool      `json:"extracts_for_others"`
-	Warnings          []string  `json:"warnings"`
+	Version  string   `json:"version"`
+	OS       string   `json:"os"`
+	Arch     string   `json:"arch"`
+	Hostname string   `json:"hostname"`
+	Folders  []string `json:"folders"`
+	Writable []string `json:"writable"`
+	Details  About    `json:"details"`
+	Lend     bool     `json:"lend"`
+	Warnings []string `json:"warnings"`
 }
 
 var Known = []Service{
@@ -61,17 +56,15 @@ var Known = []Service{
 }
 
 type Machine struct {
-	Proc    string
-	Probe   func(ctx context.Context, port int) bool
-	Tailnet func(ctx context.Context) string
-	Answers func(ctx context.Context, host string, port int) bool
+	Proc  string
+	Probe func(ctx context.Context, port int) bool
 }
 
 func New() *Machine {
-	return &Machine{Proc: procRoot, Probe: listening, Tailnet: tailnetAddress, Answers: answers}
+	return &Machine{Proc: procRoot, Probe: listening}
 }
 
-func (m *Machine) Hello(ctx context.Context, version string, folders []string) Hello {
+func (m *Machine) Hello(ctx context.Context, version string, folders, readers []string) Hello {
 	hostname, _ := os.Hostname()
 
 	return Hello{
@@ -80,32 +73,17 @@ func (m *Machine) Hello(ctx context.Context, version string, folders []string) H
 		Arch:     runtime.GOARCH,
 		Hostname: hostname,
 		Folders:  folders,
-		Services: m.Services(ctx),
+		Details:  m.About(ctx, version, folders, readers),
 	}
 }
 
 func (m *Machine) Services(ctx context.Context) []Service {
 	found := []Service{}
-	address := ""
-	asked := false
 
 	for _, known := range Known {
-		if !m.Probe(ctx, known.Port) {
-			continue
+		if m.Probe(ctx, known.Port) {
+			found = append(found, Service{Kind: known.Kind, Port: known.Port})
 		}
-
-		if !asked {
-			address = m.Tailnet(ctx)
-			asked = true
-		}
-
-		if address != "" && m.Answers != nil && !m.Answers(ctx, address, known.Port) {
-			found = append(found, Service{Kind: known.Kind, Port: known.Port, LocalOnly: true})
-
-			continue
-		}
-
-		found = append(found, Service{Kind: known.Kind, Port: known.Port, Address: address})
 	}
 
 	return found
@@ -181,13 +159,9 @@ func memory(raw []byte) Memory {
 }
 
 func listening(ctx context.Context, port int) bool {
-	return answers(ctx, "127.0.0.1", port)
-}
-
-func answers(ctx context.Context, host string, port int) bool {
 	dialer := net.Dialer{Timeout: time.Second}
 
-	conn, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort(host, strconv.Itoa(port)))
+	conn, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
 	if err != nil {
 		return false
 	}
@@ -195,35 +169,4 @@ func answers(ctx context.Context, host string, port int) bool {
 	conn.Close()
 
 	return true
-}
-
-func tailnetAddress(ctx context.Context) string {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-
-	out, err := exec.CommandContext(ctx, tailscale(), "ip", "-4").Output()
-	if err != nil {
-		return ""
-	}
-
-	first, _, _ := strings.Cut(strings.TrimSpace(string(out)), "\n")
-	if net.ParseIP(first) == nil {
-		return ""
-	}
-
-	return first
-}
-
-func tailscale() string {
-	if found, err := exec.LookPath("tailscale"); err == nil {
-		return found
-	}
-
-	for _, app := range tailscaleApps {
-		if info, err := os.Stat(app); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0o111 != 0 {
-			return app
-		}
-	}
-
-	return "tailscale"
 }

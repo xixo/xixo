@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,7 +20,6 @@ import (
 	"github.com/xixo/xixo/link/internal/fake"
 	"github.com/xixo/xixo/link/internal/folders"
 	"github.com/xixo/xixo/link/internal/machine"
-	"github.com/xixo/xixo/link/internal/state"
 )
 
 const identifier = `{"channel":"LinkChannel"}`
@@ -57,16 +57,13 @@ func linkFor(t *testing.T, xixo, folder string, expiry time.Time) (*Link, *masks
 		Version: "9.9.9",
 		Folders: folders.New(folders.ReadOnly(folder)),
 		Machine: &machine.Machine{
-			Proc:    t.TempDir(),
-			Probe:   func(_ context.Context, port int) bool { return port == 11434 },
-			Tailnet: func(context.Context) string { return "100.64.0.7" },
+			Proc:  t.TempDir(),
+			Probe: func(_ context.Context, port int) bool { return port == 11434 },
 		},
-		Tokens:            masks.TokenSourceFunc(func(context.Context) (*masks.Token, error) { return token, nil }),
-		DPoP:              dpop,
-		Lend:              true,
-		ExtractsForOthers: true,
+		Tokens: masks.TokenSourceFunc(func(context.Context) (*masks.Token, error) { return token, nil }),
+		DPoP:   dpop,
+		Lend:   true,
 	}
-	held.Apply(Settings{Tools: state.Tools, Lend: true, ExtractsForOthers: true})
 
 	return held, dpop
 }
@@ -141,9 +138,10 @@ func TestASessionAnswersXixo(t *testing.T) {
 			t.Errorf("hello folders %v", hello["folders"])
 		}
 
-		services, _ := hello["services"].([]any)
-		if len(services) != 1 || services[0].(map[string]any)["address"] != "100.64.0.7" || services[0].(map[string]any)["kind"] != "ollama" {
-			t.Errorf("hello services %v", hello["services"])
+		details, _ := hello["details"].(map[string]any)
+		services, _ := details["services"].([]any)
+		if len(services) != 1 || services[0].(map[string]any)["kind"] != "ollama" || fmt.Sprint(services[0].(map[string]any)["port"]) != "11434" || details["system"] == "" {
+			t.Errorf("hello details %v", details)
 		}
 
 		_, health := socket.Next()
@@ -637,7 +635,7 @@ func TestAMachineThatDoesNotLendRefusesReads(t *testing.T) {
 		socket.Subscribe(identifier)
 
 		_, hello := socket.Next()
-		if hello["lend"] != false || hello["extracts_for_others"] != false {
+		if hello["lend"] != false {
 			t.Errorf("hello %v", hello)
 		}
 
@@ -671,7 +669,6 @@ func TestAMachineThatDoesNotLendRefusesReads(t *testing.T) {
 	held, dpop := linkFor(t, cable.URL, folder, time.Now().Add(time.Hour))
 	cable.Thumbprint = dpop.Thumbprint()
 	held.Lend = false
-	held.ExtractsForOthers = false
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

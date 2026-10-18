@@ -9,8 +9,6 @@ import (
 
 const procRoot = "/proc"
 
-var tailscaleApps []string
-
 var (
 	osReleases  = []string{"/etc/os-release", "/usr/lib/os-release"}
 	productName = "/sys/devices/virtual/dmi/id/product_name"
@@ -47,10 +45,10 @@ func model() string {
 	return held
 }
 
-func kind(string) string {
+func kind(_ string, battery bool) string {
 	raw, _ := os.ReadFile(chassisType)
 
-	return chassisKind(strings.TrimSpace(string(raw)), hasBattery())
+	return chassisKind(strings.TrimSpace(string(raw)), battery)
 }
 
 func chassisKind(chassis string, battery bool) string {

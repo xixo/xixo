@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/xixo/xixo/link/internal/folders"
-	"github.com/xixo/xixo/link/internal/state"
 )
 
 const (
@@ -34,12 +33,6 @@ type Removing struct {
 }
 
 func (a *Link) write(ctx context.Context, asked *Request) {
-	if err := a.unoffered(toolFor[verbPlace]); err != nil {
-		a.refuse(ctx, asked.Request, err)
-
-		return
-	}
-
 	wanted := Writing{}
 	if err := decode(asked.Args, &wanted); err != nil {
 		a.refuse(ctx, asked.Request, err)
@@ -114,12 +107,6 @@ func (a *Link) body(ctx context.Context, wanted Writing) (io.ReadCloser, error) 
 }
 
 func (a *Link) remove(ctx context.Context, asked *Request) {
-	if err := a.unoffered(state.ToolWrite); err != nil {
-		a.refuse(ctx, asked.Request, err)
-
-		return
-	}
-
 	wanted := Removing{}
 	if err := strictly(asked.Args, &wanted); err != nil {
 		a.refuse(ctx, asked.Request, err)

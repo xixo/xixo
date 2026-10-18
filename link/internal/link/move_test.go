@@ -13,7 +13,6 @@ import (
 	masks "github.com/masksrb/masks/go"
 	"github.com/xixo/xixo/link/internal/fake"
 	"github.com/xixo/xixo/link/internal/folders"
-	"github.com/xixo/xixo/link/internal/state"
 )
 
 func TestAReadSendsOnlyThePartItsOffsetAndLengthName(t *testing.T) {
@@ -119,7 +118,6 @@ func TestAWriteStreamsIntoTheFolderAndKeepsItsTime(t *testing.T) {
 
 	held, dpop = linkFor(t, cable.URL, folder, time.Now().Add(time.Hour))
 	held.Folders = folders.New([]folders.Shared{{Path: folder, Writable: true}})
-	held.Tools = []string{state.ToolWrite}
 	held.Work = filepath.Join(t.TempDir(), "missing")
 	cable.Thumbprint = dpop.Thumbprint()
 
@@ -183,7 +181,6 @@ func TestARelayedWriteFetchesTheUploadPartByPartAndWaitsForTheRest(t *testing.T)
 
 	held, dpop = linkFor(t, cable.URL, folder, time.Now().Add(time.Hour))
 	held.Folders = folders.New([]folders.Shared{{Path: folder, Writable: true}})
-	held.Tools = []string{state.ToolWrite}
 	cable.Thumbprint = dpop.Thumbprint()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)

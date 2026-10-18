@@ -86,14 +86,6 @@ func (a *Link) extraction(ctx context.Context, asked *Request, deriving bool) {
 		return
 	}
 
-	if wanted.Source.Upload != "" {
-		if err := a.helps(); err != nil {
-			a.refuse(ctx, asked.Request, err)
-
-			return
-		}
-	}
-
 	work, err := os.MkdirTemp(a.Work, "extract-*")
 	if err != nil {
 		a.refuse(ctx, asked.Request, err)

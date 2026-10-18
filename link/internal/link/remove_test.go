@@ -12,7 +12,6 @@ import (
 	masks "github.com/masksrb/masks/go"
 	"github.com/xixo/xixo/link/internal/fake"
 	"github.com/xixo/xixo/link/internal/folders"
-	"github.com/xixo/xixo/link/internal/state"
 )
 
 const (
@@ -100,7 +99,6 @@ func TestAMoveWritesWithTheSourceTimeAndRemovesOnlyMatchingBytes(t *testing.T) {
 
 	held, dpop = linkFor(t, cable.URL, folder, time.Now().Add(time.Hour))
 	held.Folders = folders.New([]folders.Shared{{Path: folder, Writable: true}, {Path: kept}})
-	held.Tools = []string{state.ToolWrite}
 	held.Work = t.TempDir()
 	cable.Thumbprint = dpop.Thumbprint()
 
@@ -125,48 +123,5 @@ func TestAMoveWritesWithTheSourceTimeAndRemovesOnlyMatchingBytes(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(kept, "keep.txt")); err != nil {
 		t.Fatalf("the read-only folder lost its file: %v", err)
-	}
-}
-
-func TestRemoveNeedsTheWriteTool(t *testing.T) {
-	folder, _ := shared(t)
-	finished := make(chan struct{})
-
-	var cable *fake.Cable
-	var dpop *masks.Key
-	var held *Link
-
-	cable = fake.NewCable(t, "link-token", "", func(socket *fake.Socket) {
-		defer close(finished)
-
-		socket.Subscribe(identifier)
-		socket.Next()
-		socket.Next()
-
-		socket.Ask(identifier, map[string]any{"request": removeID, "verb": "remove", "args": map[string]any{
-			"folder": folder, "path": "small.txt", "sha256": digestOf([]byte("hi")), "size": 2,
-		}})
-
-		got := gather(socket, 1)
-		if got.done[removeID]["ok"] != false || got.done[removeID]["error"] != (&NotOffered{Tool: state.ToolWrite}).Error() {
-			t.Errorf("remove without the write tool answered %v", got.done[removeID])
-		}
-
-		socket.Close()
-	})
-
-	held, dpop = linkFor(t, cable.URL, folder, time.Now().Add(time.Hour))
-	held.Folders = folders.New([]folders.Shared{{Path: folder, Writable: true}})
-	held.Tools = []string{state.ToolBrowse}
-	cable.Thumbprint = dpop.Thumbprint()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-
-	held.Session(ctx)
-	<-finished
-
-	if small, _ := os.ReadFile(filepath.Join(folder, "small.txt")); string(small) != "hi" {
-		t.Fatalf("small.txt became %q", small)
 	}
 }

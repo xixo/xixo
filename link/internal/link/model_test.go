@@ -11,8 +11,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
-
-	"github.com/xixo/xixo/link/internal/state"
 )
 
 func modelServer(t *testing.T, answer string) (*Link, *atomic.Value) {
@@ -44,7 +42,7 @@ func modelServer(t *testing.T, answer string) (*Link, *atomic.Value) {
 	_, port, _ := net.SplitHostPort(server.Listener.Addr().String())
 	number, _ := strconv.Atoi(port)
 
-	return &Link{Tools: []string{state.ToolModels}, ModelPorts: map[string]int{"ollama": number}}, asked
+	return &Link{ModelPorts: map[string]int{"ollama": number}}, asked
 }
 
 func TestAMachineModelAnswersAPrompt(t *testing.T) {
@@ -141,7 +139,7 @@ func TestAMachineWithoutTheModelServerSaysSo(t *testing.T) {
 	port := listener.Addr().(*net.TCPAddr).Port
 	listener.Close()
 
-	held := &Link{Tools: []string{state.ToolModels}, ModelPorts: map[string]int{"ollama": port}}
+	held := &Link{ModelPorts: map[string]int{"ollama": port}}
 
 	_, err = held.model(context.Background(), []byte(`{"kind":"ollama","model":"m","messages":[{"role":"user","content":"x"}]}`))
 	if !errors.Is(err, ErrNoModelServer) {

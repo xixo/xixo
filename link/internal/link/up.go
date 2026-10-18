@@ -46,7 +46,7 @@ type Linked struct {
 	Updates bool   `json:"updates"`
 }
 
-type Asking struct {
+type Description struct {
 	Hostname string        `json:"hostname"`
 	OS       string        `json:"os"`
 	Arch     string        `json:"arch"`
@@ -55,8 +55,25 @@ type Asking struct {
 	Details  machine.About `json:"details"`
 }
 
-var Describe = func(ctx context.Context, version string, folders []string) machine.About {
-	return machine.New().About(ctx, version, folders)
+var Describe = func(ctx context.Context, version string, folders, readers []string) machine.About {
+	return machine.New().About(ctx, version, folders, readers)
+}
+
+func Described(ctx context.Context, config *state.Config, version string, readers []string) Description {
+	hostname, _ := os.Hostname()
+	held := Description{Hostname: strings.TrimSpace(hostname), OS: runtime.GOOS, Arch: runtime.GOARCH, Folders: []string{}, Writable: []string{}}
+
+	for _, folder := range config.Folders {
+		held.Folders = append(held.Folders, folder.Path)
+
+		if folder.Writable {
+			held.Writable = append(held.Writable, folder.Path)
+		}
+	}
+
+	held.Details = Describe(ctx, version, held.Folders, readers)
+
+	return held
 }
 
 type Started struct {
@@ -78,7 +95,7 @@ type said struct {
 	Description string `json:"error_description"`
 }
 
-func Up(ctx context.Context, config *state.Config, held state.State, version string, out io.Writer, options ...masks.Option) error {
+func Up(ctx context.Context, config *state.Config, held state.State, version string, readers []string, out io.Writer, options ...masks.Option) error {
 	style := terminal.For(out)
 
 	if _, err := held.Registration(); err == nil {
@@ -96,22 +113,9 @@ func Up(ctx context.Context, config *state.Config, held state.State, version str
 		}
 	}
 
-	hostname, _ := os.Hostname()
-	hostname = strings.TrimSpace(hostname)
+	described := Described(ctx, config, version, readers)
 
-	asking := Asking{Hostname: hostname, OS: runtime.GOOS, Arch: runtime.GOARCH, Folders: []string{}, Writable: []string{}}
-
-	for _, folder := range config.Folders {
-		asking.Folders = append(asking.Folders, folder.Path)
-
-		if folder.Writable {
-			asking.Writable = append(asking.Writable, folder.Path)
-		}
-	}
-
-	asking.Details = Describe(ctx, version, asking.Folders)
-
-	started, err := start(ctx, config, asking)
+	started, err := start(ctx, config, described)
 	if err != nil {
 		return err
 	}
@@ -125,7 +129,7 @@ func Up(ctx context.Context, config *state.Config, held state.State, version str
 		return err
 	}
 
-	name := hostname
+	name := described.Hostname
 	if name == "" {
 		name = approved.Name
 	}
@@ -176,7 +180,7 @@ func plain() *http.Client {
 	return held
 }
 
-func start(ctx context.Context, config *state.Config, asking Asking) (*Started, error) {
+func start(ctx context.Context, config *state.Config, asking Description) (*Started, error) {
 	body, err := json.Marshal(asking)
 	if err != nil {
 		return nil, err

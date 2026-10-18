@@ -25,7 +25,7 @@ type xixoFake struct {
 	lock     sync.Mutex
 	answers  []string
 	known    bool
-	asked    Asking
+	asked    Description
 	started  int
 	polled   int
 	bound    string
@@ -126,7 +126,7 @@ func upFor(t *testing.T, answers ...string) (*xixoFake, *issuer, *state.Config, 
 	t.Cleanup(func() { pollUnit = before })
 
 	beforeDescribe := Describe
-	Describe = func(_ context.Context, version string, folders []string) machine.About {
+	Describe = func(_ context.Context, version string, folders, _ []string) machine.About {
 		return machine.About{User: "media", System: "Ubuntu 24.04 LTS", CPUs: 4, Version: version, Disks: []machine.Disk{{Path: folders[0], Total: 2, Free: 1}}}
 	}
 	t.Cleanup(func() { Describe = beforeDescribe })
@@ -143,7 +143,7 @@ func TestUpAsksXixoWaitsForApprovalEnrollsAndLinks(t *testing.T) {
 	xixo, masks, config, held := upFor(t, "authorization_pending", "slow_down", "approved")
 	out := &bytes.Buffer{}
 
-	if err := Up(context.Background(), config, held, "1.2.3", out); err != nil {
+	if err := Up(context.Background(), config, held, "1.2.3", nil, out); err != nil {
 		t.Fatal(err)
 	}
 
@@ -174,7 +174,7 @@ func TestUpAsksXixoWaitsForApprovalEnrollsAndLinks(t *testing.T) {
 	}
 
 	again := &bytes.Buffer{}
-	if err := Up(context.Background(), config, held, "1.2.3", again); err != nil || again.String() != "   Already linked up as nas, so there is nothing to approve.\n" || xixo.started != 1 {
+	if err := Up(context.Background(), config, held, "1.2.3", nil, again); err != nil || again.String() != "   Already linked up as nas, so there is nothing to approve.\n" || xixo.started != 1 {
 		t.Fatalf("up again printed %q, started %d, %v", again, xixo.started, err)
 	}
 }
@@ -187,7 +187,7 @@ func TestUpStartsAFreshRequestWhenXixoForgotTheMachine(t *testing.T) {
 	}
 
 	out := &bytes.Buffer{}
-	if err := Up(context.Background(), config, held, "1.2.3", out); err != nil {
+	if err := Up(context.Background(), config, held, "1.2.3", nil, out); err != nil {
 		t.Fatal(err)
 	}
 
@@ -203,13 +203,13 @@ func TestUpStartsAFreshRequestWhenXixoForgotTheMachine(t *testing.T) {
 func TestUpStopsWhenXixoDeniesOrTheRequestRunsOut(t *testing.T) {
 	_, _, config, held := upFor(t, "authorization_pending", "access_denied")
 
-	if err := Up(context.Background(), config, held, "1.2.3", io.Discard); !errors.Is(err, ErrDenied) {
+	if err := Up(context.Background(), config, held, "1.2.3", nil, io.Discard); !errors.Is(err, ErrDenied) {
 		t.Fatalf("denied gave %v", err)
 	}
 
 	_, _, config, held = upFor(t, "expired_token")
 
-	if err := Up(context.Background(), config, held, "1.2.3", io.Discard); !errors.Is(err, ErrExpired) {
+	if err := Up(context.Background(), config, held, "1.2.3", nil, io.Discard); !errors.Is(err, ErrExpired) {
 		t.Fatalf("expired gave %v", err)
 	}
 
@@ -227,7 +227,7 @@ func TestUpSaysWhyXixoRefusedTheRequest(t *testing.T) {
 
 	config := &state.Config{Xixo: xixo.URL, Issuer: "https://id.example"}
 
-	err := Up(context.Background(), config, state.State{Dir: t.TempDir()}, "1.2.3", io.Discard)
+	err := Up(context.Background(), config, state.State{Dir: t.TempDir()}, "1.2.3", nil, io.Discard)
 	if err == nil || !strings.Contains(err.Error(), "Too many requests") {
 		t.Fatalf("got %v", err)
 	}
@@ -238,7 +238,7 @@ func TestUpStopsWhenItsContextEnds(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	if err := Up(ctx, config, held, "1.2.3", io.Discard); !errors.Is(err, context.DeadlineExceeded) {
+	if err := Up(ctx, config, held, "1.2.3", nil, io.Discard); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("got %v", err)
 	}
 }
@@ -253,7 +253,7 @@ func TestUpNamesOnlyTheStatusWhenXixoAnswersWithAPage(t *testing.T) {
 
 	config := &state.Config{Xixo: xixo.URL, Issuer: "https://id.example"}
 
-	err := Up(context.Background(), config, state.State{Dir: t.TempDir()}, "1.2.3", io.Discard)
+	err := Up(context.Background(), config, state.State{Dir: t.TempDir()}, "1.2.3", nil, io.Discard)
 	if err == nil || err.Error() != "xixo did not take the request to link up (500)" {
 		t.Fatalf("got %v", err)
 	}
@@ -268,7 +268,7 @@ func TestUpRemindsThatItIsStillWaiting(t *testing.T) {
 	remindEvery = 2
 	t.Cleanup(func() { remindEvery = before })
 
-	if err := Up(context.Background(), config, held, "1.2.3", out); err != nil {
+	if err := Up(context.Background(), config, held, "1.2.3", nil, out); err != nil {
 		t.Fatal(err)
 	}
 
@@ -307,7 +307,7 @@ func TestUpSaysWhichXixoItCouldNotReach(t *testing.T) {
 
 	config := &state.Config{Xixo: xixo.URL, Issuer: "https://id.example"}
 
-	err := Up(context.Background(), config, state.State{Dir: t.TempDir()}, "1.2.3", io.Discard)
+	err := Up(context.Background(), config, state.State{Dir: t.TempDir()}, "1.2.3", nil, io.Discard)
 	if err == nil || !strings.HasPrefix(err.Error(), "xixo link could not reach xixo at "+xixo.URL+". Check that this machine can reach it, then run the command again: ") {
 		t.Fatalf("got %v", err)
 	}

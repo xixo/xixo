@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -44,6 +45,32 @@ func TestCommands(t *testing.T) {
 
 	if err := command(context.Background(), []string{"run", "--config", "/nonexistent/config.json"}, nil, out); err == nil {
 		t.Fatal("run started without a config")
+	}
+}
+
+func TestDescribePrintsTheMachineAsJSON(t *testing.T) {
+	root := t.TempDir()
+	out := &bytes.Buffer{}
+
+	if err := command(context.Background(), []string{"describe", "--config", filepath.Join(root, "none.json"), root, filepath.Join(t.TempDir()) + ":rw"}, nil, out); err != nil {
+		t.Fatal(err)
+	}
+
+	told := map[string]any{}
+	if err := json.Unmarshal(out.Bytes(), &told); err != nil {
+		t.Fatalf("describe printed %q: %v", out, err)
+	}
+
+	details, _ := told["details"].(map[string]any)
+	folders, _ := told["folders"].([]any)
+	writable, _ := told["writable"].([]any)
+
+	if told["os"] != runtime.GOOS || told["hostname"] == "" || len(folders) != 2 || len(writable) != 1 || details["gpus"] == nil || details["readers"] == nil || details["system"] == "" {
+		t.Fatalf("describe printed %s", out)
+	}
+
+	if err := command(context.Background(), []string{"describe", "--config", filepath.Join(root, "none.json"), filepath.Join(root, "missing")}, nil, out); err == nil {
+		t.Fatal("describe took a folder that does not exist")
 	}
 }
 

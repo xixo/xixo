@@ -49,47 +49,21 @@ func TestHealthWithoutProc(t *testing.T) {
 	}
 }
 
-func TestServicesNameTheTailnetAddress(t *testing.T) {
-	asked := 0
-	held := &Machine{
-		Probe: func(_ context.Context, port int) bool { return port == 11434 },
-		Tailnet: func(context.Context) string {
-			asked++
+func TestServicesNameWhatAnswersOnTheMachine(t *testing.T) {
+	held := &Machine{Proc: t.TempDir(), Probe: func(_ context.Context, port int) bool { return port == 11434 }}
 
-			return "100.64.0.9"
-		},
+	hello := held.Hello(context.Background(), "1.2.3", []string{"/srv"}, []string{"text"})
+
+	if len(hello.Details.Services) != 1 || hello.Details.Services[0] != (Service{Kind: "ollama", Port: 11434}) {
+		t.Fatalf("services %+v", hello.Details.Services)
 	}
 
-	hello := held.Hello(context.Background(), "1.2.3", []string{"/srv"})
-
-	if len(hello.Services) != 1 || hello.Services[0] != (Service{Kind: "ollama", Port: 11434, Address: "100.64.0.9"}) {
-		t.Fatalf("services %+v", hello.Services)
-	}
-
-	if asked != 1 || hello.Version != "1.2.3" || hello.Folders[0] != "/srv" || hello.OS == "" || hello.Arch == "" {
+	if hello.Version != "1.2.3" || hello.Folders[0] != "/srv" || hello.OS == "" || hello.Arch == "" || hello.Details.Version != "1.2.3" {
 		t.Fatalf("hello %+v", hello)
 	}
 
-	none := &Machine{Probe: func(context.Context, int) bool { return false }, Tailnet: func(context.Context) string { return "x" }}
+	none := &Machine{Probe: func(context.Context, int) bool { return false }}
 	if got := none.Services(context.Background()); got == nil || len(got) != 0 {
-		t.Fatalf("services %+v", got)
-	}
-}
-
-func TestAServerThatAnswersOnlyOnTheMachineHasNoAddress(t *testing.T) {
-	held := &Machine{
-		Probe:   func(context.Context, int) bool { return true },
-		Tailnet: func(context.Context) string { return "100.64.0.9" },
-		Answers: func(_ context.Context, _ string, port int) bool { return port == 1234 },
-	}
-
-	got := held.Services(context.Background())
-	want := []Service{
-		{Kind: "ollama", Port: 11434, LocalOnly: true},
-		{Kind: "lmstudio", Port: 1234, Address: "100.64.0.9"},
-	}
-
-	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
 		t.Fatalf("services %+v", got)
 	}
 }

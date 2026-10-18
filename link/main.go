@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -197,7 +198,43 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 			return err
 		}
 
-		return link.Up(ctx, config, state.State{Dir: *stateDir}, version, stdout)
+		searchPath()
+		run, _ := runner()
+
+		return link.Up(ctx, config, state.State{Dir: *stateDir}, version, extract.AvailableTo(run), stdout)
+	case "describe":
+		if err := parse(); err != nil {
+			return err
+		}
+
+		config := &state.Config{}
+		if loaded, err := state.LoadConfig(*configPath); err == nil {
+			config = loaded
+		}
+
+		if set.NArg() > 0 {
+			config.Folders = nil
+
+			for _, arg := range set.Args() {
+				folder, err := state.Folder(arg)
+				if err != nil {
+					return err
+				}
+
+				config.Folders = append(config.Folders, folder)
+			}
+		}
+
+		searchPath()
+		run, _ := runner()
+		described, err := json.MarshalIndent(link.Described(ctx, config, version, extract.AvailableTo(run)), "", "  ")
+		if err != nil {
+			return err
+		}
+
+		fmt.Fprintln(stdout, string(described))
+
+		return nil
 	case "update":
 		requests := set.String("requests", updateRequests, "the directory xixo link leaves update requests in")
 		results := set.String("results", runtimeDir(updateResults), "the directory this command leaves its result in")
@@ -252,23 +289,21 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 		shared := folders.New(config.Folders)
 		shared.Pin()
 
-		run, notices := runner(config)
+		run, notices := runner()
 
 		running := &link.Link{
-			Xixo:              config.Xixo,
-			Version:           version,
-			Folders:           shared,
-			Machine:           machine.New(),
-			Tokens:            link.Tokens(client, config),
-			DPoP:              dpop,
-			Log:               slog.New(slog.NewTextHandler(os.Stderr, nil)),
-			Work:              workDir(),
-			Digests:           &digests.Cache{Path: digestsFile(*stateDir)},
-			Runner:            run,
-			Notices:           notices,
-			Lend:              config.LendCeiling(),
-			ExtractsForOthers: config.OthersCeiling(),
-			Tools:             config.ToolCeiling(),
+			Xixo:    config.Xixo,
+			Version: version,
+			Folders: shared,
+			Machine: machine.New(),
+			Tokens:  link.Tokens(client, config),
+			DPoP:    dpop,
+			Log:     slog.New(slog.NewTextHandler(os.Stderr, nil)),
+			Work:    workDir(),
+			Digests: &digests.Cache{Path: digestsFile(*stateDir)},
+			Runner:  run,
+			Notices: notices,
+			Lend:    config.LendCeiling(),
 		}
 
 		ctx, restart := context.WithCancelCause(ctx)
@@ -357,7 +392,7 @@ func given(value string, stdin io.Reader) (string, error) {
 	return string(read), err
 }
 
-func runner(config *state.Config) (extract.Runner, []string) {
+func runner() (extract.Runner, []string) {
 	if runtime.GOOS != "darwin" {
 		return extract.Limited{}, nil
 	}
@@ -365,10 +400,6 @@ func runner(config *state.Config) (extract.Runner, []string) {
 	confine, err := extract.Sandbox()
 	if err == nil {
 		return extract.Limited{Confine: confine}, nil
-	}
-
-	if config.ExtractUnsandboxed {
-		return extract.Limited{}, []string{"sandbox-exec is missing, so extraction programs run unsandboxed: the config sets extract_unsandboxed"}
 	}
 
 	return extract.Limited{Refused: extract.ErrUnconfined}, []string{"sandbox-exec is missing, so xixo link runs no extraction programs and offers only the extractors that need none"}

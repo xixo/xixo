@@ -68,21 +68,15 @@ its approval. After that, xixo link [updates itself](#updates).
 
 ### What xixo may do
 
-xixo asks for every tool and for lending, and asks the machine to read for
-other machines unless an administrator turns that off on its card. xixo sends
-what it asks to xixo link in a `settings` message, and xixo link applies it at
-once. Until the first `settings` message arrives, xixo link lends nothing,
-reads nothing for other machines, and offers no tools.
-
-These keys set a limit. xixo link does what xixo asks only when the
-configuration also allows it:
+The machine describes itself when it links up and each time it connects, and
+xixo plans what the machine does from that. An administrator approves the plan
+and changes it on the machine's card. Two keys in the configuration set a limit
+xixo cannot cross:
 
 | Key | Allows | Left out |
 | --- | --- | --- |
 | `lend` | xixo reading the bytes of a shared file, for a download, a preview, or an extraction on another machine | allowed |
-| `extracts_for_others` | reading uploads and other machines' files that xixo sends it | allowed |
-| `tools` | the tools named, out of `browse`, `search`, `read`, `write`, `extract`, and `models` | all of them |
-| `extract_unsandboxed` | on macOS, running extraction programs without `sandbox-exec` when it is missing | not allowed |
+| `parts` | the parts named, out of `models` | all of them |
 
 ```json
 {
@@ -90,15 +84,14 @@ configuration also allows it:
   "issuer": "https://id.example.com",
   "folders": ["/srv/media"],
   "lend": false,
-  "tools": ["browse", "search"]
+  "parts": []
 }
 ```
 
 Without lending, a file's bytes stay on the machine. xixo link still lists,
 hashes, and extracts its own files, and sends xixo only what extraction makes.
-An empty `tools` list allows none. A tool name xixo link does not know stops it
-from starting. See
-[tools a machine offers](https://docs.xixo.network/concepts/resources/#tools-a-machine-offers).
+An empty `parts` list runs none. A part name xixo link does not know stops it
+from starting.
 
 ## Commands
 
@@ -111,6 +104,7 @@ from starting. See
 | `xixo-link setup --xixo URL --issuer URL [FOLDER ...]` | Writes the configuration, and prints nothing. Each folder must exist. End one with `:rw` to share it writable. A folder cannot hold a quotation mark, an apostrophe, a backslash, a colon, or a control character. Run again, it keeps every other key, and keeps the folders when none are given. |
 | `xixo-link unit --template PATH [--user NAME]` | Prints the systemd unit for the folders the configuration shares. |
 | `xixo-link up` | Links the machine up, as described in [linking up](#linking-up). A machine already linked prints "Already linked up as" and the name xixo shows for it. |
+| `xixo-link describe [FOLDER[:rw] ...]` | Prints the machine's description as JSON, as `up` sends it: hostname, system, processor, the folders, and the details in [linking up](#linking-up). With folders named, it describes those and checks that each exists. Without, it describes the folders in the configuration, or none when there is no configuration. |
 | `xixo-link enroll --token - [--name NAME]` | Reads an enrollment token from standard input, or from `XIXO_ENROLLMENT_TOKEN`, and registers xixo link's key with masks. `--name` defaults to the hostname. |
 | `xixo-link run [--updates systemd\|self] [--revoked-status N]` | Connects to xixo and serves it until it is stopped. On SIGTERM or SIGINT, it waits at most five seconds for the requests it is answering, then exits. `--updates systemd` works only on Linux under systemd, and `--updates self` only on macOS. Without it, xixo link ignores updates. |
 | `xixo-link update` | The Linux updater, run by `xixo-link-update.service`. |
@@ -156,8 +150,14 @@ are made on the machine the first time xixo link enrolls and never leave it.
 
 `xixo-link up` follows the OAuth device authorization grant (RFC 8628):
 
-1. It makes its keys, then posts the machine's hostname, system, processor, and
-   folders to `<xixo>/link/requests`.
+1. It makes its keys, then posts the machine's description to
+   `<xixo>/link/requests`: the hostname, system, processor, and folders, and
+   under `details` the account it runs as, the system's name, the hardware
+   model, its kind (laptop, desktop, all-in-one, or server), whether it has a
+   battery, its CPUs and memory, each GPU with its maker, model, memory, and
+   driver version, the disk under each folder, its addresses, the readers it
+   can run, and the model servers found on it. `xixo-link describe` prints the
+   same.
 2. It prints the link, such as `https://xixo.example.com/link/WDJB-MJHT`, on a
    line of its own, the code, and how long the request lasts. It says once a
    minute that it still waits.
@@ -201,7 +201,7 @@ xixo link speaks the Action Cable protocol on `LinkChannel`. It sends:
 
 | Action | When |
 | --- | --- |
-| `hello` | Once connected: the version, system, folders, the model servers found on the machine, the extractors it can run, its configuration's limits, and warnings. |
+| `hello` | Once connected: the version, system, folders, the description `up` sends, whether the configuration lends, and warnings. |
 | `health` | After `hello`, and every minute: uptime, load, memory, and disk space. |
 | `reply` | When a request is answered, with `ok` and a `result` or an `error`. |
 | `chunk` | For each part of a file being read or made, base64 encoded, at most 256 KiB. |
@@ -215,17 +215,17 @@ xixo link watches every directory under a shared folder, up to 16,384 on Linux a
 so. Raise the Linux limit with `sysctl fs.inotify.max_user_watches`. The
 regular sync still finds anything a watch missed.
 
-xixo sends `settings`, as in [what xixo may do](#what-xixo-may-do),
-`update`, as in [updates](#updates), and `cancel`, as in [waiting and
-stopping](#waiting-and-stopping). It also sends requests, each naming a verb:
+xixo sends `update`, as in [updates](#updates), and `cancel`, as in [waiting
+and stopping](#waiting-and-stopping). It also sends requests, each naming a
+verb:
 
 | Verbs | Do |
 | --- | --- |
 | `list`, `read`, `hash`, `health` | List a shared folder, send a file's bytes, hash a file where it lies, and report health. |
 | `extract`, `derive` | Read a shared file or an upload into steps and files. See [extraction](internal/extract/README.md). |
 | `write`, `remove` | Place a file in a writable folder, and remove one whose size and SHA-256 xixo names. |
-| `browse`, `find`, `peek`, `place`, `examine`, `model` | Answer MCP clients. Each needs its tool. |
-| `relay` | Pass xixo's own requests on to a model server that answers only on the machine. Needs the `models` tool. |
+| `browse`, `find`, `peek`, `place`, `examine`, `model` | Answer MCP clients. |
+| `relay` | Pass xixo's own requests on to a model server on the machine. |
 
 A `list` names each file's path, size, modification time to the nanosecond, and
 `file`, its device and inode. xixo tells a renamed file by that `file`.
@@ -429,8 +429,7 @@ pasteboard, which it starts even when headless.
 The sandbox has limits. macOS refuses the data size limit, so a program's
 memory is not capped. A program that crashes can open a crash report dialog.
 Apple marks `sandbox-exec` deprecated, though it works on current macOS. When
-`sandbox-exec` is missing, xixo link runs no extraction program and warns,
-unless the configuration sets `extract_unsandboxed`.
+`sandbox-exec` is missing, xixo link runs no extraction program and warns.
 
 ### What a Mac reads
 

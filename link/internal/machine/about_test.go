@@ -10,12 +10,11 @@ import (
 func TestAboutDescribesTheMachineAndItsFolders(t *testing.T) {
 	folder := t.TempDir()
 	held := &Machine{
-		Proc:    t.TempDir(),
-		Probe:   func(_ context.Context, port int) bool { return port == 11434 },
-		Tailnet: func(context.Context) string { return "100.64.0.9" },
+		Proc:  t.TempDir(),
+		Probe: func(_ context.Context, port int) bool { return port == 11434 },
 	}
 
-	about := held.About(context.Background(), "1.2.3", []string{folder})
+	about := held.About(context.Background(), "1.2.3", []string{folder}, []string{"pdf", "text"})
 
 	if about.CPUs < 1 || about.Version != "1.2.3" || about.System == "" || about.User == "" {
 		t.Fatalf("about %+v", about)
@@ -25,20 +24,24 @@ func TestAboutDescribesTheMachineAndItsFolders(t *testing.T) {
 		t.Fatalf("disks %+v", about.Disks)
 	}
 
-	if len(about.Services) != 1 || about.Services[0].Kind != "ollama" || about.Services[0].Address != "100.64.0.9" {
+	if len(about.Services) != 1 || about.Services[0] != (Service{Kind: "ollama", Port: 11434}) {
 		t.Fatalf("services %+v", about.Services)
 	}
 
-	if about.Addresses == nil {
-		t.Fatal("addresses is nil")
+	if strings.Join(about.Readers, ",") != "pdf,text" || about.GPUs == nil || about.Addresses == nil {
+		t.Fatalf("about %+v", about)
+	}
+
+	if about.Kind == "" {
+		t.Fatalf("kind %+v", about)
 	}
 }
 
 func TestAboutWithNoFoldersNamesTheRootDisk(t *testing.T) {
-	about := (&Machine{Proc: t.TempDir(), Probe: func(context.Context, int) bool { return false }}).About(context.Background(), "dev", nil)
+	about := (&Machine{Proc: t.TempDir(), Probe: func(context.Context, int) bool { return false }}).About(context.Background(), "dev", nil, nil)
 
-	if len(about.Disks) != 1 || about.Disks[0].Path != "/" {
-		t.Fatalf("disks %+v", about.Disks)
+	if len(about.Disks) != 1 || about.Disks[0].Path != "/" || about.Readers == nil || len(about.Readers) != 0 {
+		t.Fatalf("about %+v", about)
 	}
 }
 

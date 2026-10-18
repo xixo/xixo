@@ -13,8 +13,6 @@ import (
 
 const procRoot = ""
 
-var tailscaleApps = []string{"/Applications/Tailscale.app/Contents/MacOS/Tailscale"}
-
 func native(held *Health) {
 	if booted, err := unix.SysctlTimeval("kern.boottime"); err == nil {
 		seconds, nanoseconds := booted.Unix()
@@ -130,8 +128,8 @@ func productNameIn(raw []byte) string {
 	return strings.TrimSpace(string(matched[1]))
 }
 
-func kind(model string) string {
-	return macKind(model, hasBattery())
+func kind(model string, battery bool) string {
+	return macKind(model, battery)
 }
 
 func macKind(model string, battery bool) string {

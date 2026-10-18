@@ -38,14 +38,14 @@ func TestSetupWritesTheConfigAndKeepsWhatItDoesNotSet(t *testing.T) {
 	}
 
 	raw, _ := os.ReadFile(path)
-	os.WriteFile(path, []byte(strings.Replace(string(raw), "{", `{"lend": false, "tools": ["browse"],`, 1)), 0o600)
+	os.WriteFile(path, []byte(strings.Replace(string(raw), "{", `{"lend": false, "parts": [],`, 1)), 0o600)
 
 	held, err = Setup(path, "https://other.example", "https://id.example", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if held.Xixo != "https://other.example" || len(held.Folders) != 2 || held.LendCeiling() || strings.Join(held.ToolCeiling(), ",") != "browse" {
+	if held.Xixo != "https://other.example" || len(held.Folders) != 2 || held.LendCeiling() || len(held.PartCeiling()) != 0 {
 		t.Fatalf("setup again gave %+v", held)
 	}
 }

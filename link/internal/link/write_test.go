@@ -11,7 +11,6 @@ import (
 	masks "github.com/masksrb/masks/go"
 	"github.com/xixo/xixo/link/internal/fake"
 	"github.com/xixo/xixo/link/internal/folders"
-	"github.com/xixo/xixo/link/internal/state"
 )
 
 const (
@@ -77,7 +76,6 @@ func TestAnUploadIsWrittenOnlyIntoAWritableFolder(t *testing.T) {
 
 	held, dpop = linkFor(t, cable.URL, folder, time.Now().Add(time.Hour))
 	held.Folders = folders.New([]folders.Shared{{Path: folder, Writable: true}, {Path: kept}})
-	held.Tools = []string{state.ToolWrite}
 	held.Work = t.TempDir()
 	cable.Thumbprint = dpop.Thumbprint()
 

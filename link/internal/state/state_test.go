@@ -116,14 +116,14 @@ func TestLendAndExtractingForOthersHaveNoCeilingUntilTheConfigSetsOne(t *testing
 	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example"}`), 0o600)
 
 	held, err := LoadConfig(path)
-	if err != nil || !held.LendCeiling() || !held.OthersCeiling() {
+	if err != nil || !held.LendCeiling() {
 		t.Fatalf("%+v %v", held, err)
 	}
 
-	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example","lend":false,"extracts_for_others":false}`), 0o600)
+	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example","lend":false}`), 0o600)
 
 	held, err = LoadConfig(path)
-	if err != nil || held.LendCeiling() || held.OthersCeiling() {
+	if err != nil || held.LendCeiling() {
 		t.Fatalf("%+v %v", held, err)
 	}
 }
@@ -145,32 +145,32 @@ func TestRegistrationKeepsNoRegistrationAccessToken(t *testing.T) {
 	}
 }
 
-func TestToolsHaveNoCeilingUntilTheConfigNamesThem(t *testing.T) {
+func TestPartsHaveNoCeilingUntilTheConfigNamesThem(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example"}`), 0o600)
 
 	held, err := LoadConfig(path)
-	if err != nil || strings.Join(held.ToolCeiling(), ",") != strings.Join(Tools, ",") {
+	if err != nil || strings.Join(held.PartCeiling(), ",") != strings.Join(Parts, ",") {
 		t.Fatalf("%+v %v", held, err)
 	}
 
-	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example","tools":[]}`), 0o600)
+	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example","parts":[]}`), 0o600)
 
 	held, err = LoadConfig(path)
-	if err != nil || len(held.ToolCeiling()) != 0 {
+	if err != nil || len(held.PartCeiling()) != 0 {
 		t.Fatalf("%+v %v", held, err)
 	}
 
-	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example","tools":["models","browse"]}`), 0o600)
+	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example","parts":["models"]}`), 0o600)
 
 	held, err = LoadConfig(path)
-	if err != nil || strings.Join(held.ToolCeiling(), ",") != "browse,models" {
+	if err != nil || strings.Join(held.PartCeiling(), ",") != "models" {
 		t.Fatalf("%+v %v", held, err)
 	}
 
-	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example","tools":["browse","shell"]}`), 0o600)
+	os.WriteFile(path, []byte(`{"xixo":"https://x.example","issuer":"https://id.example","parts":["models","shell"]}`), 0o600)
 
 	if _, err := LoadConfig(path); err == nil || !strings.Contains(err.Error(), `"shell"`) {
-		t.Fatalf("an unknown tool loaded: %v", err)
+		t.Fatalf("an unknown part loaded: %v", err)
 	}
 }
