@@ -22,6 +22,9 @@ var commands = []about{
 	{"status", "", "Show this machine's name in xixo, its folders, and whether xixo link is running.", true},
 	{"version", "", "Print the version of xixo link.", true},
 	{"help", "", "Show this list.", true},
+	{"login", "--xixo URL", "Sign in to xixo from this computer, to add machines over ssh.", true},
+	{"add", "HOST [FOLDER[:rw] ...]", "Link up a machine over ssh, from this computer. It installs xixo link there and enrolls it.", true},
+	{"remove", "HOST", "Unlink a machine over ssh: uninstall xixo link there and put the machine away in xixo.", true},
 	{"setup", "--xixo URL --issuer URL [FOLDER[:rw] ...]", "Save the address of xixo and the folders to share.", false},
 	{"unit", "--template PATH [--user NAME]", "Print the systemd service for this machine.", false},
 	{"up", "", "Link up this machine. It waits until an administrator approves it in xixo.", false},
@@ -31,6 +34,11 @@ var commands = []about{
 	{"run", "[--updates systemd|self]", "Connect to xixo and serve it. The service runs this.", false},
 	{"update", "", "Install the build xixo names. The Linux updater runs this.", false},
 	{"part", "NAME --releases DIR --state DIR --wanted FILE [--status FILE]", "Run a part, such as models, while xixo wants it. The part's service runs this.", false},
+	{"install", "--xixo URL --issuer URL --from PATH [--user NAME] [FOLDER[:rw] ...]", "Install xixo link on this machine: the binary, the configuration, and the services. Linux needs root.", false},
+	{"start", "", "Start xixo link's service, or restart it. Linux needs root.", false},
+	{"uninstall", "", "Stop xixo link and remove it from this machine. Linux needs root.", false},
+	{"join", "", "Enroll with the token and device code xixo-link add sends on standard input.", false},
+	{"linked", "", "Print the machine's name and key in xixo as JSON.", false},
 	{"readable", "FOLDER", "Check that xixo link may read a folder.", false},
 }
 

@@ -10,6 +10,9 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/xixo/xixo/link/internal/link"
+	"github.com/xixo/xixo/link/internal/person"
 )
 
 func TestCommands(t *testing.T) {
@@ -202,5 +205,34 @@ func TestStageMakesTheBuildTheCurrentReleaseWithTheReaderBesideIt(t *testing.T) 
 
 	if again, err := stage(filepath.Join(work, "xixo-link"), releases); err != nil || again != name {
 		t.Fatalf("staging again gave %q, %v", again, err)
+	}
+}
+
+func TestAddingOverSSHNeedsAHostAndASignIn(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	out := &bytes.Buffer{}
+
+	if err := command(context.Background(), []string{"add"}, nil, out); !errors.Is(err, link.ErrNoHost) {
+		t.Fatalf("add without a host gave %v", err)
+	}
+
+	if err := command(context.Background(), []string{"add", "media"}, nil, out); !errors.Is(err, person.ErrNoXixo) {
+		t.Fatalf("add without a sign-in gave %v", err)
+	}
+
+	if err := command(context.Background(), []string{"login"}, nil, out); !errors.Is(err, person.ErrNoXixo) {
+		t.Fatalf("login without --xixo gave %v", err)
+	}
+
+	if err := command(context.Background(), []string{"join", "--config", "/nonexistent/config.json"}, strings.NewReader("{}"), out); err == nil {
+		t.Fatal("join ran without a configuration")
+	}
+
+	out.Reset()
+	command(context.Background(), []string{"help"}, nil, out)
+	for _, named := range []string{"  login ", "  add ", "  remove ", "  install ", "  join "} {
+		if !strings.Contains(out.String(), named) {
+			t.Fatalf("help leaves out %q:\n%s", named, out)
+		}
 	}
 }

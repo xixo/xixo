@@ -14,6 +14,7 @@ class LinkRequest < ApplicationRecord
   class Refused < StandardError; end
 
   Started = Data.define(:request, :device_code)
+  Added = Data.define(:request, :device_code, :enrollment_token)
 
   encrypts :enrollment_token
 
@@ -39,6 +40,26 @@ class LinkRequest < ApplicationRecord
       request.announce!
 
       Started.new(request: request, device_code: device_code)
+    end
+
+    def added!(said, grant:, remote_ip:, minter: Resource::Machine::Enrollment.method(:mint))
+      grant.administer!("adds a machine")
+      expired.delete_all
+      unwanted = Array(said.to_h["off"]).map(&:to_s)
+      unknown = unwanted - Resource::Machine::Plan::KEYS
+      raise Refused, "the plan has no line #{unknown.to_sentence}" if unknown.any?
+
+      device_code = SecureRandom.urlsafe_base64(32)
+      attributes = said(said)
+      token = minter.call(Current.tenant, name: attributes[:hostname])
+      request = create!(attributes.merge(
+        device_digest: digest(device_code), user_code: fresh_code, remote_ip: remote_ip, expires_at: LASTS.from_now,
+        status: "handed", decided_by: grant.speaks_for, decided_at: Time.current, polled_at: Time.current,
+        details: attributes[:details].merge("off" => unwanted.uniq)
+      ))
+      request.announce!
+
+      Added.new(request: request, device_code: device_code, enrollment_token: token)
     end
 
     def presented(device_code)

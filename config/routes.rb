@@ -28,6 +28,11 @@ Rails.application.routes.draw do
   get "/link/download/xixo-link-part@.path", to: "links#part_path", as: :link_part_path
   get "/link/download/:file", to: "links#download", as: :link_download,
                               constraints: { file: /xixo-link-[a-z0-9]+-[a-z0-9]+|xixo-mac-reader/ }
+  get "/link/builds", to: "links#builds", as: :link_builds
+  post "/link/cli/device", to: "link_cli#device", as: :link_cli_device
+  post "/link/cli/token", to: "link_cli#token", as: :link_cli_token
+  post "/link/machines", to: "link_machines#create", as: :link_machines
+  delete "/link/machines/:key", to: "link_machines#destroy", as: :link_machine, constraints: { key: /[a-z0-9][a-z0-9.-]*/ }
   post "/link/requests", to: "links#start", as: :link_requests
   post "/link/requests/token", to: "links#token", as: :link_request_token
   get "/link", to: "links#show", as: :link_status, constraints: ->(req) { req.authorization.present? }

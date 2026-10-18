@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -30,6 +31,8 @@ const (
 	mostName       = 200
 )
 
+var machineKey = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{0,199}$`)
+
 var (
 	ErrDenied  = errors.New("an administrator denied this machine in xixo. Run the command again to ask again")
 	ErrExpired = errors.New("the request ran out before anyone approved it. Run the command again")
@@ -42,6 +45,7 @@ var (
 
 type Linked struct {
 	Name    string `json:"name"`
+	Key     string `json:"key"`
 	URL     string `json:"url"`
 	Updates bool   `json:"updates"`
 }
@@ -389,6 +393,10 @@ func linkedFrom(config *state.Config, answer []byte) (*Linked, error) {
 	linked.Name = strings.TrimSpace(terminal.Printable(linked.Name))
 	if linked.Name == "" || len(linked.Name) > mostName {
 		return nil, errAnswer
+	}
+
+	if !machineKey.MatchString(linked.Key) {
+		linked.Key = ""
 	}
 
 	if linked.URL != terminal.Printable(linked.URL) || !strings.HasPrefix(linked.URL, config.Xixo+"/") || strings.ContainsAny(linked.URL, " \"'<>") {

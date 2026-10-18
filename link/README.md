@@ -26,18 +26,21 @@ each one before it starts:
 1. It downloads xixo link for the machine's system and processor from xixo,
    and checks it against the SHA-256 that xixo wrote into the script. It checks
    that each folder exists before anything asks for a password.
-2. It installs the binary and writes the configuration with `xixo-link setup`.
-   On Linux it also writes the systemd unit with `xixo-link unit`, and says
-   before sudo asks for a password why it needs one. On macOS it also installs
-   the mac reader, from xixo, or from the GitHub release when xixo holds none,
-   and checks it against its SHA-256.
+2. It runs `xixo-link install`, which installs the binary, writes the
+   configuration, and installs the services, as [`install`](#commands)
+   describes. On Linux that runs as root, and the script says before sudo asks
+   for a password why it needs one.
 3. On Debian or Ubuntu, it installs the programs that read PDFs, images, audio,
    video, and office documents with apt, unless they are installed already.
    apt writes to a log file. When apt fails, the script shows its last lines
    and the log's path, and goes on. macOS skips this step.
 4. It runs `xixo-link up`, which waits for an administrator to approve the
    machine.
-5. It starts the service or the launch agent, or restarts it on a rerun.
+5. It runs `xixo-link start`, which starts the service or the launch agent, or
+   restarts it on a rerun.
+
+To link up a machine from your own computer instead, over ssh, see
+[linking over ssh](#linking-over-ssh).
 
 It ends with the summary that [`xixo-link status`](#commands) prints. Each
 error starts with `Error:` and says what to do next. Color appears only on a
@@ -142,9 +145,17 @@ part as its child, as the user, under `~/Library/Application Support/xixo-link/p
 | `xixo-link update` | The Linux updater, run by `xixo-link-update.service`. |
 | `xixo-link stage [--releases DIR]` | On macOS, installs its own binary and the mac reader beside it as an [update](#on-macos): a new folder under `releases/`, named by the start of its SHA-256, with `releases/current` pointing at it. The install command runs it on a rerun. |
 | `xixo-link version` | Prints the version. |
+| `xixo-link install --xixo URL --issuer URL --from PATH [--user NAME] [FOLDER[:rw] ...]` | Installs xixo link from the build at `--from`. On Linux, as root: it makes the `xixo-link-update` and `xixo-link-part` accounts when they are missing, installs the binary in `/usr/local/lib/xixo-link` owned by the updater, links it from `/usr/local/bin`, writes the configuration for the folders, fetches the service template and the updater and part units from xixo and writes them to `/etc/systemd/system`, makes the state directory for `--user`, and enables the services. On macOS, as the user: it installs the binary and the mac reader, as an update when the installed xixo link supervises itself, writes the configuration, and writes the launch agent. It starts nothing. |
+| `xixo-link start` | Starts the service, or restarts it: `systemctl restart xixo-link` on Linux, as root, and the launch agent on macOS. |
+| `xixo-link uninstall` | Stops xixo link and removes it, its configuration, its state, and its parts from the machine. It puts nothing away in xixo. Linux needs root. |
+| `xixo-link join` | Reads `{"enrollment_token", "device_code", "name"}` as JSON on standard input, enrolls with masks as `enroll` does, and binds the machine with the device code as `up` does after approval. `xixo-link add` runs it over ssh. |
+| `xixo-link linked` | Prints the machine's name, key, and card address in xixo as JSON, with the machine's own token. |
+| `xixo-link login --xixo URL` | Signs you in to xixo from this computer, through the browser: it prints a link and a code, waits for your approval, and keeps the tokens in `~/.config/xixo-link/logins.json`, mode 0600. xixo starts the device grant with its own masks client, so the command line needs none. |
+| `xixo-link add HOST [FOLDER[:rw] ...] [--user NAME] [--off LINES] [--xixo URL]` | Links up a machine over ssh, as [linking over ssh](#linking-over-ssh) describes. `--off` names plan lines to leave off, separated by commas. `--xixo` picks the xixo when you are signed in to more than one. |
+| `xixo-link remove HOST [--xixo URL]` | Uninstalls xixo link on a machine over ssh and puts the machine away in xixo. |
 
-Every command takes `--config PATH`, and `up`, `enroll`, and `run` take
-`--state DIR`. The defaults are in [files on the machine](#files-on-the-machine).
+Every command takes `--config PATH`, and `up`, `enroll`, `join`, `linked`, and
+`run` take `--state DIR`. The defaults are in [files on the machine](#files-on-the-machine).
 
 ## Files on the machine
 
@@ -201,11 +212,57 @@ are made on the machine the first time xixo link enrolls and never leave it.
    to the machine.
 
 xixo answers that post, and `GET <xixo>/link` with the machine's token, with
-JSON: `{"name","url","updates"}`, the name xixo shows, the address of the
-machine's card, and whether its updates are on. `up` and `status` print the
-name. They drop control characters from it, and keep `url` only when it starts
-with the xixo address in the configuration. An enrolled machine that xixo
-answers 404 for asks for approval again.
+JSON: `{"name","key","url","updates"}`, the name xixo shows, the machine's
+key, the address of the machine's card, and whether its updates are on. `up`
+and `status` print the name. They drop control characters from it, and keep
+`url` only when it starts with the xixo address in the configuration. An
+enrolled machine that xixo answers 404 for asks for approval again.
+
+### Linking over ssh
+
+`xixo-link add` links up a machine from your own computer, with no approval
+page, since you are already signed in:
+
+```sh
+xixo-link login --xixo https://xixo.example.com
+xixo-link add media ~/Documents ~/Desktop-Backup:rw
+xixo-link add old-mbp old-linux-1 old-linux-2
+```
+
+`login` asks xixo to start the device grant with xixo's own masks client, at
+`POST <xixo>/link/cli/device`, prints the link and the code, and polls
+`POST <xixo>/link/cli/token` until you approve in the browser. xixo answers
+with the tokens masks issued to you, as Bearer tokens, and the command keeps
+them in `~/.config/xixo-link/logins.json`, mode 0600, with the refresh token
+that renews them. The command line holds no masks client and no secret of
+xixo's. The tenant's masks client has to allow the device grant.
+
+`add HOST` takes the host as ssh knows it, so your `~/.ssh/config`, keys, and
+agent apply. xixo never holds an ssh key and never opens a connection to a
+machine itself. The command numbers its steps:
+
+1. `ssh HOST uname -sm`, to pick the build.
+2. `GET <xixo>/link/builds` lists each build xixo serves with its SHA-256. The
+   command downloads the one for the machine, checks it, and copies it over
+   ssh to `~/.cache/xixo-link/xixo-link` on the machine.
+3. `xixo-link describe FOLDERS` runs there, and the description comes back
+   over ssh. Each folder is checked before anything asks for a password.
+4. `POST <xixo>/link/machines`, with your token, sends the description and the
+   lines to leave off. xixo makes the plan, creates the request as approved,
+   and answers with the plan, a one-time enrollment token, and the device
+   code. The plan prints, one line each, as `on` or `off`.
+5. `xixo-link install` runs there with the folders, over `ssh -t` and `sudo`
+   on Linux, which asks for the machine's password. On macOS it runs as you.
+6. `xixo-link join` runs there with the token and the device code on standard
+   input. The key pair is made on the machine and never leaves it.
+7. `xixo-link start` runs there, with `sudo` on Linux, and `xixo-link status`
+   prints the result.
+
+`add` on a machine that is already linked installs the new build and keeps
+its identity, as a rerun of the install command does. `remove HOST` runs
+`xixo-link linked` there to learn the machine's key, runs `xixo-link uninstall`
+with `sudo` on Linux, and asks xixo to put the machine away with
+`DELETE <xixo>/link/machines/KEY`. Both take an administrator's sign-in.
 
 ### Signing in
 

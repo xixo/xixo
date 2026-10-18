@@ -18,6 +18,7 @@ class FakeIssuer
   def initialize
     @keys = {}
     @codes = {}
+    @devices = {}
     @approvals = {}
     @enrollments = []
     @unenrollments = []
@@ -50,6 +51,14 @@ class FakeIssuer
     end
 
     { code: code, state: query["state"], query: query }
+  end
+
+  def approve_device!(user_code, scopes: Grant::SCOPES, subject: "owner")
+    @lock.synchronize do
+      held = @devices.values.find { |device| device[:user_code] == user_code }
+      held[:approved] = { scopes: Array(scopes), subject: subject } if held
+      !held.nil?
+    end
   end
 
   def approve!(subdomain)
@@ -148,10 +157,14 @@ class FakeIssuer
 
     def post_for(path, payload, token)
       return registered($1, payload, token) if path =~ %r{\A/([^/]+)/register\z}
+      return device_started($1, payload) if path =~ %r{\A/([^/]+)/device_authorization\z}
       return nil unless path =~ %r{\A/([^/]+)/token\z}
 
       subdomain = $1
       form = URI.decode_www_form(payload).to_h
+      return device_polled(subdomain, form) if form["grant_type"] == Masks::Client::Device::GRANT_TYPE
+      return refreshed(subdomain, form) if form["grant_type"] == "refresh_token"
+
       pending = @lock.synchronize { @codes.delete(form["code"]) }
 
       return { "error" => "invalid_grant" } if pending.nil?
@@ -182,6 +195,45 @@ class FakeIssuer
         "scope" => Array(pending[:scopes]).join(" "),
         "expires_in" => 3600
       }
+    end
+
+    def device_started(subdomain, payload)
+      form = URI.decode_www_form(payload).to_h
+      device_code = SecureRandom.urlsafe_base64(24)
+      user_code = "#{SecureRandom.alphanumeric(4).upcase}-#{SecureRandom.alphanumeric(4).upcase}"
+
+      @lock.synchronize do
+        @devices[device_code] = { user_code: user_code, client_id: form["client_id"], resource: form["resource"],
+                                  scopes: form["scope"].to_s.split, approved: nil }
+      end
+
+      { "device_code" => device_code, "user_code" => user_code, "verification_uri" => "#{url_for(subdomain)}/device",
+        "verification_uri_complete" => "#{url_for(subdomain)}/device?user_code=#{user_code}", "expires_in" => 600, "interval" => 1 }
+    end
+
+    def device_polled(subdomain, form)
+      held = @lock.synchronize { @devices[form["device_code"]] }
+      return { "error" => "invalid_grant", "error_description" => "no such device code" } if held.nil?
+      return { "error" => "authorization_pending", "error_description" => "waiting" } if held[:approved].nil?
+
+      @lock.synchronize { @devices.delete(form["device_code"]) }
+      audience = held[:resource].presence || "#{url_for(subdomain)}/mcp"
+
+      {
+        "access_token" => mint(subdomain: subdomain, subject: held[:approved][:subject], scopes: held[:approved][:scopes], audience: audience),
+        "refresh_token" => "refresh-#{SecureRandom.hex(8)}",
+        "token_type" => "Bearer", "scope" => held[:approved][:scopes].join(" "), "expires_in" => 3600
+      }
+    end
+
+    def refreshed(subdomain, form)
+      return { "error" => "invalid_grant", "error_description" => "that refresh token is not one this issuer gave out" } unless form["refresh_token"].to_s.start_with?("refresh-")
+
+      audience = form["resource"].presence || "#{url_for(subdomain)}/mcp"
+
+      { "access_token" => mint(subdomain: subdomain, subject: "owner", scopes: Grant::SCOPES, audience: audience),
+        "refresh_token" => "refresh-#{SecureRandom.hex(8)}", "token_type" => "Bearer",
+        "scope" => Grant::SCOPES.join(" "), "expires_in" => 3600 }
     end
 
     def registered(subdomain, payload, token)
@@ -226,6 +278,7 @@ class FakeIssuer
         "issuer" => url,
         "authorization_endpoint" => "#{url}/authorize",
         "token_endpoint" => "#{url}/token",
+        "device_authorization_endpoint" => "#{url}/device_authorization",
         "userinfo_endpoint" => "#{url}/userinfo",
         "jwks_uri" => "#{url}/.well-known/jwks.json",
         "registration_endpoint" => "#{url}/register",

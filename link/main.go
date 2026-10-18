@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/xixo/xixo/link/internal/dial"
 	"github.com/xixo/xixo/link/internal/digests"
 	"github.com/xixo/xixo/link/internal/extract"
 	_ "github.com/xixo/xixo/link/internal/extract/documents"
@@ -29,6 +30,7 @@ import (
 	"github.com/xixo/xixo/link/internal/link"
 	"github.com/xixo/xixo/link/internal/machine"
 	"github.com/xixo/xixo/link/internal/parts"
+	"github.com/xixo/xixo/link/internal/person"
 	"github.com/xixo/xixo/link/internal/state"
 	"github.com/xixo/xixo/link/internal/terminal"
 	"github.com/xixo/xixo/link/internal/update"
@@ -359,6 +361,110 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 		}
 
 		return runner.Run(ctx)
+	case "install":
+		xixo := set.String("xixo", "", "the address of xixo")
+		issuer := set.String("issuer", "", "the address of the masks issuer xixo link enrolls with")
+		user := set.String("user", "", "the account that owns the shared folders, by default this one")
+		from := set.String("from", "", "the build of xixo link to install")
+
+		if err := parse(); err != nil {
+			return err
+		}
+
+		return installed(ctx, installer(*xixo, *issuer, *user, *from, set.Args(), stdout))
+	case "start":
+		if err := parse(); err != nil {
+			return err
+		}
+
+		return started(ctx, installer("", "", "", "", nil, stdout))
+	case "uninstall":
+		if err := parse(); err != nil {
+			return err
+		}
+
+		return uninstalled(ctx, installer("", "", "", "", nil, stdout))
+	case "join":
+		if err := parse(); err != nil {
+			return err
+		}
+
+		return joined(ctx, *configPath, *stateDir, stdin, stdout)
+	case "linked":
+		if err := parse(); err != nil {
+			return err
+		}
+
+		return linkedJSON(ctx, *configPath, *stateDir, stdout)
+	case "login":
+		xixo := set.String("xixo", "", "the address of xixo to sign in to")
+
+		if err := parse(); err != nil {
+			return err
+		}
+
+		if *xixo == "" {
+			return person.ErrNoXixo
+		}
+
+		_, err := person.SignIn(ctx, dial.Client(dial.Answered), loginStore(), *xixo, stdout)
+		if err != nil {
+			return err
+		}
+
+		fmt.Fprintf(stdout, "\nSigned in to %s. The sign-in is kept in %s.\n", strings.TrimSuffix(*xixo, "/"), person.DefaultPath())
+
+		return nil
+	case "add":
+		xixo := set.String("xixo", "", "the address of xixo, when you are signed in to more than one")
+		user := set.String("user", "", "the account on the machine that owns the folders, by default the one ssh signs in as")
+		off := set.String("off", "", "the lines of the plan to leave off, separated by commas: catalog, extract, or models")
+
+		if err := parse(); err != nil {
+			return err
+		}
+
+		if set.NArg() == 0 {
+			return link.ErrNoHost
+		}
+
+		chosen, err := chosenXixo(*xixo)
+		if err != nil {
+			return err
+		}
+
+		token, err := personToken(ctx, chosen)
+		if err != nil {
+			return err
+		}
+
+		return link.Add(ctx, link.Adding{
+			Xixo: chosen, Token: token, Host: set.Arg(0), User: *user, Folders: set.Args()[1:],
+			Off: strings.FieldsFunc(*off, func(r rune) bool { return r == ',' || r == ' ' }),
+			SSH: overSSH, Client: dial.Client(dial.Answered), Out: stdout,
+		})
+	case "remove":
+		xixo := set.String("xixo", "", "the address of xixo, when you are signed in to more than one")
+
+		if err := parse(); err != nil {
+			return err
+		}
+
+		if set.NArg() != 1 {
+			return errors.New("remove takes one host, as ssh knows it")
+		}
+
+		chosen, err := chosenXixo(*xixo)
+		if err != nil {
+			return err
+		}
+
+		token, err := personToken(ctx, chosen)
+		if err != nil {
+			return err
+		}
+
+		return link.Remove(ctx, link.Unlinking{Xixo: chosen, Token: token, Host: set.Arg(0), SSH: overSSH, Client: dial.Client(dial.Answered), Out: stdout})
 	case "readable":
 		if len(args) != 2 {
 			return errors.New("readable takes one folder")
