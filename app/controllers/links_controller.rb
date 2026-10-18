@@ -27,6 +27,12 @@ class LinksController < ActionController::API
     send_file build.path, type: "application/octet-stream", disposition: "attachment", filename: build.name
   end
 
+  def builds
+    render json: Resource::Machine::Downloads.builds.map { |build|
+      { os: build.os, arch: build.arch, sha256: build.sha256, version: Resource::Machine::Downloads.version }
+    }
+  end
+
   def plist
     served(Resource::Machine::Downloads.plist, Resource::Machine::Downloads::PLIST, "application/xml")
   end
@@ -105,8 +111,8 @@ class LinksController < ActionController::API
     end
 
     def linked(machine)
-      render json: { name: machine.name.presence || machine.key, url: "#{Tenant.origin(request)}/settings/resources/#{machine.id}",
-                     updates: machine.updates? }
+      render json: { name: machine.name.presence || machine.key, key: machine.key,
+                     url: "#{Tenant.origin(request)}/settings/resources/#{machine.id}", updates: machine.updates? }
     end
 
     def served(path, file, type)

@@ -305,7 +305,7 @@ class LinkingTest < ActionDispatch::IntegrationTest
     bind(started, client_id: "client-studio")
     assert_response :ok
     machine = Tenant.switch(@tenant) { Resource::Machine.enrolled("client-studio") }
-    linked = { "name" => "studio", "url" => "http://#{host}/settings/resources/#{machine.id}", "updates" => true }
+    linked = { "name" => "studio", "key" => "studio", "url" => "http://#{host}/settings/resources/#{machine.id}", "updates" => true }
     assert_equal linked, response.parsed_body
 
     Tenant.switch(@tenant) do
