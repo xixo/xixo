@@ -336,17 +336,17 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 		wanted := set.String("wanted", "", "the file xixo link writes while it wants the part")
 		status := set.String("status", "", "the file this command writes the part's state to")
 
-		if err := parse(); err != nil {
+		if len(args) < 2 || strings.HasPrefix(args[1], "-") {
+			return errors.New("part takes the name of one part, then its flags")
+		}
+
+		if err := parsed(set, append([]string{args[0]}, args[2:]...), stdout); err != nil {
 			return err
 		}
 
-		if set.NArg() != 1 {
-			return errors.New("part takes the name of one part")
-		}
-
-		recipe, known := parts.Recipes[set.Arg(0)]
+		recipe, known := parts.Recipes[args[1]]
 		if !known {
-			return fmt.Errorf("%q is not a part xixo link runs: name any of %s", set.Arg(0), strings.Join(parts.Known(), ", "))
+			return fmt.Errorf("%q is not a part xixo link runs: name any of %s", args[1], strings.Join(parts.Known(), ", "))
 		}
 
 		if *releases == "" || *wanted == "" {
