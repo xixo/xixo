@@ -67,11 +67,11 @@ func TestLinuxInstallWritesTheBinaryTheConfigurationAndEveryUnit(t *testing.T) {
 		Client: server.Client(), Run: run,
 	}
 	held.Lookup = func(name string) (int, int, error) {
-		if name == Updater && len(*ran) == 0 {
+		if (name == Updater || name == PartUser) && len(*ran) < 2 {
 			return 0, 0, errors.New("unknown user " + name)
 		}
 
-		return lookups(map[string][2]int{"jon": {1000, 1000}, Updater: {999, 999}})(name)
+		return lookups(map[string][2]int{"jon": {1000, 1000}, Updater: {999, 999}, PartUser: {998, 998}})(name)
 	}
 
 	if err := held.Linux(context.Background()); err != nil {
@@ -108,6 +108,7 @@ func TestLinuxInstallWritesTheBinaryTheConfigurationAndEveryUnit(t *testing.T) {
 
 	want := []string{
 		"useradd --system --user-group --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin xixo-link-update",
+		"useradd --system --user-group --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin xixo-link-part",
 		"systemctl daemon-reload",
 		"systemctl enable --quiet xixo-link",
 		"systemctl enable --now --quiet xixo-link-update.path",
@@ -131,7 +132,7 @@ func TestLinuxInstallKeepsTheUpdaterAccountAndSkipsPartsAnOlderXixoDoesNotServe(
 	ran, run := recorder()
 	held := &Installer{
 		Root: root, Xixo: server.URL, Issuer: "https://id.example", User: "jon", From: build,
-		Client: server.Client(), Run: run, Lookup: lookups(map[string][2]int{"jon": {1000, 1000}, Updater: {999, 999}}),
+		Client: server.Client(), Run: run, Lookup: lookups(map[string][2]int{"jon": {1000, 1000}, Updater: {999, 999}, PartUser: {998, 998}}),
 	}
 
 	if err := held.Linux(context.Background()); err != nil {
@@ -171,7 +172,7 @@ func TestInstallNeedsABuildAndAnAccount(t *testing.T) {
 	server := serving(t, map[string]string{Service: "User=@USER@\n@FOLDERS@\n", UpdateUnit: "u", UpdatePath: "p"})
 	_, run := recorder()
 	held := &Installer{Root: t.TempDir(), Xixo: server.URL, Issuer: "https://id.example", User: "nobody-here", From: build,
-		Client: server.Client(), Run: run, Lookup: lookups(map[string][2]int{Updater: {999, 999}})}
+		Client: server.Client(), Run: run, Lookup: lookups(map[string][2]int{Updater: {999, 999}, PartUser: {998, 998}})}
 
 	if err := held.Linux(context.Background()); err == nil || !strings.Contains(err.Error(), "not an account on this machine") {
 		t.Fatalf("got %v", err)

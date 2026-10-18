@@ -19,6 +19,7 @@ import (
 
 const (
 	Updater     = "xixo-link-update"
+	PartUser    = "xixo-link-part"
 	Lib         = "/usr/local/lib/xixo-link"
 	Bin         = "/usr/local/bin/xixo-link"
 	Etc         = "/etc/xixo-link"
@@ -133,9 +134,13 @@ func (i *Installer) Linux(ctx context.Context) error {
 		return ErrNoRoot
 	}
 
-	if _, _, err := i.lookup(Updater); err != nil {
-		if err := i.run(ctx, "useradd", "--system", "--user-group", "--no-create-home", "--home-dir", "/nonexistent", "--shell", "/usr/sbin/nologin", Updater); err != nil {
-			return fmt.Errorf("the %s account could not be made: %w", Updater, err)
+	for _, account := range []string{Updater, PartUser} {
+		if _, _, err := i.lookup(account); err == nil {
+			continue
+		}
+
+		if err := i.run(ctx, "useradd", "--system", "--user-group", "--no-create-home", "--home-dir", "/nonexistent", "--shell", "/usr/sbin/nologin", account); err != nil {
+			return fmt.Errorf("the %s account could not be made: %w", account, err)
 		}
 	}
 
