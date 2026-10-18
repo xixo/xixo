@@ -65,7 +65,7 @@ module FakeDisk
       writable = writable.map(&:to_s)
       held = Resource::Machine.find_by(key: key)
       machine = { "hostname" => key, "connected" => true, "session" => "disk", "seen_at" => Time.current.utc.iso8601,
-                  "tools" => Resource::Machine::Tools::NAMES, "lend" => true, "extracts_for_others" => true }
+                  "lend" => true }
 
       if held
         known = held.machine

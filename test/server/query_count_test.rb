@@ -22,7 +22,7 @@ class QueryCountTest < ActiveSupport::TestCase
   end
 
   test "the resources page costs the same queries however many resources each machine holds" do
-    page = "{ resources { id key machineId itemsCount via machine { services { url via } } } }"
+    page = "{ resources { id key machineId itemsCount via machine { services { kind port } } } }"
     few = resources_counted(1) { page }
     many = resources_counted(6) { page }
 

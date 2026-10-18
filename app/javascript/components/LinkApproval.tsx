@@ -19,7 +19,7 @@ import { systemOf } from '../linkup'
 import { sized } from '../plain'
 import { ago } from '../when'
 import { Failed } from './Failed'
-import { Decide, type LinkRequest, nameOf } from './LinkUp'
+import { Decide, type Gpu, type LinkRequest, nameOf } from './LinkUp'
 import { MachineIcon } from './MachineIcon'
 import { LinkMark, type LinkState, Mark } from './Mark'
 import { administratorSignIn } from './Resources'
@@ -27,6 +27,19 @@ import { administratorSignIn } from './Resources'
 const SERVICES: Record<string, string> = {
   ollama: 'Ollama',
   lmstudio: 'LM Studio',
+}
+
+export function gpuSaid(gpu: Gpu) {
+  const named = gpu.model || `${gpu.maker} GPU`
+  const size = sized(gpu.memory)
+  const driver =
+    gpu.driver === ''
+      ? 'no driver'
+      : gpu.driver === 'built in'
+        ? null
+        : `driver ${gpu.driver}`
+
+  return [named, size, driver].filter(Boolean).join(', ')
 }
 
 export function titleFor(request: LinkRequest | null) {
@@ -205,7 +218,9 @@ function Details({ request }: { request: LinkRequest }) {
       ? `${request.cpus} ${request.cpus === 1 ? 'core' : 'cores'}`
       : null,
     sized(request.memory) ? `${sized(request.memory)} memory` : null,
+    request.battery ? 'a battery' : null,
   ].filter(Boolean)
+  const gpus = (request.gpus ?? []).map(gpuSaid)
   const asked = [
     request.createdAt ? ago(request.createdAt) : null,
     request.status === 'pending' ? runsOut(request.expiresAt, now) : null,
@@ -242,6 +257,10 @@ function Details({ request }: { request: LinkRequest }) {
       {request.user && <Row label="Runs as">{request.user}</Row>}
       {hardware.length > 0 && (
         <Row label="Hardware">{hardware.join(' · ')}</Row>
+      )}
+      {gpus.length > 0 && <Row label="GPU">{gpus.join(' · ')}</Row>}
+      {(request.readers ?? []).length > 0 && (
+        <Row label="Reads">{(request.readers ?? []).join(', ')}</Row>
       )}
       {(request.addresses ?? []).length > 0 && (
         <Row label="Addresses">{(request.addresses ?? []).join(', ')}</Row>

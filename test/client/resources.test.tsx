@@ -71,14 +71,15 @@ const machineSaid = (overrides: Record<string, unknown>) => ({
   extractors: ['pdf', 'text'],
   unread: [],
   writable: [],
-  helpsOthers: true,
   heldBack: [],
   lends: false,
   tools: [],
   warnings: [],
   os: 'linux',
   arch: 'arm64',
-  extractsForOthers: false,
+  battery: false,
+  gpus: [],
+  plan: [],
   waiting: [],
   linked: true,
   services: [],
@@ -98,10 +99,7 @@ const local = resource({
   changeable: false,
   machine: machineSaid({
     folders: ['/data/files'],
-    extractsForOthers: true,
-    services: [
-      { kind: 'ollama', port: 11434, address: null, url: null, via: null },
-    ],
+    services: [{ kind: 'ollama', port: 11434 }],
   }),
 })
 
@@ -117,13 +115,28 @@ const studio = resource({
     hostname: 'studio',
     os: 'darwin',
     folders: ['/srv/media', '/srv/photos'],
-    services: [
+    services: [{ kind: 'ollama', port: 11434 }],
+    plan: [
       {
-        kind: 'ollama',
-        port: 11434,
-        address: '100.64.0.7',
-        url: 'http://100.64.0.7:11434/v1',
-        via: 'home',
+        key: 'catalog',
+        says: 'Catalog media and photos.',
+        why: null,
+        on: true,
+        possible: true,
+      },
+      {
+        key: 'extract',
+        says: 'Extract text from documents, and from files other machines lend it.',
+        why: 'It reads PDFs and text.',
+        on: true,
+        possible: true,
+      },
+      {
+        key: 'models',
+        says: 'Use the Ollama already running on it.',
+        why: 'It answers on port 11434.',
+        on: true,
+        possible: true,
       },
     ],
   }),
@@ -264,7 +277,7 @@ describe('Resources', () => {
       ),
     ).toBeTruthy()
     expect(within(server).getByText('/data/files')).toBeTruthy()
-    expect(within(server).getByText('Found Ollama on This server')).toBeTruthy()
+    expect(within(server).queryByText(/Found Ollama/)).toBeNull()
     expect(within(server).getByText('Household')).toBeTruthy()
     expect(within(server).getByText('drops land here')).toBeTruthy()
     expect(within(server).getByText('home')).toBeTruthy()
@@ -324,7 +337,7 @@ describe('Resources', () => {
     )
   })
 
-  test('adding to a machine says its folders join the catalog by themselves, and adds a model server it found in one click', async () => {
+  test('adding to a machine says its folders join the catalog by themselves, and that a model server it found is added by the plan', async () => {
     const media = resource({
       id: '22',
       type: 'filesystem',
@@ -367,18 +380,11 @@ describe('Resources', () => {
     ).toBeTruthy()
     expect(within(dialog).queryByText('/srv/photos')).toBeNull()
     expect(within(dialog).queryByText('Reached from here')).toBeNull()
-
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Add' }))
-
     expect(
-      asked.find((ask) => ask.name === 'AttachResource')?.variables,
-    ).toMatchObject({
-      type: 'openai-compatible',
-      key: 'ollama-studio',
-      via: 'home',
-      personal: false,
-      settings: { base_url: 'http://100.64.0.7:11434/v1' },
-    })
+      within(dialog).getByText('port 11434, added when the plan runs models'),
+    ).toBeTruthy()
+    expect(within(dialog).queryByRole('button', { name: 'Add' })).toBeNull()
+    expect(asked.find((ask) => ask.name === 'AttachResource')).toBeUndefined()
   })
 
   test('the Add button asks where first, starting at this server', async () => {
@@ -549,17 +555,17 @@ describe('Resources', () => {
 
     expect(
       asked.find((ask) => ask.name === 'ApproveLinkRequest')?.variables,
-    ).toEqual({ id: '40' })
+    ).toEqual({ id: '40', off: [] })
   })
 
-  test('a machine card lists the folders it shares as the folders in the catalog, marks the writable ones, and an administrator turns off helping others', async () => {
+  test('a machine card lists the folders it shares as the folders in the catalog, marks the writable ones, and an administrator turns a line of the plan off', async () => {
     const sharing = resource({
       ...studio,
       machine: machineSaid({
         ...studio.machine,
         folders: ['/srv/media', '/srv/inbox'],
         writable: ['/srv/inbox'],
-        heldBack: ['extract', 'lend'],
+        heldBack: ['lend'],
       }),
     })
     const media = resource({
@@ -583,16 +589,13 @@ describe('Resources', () => {
         administrator: true,
         resources: [local, sharing, media],
       }),
-      SetMachineHelpsOthers: () => ({
-        setMachineHelpsOthers: {
+      SetMachinePlan: () => ({
+        setMachinePlan: {
           resource: {
             id: '7',
             machine: {
-              helpsOthers: false,
-              heldBack: [],
-              lends: true,
+              plan: studio.machine.plan,
               tools: [],
-              extractsForOthers: false,
             },
           },
         },
@@ -620,20 +623,21 @@ describe('Resources', () => {
     ).toHaveLength(1)
     expect(within(card).queryByText('Files and writing')).toBeNull()
     expect(
-      within(card).getByText(
-        /Its own config holds back running its readers, whole files/,
-      ),
+      within(card).getByText(/Its own config holds back whole files/),
+    ).toBeTruthy()
+    expect(
+      within(card).getByLabelText(/^Use the Ollama already running on it\./),
     ).toBeTruthy()
 
     await userEvent.click(
-      within(card).getByLabelText(/^Help read files from other places/),
+      within(card).getByLabelText(/^Extract text from documents/),
     )
 
     expect(
       asked
-        .filter((ask) => ask.name === 'SetMachineHelpsOthers')
+        .filter((ask) => ask.name === 'SetMachinePlan')
         .map((ask) => ask.variables),
-    ).toEqual([{ id: '7', helpsOthers: false }])
+    ).toEqual([{ id: '7', key: 'extract', on: false }])
   })
 
   test('an administrator shows a folder held for its operators to everyone', async () => {

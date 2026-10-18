@@ -84,9 +84,12 @@ A machine asking to link up shows in the **Link up a machine** dialog at once. W
 closed, a line above the machine cards says so, such as "studio is asking to link up."
 
 1. Choose **Review**, or open the link the command printed. The link opens a page titled with the
-   machine's name, such as **Approve studio**, with more about the machine.
+   machine's name, such as **Approve studio**, with what the machine says about itself.
 2. Check that the code matches the code the command printed on the machine.
-3. Choose **Approve**. Choose **Deny** for a machine you do not know.
+3. Read what xixo plans to do with the machine, one switch per line, such as "Catalog Documents.
+   Read and write Desktop." and "Use the Ollama already running on it." Turn off a line you do not
+   want. A line the machine cannot do stays off and says why.
+4. Choose **Approve**. Choose **Deny** for a machine you do not know.
 
 :::caution
 Approve a machine only when it shows the same code. Anyone who can reach xixo can ask to link up a
@@ -125,7 +128,7 @@ To check on xixo link:
 **In xixo** is the address of the machine's card. On a Mac the last two lines show the launch agent
 and its log. `xixo-link help` lists the other commands.
 
-## What xixo may do with a machine
+## What xixo does with a machine
 
 xixo may do everything with the folders a machine shares. It browses and searches them, fetches
 whole files for downloads and previews, runs the machine's readers, and writes into a folder the
@@ -136,15 +139,21 @@ as `/srv/inbox:rw`. Any other folder is read only. The machine's card lists each
 marked **Read and write** or **Read only**. To change a folder, run the link-up command on the
 machine again with the new list.
 
-The machine's own config can turn off tools, lending, and reading for others. Then the card says
-"Its own config holds back" and names what. See
-[what xixo may do with a machine](/concepts/resources/#what-xixo-may-do-with-a-machine) and
-[tools a machine offers](/concepts/resources/#tools-a-machine-offers).
+The machine's card shows the plan xixo made from the machine's description, as switches an
+administrator can turn off:
 
-An administrator sees the **Help read files from other places** switch on the card. It lets xixo
-send the machine uploads, mail attachments, cloud files, web pages, and files from other machines to
-read. A newly approved machine starts with it on, and a change takes effect at once, without
-touching the machine.
+- **Catalog** the folders it shares.
+- **Extract** text from documents, and from files other machines lend it. Off, the machine reads
+  only its own files.
+- **Use** or **run** models. On, xixo attaches the model server it found on the machine by itself.
+
+A change takes effect at once, without touching the machine. xixo plans again each time the machine
+connects, so a reader you install or a model server you start shows up on its own. See [what xixo
+does with a machine](/concepts/resources/#what-xixo-does-with-a-machine).
+
+The machine's own config can keep its files' bytes on the machine with `lend`. Then the card says
+"Its own config holds back whole files". See
+[tools a machine offers](/concepts/resources/#tools-a-machine-offers).
 
 ## Folders it shares
 
@@ -185,21 +194,16 @@ operators**.
 
 When you are the only person in xixo, you see every folder your machines share.
 
-## Attach a model server it found
+## A model server it found
 
-xixo link looks for Ollama and LM Studio on the machine, and the card shows a line such as "Found
-Ollama on studio".
+xixo link looks for Ollama and LM Studio on the machine. When the plan's **Models** line is on,
+xixo attaches the model server through the machine as soon as the machine connects, named such as
+**Ollama on studio**, and makes it the default for inference when there is no other. Nothing
+reaches the model server over the network: xixo link on the machine passes each request to it at
+`127.0.0.1`.
 
-1. Choose **Add** on that line. xixo attaches the model server and checks it.
-2. Open the menu on the new row, choose **Change**, and name a model for each role.
-
-xixo reaches the model server at the machine's tailnet address when the server answers there. A
-model server that answers only on its own machine is attached at `127.0.0.1` through the machine
-itself.
-
-When the line shows no **Add**, choose **Add to** followed by the machine's name at the foot of its
-card, then **Set up** under **Model servers it found**, and check the **Base URL**. The card shows
-**Add to** only when xixo found a model server on the machine.
+1. Open the menu on the new row, choose **Change**, and name a model for each role.
+2. To stop using it, turn the **Models** line off on the machine's card, or put the resource away.
 
 A laptop sleeps, and its model server goes with it. A file whose summary needs that model server
 waits, and its pass says "Waiting for" the machine "to come online". When the machine links up
@@ -274,8 +278,8 @@ card counts the files waiting. Do one of these:
 - Install the programs on the machine, then run the link-up command again, which restarts xixo
   link.
 - Leave lending on. A machine lends its files unless its config sets `lend` to false, and then a
-  connected machine that helps read files from other places reads a copy. A file larger than 4 GB
-  is never lent, so a large film waits until its own machine has ffmpeg.
+  connected machine whose plan extracts text reads a copy. A file larger than 4 GB is never lent,
+  so a large film waits until its own machine has ffmpeg.
 
 A file on a machine that is offline waits for the machine to come back. A file on a machine that is
 too busy to take it, or that does not answer within 30 minutes, waits, and xixo asks again at the

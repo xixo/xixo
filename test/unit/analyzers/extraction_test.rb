@@ -10,7 +10,7 @@ class ExtractionTest < ActiveSupport::TestCase
     @machine = machine_on(@tenant, folders: [ "/srv/notes" ])
 
     Tenant.switch(@tenant) do
-      @machine.update_columns(details: @machine.details.deep_merge("machine" => { "extractors" => %w[text] }))
+      @machine.update_columns(details: @machine.details.deep_merge("plan" => { "extract" => false }, "machine" => { "extractors" => %w[text] }))
       @folder = Resource::Filesystem.create!(key: "notes", name: "Notes", via: @machine, details: { "folder" => "/srv/notes" })
       @storage = Resource::Database.create!(key: "desk", name: "Desk")
     end
@@ -242,7 +242,7 @@ class ExtractionTest < ActiveSupport::TestCase
   test "a machine that does not read for others is left out of the pool" do
     FakeLink.standing = false
     attic = machine_on(@tenant, key: "attic", folders: [])
-    Tenant.switch(@tenant) { attic.update_columns(details: attic.details.deep_merge("machine" => { "extractors" => %w[text], "extracts_for_others" => false })) }
+    Tenant.switch(@tenant) { attic.update_columns(details: attic.details.deep_merge("plan" => { "extract" => false }, "machine" => { "extractors" => %w[text] })) }
     feed = Tenant.switch(@tenant) { stored("notes.txt", "milk") }
 
     analyze(feed)
@@ -259,7 +259,7 @@ class ExtractionTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       assert_enqueued_with(job: ResumeParkedJob, args: [ attic.id ]) do
-        attic.greeted!({ "folders" => [], "extractors" => %w[text pdf], "extracts_for_others" => true }, session: "s2")
+        attic.greeted!({ "folders" => [], "details" => { "readers" => %w[text pdf] } }, session: "s2")
       end
 
       assert_enqueued_with(job: AnalyzeFeedJob) { ResumeParkedJob.perform_now(attic.id) }
@@ -342,7 +342,7 @@ class ExtractionTest < ActiveSupport::TestCase
 
     def pooled(machine, extractors)
       Tenant.switch(@tenant) do
-        machine.update_columns(details: machine.details.deep_merge("machine" => { "extractors" => extractors, "extracts_for_others" => true }))
+        machine.update_columns(details: machine.details.deep_merge("machine" => { "extractors" => extractors }))
         machine.reload
       end
     end

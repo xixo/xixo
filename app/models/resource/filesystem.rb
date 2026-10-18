@@ -199,10 +199,6 @@ class Resource
       shared!
       return self if writable?
 
-      raise Resource::Refused, "xixo link's config on #{machine.key} leaves write out of tools, so files cannot move in or " \
-                               "out of #{key}. Add write to tools in the config on #{machine.key}, or remove tools to " \
-                               "allow every tool" unless machine.writes?
-
       raise Resource::Refused, "#{machine.key} shares #{folder} read-only, so files cannot move in or out of #{key}. " \
                                "Share #{folder} writable on #{machine.key}: run the link-up command there again with " \
                                "#{folder}:rw among its folders"

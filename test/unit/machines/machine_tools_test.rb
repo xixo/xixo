@@ -36,8 +36,6 @@ Resource::Machine.prepend(ScriptedMachine)
 class MachineToolsTest < ActiveSupport::TestCase
   include Machines
 
-  ALL = %w[browse search read write extract models].freeze
-
   setup do
     @tenant = Tenant.create!(subdomain: "tools-#{SecureRandom.hex(4)}", name: "Tools")
     @machine = machine_on(@tenant, folders: [ "/srv/media", "/srv/notes", "/srv/photos" ])
@@ -56,28 +54,29 @@ class MachineToolsTest < ActiveSupport::TestCase
     Current.reset
   end
 
-  test "hello keeps the tools the machine names that xixo knows, and whether it lends" do
-    said = Resource::Machine::Hello.from("folders" => [ "/srv" ], "tools" => [ "read", "shell", 5, "browse", "read" ], "lend" => true)
+  test "hello keeps the readers the machine describes that xixo knows, and whether it lends" do
+    said = Resource::Machine::Hello.from("folders" => [ "/srv" ], "lend" => true,
+                                         "details" => { "readers" => [ "pdf", "shell", 5, "text", "pdf" ], "gpus" => [ { "maker" => "NVIDIA", "model" => "GTX 1070", "memory" => 8_589_934_592, "driver" => "580.178.04" } ] })
 
-    assert_equal %w[browse read], said["tools"]
+    assert_equal %w[pdf text], said["extractors"]
+    assert_equal %w[pdf text], said["details"]["readers"]
+    assert_equal [ { "maker" => "NVIDIA", "model" => "GTX 1070", "memory" => 8_589_934_592, "driver" => "580.178.04" } ], said["details"]["gpus"]
     assert said["lend"]
-    assert_equal [], Resource::Machine::Hello.from("tools" => "browse")["tools"]
+    assert_equal [], Resource::Machine::Hello.from("details" => { "readers" => "pdf" })["extractors"]
     assert_not Resource::Machine::Hello.from("lend" => "yes")["lend"]
   end
 
-  test "a machine whose config names no tools offers health alone, and refuses the rest" do
+  test "a machine whose plan runs no models refuses chat, and offers the rest" do
+    offering(services: [ { "kind" => "ollama", "port" => 11_434 } ], off: [ "models" ])
+
     as_member do
       described = JSON.parse(text(called(key: "box", do: "describe")))
 
-      assert_equal %w[health discover], described["commands"].keys
-      assert_equal %w[health discover], described["help"].keys
+      assert_equal %w[health discover browse search read extract], described["commands"].keys
 
-      ALL.map { |tool| tool == "models" ? "chat" : tool }.each do |verb|
-        reply = called(key: "box", do: verb, input: { folder: "/srv/media", path: "a.txt", query: "a", prompt: "hi", text: "x" })
-
-        assert reply.error?, verb
-        assert_match(/box does not offer #{verb}/, text(reply))
-      end
+      reply = called(key: "box", do: "chat", input: { prompt: "hi" })
+      assert reply.error?
+      assert_match(/box does not offer chat: its plan runs no models. Turn models on for it on its card/, text(reply))
 
       assert_empty @asked
       assert_equal "error", AuditEvent.where(channel: "mcp").order(:id).last.status
@@ -85,70 +84,71 @@ class MachineToolsTest < ActiveSupport::TestCase
   end
 
   test "a machine offers write only with a writable folder, and chat only with a model server" do
-    offering(ALL)
+    offering
 
     as_member do
       assert_equal %w[health discover browse search read extract], @machine.reload.commands.keys.map(&:to_s)
 
-      offering(ALL, writable: [ "/srv/notes" ], services: [ { "kind" => "ollama", "port" => 11_434 } ])
+      offering(writable: [ "/srv/notes" ], services: [ { "kind" => "ollama", "port" => 11_434 } ])
       assert_equal %w[health discover browse search read write extract chat], @machine.reload.commands.keys.map(&:to_s)
     end
   end
 
-  test "xixo asks for every tool and for lending, and the help-others switch reaches xixo link at once" do
-    offering(ALL, writable: [ "/srv/notes" ], services: [ { "kind" => "ollama", "port" => 11_434 } ], lend: true)
+  test "the plan's extract line decides whether the machine reads for others, and turning it off sends xixo link nothing" do
+    offering(writable: [ "/srv/notes" ], services: [ { "kind" => "ollama", "port" => 11_434 } ], lend: true)
 
     as_member do
       @machine.reload
       assert_equal %w[health discover browse search read write extract chat], @machine.commands.keys.map(&:to_s)
       assert @machine.lends?
       assert_equal [ "/srv/notes" ], @machine.writable_folders
-      assert_equal({ "tools" => %w[browse search read write extract models], "lend" => true, "extracts_for_others" => true },
-                   @machine.policy)
+      assert_equal %w[catalog extract models], @machine.plan.map(&:key)
+      assert @machine.plan.all?(&:on)
+      assert @machine.reads_for_others?
 
       told = []
       held = LinkChannel.method(:broadcast_to)
       LinkChannel.define_singleton_method(:broadcast_to) { |machine, message| told << [ machine.id, message ] }
       begin
-        @machine.set_helps_others!(false)
+        @machine.set_plan!("extract", false)
       ensure
         LinkChannel.define_singleton_method(:broadcast_to, held)
       end
 
-      assert_equal [ [ @machine.id, { "settings" => { "tools" => %w[browse search read write extract models], "lend" => true,
-                                                      "extracts_for_others" => false } } ] ], told
+      assert_empty told
       assert_not @machine.reload.reads_for_others?
-      assert_not @machine.details.key?("access")
+      assert_equal [ "extract" ], @machine.plan_off
+      assert_raises(Resource::Refused) { @machine.set_plan!("shell", true) }
     end
   end
 
-  test "xixo asks for models only once the machine reports a model server" do
-    offering(ALL)
+  test "a machine with no readers cannot extract, and the plan says why" do
+    offering(readers: [])
 
     as_member do
-      assert_equal %w[browse search read write extract], @machine.reload.policy["tools"]
-      assert_not_includes @machine.held_back, "models"
+      line = @machine.reload.plan.find { |held| held.key == "extract" }
+      assert_not line.possible
+      assert_not line.on
+      assert_match(/None of the readers are installed on it/, line.why)
+      assert_not @machine.reads_for_others?
     end
   end
 
-  test "the machine's own config keeps tools and lending off, and xixo says what it keeps off" do
-    offering(%w[browse search], writable: [ "/srv/notes" ], lend: false)
+  test "the machine's own config keeps lending off, and xixo says so" do
+    offering(writable: [ "/srv/notes" ], lend: false)
 
     as_member do
       @machine.reload
-      assert_equal %w[browse search], @machine.offered_tools
+      assert_equal %w[browse search read write extract], @machine.offered_tools
       assert_not @machine.lends?
-      assert_not @machine.writes?
-      assert_empty @machine.writable_folders
-      assert_equal %w[read write extract lend], @machine.held_back
-
-      error = assert_raises(ArgumentError) { @machine.command("extract", "folder" => "/srv/notes", "path" => "a.txt") }
-      assert_match(/config on it leaves extract out of tools. Add extract to tools in the config/, error.message)
+      assert @machine.writes?
+      assert_equal [ "/srv/notes" ], @machine.writable_folders
+      assert_equal %w[lend], @machine.held_back
     end
   end
 
   test "a machine that shares no folder writable says how to share one" do
-    offering(ALL)
+    offering
 
     as_member do
       error = assert_raises(ArgumentError) { @machine.reload.command("write", "folder" => "/srv/notes", "path" => "a.txt", "text" => "hi") }
@@ -157,7 +157,7 @@ class MachineToolsTest < ActiveSupport::TestCase
   end
 
   test "browse lists the shared folders, then the files of one, and refuses a folder the machine does not share" do
-    offering(%w[browse write], writable: [ "/srv/notes" ])
+    offering(writable: [ "/srv/notes" ])
     @answers["browse"] = { "entries" => [ { "path" => "a.txt", "size" => 3, "modified_at" => "2026-10-12T10:00:00Z" } ], "cursor" => "a.txt" }
 
     as_member do
@@ -178,7 +178,7 @@ class MachineToolsTest < ActiveSupport::TestCase
   end
 
   test "a folder attached for one person is out of reach of everyone else's token" do
-    offering(%w[browse read])
+    offering
     Tenant.switch(@tenant) do
       Resource::Filesystem.create!(key: "bobs", details: { "folder" => "/srv/photos" }, via: @machine, owner_subject: "bob")
     end
@@ -195,7 +195,7 @@ class MachineToolsTest < ActiveSupport::TestCase
   end
 
   test "a shared folder that holds a file kept to one person is out of reach of everyone else's token" do
-    offering(%w[browse])
+    offering
     Tenant.switch(@tenant) do
       storage = Resource::Filesystem.create!(key: "storage", details: { "folder" => "/srv/notes" }, via: @machine)
       kept = Feed.create!(type: Feed::FILE, key: "diary", title: "Diary")
@@ -217,7 +217,7 @@ class MachineToolsTest < ActiveSupport::TestCase
   end
 
   test "read sends the head of a file from a machine that lends, and what xixo drew out from one that does not" do
-    offering(%w[read], lend: true)
+    offering(lend: true)
     @answers["peek"] = { "data" => Base64.strict_encode64("# plans\nfirst"), "size" => 13, "total" => 900_000 }
 
     as_member do
@@ -231,7 +231,7 @@ class MachineToolsTest < ActiveSupport::TestCase
       end
     end
 
-    offering(%w[read], lend: false)
+    offering(lend: false)
     Tenant.switch(@tenant) do
       folder = Resource::Filesystem.create!(key: "notes", details: { "folder" => "/srv/notes" }, via: @machine)
       feed = Feed.create!(type: Feed::FILE, key: "plans", title: "Plans")
@@ -251,7 +251,7 @@ class MachineToolsTest < ActiveSupport::TestCase
   end
 
   test "write needs the command scope and a writable folder, and carries the bytes as an upload" do
-    offering(%w[write], writable: [ "/srv/notes" ])
+    offering(writable: [ "/srv/notes" ])
     @answers["place"] = ->(args) { { "path" => args["path"], "size" => args["size"], "modified_at" => "2026-10-12T10:00:00Z" } }
 
     as_member(Grant::SIGN_IN - [ Tool::Resources::WRITES ]) do
@@ -284,7 +284,7 @@ class MachineToolsTest < ActiveSupport::TestCase
   end
 
   test "extract runs the machine's extractors and answers with capped steps" do
-    offering(%w[extract])
+    offering
     @answers["examine"] = { "extractor" => "pdf", "size" => 10, "sha256" => "ab",
                             "steps" => { "text" => { "result" => "y" * 100_000 }, "pages" => { "result" => { "count" => 3 } },
                                          "ocr" => { "error" => "tesseract is missing" } } }
@@ -303,7 +303,7 @@ class MachineToolsTest < ActiveSupport::TestCase
   end
 
   test "chat asks the model server the machine found, and only one it found" do
-    offering(%w[models], services: [ { "kind" => "ollama", "port" => 11_434, "address" => nil } ])
+    offering(services: [ { "kind" => "ollama", "port" => 11_434, "address" => nil } ])
     @answers["model"] = { "model" => "qwen3:8b", "text" => "four", "finish_reason" => "stop" }
 
     as_member do
@@ -325,7 +325,7 @@ class MachineToolsTest < ActiveSupport::TestCase
   end
 
   test "search answers from xixo's index of the machine's folders and from a walk of their names" do
-    offering(%w[search])
+    offering
     feed = nil
     Tenant.switch(@tenant) do
       folder = Resource::Filesystem.create!(key: "notes", details: { "folder" => "/srv/notes" }, via: @machine)
@@ -355,7 +355,7 @@ class MachineToolsTest < ActiveSupport::TestCase
   end
 
   test "someone the machine does not list among its operators reaches only what xixo drew out" do
-    offering(ALL, writable: [ "/srv/notes" ], services: [ { "kind" => "ollama", "port" => 11_434 } ], lend: true)
+    offering(writable: [ "/srv/notes" ], services: [ { "kind" => "ollama", "port" => 11_434 } ], lend: true)
     @answers["find"] = { "matches" => [ { "folder" => "/srv/media", "path" => "plans.mp4" } ], "complete" => true }
 
     as_member(subject: "carol") do
@@ -410,7 +410,7 @@ class MachineToolsTest < ActiveSupport::TestCase
   end
 
   test "one long call waits on a machine at a time, for each person and for each machine" do
-    offering(%w[extract models], services: [ { "kind" => "ollama", "port" => 11_434 } ])
+    offering(services: [ { "kind" => "ollama", "port" => 11_434 } ])
     nested = nil
     @answers["model"] = { "model" => "m", "text" => "ok" }
     @answers["examine"] = lambda do |_args|
@@ -429,11 +429,15 @@ class MachineToolsTest < ActiveSupport::TestCase
 
   private
 
-    def offering(tools, writable: [], services: [], lend: false)
+    def offering(writable: [], services: [], lend: false, readers: %w[pdf text], off: [])
       Tenant.switch(@tenant) do
-        @machine.reload.update!(details: @machine.details.merge("machine" => @machine.machine.merge(
-          "tools" => tools, "writable" => writable, "services" => services, "lend" => lend
-        )))
+        @machine.reload.update!(details: @machine.details.merge(
+          "plan" => off.index_with(false),
+          "machine" => @machine.machine.merge(
+            "writable" => writable, "services" => services, "lend" => lend, "extractors" => readers,
+            "details" => { "readers" => readers, "services" => services }
+          )
+        ))
       end
     end
 

@@ -3,6 +3,7 @@ import {
   CopyButton,
   Modal,
   SegmentedControl,
+  Switch,
   TextInput,
 } from '@mantine/core'
 import { IconCircleCheck } from '@tabler/icons-react'
@@ -58,6 +59,10 @@ export interface LinkRequest {
   }[]
   addresses?: string[]
   services?: { kind: string; port: number }[]
+  battery?: boolean
+  readers?: string[]
+  gpus?: Gpu[]
+  plan?: PlanLine[]
   sameAddress?: boolean | null
   linksAs?: string
   namedLike?: string | null
@@ -272,6 +277,54 @@ export function RequestCard({
   )
 }
 
+export interface Gpu {
+  maker: string
+  model: string
+  memory?: string | number | null
+  driver: string
+}
+
+export interface PlanLine {
+  key: string
+  says: string
+  why?: string | null
+  on: boolean
+  possible: boolean
+}
+
+export function PlanLines({
+  lines,
+  off,
+  busy,
+  onChange,
+}: {
+  lines: PlanLine[]
+  off?: Set<string>
+  busy?: string | null
+  onChange: (key: string, on: boolean) => void
+}) {
+  if (lines.length === 0) return null
+
+  return (
+    <ul className="plan-lines" aria-label="What xixo does with it">
+      {lines.map((line) => (
+        <li key={line.key} className="plan-line" data-possible={line.possible}>
+          <Switch
+            size="xs"
+            label={line.says}
+            description={line.why ?? undefined}
+            checked={line.possible && line.on && !off?.has(line.key)}
+            disabled={!line.possible || busy === line.key}
+            onChange={(event) =>
+              onChange(line.key, event.currentTarget.checked)
+            }
+          />
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function Decide({
   request,
   onChanged,
@@ -282,6 +335,7 @@ export function Decide({
   const approve = useMutation(ApproveLinkRequestDocument)
   const deny = useMutation(DenyLinkRequestDocument)
   const [refused, setRefused] = useState<string | null>(null)
+  const [off, setOff] = useState<Set<string>>(() => new Set())
   const linked = request.machine
   const connected = Boolean(linked?.machine?.connected)
   const name = nameOf(request)
@@ -289,11 +343,20 @@ export function Decide({
   const decide = async (approving: boolean) => {
     setRefused(null)
     const { error } = approving
-      ? await approve.attempt({ id: request.id })
+      ? await approve.attempt({ id: request.id, off: [...off] })
       : await deny.attempt({ id: request.id })
 
     if (error) setRefused(error.message)
     onChanged()
+  }
+
+  const toggle = (key: string, on: boolean) => {
+    setOff((held) => {
+      const next = new Set(held)
+      if (on) next.delete(key)
+      else next.add(key)
+      return next
+    })
   }
 
   return (
@@ -304,6 +367,7 @@ export function Decide({
             <span>Check that {name} shows this code</span>
             <code>{request.code}</code>
           </div>
+          <PlanLines lines={request.plan ?? []} off={off} onChange={toggle} />
           <div className="linkup-request-acts">
             <Button
               radius="xl"
@@ -342,7 +406,7 @@ export function Decide({
 
       {connected && linked && (
         <p className="linkup-request-said">
-          {name} is ready. Choose what xixo may do with it on{' '}
+          {name} is ready. Change what xixo does with it on{' '}
           <Link to={`/settings/resources/${linked.id}`}>its card</Link>.
         </p>
       )}

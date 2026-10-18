@@ -16,8 +16,8 @@ class ModelWaitingTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       @machine.update!(details: @machine.details.merge("machine" => @machine.machine.merge(
-        "tools" => %w[browse search read models],
-        "services" => [ { "kind" => "ollama", "port" => 11434, "address" => "100.64.0.9" } ]
+        "services" => [ { "kind" => "ollama", "port" => 11434 } ],
+        "details" => { "services" => [ { "kind" => "ollama", "port" => 11434 } ] }
       )))
       storage = Resource::Database.create!(key: "drop", name: "Drop")
       storage.upload("notes.txt", "remember the milk")
@@ -54,8 +54,7 @@ class ModelWaitingTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       assert_enqueued_with(job: ResumeParkedJob, args: [ @machine.id ]) do
-        @machine.reload.greeted!({ "folders" => [ "/srv/media" ], "tools" => %w[browse search read models],
-                                   "services" => [ { "kind" => "ollama", "port" => 11434, "address" => "100.64.0.9" } ] },
+        @machine.reload.greeted!({ "folders" => [ "/srv/media" ], "details" => { "services" => [ { "kind" => "ollama", "port" => 11434 } ] } },
                                  session: "s2")
       end
 
@@ -230,8 +229,8 @@ class ModelWaitingTest < ActiveSupport::TestCase
     def on_laptop
       Tenant.switch(@tenant) do
         Resource::OpenaiCompatible.create!(
-          key: "ollama-laptop", name: "Ollama on laptop",
-          details: { "base_url" => "http://100.64.0.9:11434/v1", "models" => { "default" => "qwen3:8b" } }
+          key: "ollama-laptop", name: "Ollama on laptop", via: @machine,
+          details: { "base_url" => "http://127.0.0.1:11434/v1", "models" => { "default" => "qwen3:8b" } }
         ).tap(&:make_default_inference!)
       end
     end

@@ -256,13 +256,10 @@ class FilesystemTest < ActiveSupport::TestCase
       folder = attached
       assert_empty folder.serving["accepts"]
 
-      @machine.greeted!({ "folders" => [ "/srv/media" ], "writable" => [ "/srv/media" ], "tools" => [ "read" ] }, session: "s2")
-      assert_empty folder.reload.serving["accepts"]
-
-      @machine.greeted!({ "folders" => [ "/srv/media" ], "writable" => [ "/srv/media" ], "tools" => [ "write" ] }, session: "s3")
+      @machine.greeted!({ "folders" => [ "/srv/media" ], "writable" => [ "/srv/media" ] }, session: "s3")
       assert_equal [ "*/*" ], folder.reload.serving["accepts"]
 
-      @machine.greeted!({ "folders" => [ "/srv/media" ], "writable" => [], "tools" => [ "write" ] }, session: "s4")
+      @machine.greeted!({ "folders" => [ "/srv/media" ], "writable" => [] }, session: "s4")
       assert_empty folder.reload.serving["accepts"]
     end
   end

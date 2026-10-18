@@ -64,14 +64,26 @@ query Resources($archived: Boolean) {
       writable
       extractors
       unread
-      helpsOthers
       heldBack
       lends
       tools
       warnings
       os
       arch
-      extractsForOthers
+      battery
+      gpus {
+        maker
+        model
+        memory
+        driver
+      }
+      plan {
+        key
+        says
+        why
+        on
+        possible
+      }
       waiting {
         kind
         count
@@ -80,10 +92,6 @@ query Resources($archived: Boolean) {
       services {
         kind
         port
-        address
-        localOnly
-        url
-        via
       }
       memoryTotal
       memoryAvailable
@@ -112,9 +120,24 @@ fragment LinkRequestFields on LinkRequest {
   system
   model
   kind
+  battery
   version
   cpus
   memory
+  gpus {
+    maker
+    model
+    memory
+    driver
+  }
+  readers
+  plan {
+    key
+    says
+    why
+    on
+    possible
+  }
   disks {
     path
     total
@@ -158,8 +181,8 @@ subscription LinkRequestChanged {
   }
 }
 
-mutation ApproveLinkRequest($id: ID!) {
-  approveLinkRequest(input: { id: $id }) {
+mutation ApproveLinkRequest($id: ID!, $off: [String!]) {
+  approveLinkRequest(input: { id: $id, off: $off }) {
     request {
       ...LinkRequestFields
     }
@@ -174,16 +197,19 @@ mutation DenyLinkRequest($id: ID!) {
   }
 }
 
-mutation SetMachineHelpsOthers($id: ID!, $helpsOthers: Boolean!) {
-  setMachineHelpsOthers(input: { id: $id, helpsOthers: $helpsOthers }) {
+mutation SetMachinePlan($id: ID!, $key: String!, $on: Boolean!) {
+  setMachinePlan(input: { id: $id, key: $key, on: $on }) {
     resource {
       id
       machine {
-        helpsOthers
-        heldBack
-        lends
+        plan {
+          key
+          says
+          why
+          on
+          possible
+        }
         tools
-        extractsForOthers
       }
     }
   }

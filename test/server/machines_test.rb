@@ -28,7 +28,7 @@ class MachinesTest < ActionDispatch::IntegrationTest
   test "a machine says which kinds of file it reads, which it cannot, whether it lends its files, and which tools it offers" do
     machine = machine_on(@tenant, folders: [ "/srv/media" ])
     Tenant.switch(@tenant) do
-      machine.update_columns(details: machine.details.deep_merge("machine" => { "extractors" => %w[text pdf], "tools" => %w[read shell browse], "lend" => true }))
+      machine.update_columns(details: machine.details.deep_merge("machine" => { "extractors" => %w[text pdf], "lend" => true }))
     end
 
     body = graphql(Grant::SCOPES, "{ resources { key machine { extractors unread lends tools } } }")
@@ -37,25 +37,21 @@ class MachinesTest < ActionDispatch::IntegrationTest
     assert_equal %w[text pdf], held["extractors"]
     assert_equal Resource::Machine::EXTRACTORS - %w[text pdf], held["unread"]
     assert_equal true, held["lends"]
-    assert_equal %w[browse read], held["tools"]
+    assert_equal %w[browse search read extract], held["tools"]
   end
 
-  test "a machine says which shared folders xixo may write into, by what xixo link shares writable and its tools" do
+  test "a machine says which shared folders xixo may write into, by what xixo link shares writable, and what its config keeps off" do
     machine = machine_on(@tenant, folders: [ "/srv/media", "/srv/inbox" ])
     Tenant.switch(@tenant) do
-      machine.update_columns(details: machine.details.deep_merge("machine" => { "writable" => [ "/srv/inbox", "/etc" ], "tools" => %w[browse write] }))
+      machine.update_columns(details: machine.details.deep_merge("machine" => { "writable" => [ "/srv/inbox", "/etc" ], "lend" => false }))
     end
-    asked = "{ resources { key machine { folders writable heldBack } } }"
+    asked = "{ resources { key machine { folders writable heldBack tools } } }"
 
     held = graphql(Grant::SCOPES, asked).dig("data", "resources").find { |listed| listed["key"] == "box" }["machine"]
     assert_equal [ "/srv/media", "/srv/inbox" ], held["folders"]
     assert_equal [ "/srv/inbox" ], held["writable"]
-    assert_equal %w[search read extract], held["heldBack"]
-
-    Tenant.switch(@tenant) { machine.update_columns(details: machine.details.deep_merge("machine" => { "tools" => %w[browse] })) }
-
-    held = graphql(Grant::SCOPES, asked).dig("data", "resources").find { |listed| listed["key"] == "box" }["machine"]
-    assert_empty held["writable"]
+    assert_equal %w[lend], held["heldBack"]
+    assert_equal %w[browse search read write extract], held["tools"]
   end
 
   test "files whose reading waits are counted on the machine they wait for, and apart when any machine will do" do
@@ -109,7 +105,7 @@ class MachinesTest < ActionDispatch::IntegrationTest
   test "each resource names the machine it lives on or is reached through, and this server holds the rest" do
     box = machine_on(@tenant, folders: [ "/srv/media" ])
     held = Tenant.switch(@tenant) do
-      box.update_columns(details: box.details.deep_merge("machine" => { "services" => [ { "kind" => "ollama", "port" => 11434, "address" => "100.64.0.9" } ] }))
+      box.update_columns(details: box.details.deep_merge("machine" => { "services" => [ { "kind" => "ollama", "port" => 11434 } ] }))
       local = Resource::Machine.local!
       tailnet = Resource::Tailnet.create!(key: "home", name: "home")
       Resource::Filesystem.create!(key: "media", via: box, details: { "folder" => "/srv/media" })
@@ -118,12 +114,12 @@ class MachinesTest < ActionDispatch::IntegrationTest
       { box: box.id.to_s, local: local.id.to_s }
     end
 
-    body = graphql(Grant::SCOPES, "{ resources { key machineId machine { services { kind port url via } } } }")
+    body = graphql(Grant::SCOPES, "{ resources { key machineId machine { services { kind port } } } }")
     on = body.dig("data", "resources").to_h { |resource| [ resource["key"], resource["machineId"] ] }
 
-    assert_equal({ "box" => nil, "local" => nil, "media" => held[:box], "ollama-box" => held[:box],
+    assert_equal({ "box" => nil, "local" => nil, "media" => held[:box], "ollama-box" => held[:local],
                    "elsewhere" => held[:local], "home" => held[:local] }, on.slice("box", "local", "media", "ollama-box", "elsewhere", "home"))
-    assert_equal [ { "kind" => "ollama", "port" => 11434, "url" => "http://100.64.0.9:11434/v1", "via" => "home" } ],
+    assert_equal [ { "kind" => "ollama", "port" => 11434 } ],
                  body.dig("data", "resources").find { |resource| resource["key"] == "box" }.dig("machine", "services")
   end
 

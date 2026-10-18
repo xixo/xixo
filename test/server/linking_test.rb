@@ -5,16 +5,16 @@ class LinkingTest < ActionDispatch::IntegrationTest
   include Machines
 
   APPROVE = <<~GQL.freeze
-    mutation($id: ID!) { approveLinkRequest(input: { id: $id }) { request { id status hostname code } } }
+    mutation($id: ID!, $off: [String!]) { approveLinkRequest(input: { id: $id, off: $off }) { request { id status hostname code } } }
   GQL
   DENY = <<~GQL.freeze
     mutation($id: ID!) { denyLinkRequest(input: { id: $id }) { request { id status } } }
   GQL
   REQUESTS = "{ linkRequests { id code status hostname os arch folders writable remoteIp machine { key } } }".freeze
-  HELPS = <<~GQL.freeze
-    mutation($id: ID!, $helpsOthers: Boolean!) {
-      setMachineHelpsOthers(input: { id: $id, helpsOthers: $helpsOthers }) {
-        resource { machine { helpsOthers lends tools extractsForOthers } }
+  PLAN = <<~GQL.freeze
+    mutation($id: ID!, $key: String!, $on: Boolean!) {
+      setMachinePlan(input: { id: $id, key: $key, on: $on }) {
+        resource { machine { plan { key on possible } lends tools } }
       }
     }
   GQL
@@ -187,6 +187,8 @@ class LinkingTest < ActionDispatch::IntegrationTest
       "disks" => [ { "path" => "/Users/jon/Desktop", "total" => 100, "free" => 400 }, { "path" => "/etc", "total" => 1, "free" => 1 },
                    { "path" => "/Users/jon/Documents", "total" => "lots", "free" => 1 } ],
       "services" => [ { "kind" => "ollama", "port" => 11434 }, { "kind" => "shell", "port" => 22 } ],
+      "battery" => true, "readers" => [ "pdf", "shell", "text" ],
+      "gpus" => [ { "maker" => "Apple", "model" => "Apple M2 Max", "memory" => 68_719_476_736, "driver" => "built in" }, { "maker" => "Acme" } ],
       "cpus_extra" => "ignored"
     }
     started = start(ASKED.merge("details" => details))
@@ -196,6 +198,7 @@ class LinkingTest < ActionDispatch::IntegrationTest
       query($code: String!) {
         linkRequest(code: $code) {
           user system model version cpus memory addresses disks { path total free } services { kind port }
+          battery readers gpus { maker model memory driver } plan { key says why on possible }
           sameAddress linksAs namedLike
         }
       }
@@ -206,6 +209,14 @@ class LinkingTest < ActionDispatch::IntegrationTest
     assert_equal [ "192.168.1.20", "100.64.0.1" ], asked["addresses"]
     assert_equal [ { "path" => "/Users/jon/Desktop", "total" => "100", "free" => "100" } ], asked["disks"]
     assert_equal [ { "kind" => "ollama", "port" => 11434 } ], asked["services"]
+    assert asked["battery"]
+    assert_equal %w[pdf text], asked["readers"]
+    assert_equal [ { "maker" => "Apple", "model" => "Apple M2 Max", "memory" => "68719476736", "driver" => "built in" } ], asked["gpus"]
+    assert_equal [
+      { "key" => "catalog", "says" => "Catalog Documents. Read and write Desktop.", "why" => nil, "on" => true, "possible" => true },
+      { "key" => "extract", "says" => "Extract text from documents, and from files other machines lend it.", "why" => "It reads PDFs and text.", "on" => true, "possible" => true },
+      { "key" => "models", "says" => "Use the Ollama already running on it.", "why" => "It answers on port 11434.", "on" => true, "possible" => true }
+    ], asked["plan"]
     assert asked["sameAddress"]
     assert_equal [ "studio-2", "studio" ], asked.values_at("linksAs", "namedLike")
   end
@@ -287,7 +298,9 @@ class LinkingTest < ActionDispatch::IntegrationTest
   end
 
   test "the approved machine binds its own client once, and shows up named from its hostname" do
-    started = approved_and_handed
+    started = start
+    graphql(Grant::SCOPES, APPROVE, id: request_id, off: [ "extract" ])
+    poll(started)
 
     bind(started, client_id: "client-studio")
     assert_response :ok
@@ -298,8 +311,10 @@ class LinkingTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) do
       assert_equal [ "studio", "studio" ], [ machine.key, machine.name ]
       assert_not machine.details.key?("access")
-      assert machine.helps_others?
-      assert_equal({ "tools" => %w[browse search read write extract], "lend" => true, "extracts_for_others" => true }, machine.policy)
+      assert_equal [ "extract" ], machine.plan_off
+      assert_equal [ "/Users/jon/Desktop", "/Users/jon/Documents" ], machine.about["folders"]
+      assert_equal "Catalog Documents. Read and write Desktop.", machine.plan.first.says
+      assert_not machine.reads_for_others?
       assert_equal [ "bob" ], machine.operators
       assert_equal "linked", LinkRequest.sole.status
       assert_equal machine, LinkRequest.sole.resource
@@ -346,20 +361,24 @@ class LinkingTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) { assert_equal "studio-2", Resource::Machine.enrolled("client-second").key }
   end
 
-  test "an administrator turns off whether a machine helps read files from elsewhere, and nobody else does" do
+  test "an administrator turns a line of a machine's plan off, and nobody else does" do
     machine = machine_on(@tenant, key: "box")
+    Tenant.switch(@tenant) { machine.update_columns(details: machine.details.deep_merge("machine" => { "extractors" => %w[pdf], "details" => { "readers" => %w[pdf] } })) }
 
-    assert_match(/only an administrator turns on or off whether a machine helps read files from elsewhere/,
-                 graphql(Grant::SIGN_IN, HELPS, id: machine.id, helpsOthers: false).dig("errors", 0, "message"))
-    Tenant.switch(@tenant) { assert Resource::Machine.find(machine.id).helps_others? }
+    assert_match(/only an administrator changes what a machine does/,
+                 graphql(Grant::SIGN_IN, PLAN, id: machine.id, key: "extract", on: false).dig("errors", 0, "message"))
+    Tenant.switch(@tenant) { assert Resource::Machine.find(machine.id).reads_for_others? }
 
-    held = graphql(Grant::SCOPES, HELPS, id: machine.id, helpsOthers: false)
-    assert_equal false, held.dig("data", "setMachineHelpsOthers", "resource", "machine", "helpsOthers")
+    held = graphql(Grant::SCOPES, PLAN, id: machine.id, key: "extract", on: false)
+    assert_equal({ "key" => "extract", "on" => false, "possible" => true },
+                 held.dig("data", "setMachinePlan", "resource", "machine", "plan").find { |line| line["key"] == "extract" })
     Tenant.switch(@tenant) do
-      assert_not Resource::Machine.find(machine.id).helps_others?
-      assert_equal [ "set_machine_helps_others", { "key" => "box", "helps_others" => false } ],
+      assert_not Resource::Machine.find(machine.id).reads_for_others?
+      assert_equal [ "set_machine_plan", { "key" => "box", "line" => "extract", "on" => false } ],
                    AuditEvent.where(channel: "graphql").last.values_at(:action, :arguments)
     end
+
+    assert_match(/the plan has no line shell/, graphql(Grant::SCOPES, PLAN, id: machine.id, key: "shell", on: true).dig("errors", 0, "message"))
   end
 
   test "an administrator pauses updates of xixo link on a machine, and nobody else does" do

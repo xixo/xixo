@@ -17,8 +17,9 @@ class Resource
         return if archived_at.present? || !heard_from?
 
         held = Filesystem.where(via_id: id).order(:id).to_a
-        offered_folders.each { |path| cataloged!(path, held) }
-        held.each { |folder| offered_folders.include?(folder.folder) ? missed!(folder) : unshared!(folder) }
+        cataloged = plans?("catalog") ? offered_folders : []
+        cataloged.each { |path| cataloged!(path, held) }
+        held.each { |folder| cataloged.include?(folder.folder) ? missed!(folder) : unshared!(folder) }
       end
 
       def shared_folder_name(path)

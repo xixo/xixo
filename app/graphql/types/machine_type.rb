@@ -12,6 +12,11 @@ module Types
     field :system, String, description: "The system and its version it reported when it linked up, such as macOS 26.0."
     field :model, String, description: "The hardware model it reported when it linked up, such as MacBook Pro (16-inch, 2023)."
     field :kind, String, description: "What kind of machine it is: laptop, desktop, all-in-one, or server. Empty when it cannot tell."
+    field :battery, Boolean, null: false, description: "Whether the machine has a battery."
+    field :gpus, [ Types::MachineGpuType ], null: false, description: "The GPUs the machine reports."
+    field :plan, [ Types::PlanLineType ], null: false,
+          description: "What the machine does, as xixo plans it from the machine's description: catalog, extract, " \
+                       "and models. An administrator turns a line off with setMachinePlan."
     field :version, String, description: "The version of xixo link."
     field :release, String, description: "The version of xixo link this xixo ships."
     field :current, Boolean,
@@ -41,12 +46,8 @@ module Types
           description: "The kinds of file xixo link cannot read, because the machine lacks their programs. " \
                        "Such a file on this machine is read by a machine that reads for others when this one lends " \
                        "its files, and otherwise waits until this one can read it."
-    field :helps_others, Boolean, null: false,
-          description: "Whether xixo asks the machine to help read files from elsewhere. An administrator changes " \
-                       "it with setMachineHelpsOthers."
     field :held_back, [ String ], null: false,
-          description: "What the machine's own config keeps off: tool names, lend, or extracts_for_others. xixo " \
-                       "asks for every tool, for lending, and for helping others when helpsOthers is on."
+          description: "What the machine's own config keeps off. Today that is lend, when the config sets it to false."
     field :lends, Boolean, null: false,
           description: "Whether the bytes of its files may leave the machine: to be opened or downloaded, and to " \
                        "be read by another machine when it lacks the program itself. It is on unless the " \
@@ -55,20 +56,15 @@ module Types
           description: "What xixo link last said is keeping it from working fully, such as a shared folder it " \
                        "may not read, each as a sentence to show a person."
     field :tools, [ String ], null: false,
-          description: "The tools the machine offers to MCP clients through xixo: browse, search, read, write, " \
-                       "extract, and models. Its config allows each one unless its tools list leaves it out, and " \
-                       "models needs a model server on the machine."
-    field :extracts_for_others, Boolean, null: false,
-          description: "Whether the machine reads files from other places for xixo: uploads, mail attachments, " \
-                       "cloud files, web pages, and files other machines lend. helpsOthers and the machine's own " \
-                       "config both have to allow it."
+          description: "The tools the machine offers to MCP clients through xixo: browse, search, read, extract, " \
+                       "write when it shares a folder writable, and models when its plan runs them."
     field :waiting, [ Types::WaitingFilesType ], null: false,
           description: "Files on this machine whose reading waits for it, by kind: it is offline, or it lacks " \
                        "their program and lends none of its files."
     field :linked, Boolean, null: false,
           description: "Whether xixo link is enrolled as this machine, whether or not it is connected now."
     field :services, [ Types::MachineServiceType ], null: false,
-          description: "Model servers listening on the machine, with its tailnet address when it has one."
+          description: "Model servers xixo link found listening on the machine."
 
     def hostname = object.machine["hostname"]
     def os = object.machine["os"]
@@ -90,37 +86,20 @@ module Types
     def memory_total = health.dig("memory", "total")
     def memory_available = health.dig("memory", "available")
     def disks = Array(health["disks"])
-    def services
-      Array(object.machine["services"]).map do |service|
-        if service["local_only"] && !object.local?
-          next service.merge("url" => Resource::OpenaiCompatible.address_on("127.0.0.1", port: service["port"]),
-                             "via" => object.key)
-        end
-
-        url = object.reached_at(service)
-
-        service.merge("url" => url, "via" => (tailnet if url))
-      end
-    end
+    def services = Array(object.machine["services"])
+    def gpus = Array(object.about["gpus"])
+    def battery = object.about["battery"] == true
+    def plan = object.plan.map(&:to_h)
     def extractors = object.extractors
     def unread = Resource::Machine::EXTRACTORS - object.extractors
     def lends = object.lends?
     def tools = object.offered_tools
     def warnings = object.warnings
-    def extracts_for_others = object.extracts_for_others
     def waiting = Types::WaitingFilesType.on(context, object.id)
     def linked = object.client_id.present?
-    def helps_others = object.helps_others?
     def held_back = object.held_back
 
     private
-
-      def tailnet
-        return object.via.key if object.via_id && object.via.is_a?(Resource::Tailnet)
-
-        context[:tailnet] = Resource::Tailnet.visible_to(context[:grant]).order(:key).pick(:key).to_s unless context.key?(:tailnet)
-        context[:tailnet].presence
-      end
 
       def health
         object.machine["health"].to_h

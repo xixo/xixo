@@ -19,7 +19,7 @@ module Types
     field :attach_resource, mutation: Mutations::AttachResource, grants: "xixo:resources:command"
     field :approve_link_request, mutation: Mutations::ApproveLinkRequest, grants: "xixo:resources:command"
     field :deny_link_request, mutation: Mutations::DenyLinkRequest, grants: "xixo:resources:command"
-    field :set_machine_helps_others, mutation: Mutations::SetMachineHelpsOthers, grants: "xixo:resources:command"
+    field :set_machine_plan, mutation: Mutations::SetMachinePlan, grants: "xixo:resources:command"
     field :set_folder_for_everyone, mutation: Mutations::SetFolderForEveryone, grants: "xixo:resources:command"
     field :set_machine_updates, mutation: Mutations::SetMachineUpdates, grants: "xixo:resources:command"
     field :update_resource, mutation: Mutations::UpdateResource, grants: "xixo:resources:command"

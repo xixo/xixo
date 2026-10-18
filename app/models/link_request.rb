@@ -10,11 +10,6 @@ class LinkRequest < ApplicationRecord
   MOST_PENDING = 20
   MOST_PENDING_FROM = 3
   MOST_HOSTNAME = 63
-  KINDS = %w[laptop desktop all-in-one server].freeze
-  MOST_ADDRESSES = 8
-  MOST_DISKS = 16
-  MOST_CPUS = 4096
-  MOST_BYTES = 2**62
 
   class Refused < StandardError; end
 
@@ -80,45 +75,8 @@ class LinkRequest < ApplicationRecord
           arch: Resource::Machine::Hello.text(said["arch"])&.first(32),
           folders: folders,
           writable: Resource::Machine::Hello.folders(said["writable"]) & folders,
-          details: details(said["details"], folders)
+          details: Resource::Machine::Description.from(said["details"], folders)
         }
-      end
-
-      def details(said, folders)
-        said = said.is_a?(Hash) ? said.to_h.stringify_keys : {}
-        hello = Resource::Machine::Hello
-
-        {
-          "user" => hello.text(said["user"])&.first(64),
-          "system" => hello.text(said["system"])&.first(80),
-          "model" => hello.text(said["model"])&.first(80),
-          "kind" => (said["kind"].to_s if KINDS.include?(said["kind"].to_s)),
-          "version" => hello.text(said["version"])&.first(32),
-          "cpus" => count(said["cpus"], MOST_CPUS),
-          "memory" => count(said["memory"], MOST_BYTES),
-          "disks" => disks(said["disks"], folders),
-          "addresses" => hello.listed(said["addresses"]).first(MOST_ADDRESSES * 4)
-                              .filter_map { |address| hello.address(address) }.uniq.first(MOST_ADDRESSES),
-          "services" => hello.services(said["services"])
-        }.compact
-      end
-
-      def disks(said, folders)
-        Resource::Machine::Hello.listed(said).first(MOST_DISKS).filter_map do |disk|
-          next unless disk.is_a?(Hash)
-
-          disk = disk.to_h.stringify_keys
-          path = Resource::Machine::Hello.folder(disk["path"])
-          next unless path && (path == "/" || folders.include?(path))
-
-          total = count(disk["total"], MOST_BYTES)
-          free = count(disk["free"], MOST_BYTES)
-          { "path" => path, "total" => total, "free" => [ free, total ].min } if total && free
-        end.uniq { |disk| disk["path"] }
-      end
-
-      def count(value, most)
-        value if value.is_a?(Integer) && value.between?(0, most)
       end
 
       def hostname(given)
@@ -146,15 +104,26 @@ class LinkRequest < ApplicationRecord
     status == "pending" && live?
   end
 
-  def approve!(grant, minter: Resource::Machine::Enrollment.method(:mint))
+  def plan
+    Resource::Machine::Plan.lines(details, folders: folders, writable: writable, off: off)
+  end
+
+  def off
+    Array(details.to_h["off"]).grep(String) & Resource::Machine::Plan::KEYS
+  end
+
+  def approve!(grant, off: [], minter: Resource::Machine::Enrollment.method(:mint))
     grant.administer!("approves a machine")
+    unwanted = Array(off).map(&:to_s)
+    unknown = unwanted - Resource::Machine::Plan::KEYS
+    raise Refused, "the plan has no line #{unknown.to_sentence}" if unknown.any?
 
     with_lock do
       raise Refused, "that request is no longer waiting" unless pending?
 
       token = minter.call(tenant, name: hostname)
       update!(status: "approved", enrollment_token: token, decided_by: grant.speaks_for, decided_at: Time.current,
-              expires_at: LASTS.from_now)
+              expires_at: LASTS.from_now, details: details.to_h.merge("off" => unwanted.uniq))
     end
     announce!
   end

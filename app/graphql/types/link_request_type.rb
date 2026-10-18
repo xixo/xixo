@@ -24,9 +24,15 @@ module Types
     field :system, String, description: "The system and its version, such as macOS 26.0 or Ubuntu 24.04 LTS."
     field :model, String, description: "The hardware model the machine reports, such as MacBook Pro (16-inch, 2023). Empty when it names none."
     field :kind, String, description: "What kind of machine it is: laptop, desktop, all-in-one, or server. Empty when it cannot tell."
+    field :battery, Boolean, null: false, description: "Whether the machine has a battery."
     field :version, String, description: "The version of xixo link asking."
     field :cpus, Integer, description: "How many processor cores the machine has."
     field :memory, GraphQL::Types::BigInt, description: "The machine's memory, in bytes."
+    field :gpus, [ Types::MachineGpuType ], null: false, description: "The GPUs the machine reports."
+    field :readers, [ String ], null: false,
+          description: "The kinds of file xixo link can read on the machine, by the programs installed there."
+    field :plan, [ Types::PlanLineType ], null: false,
+          description: "What xixo plans the machine does, from its description. Approving takes the lines to leave off."
     field :disks, [ Types::MachineDiskType ], null: false,
           description: "The disk under each shared folder, with its size and free space in bytes."
     field :addresses, [ String ], null: false, description: "The machine's own network addresses."
@@ -44,6 +50,10 @@ module Types
     def disks = Array(object.details["disks"])
     def addresses = Array(object.details["addresses"])
     def services = Array(object.details["services"])
+    def gpus = Array(object.details["gpus"])
+    def readers = Array(object.details["readers"])
+    def battery = object.details["battery"] == true
+    def plan = object.plan.map(&:to_h)
 
     def same_address
       asking = context[:remote_ip]

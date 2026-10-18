@@ -212,8 +212,9 @@ A machine links itself up, and an administrator approves it:
 1. An administrator copies one command from **Resources** and runs it on the machine. The script it
    fetches holds no secret. It downloads the build for the machine, and on a Mac the mac reader, and
    checks each against its SHA-256.
-2. xixo link makes its own keys, and asks to link up with the machine's name, system, folders, and
-   other details for the administrator to check. It prints a user code, such as `WDJB-MJHT`.
+2. xixo link makes its own keys, and asks to link up with the machine's description: its name,
+   system, hardware, GPUs, disks, folders, the readers installed on it, and the model servers found
+   on it. It prints a user code, such as `WDJB-MJHT`.
 3. The request appears to every administrator on **Resources**, with the same code and the address
    it came from. The code is how the administrator matches the request with the machine in front of
    them.
@@ -231,34 +232,39 @@ machine cannot be attached by hand. See [add a machine](/guides/add-a-machine/) 
 xixo link connects to xixo over a WebSocket, with a DPoP-bound masks token that carries `xixo:link`.
 xixo takes the connection only from the client of an active machine in the tenant, and closes it
 when the token expires or the machine is put away. xixo never connects to the machine. On each
-hello, xixo link reports its version, folders, model servers, extractors, what its configuration
-allows, and any warnings, which show on its card. Every minute it adds its uptime, load, memory, and
-disks. A machine not heard from for three minutes is offline.
+hello, xixo link reports its version, folders, its description, whether it lends its files, and any
+warnings, which show on its card. Every minute it adds its uptime, load, memory, and disks. A
+machine not heard from for three minutes is offline.
 
-### What xixo may do with a machine
+### What xixo does with a machine
 
-xixo may do everything with the folders a machine shares. It asks every machine for the tools
-`browse`, `search`, `read`, `write`, and `extract`, for `models` once the machine reports a model
-server, and to lend its files' bytes.
+xixo plans what a machine does from the machine's description, with fixed rules. The plan has
+three lines, each with a reason, and the approval page and the machine's card show them as
+switches:
+
+| Line | When it is possible | What it does |
+| --- | --- | --- |
+| Catalog | The machine shares folders. | Each shared folder joins the catalog by itself, read only or read and write as the machine says. |
+| Extract | The machine has readers installed. | The machine reads its own files, and joins the pool that reads uploads, mail attachments, cloud files, web pages, and the files machines lend, as described in [extraction](/concepts/analysis/#extraction). |
+| Models | A model server answers on the machine. | xixo attaches the model server through the machine, and makes it the default for inference when there is no other. |
+
+A line that is not possible stays off, and its reason says why, such as "Its NVIDIA GeForce GTX
+1070 has no driver, so models run on another machine." Every possible line starts on. An
+administrator turns a line off at approval or on the card, and the change takes effect at once,
+without touching the machine. xixo plans again on every hello, so a reader installed later or a
+model server started later shows up by itself.
 
 The machine decides the rest. The link-up command names the folders it shares, and a folder followed
 by `:rw` is writable. xixo writes only into a writable folder. The shared folders, and which of them
 are writable, are set only on the machine, and nothing xixo sends changes them. The machine's own
-configuration can also turn off tools, lending, and reading for others with `tools`, `lend`, and
-`extracts_for_others`. xixo link does only what both sides allow, and the card says when the
-configuration holds something back.
-
-The one choice xixo holds is **Help read files from other places**. It puts the machine in the pool
-that reads uploads, mail attachments, cloud files, web pages, and the files machines lend, as
-described in [extraction](/concepts/analysis/#extraction). An administrator turns it on or off on
-the machine's card, and a newly approved machine starts with it on. xixo sends it to xixo link
-whenever it changes.
+configuration can also keep its files' bytes on the machine with `lend`, and the card says when
+it does.
 
 ### Tools a machine offers
 
-A machine offers MCP clients the tools its configuration allows. A client reaches them
-as commands on the machine through the `resource` tool at `/mcp`, never through a port on the
-machine. Neither side can widen what the other allows.
+A machine offers MCP clients these tools. A client reaches them as commands on the machine through
+the `resource` tool at `/mcp`, never through a port on the machine. `write` needs a folder the
+machine shares writable, and `chat` needs the plan's **Models** line on.
 
 | Tool | Command | Does |
 | --- | --- | --- |
@@ -287,7 +293,7 @@ machine. Neither side can widen what the other allows.
   reaching outward, for an agent's [catalog or web](/concepts/agents/#catalog-or-web) rule.
 
 No tool takes a command line, a program, or an address. xixo records each call in the audit log. See
-[what xixo may do with a machine](/guides/add-a-machine/#what-xixo-may-do-with-a-machine).
+[what xixo does with a machine](/guides/add-a-machine/#what-xixo-does-with-a-machine).
 
 ### xixo link beside the server
 

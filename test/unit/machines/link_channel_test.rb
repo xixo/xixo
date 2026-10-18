@@ -10,7 +10,7 @@ class LinkChannelTest < ActionCable::Channel::TestCase
   HELLO = {
     "version" => "0.2.0", "os" => "linux", "arch" => "arm64", "hostname" => "box",
     "folders" => [ "/srv/media", "/srv/photos" ],
-    "services" => [ { "kind" => "ollama", "port" => 11_434, "address" => "100.64.0.9" } ]
+    "details" => { "readers" => %w[pdf text], "services" => [ { "kind" => "ollama", "port" => 11_434 } ] }
   }.freeze
 
   HEALTH = {
@@ -46,7 +46,7 @@ class LinkChannelTest < ActionCable::Channel::TestCase
     connected
 
     perform :hello, HELLO.merge("hostname" => "box\u0007", "folders" => [ "/srv/media", "relative", "/srv/../etc", 5 ],
-                                "services" => HELLO["services"] + [ { "kind" => "sshd", "port" => 22 } ])
+                                "details" => HELLO["details"].merge("services" => HELLO["details"]["services"] + [ { "kind" => "sshd", "port" => 22 } ]))
     perform :health, HEALTH.merge("load" => [ 0.1, "high", -1 ])
 
     held = fresh
@@ -59,17 +59,17 @@ class LinkChannelTest < ActionCable::Channel::TestCase
     assert_equal 8_000_000_000, held.machine.dig("health", "memory", "total")
   end
 
-  test "hello and health carry the machine's warnings, its tools, and whether it lends, kept plain and few" do
+  test "hello and health carry the machine's warnings and whether it lends, kept plain and few" do
     connected
 
     perform :hello, HELLO.merge("warnings" => [ "may not read /srv/photos\u0007\nat all", 7, "x" * 900 ] + Array.new(30) { |index| "w#{index}" },
-                                "tools" => %w[browse shell read], "lend" => true)
+                                "lend" => true)
 
     held = fresh
     assert_equal "may not read /srv/photos at all", held.warnings.first
     assert_equal 500, held.warnings.second.size
     assert_equal 16, held.warnings.size
-    assert_equal %w[browse read], held.offered_tools
+    assert_equal %w[pdf text], held.extractors
     assert held.lends?
 
     perform :hello, HELLO.merge("lend" => false)
@@ -252,15 +252,26 @@ class LinkChannelTest < ActionCable::Channel::TestCase
     assert_raises(Resource::Failed) { Tenant.switch(@tenant) { machine.read("/srv/media", "big.bin") } }
   end
 
-  test "hello is answered by asking the machine for every tool and for lending, and its config narrows that alone" do
+  test "hello attaches the model server the machine found when its plan runs models, and sends the machine no settings" do
     connected
     stream = LinkChannel.broadcasting_for(@machine)
 
-    perform :hello, HELLO.merge("services" => [ { "kind" => "ollama", "port" => 11_434 } ])
+    perform :hello, HELLO
 
-    told = ActionCable.server.pubsub.broadcasts(stream).map { |held| JSON.parse(held) }
-    assert_equal [ { "settings" => { "tools" => %w[browse search read write extract models], "lend" => true,
-                                     "extracts_for_others" => true } } ], told
+    assert_empty ActionCable.server.pubsub.broadcasts(stream)
+    Tenant.switch(@tenant) do
+      attached = Resource::OpenaiCompatible.find_by!(key: "ollama-box")
+      assert_equal [ @machine.id, "Ollama on box", "http://127.0.0.1:11434/v1" ], [ attached.via_id, attached.name, attached.details["base_url"] ]
+      assert attached.default_inference?
+      assert_equal %w[catalog extract models], fresh.plan.select(&:on).map(&:key)
+    end
+
+    perform :hello, HELLO
+    Tenant.switch(@tenant) { assert_equal 1, Resource::OpenaiCompatible.where(via_id: @machine.id).count }
+
+    Tenant.switch(@tenant) { fresh.set_plan!("models", false) }
+    perform :hello, HELLO.merge("details" => HELLO["details"].merge("services" => [ { "kind" => "lmstudio", "port" => 1234 } ]))
+    Tenant.switch(@tenant) { assert_equal 1, Resource::OpenaiCompatible.where(via_id: @machine.id).count }
   end
 
   test "an upload is held for the machine to fetch and never goes out on the stream" do

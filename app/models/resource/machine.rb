@@ -60,10 +60,11 @@ class Resource
         create!(
           key: free_key(request.hostname), name: short(request.hostname).presence || request.hostname,
           details: {
-            "client_id" => client_id, "helps_others" => true,
+            "client_id" => client_id,
             "operators" => [ request.decided_by ].compact,
             "approved" => { "by" => request.decided_by, "at" => request.decided_at&.utc&.iso8601 }.compact,
-            "about" => request.details.to_h.slice("system", "model", "kind").compact
+            "about" => request.details.to_h.except("off").merge("folders" => request.folders, "writable" => request.writable),
+            "plan" => request.off.index_with(false)
           }
         )
       end
@@ -177,13 +178,7 @@ class Resource
     end
 
     def answers_at
-      [ target_host, *Array(machine["services"]).map { |service| service["address"] } ].compact_blank.uniq
-    end
-
-    def reached_at(service)
-      return if service["address"].blank?
-
-      OpenaiCompatible.address_on(service["address"], port: service["port"])
+      [ target_host ].compact_blank
     end
 
     def offered_folders
@@ -191,7 +186,7 @@ class Resource
     end
 
     def writable_folders
-      writes? ? Array(machine["writable"]) & offered_folders : []
+      Array(machine["writable"]) & offered_folders
     end
 
     def heard_from?
@@ -214,18 +209,48 @@ class Resource
       details.to_h["local"] == true
     end
 
-    def helps_others?
-      details.to_h["helps_others"] != false
-    end
-
-    def policy
-      tools = model_kinds.any? ? Tools::NAMES : Tools::NAMES - [ "models" ]
-
-      { "tools" => tools, "lend" => true, "extracts_for_others" => helps_others? }
-    end
-
     def about
-      details["about"].to_h
+      machine["details"].presence || details["about"].to_h
+    end
+
+    def plan
+      Plan.lines(planned_about, folders: planned_folders, writable: planned_writable, off: plan_off)
+    end
+
+    def plans?(key)
+      plan.find { |line| line.key == key.to_s }&.on == true
+    end
+
+    def plan_off
+      details.to_h["plan"].to_h.select { |_, on| on == false }.keys & Plan::KEYS
+    end
+
+    def set_plan!(key, on)
+      raise Resource::Refused, "the plan has no line #{key}" unless Plan::KEYS.include?(key.to_s)
+
+      update!(details: details.to_h.merge("plan" => details.to_h["plan"].to_h.merge(key.to_s => on == true)))
+      catalog_shared!
+      attach_found!
+      ResumeParkedJob.perform_later(id) if on && Analysis.parked.exists?
+      announce!
+    end
+
+    def attach_found!
+      return unless plans?("models") && archived_at.nil?
+
+      held = OpenaiCompatible.where(via_id: id).to_a
+      Array(machine["services"]).each do |service|
+        next if held.any? { |server| server.base_url.to_s.include?(":#{service['port']}/") }
+
+        served = Plan::SERVED_AS.fetch(service["kind"], service["kind"])
+        made = OpenaiCompatible.new(
+          key: found_key(service), name: local? ? served : "#{served} on #{name.presence || key}", via: self,
+          details: { "base_url" => OpenaiCompatible.address_on("127.0.0.1", port: service["port"]) }
+        )
+        next Rails.logger.warn("#{key} could not attach #{made.key}: #{made.errors.full_messages.to_sentence}") unless made.save
+
+        made.make_default_inference! if Resource.capable_of(:inference).where.not(id: made.id).none?
+      end
     end
 
     def lends?
@@ -237,20 +262,7 @@ class Resource
     end
 
     def held_back
-      tools = policy["tools"] - Array(machine["tools"])
-      tools += [ "lend" ] if machine["lend"] == false
-      tools += [ "extracts_for_others" ] if helps_others? && machine["extracts_for_others"] == false
-      heard_from? ? tools : []
-    end
-
-    def set_helps_others!(helps)
-      update!(details: details.to_h.merge("helps_others" => helps))
-      tell!
-      announce!
-    end
-
-    def tell!
-      LinkChannel.broadcast_to(self, { "settings" => policy })
+      heard_from? && machine["lend"] == false ? [ "lend" ] : []
     end
 
     def seen_at
@@ -263,12 +275,8 @@ class Resource
       live?(machine) || (persisted? && live?(Resource.where(id: id).pick(:details).to_h["machine"].to_h))
     end
 
-    def extracts_for_others
-      machine["extracts_for_others"] == true && policy["extracts_for_others"]
-    end
-
     def reads_for_others?
-      extracts_for_others
+      plans?("extract")
     end
 
     def announce!
@@ -409,10 +417,10 @@ class Resource
       merge_machine!(Hello.from(said).merge("session" => session, "connected" => true, "seen_at" => now_stamp))
       update_columns(offline_host: nil, offline_last_seen_at: nil, checked_at: Time.current, check_error: nil)
       reload
-      tell!
       offer_update!
       restate_folders!
       catalog_shared!
+      attach_found!
       ResumeParkedJob.perform_later(id) if Analysis.parked.exists?
       announce!
     end
@@ -604,6 +612,27 @@ class Resource
 
           waiting
         end
+      end
+
+      def planned_about
+        return about unless heard_from?
+
+        about.merge("readers" => extractors, "services" => Array(machine["services"]))
+      end
+
+      def planned_folders
+        heard_from? ? offered_folders : Array(about["folders"])
+      end
+
+      def planned_writable
+        heard_from? ? Array(machine["writable"]) : Array(about["writable"])
+      end
+
+      def found_key(service)
+        base = local? ? service["kind"] : "#{service['kind']}-#{key}"
+        taken = Resource.where("resources.key = ? OR resources.key LIKE ?", base, "#{Resource.sanitize_sql_like(base)}-%").pluck(:key)
+
+        ([ base ] + (2..).lazy.map { |n| "#{base}-#{n}" }.first(taken.size + 1)).find { |held| !taken.include?(held) }
       end
 
       def merge_machine!(held)

@@ -15,7 +15,6 @@ import {
   IconCheck,
   IconChevronDown,
   IconClock,
-  IconCpu,
   IconDots,
   IconFolder,
   IconHistory,
@@ -48,7 +47,7 @@ import {
   SetDefaultInferenceDocument,
   SetDefaultStorageDocument,
   SetFolderForEveryoneDocument,
-  SetMachineHelpsOthersDocument,
+  SetMachinePlanDocument,
   SetMachineUpdatesDocument,
   SetSyncIntervalDocument,
   SyncResourceDocument,
@@ -73,22 +72,17 @@ import {
 } from '../plain'
 import { unraised } from '../shared'
 import { ago, dated } from '../when'
-import {
-  AddTo,
-  addedAs,
-  type Form,
-  type Place,
-  quickFor,
-  SERVERS,
-  useQuickAdd,
-} from './AddTo'
+import { AddTo, type Form, type Place, SERVERS, useQuickAdd } from './AddTo'
 import { Attach, type Editing, glyphFor } from './Attach'
 import { Failed } from './Failed'
 import {
   AskingLine,
+  type Gpu,
   LinkUpDialog,
   type LinkUpInfo,
   LinkUpTile,
+  type PlanLine,
+  PlanLines,
   useLinkRequests,
 } from './LinkUp'
 import { MachineIcon } from './MachineIcon'
@@ -150,7 +144,6 @@ interface Resource {
     extractors: string[]
     unread: string[]
     writable: string[]
-    helpsOthers: boolean
     heldBack: string[]
     lends: boolean
     tools: string[]
@@ -160,16 +153,14 @@ interface Resource {
     model?: string | null
     kind?: string | null
     arch?: string | null
-    extractsForOthers: boolean
+    battery?: boolean
+    gpus: Gpu[]
+    plan: PlanLine[]
     waiting: Waiting[]
     linked: boolean
     services: {
       kind: string
       port: number
-      address?: string | null
-      localOnly?: boolean
-      url?: string | null
-      via?: string | null
     }[]
     memoryTotal?: number | string | null
     memoryAvailable?: number | string | null
@@ -338,14 +329,7 @@ function linkVersion(machine: NonNullable<Resource['machine']>, place: Place) {
 }
 
 const HELD_BACK: Record<string, string> = {
-  browse: 'browsing',
-  search: 'searching',
-  read: 'reading files',
-  write: 'writing',
-  extract: 'running its readers',
-  models: 'its model server',
   lend: 'whole files',
-  extracts_for_others: 'reading files from other places',
 }
 
 function heldBack(held: string[]) {
@@ -975,12 +959,8 @@ function MachineCard({
     machine && (machine.linked || machine.connected || machine.seenAt),
   )
   const low = machine ? warning(machine) : null
-  const found = place.services.filter(
-    (service) => !addedAs(place, service, group.rows),
-  )
   const addable =
     (administrator || place.local) && (place.local || place.services.length > 0)
-  const quickly = useQuickAdd(administrator, onChanged)
   const shared = sharedAs(place.folders, group.rows)
   const shown = new Set(
     shared.flatMap(({ held }) => held.map((resource) => resource.id)),
@@ -1070,34 +1050,6 @@ function MachineCard({
         </Shares>
       )}
 
-      {found.map((service) => {
-        const named = SERVERS[service.kind] ?? service.kind
-
-        const quick =
-          administrator || place.local ? quickFor(place, service) : null
-
-        return (
-          <p key={`${service.kind}-${service.port}`} className="machine-found">
-            <IconCpu size={15} stroke={1.8} />
-            <span>
-              Found {named} on {place.name}
-            </span>
-            {quick && (
-              <Button
-                size="compact-xs"
-                radius="xl"
-                variant="default"
-                aria-label={`Add ${quick.name}`}
-                loading={quickly.busy === quick.key}
-                onClick={() => quickly.add(quick)}
-              >
-                Add
-              </Button>
-            )}
-          </p>
-        )
-      })}
-
       {problem && <div className="rrow-error">{problem}</div>}
       {low && <div className="rrow-notice">{low}</div>}
       {machine?.warnings.map((held) => (
@@ -1153,14 +1105,12 @@ function Shares({
   onChanged: () => void
   children: ReactNode
 }) {
-  const help = useAloud(
-    SetMachineHelpsOthersDocument,
-    'That could not be changed.',
-  )
+  const plan = useAloud(SetMachinePlanDocument, 'That could not be changed.')
   const pause = useAloud(
     SetMachineUpdatesDocument,
     'That could not be changed.',
   )
+  const [switching, setSwitching] = useState<string | null>(null)
   const machine = resource.machine
   if (!machine) return null
 
@@ -1177,17 +1127,13 @@ function Shares({
       )}
       {administrator && machine.linked && (
         <div className="machine-switches">
-          <Switch
-            size="xs"
-            label="Help read files from other places"
-            description="Uploads, mail attachments, cloud files, web pages, and files from other machines"
-            checked={machine.helpsOthers}
-            disabled={help.loading}
-            onChange={async (event) => {
-              const answered = await help.execute({
-                id: resource.id,
-                helpsOthers: event.currentTarget.checked,
-              })
+          <PlanLines
+            lines={machine.plan}
+            busy={switching}
+            onChange={async (key, on) => {
+              setSwitching(key)
+              const answered = await plan.execute({ id: resource.id, key, on })
+              setSwitching(null)
               if (answered) onChanged()
             }}
           />
@@ -1699,7 +1645,7 @@ function Details({ resource, acts }: { resource: Resource; acts: Acts }) {
         machine.services
           .map(
             (service) =>
-              `${SERVERS[service.kind] ?? service.kind} on port ${service.port}${service.address ? ` at ${service.address}` : ''}`,
+              `${SERVERS[service.kind] ?? service.kind} on port ${service.port}`,
           )
           .join('\n'),
       ])

@@ -8,6 +8,7 @@ class Resource
 
       def from(said)
         said = said.to_h
+        described = Description.from(said["details"], folders(said["folders"]))
 
         {
           "version" => text(said["version"]),
@@ -16,15 +17,14 @@ class Resource
           "hostname" => text(said["hostname"]),
           "folders" => folders(said["folders"]),
           "writable" => folders(said["writable"]) & folders(said["folders"]),
-          "services" => services(said["services"]),
-          "extractors" => extractors(said["extractors"]),
-          "tools" => tools(said["tools"]),
+          "details" => described,
+          "services" => described["services"],
+          "extractors" => described["readers"],
           "warnings" => warnings(said["warnings"]),
           "sha256" => digest(said["sha256"]),
           "mac_reader" => digest(said["mac_reader"]),
           "updates" => (said["updates"] if UPDATES.include?(said["updates"])),
-          "lend" => said["lend"] == true,
-          "extracts_for_others" => [ true, false ].include?(said["extracts_for_others"]) ? said["extracts_for_others"] : nil
+          "lend" => said["lend"] == true
         }
       end
 
@@ -48,7 +48,7 @@ class Resource
       end
 
       def extractors(value)
-        Array(value).select { |name| name.is_a?(String) && EXTRACTORS.include?(name) }.uniq.sort
+        listed(value).select { |name| name.is_a?(String) && EXTRACTORS.include?(name) }.uniq.sort
       end
 
       def warnings(value)
@@ -63,10 +63,6 @@ class Resource
         value.is_a?(Array) ? value : []
       end
 
-      def tools(value)
-        listed(value).select { |name| name.is_a?(String) && Tools::NAMES.include?(name) }.uniq.sort
-      end
-
       def services(value)
         Array(value).first(MOST_SERVICES).filter_map do |service|
           next unless service.is_a?(Hash) && SERVICE_KINDS.include?(service["kind"])
@@ -74,8 +70,7 @@ class Resource
           port = service["port"]
           next unless port.is_a?(Integer) && port.between?(1, 65_535)
 
-          { "kind" => service["kind"], "port" => port, "address" => address(service["address"]),
-            "local_only" => (true if service["local_only"] == true) }.compact
+          { "kind" => service["kind"], "port" => port }
         end
       end
 

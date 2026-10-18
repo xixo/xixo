@@ -3804,18 +3804,20 @@ a.tag:hover {
   gap: var(--s2) var(--s5);
 }
 
-.machine-found {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+.plan-lines {
+  display: grid;
   gap: var(--s2);
   margin: 0;
-  color: var(--soft);
-  font-size: var(--t-small);
+  padding: 0;
+  list-style: none;
 }
 
-.machine-found svg {
-  color: var(--accent);
+.plan-line[data-possible="false"] {
+  color: var(--soft);
+}
+
+.linkup-request .plan-lines {
+  margin-block: var(--s3);
 }
 
 .unlinked {

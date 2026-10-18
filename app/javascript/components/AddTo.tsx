@@ -20,9 +20,6 @@ export interface Place {
 export interface Service {
   kind: string
   port: number
-  localOnly?: boolean
-  url?: string | null
-  via?: string | null
 }
 
 export interface Held {
@@ -68,20 +65,6 @@ export interface Quick {
   via?: string | null
   key: string
   name: string
-}
-
-export function quickFor(place: Place, service: Service): Quick | null {
-  if (!service.url) return null
-
-  const label = SERVERS[service.kind] ?? service.kind
-
-  return {
-    kind: service.kind,
-    url: service.url,
-    via: service.via ?? null,
-    key: place.local ? service.kind : `${service.kind}-${place.key}`,
-    name: place.local ? label : `${label} on ${place.name}`,
-  }
 }
 
 export function useQuickAdd(administrator: boolean, onAdded: () => void) {
@@ -135,7 +118,6 @@ export function AddTo({
   held,
   administrator,
   onForm,
-  onAdded,
   onClose,
 }: {
   places: Place[]
@@ -144,17 +126,10 @@ export function AddTo({
   held: Held[]
   administrator: boolean
   onForm: (form: Form) => void
-  onAdded: () => void
   onClose: () => void
 }) {
   const [chosen, setChosen] = useState(start.key)
-  const quickly = useQuickAdd(administrator, onAdded)
   const place = places.find((held) => held.key === chosen) ?? start
-
-  const quick = async (service: Service) => {
-    const asked = quickFor(place, service)
-    if (asked && (await quickly.add(asked))) onClose()
-  }
 
   return (
     <Modal
@@ -209,43 +184,9 @@ export function AddTo({
                         <span className="addto-item-says">
                           {added
                             ? `added as ${added.key}`
-                            : service.via
-                              ? `port ${service.port}, through ${service.via}`
-                              : `port ${service.port}`}
+                            : `port ${service.port}, added when the plan runs models`}
                         </span>
                       </span>
-                      {added ? null : service.url ? (
-                        <Button
-                          size="compact-sm"
-                          radius="xl"
-                          color="brand"
-                          loading={
-                            quickly.busy === quickFor(place, service)?.key
-                          }
-                          onClick={() => quick(service)}
-                        >
-                          Add
-                        </Button>
-                      ) : (
-                        <Button
-                          size="compact-sm"
-                          radius="xl"
-                          variant="default"
-                          onClick={() =>
-                            onForm({
-                              type: 'openai-compatible',
-                              key: place.local
-                                ? service.kind
-                                : `${service.kind}-${place.key}`,
-                              settings: {
-                                base_url: `http://${place.host}:${service.port}/v1`,
-                              },
-                            })
-                          }
-                        >
-                          Set up
-                        </Button>
-                      )}
                     </div>
                   </li>
                 )

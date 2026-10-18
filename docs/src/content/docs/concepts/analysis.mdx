@@ -66,10 +66,10 @@ Which machine reads the file depends on where it lives:
 - An upload, a mail attachment, a file in a cloud resource, and anything else with no machine of its
   own goes to the pool.
 
-The pool is every connected machine whose **Help read files from other places** switch is on,
-unless its own configuration sets `extracts_for_others` to false. xixo link beside the server comes first,
-since the bytes are already on the server. Otherwise the machine with the fewest questions open is
-asked, and it fetches the bytes once over HTTPS.
+The pool is every connected machine whose plan has **Extract text from documents, and from files
+other machines lend it** on. xixo link beside the server comes first, since the bytes are already
+on the server. Otherwise the machine with the fewest questions open is asked, and it fetches the
+bytes once over HTTPS.
 
 When no machine can read the file now, the analysis is parked. The machine's card on the
 **Resources** page counts the files waiting for it. When a machine says hello, xixo queues the

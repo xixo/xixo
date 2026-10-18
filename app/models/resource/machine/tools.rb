@@ -77,7 +77,10 @@ class Resource
       end
 
       def offered_tools
-        NAMES & Array(machine["tools"]) & policy["tools"]
+        held = NAMES.dup
+        held.delete("write") if Array(machine["writable"]).empty?
+        held.delete("models") unless plans?("models") && model_kinds.any?
+        held
       end
 
       def offers?(tool)
@@ -231,15 +234,13 @@ class Resource
         end
 
         def unoffered(tool)
-          unless Array(machine["tools"]).include?(tool)
-            return "xixo link's config on it leaves #{tool} out of tools. Add #{tool} to tools in the config, or " \
-                   "remove tools to allow every tool"
-          end
           if tool == "write"
             return "it shares no folder writable. Run the link-up command on it again with a folder followed by :rw"
           end
 
-          "no model server answered on it"
+          return "no model server answered on it" if model_kinds.empty?
+
+          "its plan runs no models. Turn models on for it on its card"
         end
 
         def shared_folders

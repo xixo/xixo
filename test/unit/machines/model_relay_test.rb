@@ -25,8 +25,8 @@ class ModelRelayTest < ActiveSupport::TestCase
     @machine = machine_on(@tenant, key: "studio")
     Tenant.switch(@tenant) do
       @machine.update!(details: @machine.details.merge("machine" => @machine.machine.merge(
-        "tools" => %w[browse search read models],
-        "services" => [ { "kind" => "ollama", "port" => 11434, "address" => "100.64.0.9" } ]
+        "services" => [ { "kind" => "ollama", "port" => 11434 } ],
+        "details" => { "services" => [ { "kind" => "ollama", "port" => 11434 } ] }
       )))
     end
     @asked = []
@@ -48,7 +48,7 @@ class ModelRelayTest < ActiveSupport::TestCase
     @answers["/v1/models"] = { "status" => 200, "content_type" => "application/json", "body" => MODELS }
 
     Tenant.switch(@tenant) do
-      server = server_at("http://100.64.0.9:11434/v1", { "fast" => "qwen3:8b" })
+      server = server_at("http://127.0.0.1:11434/v1", { "fast" => "qwen3:8b" })
 
       assert_equal @machine, server.relayed_by
       assert server.answers!
@@ -81,7 +81,7 @@ class ModelRelayTest < ActiveSupport::TestCase
                                "body" => { data: [ { id: "nomic-embed-text" } ] }.to_json }
 
     Tenant.switch(@tenant) do
-      error = assert_raises(Resource::Unusable) { server_at("http://100.64.0.9:11434/v1", {}).answers! }
+      error = assert_raises(Resource::Unusable) { server_at("http://127.0.0.1:11434/v1", {}).answers! }
 
       assert_no_match(/details|—/, error.message)
       assert_match(/Download one in it/, error.message)
@@ -90,7 +90,7 @@ class ModelRelayTest < ActiveSupport::TestCase
 
   test "the server shows its machine is offline instead of not working" do
     Tenant.switch(@tenant) do
-      server = server_at("http://100.64.0.9:11434/v1", { "fast" => "qwen3:8b" })
+      server = server_at("http://127.0.0.1:11434/v1", { "fast" => "qwen3:8b" })
       @machine.update!(details: @machine.details.merge("machine" => @machine.machine.merge("connected" => false)))
 
       assert_not server.check
@@ -103,7 +103,7 @@ class ModelRelayTest < ActiveSupport::TestCase
 
   test "an error page from the model server is a failure, and an old xixo link is told to update" do
     Tenant.switch(@tenant) do
-      server = server_at("http://100.64.0.9:11434/v1", { "fast" => "qwen3:8b" })
+      server = server_at("http://127.0.0.1:11434/v1", { "fast" => "qwen3:8b" })
 
       @answers["/v1/models"] = { "status" => 503, "content_type" => "text/plain", "body" => "loading" }
       assert_raises(Resource::Failed) { server.answers! }
@@ -116,13 +116,13 @@ class ModelRelayTest < ActiveSupport::TestCase
 
   test "a server on no linked machine still dials directly" do
     Tenant.switch(@tenant) do
-      assert_nil server_at("http://10.9.9.9:11434/v1", { "fast" => "qwen3:8b" }, key: "elsewhere").relayed_by
+      assert_nil server_at("http://10.9.9.9:11434/v1", { "fast" => "qwen3:8b" }, key: "elsewhere", via: nil).relayed_by
     end
   end
 
   private
 
-    def server_at(base_url, models, key: "ollama-studio", via: nil)
+    def server_at(base_url, models, key: "ollama-studio", via: @machine)
       Resource::OpenaiCompatible.find_by(key: key) ||
         Resource::OpenaiCompatible.create!(key: key, name: key, via: via,
                                            details: { "base_url" => base_url, "models" => models })
