@@ -62,16 +62,12 @@ The browser returns to **Resources**, and the resource syncs from then on. A res
 finished connecting shows **not connected** and a **Connect** button. When the account stops
 working, it shows **needs reconnecting** and a **Reconnect** button.
 
-## A resource on a network
+## A resource on a machine
 
-A type such as **WebDAV**, **A mailbox**, or **A model backend** can be reached through a network
-xixo is on, such as a [tailnet](/guides/tailnet/).
-
-1. Under **Connection**, set **Reached through** to the network.
-2. Pick a machine from **On** followed by the network's name. It lists the machines the network
-   reaches, marks the ones that are offline, and names a model server or mailbox found on its usual
-   port.
-3. Check the address xixo filled in, and add a port or path the service needs.
+A model server on a machine running xixo link is attached by itself when the machine's plan runs
+models. See [a model server it found](/guides/add-a-machine/#a-model-server-it-found). To attach
+one by hand, set **Reached through** to the machine under **Connection**, and give the address the
+server answers at on the machine itself, such as `http://127.0.0.1:11434/v1`.
 
 ## Check it
 

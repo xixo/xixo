@@ -6,7 +6,6 @@ import { fakeClient, show } from './support/screen'
 
 const QUIET = {
   LinkRequests: () => ({ linkRequests: [] }),
-  UnlinkedMachines: () => ({ unlinkedMachines: [] }),
 }
 
 const resource = (overrides: Record<string, unknown>) => ({
@@ -246,20 +245,11 @@ describe('Resources', () => {
   })
 
   test('machines are the top level, and this server holds what lives nowhere else', async () => {
-    const tailnet = resource({
-      id: '8',
-      type: 'tailnet',
-      key: 'home',
-      name: 'home',
-      capabilities: ['transport'],
-      defaultStorage: false,
-      machineId: '9',
-    })
     const { client } = fakeClient({
       ...QUIET,
       Resources: () => ({
         administrator: true,
-        resources: [household, tailnet, local, studio],
+        resources: [household, local, studio],
       }),
     })
 
@@ -281,7 +271,6 @@ describe('Resources', () => {
     expect(within(server).queryByText(/Found Ollama/)).toBeNull()
     expect(within(server).getByText('Household')).toBeTruthy()
     expect(within(server).getByText('drops land here')).toBeTruthy()
-    expect(within(server).getByText('home')).toBeTruthy()
     expect(
       within(server).getByRole('button', { name: /Add to This server/ }),
     ).toBeTruthy()
@@ -290,7 +279,7 @@ describe('Resources', () => {
     )
   })
 
-  test('a model server sits under the machine whose tailnet address it dials, and anything else says the tailnet it goes through', async () => {
+  test('a model server sits under the machine it is reached through, and anything else sits under this server', async () => {
     const ollama = resource({
       id: '20',
       type: 'openai-compatible',
@@ -299,9 +288,9 @@ describe('Resources', () => {
       capabilities: ['inference'],
       defaultStorage: false,
       defaultInference: true,
-      via: 'home',
+      via: 'studio',
       machineId: '7',
-      settings: { base_url: 'http://100.64.0.7:11434/v1' },
+      settings: { base_url: 'http://127.0.0.1:11434/v1' },
     })
     const hosted = resource({
       id: '21',
@@ -310,9 +299,8 @@ describe('Resources', () => {
       name: 'gpu',
       capabilities: ['inference'],
       defaultStorage: false,
-      via: 'home',
       machineId: '9',
-      settings: { base_url: 'http://100.64.0.40:8000/v1' },
+      settings: { base_url: 'http://gpu.example.test:8000/v1' },
     })
     const { client } = fakeClient({
       ...QUIET,
@@ -330,9 +318,7 @@ describe('Resources', () => {
     expect(within(machine).queryByText(/Found Ollama/)).toBeNull()
 
     const server = screen.getByRole('region', { name: 'This server' })
-    expect(
-      within(server).getByText('A model server · through home'),
-    ).toBeTruthy()
+    expect(within(server).getByText('A model server')).toBeTruthy()
     expect(screen.getByText(/Questions go to/).textContent).toBe(
       'Questions go to Ollama on Studio',
     )
@@ -780,62 +766,5 @@ describe('Resources', () => {
     expect(
       within(card).queryByLabelText('Update xixo link automatically'),
     ).toBeNull()
-  })
-
-  test('a tailnet machine that is not linked shows a model server to add in one click', async () => {
-    const { client, asked } = fakeClient({
-      ...QUIET,
-      Resources: () => ({
-        administrator: true,
-        resources: [local],
-        linkUp: { xixo: 'https://xixo.example.com', systems: ['linux'] },
-      }),
-      UnlinkedMachines: () => ({
-        unlinkedMachines: [
-          {
-            hostName: 'm2',
-            dnsName: 'm2.example.ts.net',
-            addresses: ['100.64.0.8'],
-            via: 'home',
-            services: [
-              {
-                name: 'ollama',
-                port: 11434,
-                type: 'openai-compatible',
-                address: 'http://100.64.0.8:11434/v1',
-              },
-            ],
-          },
-        ],
-      }),
-      AttachResource: () => ({
-        attachResource: {
-          resource: {
-            id: '31',
-            type: 'openai-compatible',
-            key: 'ollama-m2',
-            name: 'Ollama on m2',
-          },
-          checkError: null,
-          connectUrl: null,
-        },
-      }),
-    })
-
-    show(<Resources />, client, '/settings/resources')
-
-    expect(await screen.findByText('Not linked yet')).toBeTruthy()
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Add Ollama on m2' }),
-    )
-
-    expect(
-      asked.find((ask) => ask.name === 'AttachResource')?.variables,
-    ).toMatchObject({
-      type: 'openai-compatible',
-      key: 'ollama-m2',
-      via: 'home',
-      settings: { base_url: 'http://100.64.0.8:11434/v1' },
-    })
   })
 })

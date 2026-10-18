@@ -30,7 +30,6 @@ import {
   IconGitBranch,
   IconMail,
   IconMapPin,
-  IconNetwork,
   IconPlug,
   IconPuzzle,
   IconRss,
@@ -97,7 +96,6 @@ const GLYPHS: Record<string, Glyph> = {
   notion: IconBrandNotion,
   slack: IconBrandSlack,
   git: IconGitBranch,
-  tailnet: IconNetwork,
   machine: IconDeviceDesktop,
 }
 

@@ -51,7 +51,6 @@ import {
   SetMachineUpdatesDocument,
   SetSyncIntervalDocument,
   SyncResourceDocument,
-  UnlinkedMachinesDocument,
 } from 'xixo'
 import { useQuery } from 'xixo/react'
 import { session } from '../hooks/useSession'
@@ -72,7 +71,7 @@ import {
 } from '../plain'
 import { unraised } from '../shared'
 import { ago, dated } from '../when'
-import { AddTo, type Form, type Place, SERVERS, useQuickAdd } from './AddTo'
+import { AddTo, type Form, type Place, SERVERS } from './AddTo'
 import { Attach, type Editing, glyphFor } from './Attach'
 import { Failed } from './Failed'
 import {
@@ -86,7 +85,6 @@ import {
   useLinkRequests,
 } from './LinkUp'
 import { MachineIcon } from './MachineIcon'
-import { LinkMark } from './Mark'
 import { Move, type Moving } from './Move'
 import { RunsDialog } from './Runs'
 import { useAloud, useSay } from './Say'
@@ -544,12 +542,6 @@ export function Resources() {
   const checking = (data?.resources ?? []).some((resource) => resource.checking)
   const administering = data?.administrator ?? false
   const asking = useLinkRequests(!administering)
-  const unlinked = useQuery(
-    UnlinkedMachinesDocument,
-    {},
-    { skip: !administering },
-  )
-
   useEffect(() => {
     if (!checking) return
 
@@ -881,18 +873,6 @@ export function Resources() {
         />
       ))}
 
-      {!shelved && administrator && (
-        <Unlinked
-          nodes={(unlinked.data?.unlinkedMachines ?? []) as Peer[]}
-          held={resources}
-          onLinkUp={() => setLinkingUp(true)}
-          onAdded={() => {
-            unlinked.refetch()
-            refetch()
-          }}
-        />
-      )}
-
       {!shelved && administrator && linkUp && (
         <LinkUpTile onLinkUp={() => setLinkingUp(true)} />
       )}
@@ -1198,108 +1178,6 @@ function Shares({
         </div>
       )}
     </div>
-  )
-}
-
-interface Peer {
-  hostName?: string | null
-  dnsName?: string | null
-  addresses: string[]
-  via?: string | null
-  services: { name: string; port: number; type: string; address: string }[]
-}
-
-const KINDS: Record<string, string> = { 'lm-studio': 'lmstudio' }
-
-function keyed(text: string) {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
-function Unlinked({
-  nodes,
-  held,
-  onLinkUp,
-  onAdded,
-}: {
-  nodes: Peer[]
-  held: Resource[]
-  onLinkUp: () => void
-  onAdded: () => void
-}) {
-  const quickly = useQuickAdd(true, onAdded)
-
-  if (nodes.length === 0) return null
-
-  return (
-    <section className="unlinked" aria-labelledby="unlinked-title">
-      <h2 id="unlinked-title" className="label">
-        Not linked yet
-      </h2>
-      <ul className="unlinked-list">
-        {nodes.map((node) => {
-          const name =
-            node.hostName ?? node.dnsName ?? node.addresses[0] ?? 'a machine'
-          const models = node.services
-            .filter((service) => service.type === 'openai-compatible')
-            .map((service) => {
-              const kind = KINDS[service.name] ?? service.name
-              const label = SERVERS[kind] ?? kind
-
-              return {
-                kind,
-                url: service.address,
-                via: node.via ?? null,
-                key: `${kind}-${keyed(name)}`,
-                name: `${label} on ${name}`,
-                label,
-              }
-            })
-            .filter(
-              (quick) =>
-                !held.some(
-                  (resource) =>
-                    resource.key === quick.key ||
-                    resource.settings.base_url === quick.url,
-                ),
-            )
-
-          return (
-            <li key={node.addresses[0] ?? name} className="unlinked-row">
-              <span className="unlinked-name">{name}</span>
-              {models.map((quick) => (
-                <span key={quick.key} className="unlinked-found">
-                  Found {quick.label}
-                  <Button
-                    size="compact-xs"
-                    radius="xl"
-                    variant="default"
-                    aria-label={`Add ${quick.name}`}
-                    loading={quickly.busy === quick.key}
-                    onClick={() => quickly.add(quick)}
-                  >
-                    Add
-                  </Button>
-                </span>
-              ))}
-              <Button
-                size="compact-xs"
-                radius="xl"
-                variant="subtle"
-                color="brand"
-                className="link-mark-hover"
-                leftSection={<LinkMark size={14} />}
-                onClick={onLinkUp}
-              >
-                Link up
-              </Button>
-            </li>
-          )
-        })}
-      </ul>
-    </section>
   )
 }
 

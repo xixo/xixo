@@ -1,11 +1,5 @@
 import { Loader } from '@mantine/core'
-import {
-  IconAlertTriangle,
-  IconBrandApple,
-  IconBrandDebian,
-  IconBrandUbuntu,
-  IconServer,
-} from '@tabler/icons-react'
+import { IconAlertTriangle } from '@tabler/icons-react'
 import { type ReactNode, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {

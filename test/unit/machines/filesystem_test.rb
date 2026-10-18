@@ -21,10 +21,6 @@ class FilesystemTest < ActiveSupport::TestCase
 
       direct = Resource::Filesystem.new(key: "direct", details: { "folder" => "/srv/media" })
       assert_not direct.valid?
-
-      tailnet = Resource::Tailnet.create!(key: "tailnet")
-      through_tailnet = Resource::Filesystem.new(key: "far", details: { "folder" => "/srv/media" }, via: tailnet)
-      assert_not through_tailnet.valid?
     end
   end
 

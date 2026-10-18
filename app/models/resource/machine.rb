@@ -69,23 +69,6 @@ class Resource
         )
       end
 
-      def unlinked_peers(grant)
-        linked = active.to_a
-        names = linked.flat_map { |machine| [ machine.machine["hostname"], machine.key ] }.compact_blank.map { |name| short(name) }
-        addresses = linked.flat_map(&:answers_at)
-
-        Tailnet.visible_to(grant).active.order(:key).flat_map do |tailnet|
-          tailnet.discovered(services: true).filter_map do |node|
-            next unless node["online"]
-            next if names.include?(short(node["host_name"])) || (node["addresses"] & addresses).any?
-
-            node.merge("via" => tailnet.key)
-          end
-        rescue Resource::Failed, Resource::Unusable
-          []
-        end
-      end
-
       def short(name)
         name.to_s.downcase.split(".").first
       end
@@ -140,14 +123,11 @@ class Resource
         machines = active.to_a
         by_id = machines.index_by(&:id)
         local = machines.find(&:local?)
-        reached = machines.reject(&:local?).each_with_object({}) do |machine, held|
-          machine.answers_at.each { |address| held[address] ||= machine }
-        end
 
         resources.to_h do |resource|
           next [ resource.id, nil ] if resource.is_a?(Machine)
 
-          [ resource.id, by_id[resource.via_id] || reached[resource.target_host] || local ]
+          [ resource.id, by_id[resource.via_id] || local ]
         end
       end
 
@@ -175,10 +155,6 @@ class Resource
 
     def client_id
       details.to_h["client_id"]
-    end
-
-    def answers_at
-      [ target_host ].compact_blank
     end
 
     def offered_folders

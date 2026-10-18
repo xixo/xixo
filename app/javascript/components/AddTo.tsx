@@ -1,11 +1,7 @@
-import { Button, Modal } from '@mantine/core'
+import { Modal } from '@mantine/core'
 import { IconCpu } from '@tabler/icons-react'
 import { type CSSProperties, useState } from 'react'
-import { AttachResourceDocument } from 'xixo'
-import { useMutation } from 'xixo/react'
-import { unraised } from '../shared'
 import { GROUPS } from './Attach'
-import { useSay } from './Say'
 
 export interface Place {
   id: string | null
@@ -57,58 +53,6 @@ export function addedAs(place: Place, service: Service, held: Held[]) {
       resource.machineId === place.id &&
       port(resource.settings.base_url) === service.port,
   )
-}
-
-export interface Quick {
-  kind: string
-  url: string
-  via?: string | null
-  key: string
-  name: string
-}
-
-export function useQuickAdd(administrator: boolean, onAdded: () => void) {
-  const say = useSay()
-  const attach = useMutation(AttachResourceDocument)
-  const [busy, setBusy] = useState<string | null>(null)
-
-  const add = async (quick: Quick) => {
-    setBusy(quick.key)
-
-    const { data, error } = await attach.attempt({
-      type: 'openai-compatible',
-      key: quick.key,
-      name: quick.name,
-      personal: !administrator,
-      settings: { base_url: quick.url },
-      via: quick.via ?? null,
-    })
-
-    setBusy(null)
-
-    if (!data?.attachResource?.resource) {
-      say({
-        text: error?.message ?? `${quick.name} could not be added.`,
-        wrong: true,
-      })
-      return false
-    }
-
-    onAdded()
-    say(
-      data.attachResource.checkError
-        ? {
-            text: `${quick.key} is added, but it did not answer: ${unraised(data.attachResource.checkError)}`,
-            wrong: true,
-          }
-        : {
-            text: `${quick.key} is added. Name a model for each role in Change.`,
-          },
-    )
-    return true
-  }
-
-  return { add, busy }
 }
 
 export function AddTo({

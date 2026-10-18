@@ -36,9 +36,9 @@ module Tool
       helped, and carry on; it always answers that it cannot. do=types lists what can be attached and the settings each type takes, and
       do=attach with a new key and input {"type": "...", "settings": {...}, "via": "...", "personal": true} attaches
       one, reached through the transport named in via if there is one, and personal true makes it yours
-      alone; one everyone shares needs xixo:settings:admin. do=discover on a transport, such as a
-      tailnet, lists the machines it reaches, whether each is online, and the well-known services that
-      answered on them, each with the type and address to attach it with. do=change with input {"name":
+      alone; one everyone shares needs xixo:settings:admin. do=discover on a machine running xixo link
+      lists the folders it shares, each with the type and address to attach it with, and whether the
+      machine is online. do=change with input {"name":
       "...", "settings": {...}, "via": "..."} changes one, keeping every setting it is not given, and
       an empty via reaches it directly. do=default makes one the default for what it serves, storage
       or inference, named with input {"for": "..."} when it serves both. Credentials never travel

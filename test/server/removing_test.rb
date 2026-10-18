@@ -181,16 +181,16 @@ class RemovingTest < ActionDispatch::IntegrationTest
 
   test "a transport something is still reached through is refused deletion" do
     Tenant.switch(@tenant) do
-      @tailnet = Resource::Tailnet.create!(key: "tailnet", name: "Tailnet")
-      Resource::Webdav.create!(key: "shares", details: { "url" => "http://100.64.1.2/dav/" }, via: @tailnet,
-                               archived_at: Time.current)
-      @tailnet.update!(archived_at: Time.current)
+      @machine = Resource::Machine.create!(key: "studio", name: "Studio", details: { "operators" => [ "alice" ] })
+      Resource::OpenaiCompatible.create!(key: "ollama", details: { "base_url" => "http://127.0.0.1:11434/v1" }, via: @machine,
+                                         archived_at: Time.current)
+      @machine.update!(archived_at: Time.current)
     end
 
-    body = execute(DELETE_RESOURCE, variables: { id: @tailnet.id })
+    body = execute(DELETE_RESOURCE, variables: { id: @machine.id })
 
-    assert_equal "tailnet cannot be deleted while shares is reached through it", body.dig("errors", 0, "message")
-    Tenant.switch(@tenant) { assert Resource.exists?(@tailnet.id) }
+    assert_equal "studio cannot be deleted while ollama is reached through it", body.dig("errors", 0, "message")
+    Tenant.switch(@tenant) { assert Resource.exists?(@machine.id) }
   end
 
   test "a store xixo keeps for itself cannot be deleted" do
