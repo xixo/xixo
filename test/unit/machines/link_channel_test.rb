@@ -252,13 +252,13 @@ class LinkChannelTest < ActionCable::Channel::TestCase
     assert_raises(Resource::Failed) { Tenant.switch(@tenant) { machine.read("/srv/media", "big.bin") } }
   end
 
-  test "hello attaches the model server the machine found when its plan runs models, and sends the machine no settings" do
+  test "hello attaches the model server the machine found when its plan runs models, and wants no part" do
     connected
     stream = LinkChannel.broadcasting_for(@machine)
 
     perform :hello, HELLO
 
-    assert_empty ActionCable.server.pubsub.broadcasts(stream)
+    assert_equal [ { "parts" => {} } ], ActionCable.server.pubsub.broadcasts(stream).map { |held| JSON.parse(held) }
     Tenant.switch(@tenant) do
       attached = Resource::OpenaiCompatible.find_by!(key: "ollama-box")
       assert_equal [ @machine.id, "Ollama on box", "http://127.0.0.1:11434/v1" ], [ attached.via_id, attached.name, attached.details["base_url"] ]
@@ -272,6 +272,44 @@ class LinkChannelTest < ActionCable::Channel::TestCase
     Tenant.switch(@tenant) { fresh.set_plan!("models", false) }
     perform :hello, HELLO.merge("details" => HELLO["details"].merge("services" => [ { "kind" => "lmstudio", "port" => 1234 } ]))
     Tenant.switch(@tenant) { assert_equal 1, Resource::OpenaiCompatible.where(via_id: @machine.id).count }
+  end
+
+  test "hello on a machine with a usable GPU and no model server wants the models part, and the part's server is attached once it runs" do
+    connected
+    stream = LinkChannel.broadcasting_for(@machine)
+    gpu = { "maker" => "NVIDIA", "model" => "NVIDIA GeForce GTX 1070", "memory" => 8_589_934_592, "driver" => "580.178.04" }
+
+    perform :hello, HELLO.merge("details" => { "readers" => %w[pdf], "gpus" => [ gpu ], "services" => [] })
+
+    assert_equal [ { "parts" => { "models" => { "port" => 11_440, "models" => %w[qwen3:8b gemma3:4b nomic-embed-text], "context" => 32_768, "keep_alive" => "30m" } } } ],
+                 ActionCable.server.pubsub.broadcasts(stream).map { |held| JSON.parse(held) }
+    Tenant.switch(@tenant) do
+      assert_equal "Run models on its NVIDIA GeForce GTX 1070, 8 GB.", fresh.plan.last.says
+      assert_empty Resource::OpenaiCompatible.where(via_id: @machine.id)
+    end
+
+    perform :health, HEALTH.merge("parts" => [ { "name" => "models", "version" => "0.40.6", "state" => "fetching", "pulls" => [] } ])
+    Tenant.switch(@tenant) do
+      assert_equal [ { "name" => "models", "version" => "0.40.6", "state" => "fetching", "pulls" => [] } ], fresh.parts
+      assert_empty Resource::OpenaiCompatible.where(via_id: @machine.id)
+    end
+
+    perform :health, HEALTH.merge("parts" => [ { "name" => "models", "version" => "0.40.6", "state" => "running", "port" => 11_440,
+                                                 "pulls" => [ { "model" => "qwen3:8b", "done" => 50, "total" => 100, "ready" => false }, { "model" => "x", "error" => "gone\u0007" } ] },
+                                               { "name" => "shell", "state" => "running" } ])
+    Tenant.switch(@tenant) do
+      part = fresh.parts.sole
+      assert_equal [ "running", 11_440 ], part.values_at("state", "port")
+      assert_equal [ { "model" => "qwen3:8b", "done" => 50, "total" => 100, "ready" => false }, { "model" => "x", "done" => 0, "total" => 0, "ready" => false, "error" => "gone" } ], part["pulls"]
+
+      attached = Resource::OpenaiCompatible.where(via_id: @machine.id).sole
+      assert_equal [ "ollama-box", "Ollama on box", "http://127.0.0.1:11440/v1", "models" ], [ attached.key, attached.name, attached.details["base_url"], attached.details["part"] ]
+      assert_equal({ "default" => "qwen3:8b", "vision" => "gemma3:4b", "embedding" => "nomic-embed-text" }, attached.details["models"])
+      assert attached.default_inference?
+
+      fresh.set_plan!("models", false)
+      assert_equal [ { "parts" => {} } ], ActionCable.server.pubsub.broadcasts(stream).last(1).map { |held| JSON.parse(held) }
+    end
   end
 
   test "an upload is held for the machine to fetch and never goes out on the stream" do

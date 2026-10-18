@@ -2,7 +2,6 @@ class Resource
   class Machine
     module Plan
       KEYS = %w[catalog extract models].freeze
-      LEAST_GPU_MEMORY = 4.gigabytes
       SERVED_AS = { "ollama" => "Ollama", "lmstudio" => "LM Studio" }.freeze
       USABLE_GPUS = %w[NVIDIA Apple].freeze
 
@@ -48,31 +47,49 @@ class Resource
       end
 
       def models(about)
-        found = Array(about["services"]).find { |service| SERVED_AS.key?(service["kind"]) }
+        found = found_server(about)
         if found
           return Line.new(key: "models", says: "Use the #{SERVED_AS[found['kind']]} already running on it.",
                           why: "It answers on port #{found['port']}.", on: true, possible: true)
         end
 
+        gpu = Parts.gpu_for_models(about)
+        if gpu
+          roles = Parts.roles_for(gpu)
+          return Line.new(key: "models", says: "Run models on its #{named(gpu)}, #{sized(gpu)}.",
+                          why: "xixo installs Ollama on it and pulls #{roles.values.uniq.to_sentence}.", on: true, possible: true)
+        end
+
         Line.new(key: "models", says: "Run no models.", why: without_models(about), on: false, possible: false)
+      end
+
+      def found_server(about)
+        Array(about["services"]).find { |service| SERVED_AS.key?(service["kind"]) }
+      end
+
+      def installs_models?(about)
+        found_server(about).nil? && Parts.gpu_for_models(about).present?
+      end
+
+      def named(gpu)
+        gpu["model"].presence || "#{gpu['maker']} GPU"
+      end
+
+      def sized(gpu)
+        ActiveSupport::NumberHelper.number_to_human_size(gpu["memory"].to_i)
       end
 
       def without_models(about)
         gpu = Array(about["gpus"]).find { |held| USABLE_GPUS.include?(held["maker"]) }
         return "It has no GPU xixo can run models on, so models run on another machine." if gpu.nil?
 
-        named = gpu["model"].presence || "#{gpu['maker']} GPU"
-        size = ActiveSupport::NumberHelper.number_to_human_size(gpu["memory"].to_i)
-
         case
         when gpu["maker"] == "NVIDIA" && gpu["driver"].blank?
-          "Its #{named} has no driver, so models run on another machine."
+          "Its #{named(gpu)} has no driver, so models run on another machine."
         when gpu["maker"] == "NVIDIA" && gpu["driver"] == "nouveau"
-          "Its #{named} runs the nouveau driver, which no model server uses, so models run on another machine."
-        when gpu["memory"].to_i < LEAST_GPU_MEMORY
-          "Its #{named}, with #{size}, is too small for a model server, so models run on another machine."
+          "Its #{named(gpu)} runs the nouveau driver, which no model server uses, so models run on another machine."
         else
-          "Its #{named}, #{size}, can run them once xixo installs a model server."
+          "Its #{named(gpu)}, with #{sized(gpu)}, is too small for a model server, so models run on another machine."
         end
       end
     end

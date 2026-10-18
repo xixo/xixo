@@ -20,6 +20,7 @@ import (
 	"github.com/xixo/xixo/link/internal/fake"
 	"github.com/xixo/xixo/link/internal/folders"
 	"github.com/xixo/xixo/link/internal/machine"
+	"github.com/xixo/xixo/link/internal/parts"
 )
 
 const identifier = `{"channel":"LinkChannel"}`
@@ -699,5 +700,54 @@ func TestXixoRefusingEveryConnectionKeepsTheLinkTrying(t *testing.T) {
 
 	if connections.Load() < 2 {
 		t.Fatalf("connected %d times, want xixo link to keep trying", connections.Load())
+	}
+}
+
+func TestAPartsMessageWritesTheWantedFileAndHealthReportsThePart(t *testing.T) {
+	folder, _ := shared(t)
+	finished := make(chan struct{})
+	dir := t.TempDir()
+
+	cable := fake.NewCable(t, "link-token", "", func(socket *fake.Socket) {
+		defer close(finished)
+
+		socket.Subscribe(identifier)
+		socket.Next()
+		socket.Next()
+
+		socket.Ask(identifier, map[string]any{"parts": map[string]any{"models": map[string]any{"port": 11440, "models": []string{"nomic-embed-text"}, "context": 32768, "keep_alive": "30m"}}})
+		socket.Ask(identifier, map[string]any{"request": "h-1", "verb": "health", "args": map[string]any{}})
+		got := gather(socket, 1)
+
+		result, _ := got.done["h-1"]["result"].(map[string]any)
+		held, _ := result["parts"].([]any)
+		if len(held) != 1 || held[0].(map[string]any)["name"] != "models" || held[0].(map[string]any)["state"] != "missing" {
+			t.Errorf("health parts %v", result["parts"])
+		}
+
+		socket.Ask(identifier, map[string]any{"parts": map[string]any{}})
+		socket.Ask(identifier, map[string]any{"request": "h-2", "verb": "health", "args": map[string]any{}})
+		got = gather(socket, 1)
+
+		result, _ = got.done["h-2"]["result"].(map[string]any)
+		if held, _ := result["parts"].([]any); len(held) != 0 {
+			t.Errorf("health parts after unwanting %v", result["parts"])
+		}
+
+		socket.Close()
+	})
+
+	held, dpop := linkFor(t, cable.URL, folder, time.Now().Add(time.Hour))
+	held.Parts = &parts.Keeper{Dir: dir, Allowed: parts.Known(), Status: func(name string) string { return filepath.Join(dir, name+".status.json") }}
+	cable.Thumbprint = dpop.Thumbprint()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	held.Session(ctx)
+	<-finished
+
+	if _, err := os.Stat(filepath.Join(dir, "models")); err == nil {
+		t.Fatal("the wanted file stayed after xixo stopped wanting the part")
 	}
 }

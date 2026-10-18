@@ -65,6 +65,9 @@ module Types
           description: "Whether xixo link is enrolled as this machine, whether or not it is connected now."
     field :services, [ Types::MachineServiceType ], null: false,
           description: "Model servers xixo link found listening on the machine."
+    field :parts, [ Types::MachinePartType ], null: false,
+          description: "The parts xixo link runs on the machine, with each one's state. The models part runs Ollama " \
+                       "when the plan runs models and no model server was found."
 
     def hostname = object.machine["hostname"]
     def os = object.machine["os"]
@@ -87,6 +90,7 @@ module Types
     def memory_available = health.dig("memory", "available")
     def disks = Array(health["disks"])
     def services = Array(object.machine["services"])
+    def parts = object.parts
     def gpus = Array(object.about["gpus"])
     def battery = object.about["battery"] == true
     def plan = object.plan.map(&:to_h)

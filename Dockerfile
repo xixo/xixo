@@ -45,7 +45,7 @@ RUN version=$(sed -n 's/.*"\.": *"\([^"]*\)".*/\1/p' .release-please-manifest.js
       CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath \
         -ldflags "-s -w -X main.version=$version" -o /opt/xixo-link/xixo-link-$os-$arch . || exit 1; \
     done; done && \
-    cp xixo-link.service xixo-link-update.service xixo-link-update.path xixo-link.plist /opt/xixo-link/ && \
+    cp xixo-link.service xixo-link-update.service xixo-link-update.path xixo-link-part@.service xixo-link-part@.path xixo-link.plist /opt/xixo-link/ && \
     printf '%s\n' "$version" > /opt/xixo-link/version
 
 FROM scratch AS masks-client

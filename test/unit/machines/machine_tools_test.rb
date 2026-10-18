@@ -94,7 +94,7 @@ class MachineToolsTest < ActiveSupport::TestCase
     end
   end
 
-  test "the plan's extract line decides whether the machine reads for others, and turning it off sends xixo link nothing" do
+  test "the plan's extract line decides whether the machine reads for others, and turning it off tells xixo link only which parts it wants" do
     offering(writable: [ "/srv/notes" ], services: [ { "kind" => "ollama", "port" => 11_434 } ], lend: true)
 
     as_member do
@@ -115,7 +115,7 @@ class MachineToolsTest < ActiveSupport::TestCase
         LinkChannel.define_singleton_method(:broadcast_to, held)
       end
 
-      assert_empty told
+      assert_equal [ [ @machine.id, { "parts" => {} } ] ], told
       assert_not @machine.reload.reads_for_others?
       assert_equal [ "extract" ], @machine.plan_off
       assert_raises(Resource::Refused) { @machine.set_plan!("shell", true) }

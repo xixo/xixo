@@ -194,6 +194,33 @@ operators**.
 
 When you are the only person in xixo, you see every folder your machines share.
 
+## Run models on a machine
+
+When a machine has an NVIDIA GPU with a driver and at least 4 GB of memory, or an Apple chip with
+at least 16 GB, and no model server already runs on it, the plan's **Models** line reads "Run
+models on its NVIDIA GeForce GTX 1070, 8 GB." With that line on, xixo link installs Ollama on the
+machine by itself and keeps it running:
+
+1. xixo link downloads the Ollama build pinned in its own source from where Ollama publishes it,
+   checks the SHA-256 it was built with, and unpacks it into a folder for that version.
+2. It starts Ollama on its own port, so a copy you installed by hand keeps port 11434, and waits
+   for it to answer.
+3. It pulls the models the machine's memory allows: `qwen3:8b`, `gemma3:4b`, and
+   `nomic-embed-text` on an 8 GB card, and larger ones with more memory. The card shows each pull's
+   progress, such as "Ollama 0.40.6 is running, pulling qwen3:8b 40%".
+4. xixo attaches it as **Ollama on** the machine's name, with a model named for each role, and makes
+   it the default for inference when there is no other.
+
+On Linux the part runs as a service of its own, `xixo-link-part@models`, as a user systemd makes
+for it, with the GPU devices allowed and no view of the shared folders or home folders. On a Mac
+it runs as a child of xixo link, as you. A version that fails its health check is rolled back to
+the one before it, and the card says so.
+
+Turning the **Models** line off stops Ollama. Its models stay on disk under
+`/var/lib/xixo-link-part/models` on Linux. The machine's own configuration can keep the part off
+with `parts` in `/etc/xixo-link/config.json`, as the
+[xixo link README](https://github.com/xixo/xixo/tree/main/link#what-xixo-may-do) describes.
+
 ## A model server it found
 
 xixo link looks for Ollama and LM Studio on the machine. When the plan's **Models** line is on,

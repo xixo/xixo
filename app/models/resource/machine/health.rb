@@ -10,7 +10,8 @@ class Resource
           "uptime" => number(said["uptime"]),
           "load" => Array(said["load"]).first(3).map { |held| number(held) },
           "memory" => memory(said["memory"]),
-          "disks" => Array(said["disks"]).first(MOST_DISKS).filter_map { |disk| disk(disk) }
+          "disks" => Array(said["disks"]).first(MOST_DISKS).filter_map { |disk| disk(disk) },
+          "parts" => Parts.statuses(said["parts"])
         }
       end
 

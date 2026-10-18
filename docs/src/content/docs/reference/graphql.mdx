@@ -543,6 +543,7 @@ What xixo link on a machine last said about it. Resolves only for a token carryi
 | `memoryTotal` | `BigInt` |  |
 | `model` | `String` | The hardware model it reported when it linked up, such as MacBook Pro (16-inch, 2023). |
 | `os` | `String` |  |
+| `parts` | [`[MachinePart!]!`](#machinepart) | The parts xixo link runs on the machine, with each one's state. The models part runs Ollama when the plan runs models and no model server was found. |
 | `plan` | [`[PlanLine!]!`](#planline) | What the machine does, as xixo plans it from the machine's description: catalog, extract, and models. An administrator turns a line off with setMachinePlan. |
 | `release` | `String` | The version of xixo link this xixo ships. |
 | `seenAt` | `ISO8601DateTime` | When xixo link last said anything. |
@@ -586,6 +587,31 @@ Resolves only for a token carrying `xixo:resources:read`.
 | `maker` | `String!` | NVIDIA, AMD, Intel, or Apple. |
 | `memory` | `BigInt!` | Its memory in bytes. For an Apple chip, the machine's memory, which the GPU shares. Zero when unknown. |
 | `model` | `String!` | The model, such as NVIDIA GeForce GTX 1070. Empty when the machine cannot tell. |
+
+### MachinePart
+
+A part xixo link runs on the machine, such as models, which runs Ollama. Resolves only for a token carrying `xixo:resources:read`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `name` | `String!` | models. |
+| `port` | `Int` | The port the part answers on, once it runs. |
+| `pulls` | [`[MachinePull!]!`](#machinepull) | Each model the part pulls, with its progress. |
+| `state` | `String!` | missing, fetching, starting, running, failed, or stopped. |
+| `version` | `String` | The version of the program the part runs. |
+| `warning` | `String` | What went wrong, as a sentence, when the part failed. |
+
+### MachinePull
+
+Resolves only for a token carrying `xixo:resources:read`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `done` | `BigInt!` | Bytes pulled so far. |
+| `error` | `String` | Why the pull failed, when it did. |
+| `model` | `String!` |  |
+| `ready` | `Boolean!` | Whether the model is on the machine. |
+| `total` | `BigInt!` | Bytes in all. Zero until the server says. |
 
 ### MachineService
 

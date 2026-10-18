@@ -30,6 +30,7 @@ var commands = []about{
 	{"enroll", "--token - [--name NAME]", "Enroll with a token, for the xixo link beside the server.", false},
 	{"run", "[--updates systemd|self]", "Connect to xixo and serve it. The service runs this.", false},
 	{"update", "", "Install the build xixo names. The Linux updater runs this.", false},
+	{"part", "NAME --releases DIR --state DIR --wanted FILE [--status FILE]", "Run a part, such as models, while xixo wants it. The part's service runs this.", false},
 	{"readable", "FOLDER", "Check that xixo link may read a folder.", false},
 }
 

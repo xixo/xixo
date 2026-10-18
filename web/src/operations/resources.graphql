@@ -93,6 +93,20 @@ query Resources($archived: Boolean) {
         kind
         port
       }
+      parts {
+        name
+        version
+        state
+        port
+        warning
+        pulls {
+          model
+          done
+          total
+          ready
+          error
+        }
+      }
       memoryTotal
       memoryAvailable
       disks {

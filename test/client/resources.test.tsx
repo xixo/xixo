@@ -83,6 +83,7 @@ const machineSaid = (overrides: Record<string, unknown>) => ({
   waiting: [],
   linked: true,
   services: [],
+  parts: [],
   memoryTotal: null,
   memoryAvailable: null,
   disks: [],

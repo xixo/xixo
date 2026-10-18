@@ -5,6 +5,8 @@ class Resource
       UNIT = "xixo-link.service".freeze
       UPDATE_UNIT = "xixo-link-update.service".freeze
       UPDATE_PATH = "xixo-link-update.path".freeze
+      PART_UNIT = "xixo-link-part@.service".freeze
+      PART_PATH = "xixo-link-part@.path".freeze
       PACKAGES = %w[
         ca-certificates libvips-tools libraw-bin libimage-exiftool-perl libarchive-zip-perl poppler-utils
         tesseract-ocr ffmpeg libreoffice-writer libreoffice-calc fonts-liberation
@@ -77,6 +79,14 @@ class Resource
 
       def update_path
         held(UPDATE_PATH)
+      end
+
+      def part_unit
+        held(PART_UNIT)
+      end
+
+      def part_path
+        held(PART_PATH)
       end
 
       def held(file)

@@ -43,6 +43,14 @@ class LinksController < ActionController::API
     served(Resource::Machine::Downloads.update_path, Resource::Machine::Downloads::UPDATE_PATH, "text/plain")
   end
 
+  def part_unit
+    served(Resource::Machine::Downloads.part_unit, Resource::Machine::Downloads::PART_UNIT, "text/plain")
+  end
+
+  def part_path
+    served(Resource::Machine::Downloads.part_path, Resource::Machine::Downloads::PART_PATH, "text/plain")
+  end
+
   def start
     said = request.request_parameters.to_h.slice(*STARTED)
     started = LinkRequest.start!(said, remote_ip: request.remote_ip)

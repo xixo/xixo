@@ -24,6 +24,8 @@ Rails.application.routes.draw do
   get "/link/download/xixo-link.plist", to: "links#plist", as: :link_plist
   get "/link/download/xixo-link-update.service", to: "links#update_unit", as: :link_update_unit
   get "/link/download/xixo-link-update.path", to: "links#update_path", as: :link_update_path
+  get "/link/download/xixo-link-part@.service", to: "links#part_unit", as: :link_part_unit
+  get "/link/download/xixo-link-part@.path", to: "links#part_path", as: :link_part_path
   get "/link/download/:file", to: "links#download", as: :link_download,
                               constraints: { file: /xixo-link-[a-z0-9]+-[a-z0-9]+|xixo-mac-reader/ }
   post "/link/requests", to: "links#start", as: :link_requests

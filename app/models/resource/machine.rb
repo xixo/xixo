@@ -230,6 +230,7 @@ class Resource
 
       update!(details: details.to_h.merge("plan" => details.to_h["plan"].to_h.merge(key.to_s => on == true)))
       catalog_shared!
+      tell_parts! if connected?
       attach_found!
       ResumeParkedJob.perform_later(id) if on && Analysis.parked.exists?
       announce!
@@ -239,13 +240,14 @@ class Resource
       return unless plans?("models") && archived_at.nil?
 
       held = OpenaiCompatible.where(via_id: id).to_a
-      Array(machine["services"]).each do |service|
+      (Array(machine["services"]) + served_parts).each do |service|
         next if held.any? { |server| server.base_url.to_s.include?(":#{service['port']}/") }
 
         served = Plan::SERVED_AS.fetch(service["kind"], service["kind"])
         made = OpenaiCompatible.new(
           key: found_key(service), name: local? ? served : "#{served} on #{name.presence || key}", via: self,
-          details: { "base_url" => OpenaiCompatible.address_on("127.0.0.1", port: service["port"]) }
+          details: { "base_url" => OpenaiCompatible.address_on("127.0.0.1", port: service["port"]),
+                     "models" => service["models"], "part" => service["part"] }.compact
         )
         next Rails.logger.warn("#{key} could not attach #{made.key}: #{made.errors.full_messages.to_sentence}") unless made.save
 
@@ -418,6 +420,7 @@ class Resource
       update_columns(offline_host: nil, offline_last_seen_at: nil, checked_at: Time.current, check_error: nil)
       reload
       offer_update!
+      tell_parts!
       restate_folders!
       catalog_shared!
       attach_found!
@@ -445,8 +448,25 @@ class Resource
     end
 
     def heard!(said)
-      merge_machine!("health" => Health.from(said), "warnings" => Hello.warnings(said.to_h["warnings"]), "seen_at" => now_stamp)
+      health = Health.from(said)
+      merge_machine!("health" => health, "parts" => health["parts"], "warnings" => Hello.warnings(said.to_h["warnings"]), "seen_at" => now_stamp)
       update_columns(checked_at: Time.current, check_error: nil) if check_error.present?
+      reload
+      attach_found!
+    end
+
+    def parts
+      Array(machine["parts"]).select { |held| held.is_a?(Hash) }
+    end
+
+    def wanted_parts
+      return {} unless plans?("models") && Plan.installs_models?(planned_about)
+
+      { Parts::MODELS => Parts.settings_for(Parts.gpu_for_models(planned_about)) }
+    end
+
+    def tell_parts!
+      LinkChannel.broadcast_to(self, { "parts" => wanted_parts })
     end
 
     def parted!(session:)
@@ -626,6 +646,17 @@ class Resource
 
       def planned_writable
         heard_from? ? Array(machine["writable"]) : Array(about["writable"])
+      end
+
+      def served_parts
+        gpu = Parts.gpu_for_models(planned_about)
+        return [] if gpu.nil?
+
+        parts.filter_map do |part|
+          next unless part["name"] == Parts::MODELS && part["state"] == "running" && part["port"].present?
+
+          { "kind" => "ollama", "port" => part["port"], "part" => Parts::MODELS, "models" => Parts.roles_for(gpu) }
+        end
       end
 
       def found_key(service)

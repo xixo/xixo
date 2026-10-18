@@ -1,0 +1,10 @@
+[Unit]
+Description=xixo link part %i, when xixo asks for it
+Documentation=https://github.com/xixo/xixo/tree/main/link
+
+[Path]
+PathExists=/run/xixo-link/parts/%i
+Unit=xixo-link-part@%i.service
+
+[Install]
+WantedBy=multi-user.target

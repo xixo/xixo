@@ -162,6 +162,7 @@ interface Resource {
       kind: string
       port: number
     }[]
+    parts: Part[]
     memoryTotal?: number | string | null
     memoryAvailable?: number | string | null
     disks: {
@@ -297,11 +298,54 @@ function system(machine: Resource) {
   )
 }
 
+interface Part {
+  name: string
+  version?: string | null
+  state: string
+  port?: number | null
+  warning?: string | null
+  pulls: {
+    model: string
+    done: number | string
+    total: number | string
+    ready: boolean
+    error?: string | null
+  }[]
+}
+
+const PART_SAYS: Record<string, string> = {
+  missing: 'has not started',
+  fetching: 'is being downloaded',
+  starting: 'is starting',
+  running: 'is running',
+  failed: 'failed',
+  stopped: 'is stopped',
+}
+
+export function partSaid(part: Part) {
+  const named = part.name === 'models' ? 'Ollama' : part.name
+  const said = `${named}${part.version ? ` ${part.version}` : ''} ${PART_SAYS[part.state] ?? part.state}`
+  const pulling = part.pulls.find((pull) => !pull.ready && !pull.error)
+  if (part.state === 'running' && pulling) {
+    const total = Number(pulling.total)
+    const percent =
+      total > 0 ? Math.floor((Number(pulling.done) / total) * 100) : 0
+    return `${said}, pulling ${pulling.model}${total > 0 ? ` ${percent}%` : ''}`
+  }
+
+  const failed = part.pulls.find((pull) => pull.error)
+  if (part.state === 'running' && failed)
+    return `${said}, and ${failed.model} could not be pulled`
+
+  return part.warning ? `${said}: ${part.warning}` : said
+}
+
 function facts(machine: NonNullable<Resource['machine']>, place: Place) {
   if (!machine.linked && !machine.connected && !machine.seenAt) return []
 
   return [
     reads(machine.extractors, machine.unread),
+    ...machine.parts.map(partSaid),
     heldBack(machine.heldBack),
     waitingOn(machine.waiting, machine.connected),
     linkVersion(machine, place),

@@ -246,7 +246,7 @@ switches:
 | --- | --- | --- |
 | Catalog | The machine shares folders. | Each shared folder joins the catalog by itself, read only or read and write as the machine says. |
 | Extract | The machine has readers installed. | The machine reads its own files, and joins the pool that reads uploads, mail attachments, cloud files, web pages, and the files machines lend, as described in [extraction](/concepts/analysis/#extraction). |
-| Models | A model server answers on the machine. | xixo attaches the model server through the machine, and makes it the default for inference when there is no other. |
+| Models | A model server answers on the machine, or it has a GPU xixo can run models on. | xixo attaches the model server through the machine, and makes it the default for inference when there is no other. Without one, xixo link installs and runs Ollama as the `models` part. See [run models on a machine](/guides/add-a-machine/#run-models-on-a-machine). |
 
 A line that is not possible stays off, and its reason says why, such as "Its NVIDIA GeForce GTX
 1070 has no driver, so models run on another machine." Every possible line starts on. An

@@ -14,6 +14,10 @@ func (a *Link) health() machine.Health {
 	held := a.Machine.Health(a.Folders.Names())
 	held.Warnings = a.warnings()
 
+	if a.Parts != nil {
+		held.Parts = a.Parts.Statuses()
+	}
+
 	return held
 }
 

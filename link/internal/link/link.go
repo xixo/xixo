@@ -21,6 +21,7 @@ import (
 	"github.com/xixo/xixo/link/internal/extract"
 	"github.com/xixo/xixo/link/internal/folders"
 	"github.com/xixo/xixo/link/internal/machine"
+	"github.com/xixo/xixo/link/internal/parts"
 	"github.com/xixo/xixo/link/internal/update"
 	"github.com/xixo/xixo/link/internal/watch"
 )
@@ -69,6 +70,7 @@ type Link struct {
 	Notices    []string
 	ModelPorts map[string]int
 	Unwatched  bool
+	Parts      *parts.Keeper
 
 	Updates  Updater
 	Identity update.Self
@@ -444,11 +446,20 @@ func (s *session) listen(ctx context.Context) {
 			}
 
 			told := struct {
-				Update *update.Target `json:"update"`
-				Cancel string         `json:"cancel"`
+				Update *update.Target            `json:"update"`
+				Parts  map[string]parts.Settings `json:"parts"`
+				Cancel string                    `json:"cancel"`
 			}{}
 			if json.Unmarshal(frame.Message, &told) == nil && told.Update != nil {
 				s.updateTo(ctx, *told.Update)
+
+				continue
+			}
+
+			if told.Parts != nil {
+				if s.Parts != nil {
+					s.Parts.Apply(ctx, told.Parts)
+				}
 
 				continue
 			}

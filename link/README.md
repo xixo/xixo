@@ -93,6 +93,37 @@ hashes, and extracts its own files, and sends xixo only what extraction makes.
 An empty `parts` list runs none. A part name xixo link does not know stops it
 from starting.
 
+## Parts
+
+A part is a program xixo link installs, runs, and checks for xixo, from a
+recipe compiled into xixo link: the build's address and SHA-256 for each
+system and processor, the command, and the health check. The first part is
+`models`, which runs Ollama 0.40.6.
+
+xixo sends a `parts` message with the parts it wants and their settings, on
+every hello and whenever a machine's plan changes:
+
+```json
+{"parts": {"models": {"port": 11440, "models": ["qwen3:8b", "nomic-embed-text"], "context": 32768, "keep_alive": "30m"}}}
+```
+
+A part missing from the message is stopped. The message can name no build,
+command, or path. `xixo-link part NAME` runs one part: it downloads the build,
+checks it, unpacks it into `releases/<version>`, points `current` at it,
+starts the program with `OLLAMA_HOST`, `OLLAMA_MODELS`,
+`OLLAMA_CONTEXT_LENGTH`, and `OLLAMA_KEEP_ALIVE` from the settings, waits for
+`GET /api/version`, pulls each model named, and writes its state to a status
+file that xixo link reports in `health`. A version that fails its health check
+within two minutes is rolled back to the `good` one. A download that stopped is
+resumed.
+
+On Linux, `xixo-link-part@.path` starts `xixo-link-part@NAME.service` when
+xixo link writes `/run/xixo-link/parts/NAME`, and the service exits on its own
+when that file goes away. The service runs as a dynamic user with its own state
+under `/var/lib/xixo-link-part/NAME`, the GPU devices allowed, and the same
+limits as `xixo-link.service` otherwise. On macOS, `xixo-link run` runs the
+part as its child, as the user, under `~/Library/Application Support/xixo-link/parts/NAME`.
+
 ## Commands
 
 `xixo-link` alone, or `xixo-link help`, lists the commands. Each command takes

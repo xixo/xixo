@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/xixo/xixo/link/internal/parts"
 	"golang.org/x/sys/unix"
 )
 
@@ -26,11 +27,12 @@ type Disk struct {
 }
 
 type Health struct {
-	Uptime   float64   `json:"uptime"`
-	Load     []float64 `json:"load"`
-	Memory   Memory    `json:"memory"`
-	Disks    []Disk    `json:"disks"`
-	Warnings []string  `json:"warnings"`
+	Uptime   float64        `json:"uptime"`
+	Load     []float64      `json:"load"`
+	Memory   Memory         `json:"memory"`
+	Disks    []Disk         `json:"disks"`
+	Parts    []parts.Status `json:"parts"`
+	Warnings []string       `json:"warnings"`
 }
 
 type Service struct {
@@ -90,7 +92,7 @@ func (m *Machine) Services(ctx context.Context) []Service {
 }
 
 func (m *Machine) Health(folders []string) Health {
-	held := Health{Load: []float64{0, 0, 0}, Disks: []Disk{}, Warnings: []string{}}
+	held := Health{Load: []float64{0, 0, 0}, Disks: []Disk{}, Parts: []parts.Status{}, Warnings: []string{}}
 
 	if m.Proc == "" {
 		native(&held)

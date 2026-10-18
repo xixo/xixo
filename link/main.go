@@ -28,6 +28,7 @@ import (
 	"github.com/xixo/xixo/link/internal/folders"
 	"github.com/xixo/xixo/link/internal/link"
 	"github.com/xixo/xixo/link/internal/machine"
+	"github.com/xixo/xixo/link/internal/parts"
 	"github.com/xixo/xixo/link/internal/state"
 	"github.com/xixo/xixo/link/internal/terminal"
 	"github.com/xixo/xixo/link/internal/update"
@@ -311,6 +312,8 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 
 		running.Identity = update.Identify(version)
 		running.Updates = updater(ctx, *updates, *releases, *stateDir, config, running, func() { restart(errRestart) })
+		running.Parts = keeper(*updates == modeSystemd, *configPath, *stateDir, config)
+		defer running.Parts.Wait()
 
 		if runtime.GOOS == "darwin" {
 			go awaitAccess(ctx, shared, running.Log)
@@ -328,6 +331,35 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 		}
 
 		return err
+	case "part":
+		releases := set.String("releases", "", "the directory that holds each version of the part")
+		wanted := set.String("wanted", "", "the file xixo link writes while it wants the part")
+		status := set.String("status", "", "the file this command writes the part's state to")
+		home := set.String("state", "", "the directory the part keeps its own files in")
+
+		if err := parse(); err != nil {
+			return err
+		}
+
+		if set.NArg() != 1 {
+			return errors.New("part takes the name of one part")
+		}
+
+		recipe, known := parts.Recipes[set.Arg(0)]
+		if !known {
+			return fmt.Errorf("%q is not a part xixo link runs: name any of %s", set.Arg(0), strings.Join(parts.Known(), ", "))
+		}
+
+		if *releases == "" || *wanted == "" || *home == "" {
+			return errors.New("part takes --releases, --wanted, and --state")
+		}
+
+		runner := &parts.Runner{
+			Recipe: recipe, Releases: *releases, Wanted: *wanted, State: *home, Status: *status,
+			Log: slog.New(slog.NewTextHandler(os.Stderr, nil)),
+		}
+
+		return runner.Run(ctx)
 	case "readable":
 		if len(args) != 2 {
 			return errors.New("readable takes one folder")
@@ -390,6 +422,38 @@ func given(value string, stdin io.Reader) (string, error) {
 	read, err := io.ReadAll(io.LimitReader(stdin, 4096))
 
 	return string(read), err
+}
+
+func keeper(systemd bool, configPath, stateDir string, config *state.Config) *parts.Keeper {
+	if systemd {
+		return &parts.Keeper{
+			Dir:     filepath.Join(runtimeDir(updateRequests), "parts"),
+			Allowed: config.PartCeiling(),
+			Status:  func(name string) string { return filepath.Join("/run/xixo-link-part", name, "status.json") },
+		}
+	}
+
+	root := filepath.Join(filepath.Dir(configPath), "parts")
+	self, _ := os.Executable()
+
+	return &parts.Keeper{
+		Dir:     filepath.Join(stateDir, "parts"),
+		Allowed: config.PartCeiling(),
+		Status:  func(name string) string { return filepath.Join(stateDir, "parts", name+".status.json") },
+		Command: func(ctx context.Context, name string) *exec.Cmd {
+			command := exec.CommandContext(ctx, self, "part", name,
+				"--releases", filepath.Join(root, name, "releases"),
+				"--state", filepath.Join(root, name),
+				"--wanted", filepath.Join(stateDir, "parts", name),
+				"--status", filepath.Join(stateDir, "parts", name+".status.json"))
+			command.Stdout = os.Stderr
+			command.Stderr = os.Stderr
+			command.Cancel = func() error { return command.Process.Signal(os.Interrupt) }
+			command.WaitDelay = parts.Stopping
+
+			return command
+		},
+	}
 }
 
 func runner() (extract.Runner, []string) {
