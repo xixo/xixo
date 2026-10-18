@@ -44,6 +44,7 @@ type Runner struct {
 	State    string
 	Status   string
 	Client   *http.Client
+	Fetcher  *http.Client
 	Log      *slog.Logger
 	Stdout   io.Writer
 	Command  func(ctx context.Context, program string, args, env []string) *exec.Cmd
@@ -60,6 +61,10 @@ func (r *Runner) Run(ctx context.Context) error {
 
 	if r.Client == nil {
 		r.Client = &http.Client{Timeout: 10 * time.Second}
+	}
+
+	if r.Fetcher == nil {
+		r.Fetcher = &http.Client{}
 	}
 
 	if r.Watching == 0 {
@@ -119,7 +124,7 @@ func (r *Runner) installed(ctx context.Context, build Build) error {
 
 	r.note(StateFetching, "")
 
-	archive, err := Fetch(ctx, r.Client, build, r.Releases)
+	archive, err := Fetch(ctx, r.Fetcher, build, r.Releases)
 	if err != nil {
 		return err
 	}

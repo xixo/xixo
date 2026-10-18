@@ -126,5 +126,9 @@ func written(path string, raw []byte, mode os.FileMode) error {
 		return err
 	}
 
+	if err := os.Chmod(temporary, mode); err != nil {
+		return err
+	}
+
 	return os.Rename(temporary, path)
 }
