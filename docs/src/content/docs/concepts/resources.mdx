@@ -229,6 +229,16 @@ once. Running the command again on a linked machine updates xixo link and its co
 the approval. A
 machine cannot be attached by hand. See [add a machine](/guides/add-a-machine/) for the steps.
 
+An administrator also links a machine from their own computer with `xixo-link add`, over their own
+`ssh`. `xixo-link login` signs them in first: xixo starts masks' device grant with its own client
+and hands the command line the person's tokens, so the command line holds no client of its own.
+`add` copies the build xixo serves to the machine after checking its SHA-256, runs `xixo-link
+describe` there, and posts the description to xixo. xixo makes the plan, approves the request as
+that administrator, and answers at once with the plan, the enrollment token, and the device code.
+The command then installs xixo link on the machine, enrolls it with the token, and starts it. xixo
+never holds an ssh key, and a machine's own token cannot add a machine. See [link a machine over
+SSH](/guides/add-a-machine/#link-a-machine-over-ssh).
+
 xixo link connects to xixo over a WebSocket, with a DPoP-bound masks token that carries `xixo:link`.
 xixo takes the connection only from the client of an active machine in the tenant, and closes it
 when the token expires or the machine is put away. xixo never connects to the machine. On each

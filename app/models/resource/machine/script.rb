@@ -7,17 +7,13 @@ class Resource
         "'#{value.to_s.gsub("'", %q('\\\\''))}'"
       end
 
-      UPDATER = "xixo-link-update".freeze
       LIB = "/usr/local/lib/xixo-link".freeze
       READS = "PDFs, images, audio, video, and office documents".freeze
 
-      def initialize(xixo:, issuer:, builds: Downloads.builds, mac_reader: Downloads.mac_reader,
-                     mac_reader_build: Downloads.mac_reader_build)
+      def initialize(xixo:, issuer:, builds: Downloads.builds)
         @xixo = xixo
         @issuer = issuer
         @builds = builds.select { |build| SYSTEMS.key?(build.os) }
-        @mac_reader = mac_reader
-        @mac_reader_sum = mac_reader_build&.sha256
       end
 
       def to_s
@@ -27,8 +23,6 @@ class Resource
 
           xixo=#{q(@xixo)}
           issuer=#{q(@issuer)}
-          reader=#{q(@mac_reader)}
-          reader_sum=#{q(@mac_reader_sum)}
 
           bold=''
           green=''
@@ -142,7 +136,6 @@ class Resource
             [ "$(id -u)" -eq 0 ] || command -v sudo > /dev/null 2>&1 || fail "this script needs sudo to install xixo link. Install sudo, or run the command as root."
 
             user="$(id -un)"
-            group="$(id -gn)"
 
             if [ "$(id -u)" -eq 0 ] || sudo -n true 2> /dev/null; then
               step "Installing xixo link in #{LIB}, /etc/xixo-link, and /etc/systemd/system."
@@ -151,23 +144,8 @@ class Resource
               sudo -v || fail "sudo did not get your password, so nothing was installed. Run the command again in a terminal, or run it as root."
             fi
 
-            if ! id -u #{UPDATER} > /dev/null 2>&1; then
-              as_root useradd --system --user-group --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin #{UPDATER}
-            fi
-            as_root install -d -m 0755 -o #{UPDATER} -g #{UPDATER} #{LIB}
-            as_root install -m 0755 -o #{UPDATER} -g #{UPDATER} "$work/xixo-link" #{LIB}/xixo-link
-            as_root rm -f #{LIB}/xixo-link.previous
-            as_root ln -sfn #{LIB}/xixo-link /usr/local/bin/xixo-link
-
-            as_root "$work/xixo-link" setup --xixo "$xixo" --issuer "$issuer" "$@"
-            fetch xixo-link.service "$work/xixo-link.service"
-            "$work/xixo-link" unit --template "$work/xixo-link.service" --user "$user" > "$work/unit"
-            as_root install -m 0644 "$work/unit" /etc/systemd/system/xixo-link.service
-            for file in xixo-link-update.service xixo-link-update.path; do
-              fetch "$file" "$work/$file"
-              as_root install -m 0644 "$work/$file" "/etc/systemd/system/$file"
-            done
-            as_root install -d -m 0700 -o "$user" -g "$group" /var/lib/xixo-link
+            as_root "$work/xixo-link" install --xixo "$xixo" --issuer "$issuer" --user "$user" --from "$work/xixo-link" "$@" ||
+              fail "xixo link did not install. Read what it said above, then run the command again."
 
             if [ -r /etc/os-release ] && grep -Eqi '^(ID|ID_LIKE)=.*(debian|ubuntu)' /etc/os-release; then
               if installed #{Downloads::PACKAGES.join(' ')}; then
@@ -201,10 +179,7 @@ class Resource
             else
               step "Starting xixo link."
             fi
-            as_root systemctl daemon-reload
-            as_root systemctl enable --quiet xixo-link
-            as_root systemctl enable --now --quiet xixo-link-update.path
-            as_root systemctl restart xixo-link ||
+            as_root "$work/xixo-link" start ||
               fail "systemd did not start xixo link. See why with: journalctl -u xixo-link -n 50"
             sleep 2
             as_root systemctl is-active --quiet xixo-link ||
@@ -217,7 +192,6 @@ class Resource
           mac() {
             dir="$HOME/Library/Application Support/xixo-link"
             shown="$(printf '%s%s' '~' "${dir#"$HOME"}")"
-            agent="$HOME/Library/LaunchAgents/network.xixo.link.plist"
             service="gui/$(id -u)/network.xixo.link"
             replaced=''
             [ ! -e "$dir/bin/xixo-link" ] || replaced=1
@@ -232,42 +206,8 @@ class Resource
             else
               step "Installing xixo link in $shown."
             fi
-            mkdir -p "$dir/bin" "$HOME/Library/LaunchAgents"
-
-            if [ -n "$reader_sum" ]; then
-              if curl -fsSL -o "$work/xixo-mac-reader" "$xixo/link/download/xixo-mac-reader" &&
-                checked "$reader_sum" "$work/xixo-mac-reader"; then
-                chmod 0755 "$work/xixo-mac-reader"
-              else
-                rm -f "$work/xixo-mac-reader"
-                note "The mac reader did not download, so this Mac reads files with the Homebrew programs it has."
-              fi
-            elif [ -n "$reader" ]; then
-              if curl -fsL --proto =https -o "$work/xixo-mac-reader" "$reader" &&
-                curl -fsL --proto =https -o "$work/xixo-mac-reader.sha256" "$reader.sha256" &&
-                (cd "$work" && shasum -a 256 -c xixo-mac-reader.sha256 > /dev/null 2>&1); then
-                chmod 0755 "$work/xixo-mac-reader"
-              else
-                rm -f "$work/xixo-mac-reader"
-                note "No mac reader came with this release, so this Mac reads files with the Homebrew programs it has."
-              fi
-            fi
-
-            if [ -n "$supervises" ]; then
-              if [ ! -f "$work/xixo-mac-reader" ] && [ -f "$dir/bin/xixo-mac-reader" ]; then
-                cp "$dir/bin/xixo-mac-reader" "$work/xixo-mac-reader"
-              fi
-              "$work/xixo-link" stage --releases "$dir/releases"
-            else
-              rm -rf "$dir/releases"
-              install -m 0755 "$work/xixo-link" "$dir/bin/xixo-link"
-              [ ! -f "$work/xixo-mac-reader" ] || install -m 0755 "$work/xixo-mac-reader" "$dir/bin/xixo-mac-reader"
-            fi
-
-            "$work/xixo-link" setup --xixo "$xixo" --issuer "$issuer" "$@"
-            curl -fsSL -o "$work/plist" "$xixo/link/download/xixo-link.plist" ||
-              fail "the launch agent did not download from $xixo. Check that this machine can reach xixo, then run the command again."
-            sed "s|@HOME@|$HOME|g" "$work/plist" > "$work/agent"
+            "$work/xixo-link" install --xixo "$xixo" --issuer "$issuer" --from "$work/xixo-link" "$@" ||
+              fail "xixo link did not install. Read what it said above, then run the command again."
 
             if [ -n "$linked" ]; then
               step "Checking the link with xixo."
@@ -281,20 +221,8 @@ class Resource
             else
               step "Starting xixo link."
             fi
-            launchctl bootout "$service" 2> /dev/null || true
-            tries=0
-            while launchctl print "$service" > /dev/null 2>&1 && [ "$tries" -lt 20 ]; do
-              sleep 0.5
-              tries=$((tries + 1))
-            done
-            install -m 0644 "$work/agent" "$agent"
-            tries=0
-            until launchctl bootstrap "gui/$(id -u)" "$agent" 2> /dev/null; do
-              tries=$((tries + 1))
-              [ "$tries" -lt 10 ] || fail "macOS did not load the xixo link service. Run the command again."
-              sleep 1
-            done
-            launchctl kickstart "$service"
+            "$work/xixo-link" start ||
+              fail "macOS did not load the xixo link service. Run the command again."
 
             done_line "$dir/state/registration.json"
             "$work/xixo-link" status || true

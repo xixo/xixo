@@ -62,25 +62,20 @@ class LinkingTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "enroll-"
   end
 
-  test "the script installs a binary only the updater may replace, and the units that update it" do
+  test "the script hands the install to xixo link itself, as root on Linux, and starts it the same way" do
     get "/link.sh", headers: { "HOST" => host }
 
-    assert_includes response.body, "useradd --system --user-group --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin xixo-link-update"
-    assert_includes response.body, "install -m 0755 -o xixo-link-update -g xixo-link-update \"$work/xixo-link\" /usr/local/lib/xixo-link/xixo-link"
-    assert_includes response.body, "ln -sfn /usr/local/lib/xixo-link/xixo-link /usr/local/bin/xixo-link"
-    assert_includes response.body, 'as_root "$work/xixo-link" setup'
-    assert_not_includes response.body, "/usr/local/bin/xixo-link setup"
-    assert_includes response.body, "systemctl enable --now --quiet xixo-link-update.path"
-    assert_includes response.body, 'rm -rf "$dir/releases"'
-    assert_includes response.body, "reader_sum=''"
+    assert_includes response.body, 'as_root "$work/xixo-link" install --xixo "$xixo" --issuer "$issuer" --user "$user" --from "$work/xixo-link" "$@"'
+    assert_includes response.body, 'as_root "$work/xixo-link" start'
+    assert_includes response.body, '"$work/xixo-link" install --xixo "$xixo" --issuer "$issuer" --from "$work/xixo-link" "$@"'
+    assert_not_includes response.body, "useradd"
+    assert_not_includes response.body, "systemctl enable"
+    assert_not_includes response.body, "launchctl bootstrap"
   end
 
-  test "a mac reader xixo holds is served from xixo with its checksum in the script" do
+  test "a mac reader xixo holds is served from xixo" do
     FileUtils.mkdir_p(File.join(@binaries, "mac"))
     File.binwrite(File.join(@binaries, "mac", "xixo-mac-reader"), "mac reader")
-
-    get "/link.sh", headers: { "HOST" => host }
-    assert_includes response.body, "reader_sum='#{Digest::SHA256.hexdigest('mac reader')}'"
 
     get "/link/download/xixo-mac-reader", headers: { "HOST" => host }
     assert_response :ok
@@ -88,10 +83,9 @@ class LinkingTest < ActionDispatch::IntegrationTest
   end
 
   test "the script quotes what it is given so a value cannot break out" do
-    script = Resource::Machine::Script.new(xixo: "https://x.example/'; rm -rf ~; '", issuer: "https://id.example", builds: [], mac_reader: nil).to_s
+    script = Resource::Machine::Script.new(xixo: "https://x.example/'; rm -rf ~; '", issuer: "https://id.example", builds: []).to_s
 
     assert_includes script, %(xixo='https://x.example/'\\''; rm -rf ~; '\\'''\n)
-    assert_includes script, "reader=''\n"
     assert_includes script, '*) fail "this xixo has no xixo link for $system on $arch. Ask the administrator of xixo to add that build." ;;'
   end
 
@@ -121,7 +115,7 @@ class LinkingTest < ActionDispatch::IntegrationTest
     get "/link.sh", headers: { "HOST" => host }
 
     assert_includes response.body, %("$dir/bin/xixo-link" run -h 2>&1 | grep -q -- '-supervised')
-    assert_includes response.body, '"$work/xixo-link" stage --releases "$dir/releases"'
+    assert_includes response.body, 'step "Installing xixo link $version in $shown as an update."'
     assert_includes response.body, "Full Disk Access stays as it was"
     assert_includes response.body, 'say "     $shown/bin/xixo-link"'
   end

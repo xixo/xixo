@@ -212,6 +212,41 @@ busy, or out of reach is tried three times, and then the file waits for the next
 minutes later. After twelve such waits the pass fails and says why. A model the server does not
 have, or a request it refuses, fails at once.
 
+## Link a machine over SSH
+
+After the first machine, link the rest from your own computer. Nothing needs approving, since
+you are signed in, and the machine never shows a code.
+
+1. Install xixo link on your computer with the link-up command, or download the build for it from
+   `https://xixo.example.com/link/download/xixo-link-darwin-arm64` and put it on your `PATH`.
+2. Sign in once:
+
+   ```sh
+   xixo-link login --xixo https://xixo.example.com
+   ```
+
+   It prints a link and a code. Open the link, check the code, and approve. The sign-in is kept
+   in `~/.config/xixo-link/logins.json`, and masks lists it where you can revoke it.
+
+3. Link up each machine, as `ssh` knows it, with the folders it shares:
+
+   ```sh
+   xixo-link add media ~/Documents ~/Desktop-Backup:rw
+   xixo-link add old-mbp old-linux-1 old-linux-2
+   ```
+
+   The command copies xixo link over your own `ssh`, reads what the machine is, adds it to xixo
+   under your name, and prints the plan. On Linux, `sudo` on the machine asks for its password.
+   Then it enrolls the machine and starts xixo link. Pass `--off models` to leave a line of the
+   plan off, and `--user NAME` when the folders belong to another account on the machine.
+
+4. The machine's card fills in on **Resources** once it connects. Anything you want off, switch
+   off there.
+
+Running `xixo-link add` on a machine that is already linked installs the new build and keeps its
+identity. `xixo-link remove media` uninstalls xixo link there and puts the machine away. See
+[linking over ssh](https://github.com/xixo/xixo/tree/main/link#linking-over-ssh) for each step.
+
 ## Find machines on a tailnet
 
 When xixo reaches a [tailnet](/guides/tailnet/), **Not linked yet** under the machine cards lists
