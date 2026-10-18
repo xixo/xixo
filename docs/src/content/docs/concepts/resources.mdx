@@ -158,13 +158,11 @@ Drive exports it to, so the analyzers read it like any other file.
 ## Reaching through another resource
 
 A resource can be reached through a transport, set as **Reached through** in the app or `via` in
-GraphQL and `config/resources.yml`. Two types are transports:
-
-- A `tailnet` reaches the addresses on a Tailscale network. See [reach a tailnet](/guides/tailnet/).
-- A `machine` reaches its shared folders as `filesystem` resources, and a model server on it as an
-  `openai-compatible` resource at `127.0.0.1`. xixo link passes on only a model server's own
-  requests, such as chat and embeddings, to a port where it found a model server, and only while the
-  machine offers its models. It carries no audio, so it cannot transcribe.
+GraphQL and `config/resources.yml`. A `machine` is a transport. It reaches its shared folders as
+`filesystem` resources, and a model server on it as an `openai-compatible` resource at `127.0.0.1`.
+xixo link passes on only a model server's own requests, such as chat and embeddings, to a port
+where it found a model server, and only while the machine's plan runs models. It carries no audio,
+so it cannot transcribe.
 
 A resource reached through a transport connects only to addresses the transport covers. The address
 check runs as usual, with the transport's ranges in place of the public internet, so a public
@@ -178,9 +176,9 @@ transport cannot be put away or deleted while another resource is reached throug
 
 ### A machine that is offline
 
-Before a check or a sync dials a resource reached through a tailnet, xixo asks Tailscale whether
-the machine at that address is online. When it is offline, xixo dials nothing. The app shows the
-resource as **offline**, with when the machine was last seen.
+Before a check or a sync reaches a resource through a machine, xixo asks whether the machine is
+connected. When it is offline, xixo dials nothing. The app shows the resource as **offline**, with
+when the machine was last seen.
 
 - A sync that finds the machine offline fails once without retrying, and no sync is scheduled while
   it stays offline.
@@ -189,17 +187,14 @@ resource as **offline**, with when the machine was last seen.
 - Inference passes over a model server that is offline, the same way it passes over one that failed
   its check.
 
-A resource reached directly is never offline, and neither is one whose host the tailnet does not
-list. Each fails its check with the error the connection raised.
+A resource reached directly is never offline. It fails its check with the error the connection
+raised.
 
 ### What a transport reaches
 
-The `discovered` query, and the `resource` tool's `discover` command, list the machines a transport
-reaches. For a tailnet these are its peers, online ones first, each with its names, its addresses on
-the tailnet, and when it was last seen. xixo reads nothing else from Tailscale, so a peer's keys,
-owner, tags, and operating system stay on the server. Asking for `services` also tries well-known
-ports on each online machine, such as Ollama's, LM Studio's, and IMAP's, and lists each one that
-answers with the type and address to attach it with. Discovery changes nothing.
+The `discovered` query, and the `resource` tool's `discover` command, list what a transport
+reaches. For a machine these are the folders it shares, each with the type and address to attach it
+with, and whether the machine is connected. Discovery changes nothing.
 
 ## Machines and xixo link
 

@@ -1,7 +1,9 @@
 require "test_helper"
+require_relative "../support/machines"
 
 class McpAttachTest < ActionDispatch::IntegrationTest
   include McpClient
+  include Machines
 
   COMMAND = %w[xixo:resources:read xixo:resources:command].freeze
   ADMIN = (COMMAND + %w[xixo:settings:admin]).freeze
@@ -11,7 +13,7 @@ class McpAttachTest < ActionDispatch::IntegrationTest
 
     @tenant = Tenant.create!(subdomain: "attach-mcp-#{SecureRandom.hex(4)}", name: "Attaching")
 
-    Tenant.switch(@tenant) { Resource::Tailnet.create!(key: "tailnet", name: "Tailnet") }
+    @machine = machine_on(@tenant, key: "studio", folders: [ "/srv/media" ], connected: false)
   end
 
   teardown do
@@ -21,7 +23,7 @@ class McpAttachTest < ActionDispatch::IntegrationTest
   test "types lists what can be attached, with every credential marked and none of their values" do
     listed = tool(@tenant, %w[xixo:resources:read], "resource", do: "types")
 
-    assert_equal [ "tailnet" ], listed["transports"]
+    assert_equal [ "studio" ], listed["transports"]
 
     bucket = listed["types"].find { |held| held["type"] == "s3" }
     secret = bucket["fields"].find { |field| field["name"] == "secret_access_key" }
@@ -29,25 +31,24 @@ class McpAttachTest < ActionDispatch::IntegrationTest
     assert bucket["routable"]
     assert secret["credential"]
     assert_not secret.key?("value")
-    refute_includes listed["types"].map { |held| held["type"] }, "tailnet"
   end
 
-  test "a type with no credential is attached through a transport, and checked" do
-    attached = tool(@tenant, ADMIN, "resource", do: "attach", key: "ollama-mac", input: {
-      type: "openai-compatible", via: "tailnet",
-      settings: { base_url: "http://100.64.0.1:11434/v1", "models.fast": "gemma3:4b" }
+  test "a type with no credential is attached through a machine, and checked" do
+    attached = tool(@tenant, ADMIN, "resource", do: "attach", key: "ollama-studio", input: {
+      type: "openai-compatible", via: "studio",
+      settings: { base_url: "http://127.0.0.1:11434/v1", "models.fast": "gemma3:4b" }
     })
 
-    assert_equal "ollama-mac", attached["key"]
-    assert_equal "tailnet", attached["via"]
+    assert_equal "ollama-studio", attached["key"]
+    assert_equal "studio", attached["via"]
     assert_equal false, attached["healthy"]
-    assert_match(/reached through tailnet, which is down/, attached["error"])
+    assert_match(/studio is offline on studio/, attached["offline"])
 
     Tenant.switch(@tenant) do
-      held = Resource.find_by!(key: "ollama-mac")
+      held = Resource.find_by!(key: "ollama-studio")
 
-      assert_equal "http://100.64.0.1:11434/v1", held.details["base_url"]
-      assert_equal "tailnet", held.via.key
+      assert_equal "http://127.0.0.1:11434/v1", held.details["base_url"]
+      assert_equal "studio", held.via.key
     end
   end
 

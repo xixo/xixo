@@ -84,8 +84,8 @@ An operator opens private addresses by service:
 | `XIXO_INFERENCE_ORIGINS` | Every model server a tenant may use, public ones included. A model server not listed is refused. |
 | `XIXO_ALLOW_PRIVATE_FETCH` | Lifts the range check for every address except search APIs and model servers. It does not allow another scheme. |
 
-A resource reached through a transport, such as a tailnet, connects only to addresses the transport
-covers, and none of these settings widen that. See
+A resource reached through a machine running xixo link connects only to the machine's own
+loopback address, and none of these settings widen that. See
 [reaching through another resource](/concepts/resources/#reaching-through-another-resource) and
 [outbound connections](/reference/environment/#outbound-connections).
 

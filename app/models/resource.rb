@@ -35,6 +35,7 @@ class Resource < ApplicationRecord
   INTERNAL_MARK = "internal".freeze
   ADDRESSED_BY = %w[url endpoint base_url host].freeze
   NOBODY = "xixo:nobody".freeze
+  HOST = /\A[a-z0-9][a-z0-9-]{0,62}(?:\.[a-z0-9][a-z0-9-]{0,62})*\z/
   OPERATED = <<~SQL.squish.freeze
     resources.via_id IN (
       SELECT operated.id FROM resources operated
@@ -44,7 +45,7 @@ class Resource < ApplicationRecord
 
   TYPES = %w[
     s3 filesystem webdav caldav carddav imap rss web openai-compatible oauth-google database
-    search curl mcp github notion slack microsoft-graph git weather places tailnet feedback machine
+    search curl mcp github notion slack microsoft-graph git weather places feedback machine
   ].freeze
 
   validates :key, presence: true,
@@ -267,7 +268,7 @@ class Resource < ApplicationRecord
     def declarations
       held = DECLARATIONS.exist? ? YAML.safe_load(ERB.new(DECLARATIONS.read).result, aliases: true).to_h : {}
 
-      Tailnet.declared.merge(held[Rails.env].to_h)
+      held[Rails.env].to_h
     end
 
     # Reconciles what the deployment declares, never what somebody attached — a
@@ -432,9 +433,18 @@ class Resource < ApplicationRecord
     held = field && details.to_h[field].to_s.strip
     return if held.blank?
 
-    Tailnet::Node.normalized(held.include?("://") ? URI.parse(held).host : held.split("/").first)
+    normalized_host(held.include?("://") ? URI.parse(held).host : held.split("/").first)
   rescue URI::InvalidURIError
     nil
+  end
+
+  def normalized_host(host)
+    held = host.to_s.strip.downcase.delete_prefix("[").delete_suffix("]").chomp(".")
+    return if held.empty? || held.bytesize > 253
+
+    IPAddr.new(held).to_s
+  rescue IPAddr::Error
+    held if held.match?(HOST)
   end
 
   def offline?

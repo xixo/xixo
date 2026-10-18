@@ -114,8 +114,7 @@ and a URL matches when all three match. See
 | `XIXO_S3_ORIGINS` | none | S3 endpoints an `s3` resource may reach at a private address, such as a MinIO container. |
 | `XIXO_MCP_ORIGINS` | none | MCP servers an `mcp` resource may reach at a private address. |
 | `XIXO_SEARCH_ORIGINS` | none | Search endpoints a `search` resource may reach at a private address, such as a self-hosted SearXNG. `XIXO_ALLOW_PRIVATE_FETCH` does not apply to `search` resources. |
-| `XIXO_INFERENCE_ORIGINS` | none | Every origin an `openai-compatible` resource may reach, public or private, such as `https://api.openai.com,http://ollama:11434`. A resource whose base URL is outside the list is unusable, and with the list empty every one is, unless it is reached through a machine or a tailnet. |
-| `XIXO_TAILSCALE_SOCKET` | none | The socket of a tailscaled that xixo shares a network with, such as `/var/run/tailscale/tailscaled.sock`. Set, xixo declares a `tailnet` resource in every tenant beside those in `config/resources.yml`, and resources reached through it may connect to addresses on the tailnet. See [reach a tailnet](/guides/tailnet/). |
+| `XIXO_INFERENCE_ORIGINS` | none | Every origin an `openai-compatible` resource may reach, public or private, such as `https://api.openai.com,http://ollama:11434`. A resource whose base URL is outside the list is unusable, and with the list empty every one is, unless it is reached through a machine running xixo link. |
 | `XIXO_ALLOW_PRIVATE_FETCH` | `false` | Lifts the address check for downloads, snapshots, and every resource that fetches URLs. The scheme check stays. |
 | `XIXO_GIT_PROTOCOLS` | `https` | The transports `git` resources may use, separated by commas, such as `https,ssh`. xixo passes the list to git as `GIT_ALLOW_PROTOCOL`. Only `http` and `https` URLs go through the address check. |
 

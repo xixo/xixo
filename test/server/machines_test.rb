@@ -107,18 +107,17 @@ class MachinesTest < ActionDispatch::IntegrationTest
     held = Tenant.switch(@tenant) do
       box.update_columns(details: box.details.deep_merge("machine" => { "services" => [ { "kind" => "ollama", "port" => 11434 } ] }))
       local = Resource::Machine.local!
-      tailnet = Resource::Tailnet.create!(key: "home", name: "home")
       Resource::Filesystem.create!(key: "media", via: box, details: { "folder" => "/srv/media" })
-      Resource::OpenaiCompatible.create!(key: "ollama-box", via: tailnet, details: { "base_url" => "http://100.64.0.9:11434/v1" })
-      Resource::OpenaiCompatible.create!(key: "elsewhere", via: tailnet, details: { "base_url" => "http://100.64.0.77:11434/v1" })
+      Resource::OpenaiCompatible.create!(key: "ollama-box", via: box, details: { "base_url" => "http://127.0.0.1:11434/v1" })
+      Resource::OpenaiCompatible.create!(key: "elsewhere", details: { "base_url" => "http://192.0.2.77:11434/v1" })
       { box: box.id.to_s, local: local.id.to_s }
     end
 
     body = graphql(Grant::SCOPES, "{ resources { key machineId machine { services { kind port } } } }")
     on = body.dig("data", "resources").to_h { |resource| [ resource["key"], resource["machineId"] ] }
 
-    assert_equal({ "box" => nil, "local" => nil, "media" => held[:box], "ollama-box" => held[:local],
-                   "elsewhere" => held[:local], "home" => held[:local] }, on.slice("box", "local", "media", "ollama-box", "elsewhere", "home"))
+    assert_equal({ "box" => nil, "local" => nil, "media" => held[:box], "ollama-box" => held[:box],
+                   "elsewhere" => held[:local] }, on.slice("box", "local", "media", "ollama-box", "elsewhere"))
     assert_equal [ { "kind" => "ollama", "port" => 11434 } ],
                  body.dig("data", "resources").find { |resource| resource["key"] == "box" }.dig("machine", "services")
   end

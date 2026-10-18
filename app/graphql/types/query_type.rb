@@ -115,8 +115,8 @@ module Types
 
     field :discovered, [ Types::DiscoveredNodeType ], null: false, grants: "xixo:resources:read",
           extras: [ :lookahead ],
-          description: "What a transport reaches, offered as resources to attach. Asking for services " \
-                       "also knocks on a few well-known ports of each machine that is online." do
+          description: "What a transport reaches, offered as resources to attach: the folders a machine running " \
+                       "xixo link shares." do
       argument :via, String, required: true, description: "The key of the transport."
     end
 
@@ -158,16 +158,6 @@ module Types
       return nil unless context[:grant].administers?
 
       LinkRequest.by_code(code)
-    end
-
-    field :unlinked_machines, [ Types::DiscoveredNodeType ], null: false, grants: "xixo:resources:read",
-          description: "The machines a tailnet reaches that are not linked up, each with the model servers that " \
-                       "answered on it. Empty for anyone but an administrator."
-
-    def unlinked_machines
-      return [] unless context[:grant].administers?
-
-      Resource::Machine.unlinked_peers(context[:grant])
     end
 
     field :resource_types, [ Types::AttachingType ], null: false, grants: "xixo:resources:read",

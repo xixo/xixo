@@ -20,7 +20,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | `analyses`<br />`feedId: ID`<br />`status: String`<br />`after: ID`<br />`limit: Int` | [`AnalysisPage!`](#analysispage) | `xixo:catalog:read` |  |
 | `analysis`<br />`id: ID!` | [`Analysis`](#analysis) | `xixo:catalog:read` |  |
 | `auditEvents`<br />`status: String`<br />`actor: String`<br />`feed: ID`<br />`after: ID`<br />`limit: Int` | [`AuditEventPage!`](#auditeventpage) | `xixo:catalog:read` |  |
-| `discovered`<br />`via: String!` | [`[DiscoveredNode!]!`](#discoverednode) | `xixo:resources:read` | What a transport reaches, offered as resources to attach. Asking for services also knocks on a few well-known ports of each machine that is online. |
+| `discovered`<br />`via: String!` | [`[DiscoveredNode!]!`](#discoverednode) | `xixo:resources:read` | What a transport reaches, offered as resources to attach: the folders a machine running xixo link shares. |
 | `feed`<br />`id: ID`<br />`key: String` | [`Feed`](#feed) | `xixo:catalog:read` |  |
 | `feeds`<br />`type: String`<br />`types: [String!]`<br />`mime: String`<br />`resourceId: ID`<br />`tag: String`<br />`connectedTo: ID`<br />`topLevel: Boolean`<br />`after: ID`<br />`limit: Int` | [`FeedPage!`](#feedpage) | `xixo:catalog:read` |  |
 | `linkRequest`<br />`code: String!` | [`LinkRequest`](#linkrequest) | `xixo:resources:read` | The machine asking to link up with the code it shows. Empty for anyone but an administrator. |
@@ -35,7 +35,6 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | `setup` | [`Setup!`](#setup) | `xixo:resources:read` | What a new install still needs: storage, a model server, and an MCP client. |
 | `tenant` | [`Tenant`](#tenant) | `xixo:catalog:read` |  |
 | `types` | [`[TypeCount!]!`](#typecount) | `xixo:catalog:read` |  |
-| `unlinkedMachines` | [`[DiscoveredNode!]!`](#discoverednode) | `xixo:resources:read` | The machines a tailnet reaches that are not linked up, each with the model servers that answered on it. Empty for anyone but an administrator. |
 | `waitingForMachines` | [`[WaitingFiles!]!`](#waitingfiles) | `xixo:resources:read` | Files from no machine in particular, or from one that lends them, whose reading waits for a connected machine that reads for others and has their program, by kind. |
 
 ## Mutations
@@ -207,7 +206,7 @@ What one type of resource needs before it can answer. Resolves only for a token 
 | `fields` | [`[AttachingField!]!`](#attachingfield) |  |
 | `label` | `String!` |  |
 | `names` | `String!` | What the key means for this type. |
-| `routable` | `Boolean!` | Whether it can be reached through a transport, such as a tailnet. |
+| `routable` | `Boolean!` | Whether it can be reached through a transport, such as a machine running xixo link. |
 | `syncs` | `Boolean!` |  |
 | `type` | `String!` |  |
 
@@ -361,16 +360,16 @@ Resolves only for a token carrying `xixo:catalog:read`.
 
 ### DiscoveredNode
 
-A machine a transport reaches, as its network names it. Nothing else the network knows about it, such as its keys, its owner, or its operating system, is read back. Resolves only for a token carrying `xixo:resources:read`.
+What a transport reaches, as it names it. For a machine running xixo link, each folder it shares. Resolves only for a token carrying `xixo:resources:read`.
 
 | Field | Type | Description |
 | --- | --- | --- |
 | `address`<br />`type: String!` | `String` | What the address field of a type would hold to reach it. Empty for a type that cannot be reached through a transport. |
-| `addresses` | `[String!]!` | Its addresses on the network, IPv4 first. |
-| `dnsName` | `String` | Its full name on the network, when the network names it. |
+| `addresses` | `[String!]!` | Its addresses, IPv4 first. Empty for a folder. |
+| `dnsName` | `String` | Its full name, when the transport names one. |
 | `hostName` | `String` | The name the machine gives itself. |
 | `lastSeenAt` | `ISO8601DateTime` | When the network last saw it, for a machine that is offline. |
-| `online` | `Boolean!` | Whether the network sees it now. |
+| `online` | `Boolean!` | Whether the transport reaches it now. |
 | `services` | [`[DiscoveredService!]!`](#discoveredservice) | The well-known ports that answered when the machine was asked. Empty for a machine that is offline, or when the ports were not asked. |
 | `via` | `String` | The key of the transport that reaches it. |
 
@@ -705,7 +704,7 @@ Resolves only for a token carrying `xixo:resources:read`.
 | `itemsCount` | `Int!` |  |
 | `key` | `String!` |  |
 | `machine` | [`Machine`](#machine) | What xixo link on the machine last said, for a machine running xixo link. Empty for every other type. |
-| `machineId` | `ID` | The machine it lives on or is reached through. A folder names the machine running xixo link that shares it. One reached over a tailnet names the linked machine at the address it dials, when one is. Everything else names this server, the machine xixo runs on. Empty for a machine, and for anything when this server has no machine yet. |
+| `machineId` | `ID` | The machine it lives on or is reached through. A folder names the machine running xixo link that shares it, and a model server names the machine it is reached through. Everything else names this server, the machine xixo runs on. Empty for a machine, and for anything when this server has no machine yet. |
 | `manageable` | `Boolean!` | Whether this token changes it, puts it away, or deletes it. A person manages their own personal resources, and an administrator also manages every shared one. |
 | `movable` | `Boolean!` | Whether files move in and out of it: a folder that a machine running xixo link shares writable. The link-up command shares a folder writable when it is named with :rw. |
 | `name` | `String` |  |
@@ -715,7 +714,7 @@ Resolves only for a token carrying `xixo:resources:read`.
 | `offlineHost` | `String` | The name of the machine that is offline. |
 | `offlineLastSeenAt` | `ISO8601DateTime` | When the transport last saw the machine that is offline. Empty for one it has never seen. |
 | `personal` | `Boolean!` | Whether only the person who attached it can see and use it. |
-| `routable` | `Boolean!` | Whether it can be reached through a transport, such as a tailnet. |
+| `routable` | `Boolean!` | Whether it can be reached through a transport, such as a machine running xixo link. |
 | `settings` | `JSON!` | What each field the type declares holds, for the fields kept in the clear. Nothing held encrypted is ever read back. |
 | `sight` | `String` | For a model backend, which of its models describes images, or why none does and which model to set. Empty for every other type. |
 | `syncInterval` | `Int` |  |
@@ -1055,7 +1054,7 @@ Autogenerated input type of AttachResource
 | `personal` | `Boolean` | Only whoever attaches it can see and use it. Left off, everyone here can. |
 | `settings` | `JSON` | One entry per field the type declares. Anything else is dropped. |
 | `type` | `String!` |  |
-| `via` | `String` | The key of a transport to reach it through, such as a tailnet. Left off, it is reached directly. |
+| `via` | `String` | The key of a transport to reach it through, such as a machine running xixo link. Left off, it is reached directly. |
 
 ### CancelAnalysisInput
 

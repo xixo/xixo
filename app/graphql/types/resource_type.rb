@@ -61,15 +61,15 @@ module Types
     field :via, String,
           description: "The key of the transport it is reached through. Empty for a resource reached directly."
     field :routable, Boolean, null: false,
-          description: "Whether it can be reached through a transport, such as a tailnet."
+          description: "Whether it can be reached through a transport, such as a machine running xixo link."
     field :machine, Types::MachineType,
           description: "What xixo link on the machine last said, for a machine running xixo link. Empty for " \
                        "every other type."
     field :machine_id, ID,
           description: "The machine it lives on or is reached through. A folder names the machine running xixo " \
-                       "link that shares it. One reached over a tailnet names the linked machine at the address it " \
-                       "dials, when one is. Everything else names this server, the machine xixo runs on. Empty for " \
-                       "a machine, and for anything when this server has no machine yet."
+                       "link that shares it, and a model server names the machine it is reached through. Everything " \
+                       "else names this server, the machine xixo runs on. Empty for a machine, and for anything " \
+                       "when this server has no machine yet."
     field :sight, String,
           description: "For a model backend, which of its models describes images, or why none does and " \
                        "which model to set. Empty for every other type."

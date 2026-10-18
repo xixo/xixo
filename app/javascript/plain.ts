@@ -26,7 +26,6 @@ const DOES: Record<string, string> = {
   'oauth-google': 'Your Google Drive',
   'microsoft-graph': 'Your OneDrive',
   'openai-compatible': 'A model server',
-  tailnet: 'A private network to your machines',
   imap: 'Your email',
   caldav: 'Your calendars',
   carddav: 'Your contacts',

@@ -403,8 +403,7 @@ services on your own network, separated by commas:
 | `XIXO_INFERENCE_ORIGINS` | Every model server, public or private, such as `https://api.openai.com,http://ollama:11434` |
 
 A model server whose origin is not in `XIXO_INFERENCE_ORIGINS` is unusable, unless xixo reaches it
-through a machine or a tailnet. A service on a Tailscale or Headscale network is reached through a
-`tailnet` resource. See [reach a tailnet](/guides/tailnet/) and [security](/concepts/security/).
+through a machine running xixo link. See [security](/concepts/security/).
 
 ## Transcription
 
@@ -429,8 +428,8 @@ each recording is analyzed without a transcript. Any server that answers OpenAI'
 
 3. Attach an `openai-compatible` resource with the base URL `http://<host>:11435/v1`. Give it any
    name as its **Transcription model**, because whisper.cpp answers with the model it started with.
-4. Add the origin to `XIXO_INFERENCE_ORIGINS`, or reach the server through a machine or a
-   [tailnet](/guides/tailnet/).
+4. Add the origin to `XIXO_INFERENCE_ORIGINS`, or reach the server through a machine running
+   xixo link.
 
 ## The worker
 

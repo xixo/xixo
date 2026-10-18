@@ -36,10 +36,9 @@ class QueryCountTest < ActiveSupport::TestCase
       grant = Grant.new(tenant: tenant, claims: Masks::Client::Claims.new("sub" => "ada", "scope" => Grant::SCOPES.join(" ")))
 
       Tenant.switch(tenant) do
-        tailnet = Resource::Tailnet.create!(key: "home")
-        Resource::Machine.local!
+        local = Resource::Machine.local!
         rows.times do |index|
-          Resource::OpenaiCompatible.create!(key: "ollama-#{index}", via: tailnet, details: { "base_url" => "http://100.64.0.#{index + 2}:11434/v1" })
+          Resource::OpenaiCompatible.create!(key: "ollama-#{index}", via: local, details: { "base_url" => "http://127.0.0.1:#{11_434 + index}/v1" })
         end
       end
 

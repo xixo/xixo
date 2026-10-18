@@ -237,21 +237,6 @@ mutation SetMachineUpdates($id: ID!, $automatic: Boolean!) {
   }
 }
 
-query UnlinkedMachines {
-  unlinkedMachines {
-    hostName
-    dnsName
-    addresses
-    via
-    services {
-      name
-      port
-      type
-      address
-    }
-  }
-}
-
 subscription MachineChanged($id: ID) {
   machineChanged(id: $id) {
     resource {

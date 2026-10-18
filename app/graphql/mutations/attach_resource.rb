@@ -10,7 +10,7 @@ module Mutations
     argument :personal, Boolean, required: false,
              description: "Only whoever attaches it can see and use it. Left off, everyone here can."
     argument :via, String, required: false,
-             description: "The key of a transport to reach it through, such as a tailnet. Left off, it is reached directly."
+             description: "The key of a transport to reach it through, such as a machine running xixo link. Left off, it is reached directly."
 
     field :resource, Types::ResourceType, null: false
     field :check_error, String, description: "What the first check said, if it did not pass."

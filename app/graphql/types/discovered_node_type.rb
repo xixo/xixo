@@ -4,13 +4,12 @@ module Types
   class DiscoveredNodeType < Types::BaseObject
     grants "xixo:resources:read"
 
-    description "A machine a transport reaches, as its network names it. Nothing else the network " \
-                "knows about it, such as its keys, its owner, or its operating system, is read back."
+    description "What a transport reaches, as it names it. For a machine running xixo link, each folder it shares."
 
     field :host_name, String, description: "The name the machine gives itself."
-    field :dns_name, String, description: "Its full name on the network, when the network names it."
-    field :addresses, [ String ], null: false, description: "Its addresses on the network, IPv4 first."
-    field :online, Boolean, null: false, description: "Whether the network sees it now."
+    field :dns_name, String, description: "Its full name, when the transport names one."
+    field :addresses, [ String ], null: false, description: "Its addresses, IPv4 first. Empty for a folder."
+    field :online, Boolean, null: false, description: "Whether the transport reaches it now."
     field :last_seen_at, GraphQL::Types::ISO8601DateTime,
           description: "When the network last saw it, for a machine that is offline.", hash_key: "last_seen"
     field :via, String, description: "The key of the transport that reaches it.", hash_key: "via"
