@@ -320,12 +320,35 @@ class Resource < ApplicationRecord
     end
 
     def restate!
+      forget_removed!
+
       unscoped.in_batches.each_record do |resource|
         held = resource.served
         next if resource.serving == held
 
         resource.update_columns(serving: held)
       end
+    end
+
+    def forget_removed!
+      removed = unscoped.distinct.pluck(:type).compact.reject { |type| known_type?(type) }
+      return removed if removed.empty?
+
+      gone = unscoped.where(type: removed)
+      unscoped.where(via_id: gone.select(:id)).update_all(via_id: nil, archived_at: Time.current, updated_at: Time.current)
+      Reference.where(resource_id: gone.select(:id)).delete_all
+      ResourceBlob.where(resource_id: gone.select(:id)).delete_all
+      Run.where(resource_id: gone.select(:id)).delete_all
+      gone.delete_all
+
+      removed
+    end
+
+    def known_type?(type)
+      find_sti_class(type)
+      true
+    rescue NameError, ActiveRecord::SubclassNotFound
+      false
     end
 
     def browser(grant)

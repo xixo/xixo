@@ -118,6 +118,24 @@ class ResourceServingTest < ActiveSupport::TestCase
     end
   end
 
+  test "restate! forgets rows whose type xixo no longer has, and puts away what was reached through them" do
+    Tenant.switch(@tenant) do
+      bucket = s3
+      Resource.where(id: bucket.id).update_all(type: "tailnet")
+      Run.create!(kind: "sync", resource_id: bucket.id, status: "done")
+      reached = Resource::Rss.create!(key: "feed", details: { "url" => "https://example.test/feed.xml" })
+      Resource.where(id: reached.id).update_all(via_id: bucket.id)
+
+      Resource.restate!
+
+      assert_nil Resource.unscoped.find_by(id: bucket.id)
+      assert_empty Run.where(resource_id: bucket.id)
+      reached.reload
+      assert_nil reached.via_id
+      assert reached.archived_at.present?
+    end
+  end
+
   test "restate! outside a tenant reaches no row, so boot restates inside each one" do
     bucket = Tenant.switch(@tenant) { s3.tap { |held| held.update_columns(serving: {}) } }
 
