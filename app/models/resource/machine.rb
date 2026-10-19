@@ -186,7 +186,12 @@ class Resource
     end
 
     def about
-      machine["details"].presence || details["about"].to_h
+      said = machine["details"].to_h
+      approved = details["about"].to_h
+      return approved if said.blank?
+      return said unless said.key?("gpus")
+
+      said.merge("gpus" => Description.remembered(said["gpus"], approved["gpus"]))
     end
 
     def plan

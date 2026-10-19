@@ -45,6 +45,15 @@ class Resource
         end
       end
 
+      def remembered(now, before)
+        Array(now).map do |gpu|
+          next gpu if gpu["memory"].to_i.positive?
+
+          known = Array(before).find { |held| held["maker"] == gpu["maker"] && held["model"] == gpu["model"] && held["memory"].to_i.positive? }
+          known ? gpu.merge("memory" => known["memory"]) : gpu
+        end
+      end
+
       def disks(said, folders)
         Hello.listed(said).first(MOST_DISKS).filter_map do |disk|
           next unless disk.is_a?(Hash)

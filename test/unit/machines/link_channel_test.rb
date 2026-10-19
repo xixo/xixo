@@ -274,6 +274,24 @@ class LinkChannelTest < ActionCable::Channel::TestCase
     Tenant.switch(@tenant) { assert_equal 1, Resource::OpenaiCompatible.where(via_id: @machine.id).count }
   end
 
+  test "hello keeps the GPU memory xixo learned when it approved the machine, since the service cannot measure it" do
+    connected
+    gpu = { "maker" => "NVIDIA", "model" => "NVIDIA GeForce GTX 1070", "memory" => 8_589_934_592, "driver" => "580.178.04" }
+    Tenant.switch(@tenant) { @machine.update!(details: @machine.details.merge("about" => { "gpus" => [ gpu ] })) }
+
+    perform :hello, HELLO.merge("details" => { "readers" => %w[pdf], "gpus" => [ gpu.merge("memory" => 0) ], "services" => [] })
+
+    Tenant.switch(@tenant) do
+      assert_equal 8_589_934_592, fresh.about["gpus"].first["memory"]
+      assert_equal "Run models on its NVIDIA GeForce GTX 1070, 8 GB.", fresh.plan.last.says
+      assert fresh.plan.last.on
+    end
+
+    perform :hello, HELLO.merge("details" => { "readers" => %w[pdf], "gpus" => [ gpu.merge("model" => "Other", "memory" => 0) ], "services" => [] })
+
+    Tenant.switch(@tenant) { assert_equal 0, fresh.about["gpus"].first["memory"] }
+  end
+
   test "hello on a machine with a usable GPU and no model server wants the models part, and the part's server is attached once it runs" do
     connected
     stream = LinkChannel.broadcasting_for(@machine)
