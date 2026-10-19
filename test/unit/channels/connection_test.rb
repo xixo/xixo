@@ -37,16 +37,15 @@ class ConnectionTest < ActionCable::Connection::TestCase
     assert_reject_connection { connect_as(@tenant) }
   end
 
-  test "a token only in the cookie is refused, since the session lives in the cache" do
+  test "token cookies without the session they are bound to are refused" do
     sign_in(@tenant)
-    cookies.encrypted[Rails.application.config.session_options[:key]] = { value: @session }
-    @session = nil
+    @session = {}
 
     assert_reject_connection { connect_as(@tenant) }
   end
 
   test "a session carrying nonsense is refused rather than raising" do
-    @session = { Masks::Rails.config.session_key => { "access_token" => "not-a-jwt" } }
+    hold("access_token" => "not-a-jwt", "token_type" => "Bearer")
 
     assert_reject_connection { connect_as(@tenant) }
   end
@@ -72,13 +71,26 @@ class ConnectionTest < ActionCable::Connection::TestCase
         audience: "http://#{tenant.subdomain}.xixo.test/mcp"
       )
 
-      @session = {
-        Masks::Rails.config.session_key => {
-          "access_token" => token,
-          "token_type" => "Bearer",
-          "expires_in" => expires_in.to_i,
-          "obtained_at" => Time.current.to_i
-        }
-      }
+      hold(
+        "access_token" => token,
+        "token_type" => "Bearer",
+        "expires_in" => expires_in.to_i,
+        "obtained_at" => Time.current.to_i
+      )
+    end
+
+    def cookies
+      @cookie_jar ||= ActionCable::Connection::TestCookieJar.new.tap do |jar|
+        jar.define_singleton_method(:delete) { |name, *| super(name) }
+      end
+    end
+
+    def hold(held)
+      key = Masks::Rails.config.session_key
+      bound = SecureRandom.hex(32)
+      @session = { key => bound }
+
+      Masks::Rails::SessionCookies.seal(held, bound).scan(/.{1,#{Masks::Rails::SessionCookies::PIECE}}/o)
+        .each_with_index { |piece, index| cookies[index.zero? ? key.to_s : "#{key}-#{index}"] = piece }
     end
 end

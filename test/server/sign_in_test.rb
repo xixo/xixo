@@ -148,7 +148,7 @@ class SignInTest < ActionDispatch::IntegrationTest
 
     assert_response :success
 
-    delete "/auth/logout", headers: host
+    delete "/auth/logout", headers: host.merge("Sec-Fetch-Site" => "same-origin")
     sign_in(scopes: %w[xixo:catalog:read xixo:settings:write])
     get "/auth/handshake", headers: host
 
@@ -158,7 +158,7 @@ class SignInTest < ActionDispatch::IntegrationTest
   test "signing out drops the session" do
     sign_in
 
-    delete "/auth/logout", headers: host
+    delete "/auth/logout", headers: host.merge("Sec-Fetch-Site" => "same-origin")
 
     assert_no_session
   end
