@@ -16,6 +16,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -164,7 +165,7 @@ func (r *Runner) serve(ctx context.Context, wanted *Wanted, build Build, version
 
 	command := r.command(ctx, program, wanted.Settings)
 	if err := command.Start(); err != nil {
-		return err
+		return fmt.Errorf("%w (%s)", err, described(program))
 	}
 
 	exited := make(chan error, 1)
@@ -428,6 +429,37 @@ func (r *Runner) stopped() error {
 	r.note(StateStopped, "")
 
 	return nil
+}
+
+func described(program string) string {
+	held := []string{}
+
+	for path := program; ; path = filepath.Dir(path) {
+		if info, err := os.Lstat(path); err == nil {
+			owner := ""
+			if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+				owner = fmt.Sprintf(" %d:%d", stat.Uid, stat.Gid)
+			}
+
+			held = append(held, fmt.Sprintf("%s %s%s", path, info.Mode(), owner))
+		} else {
+			held = append(held, fmt.Sprintf("%s %v", path, err))
+		}
+
+		if path == "/" || filepath.Dir(path) == path {
+			break
+		}
+	}
+
+	if raw, err := os.ReadFile("/proc/self/mountinfo"); err == nil {
+		for _, line := range strings.Split(string(raw), "\n") {
+			if fields := strings.Fields(line); len(fields) > 5 && strings.HasPrefix(program, fields[4]) && fields[4] != "/" {
+				held = append(held, "mount "+fields[4]+" "+fields[5])
+			}
+		}
+	}
+
+	return strings.Join(held, "; ")
 }
 
 func stop(command *exec.Cmd, exited <-chan error) {

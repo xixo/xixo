@@ -12,6 +12,7 @@ StateDirectory=xixo-link-part/%i
 StateDirectoryMode=0700
 RuntimeDirectory=xixo-link-part/%i
 RuntimeDirectoryMode=0755
+ExecPaths=/var/lib/xixo-link-part/%i/releases
 ExecStart=/usr/local/lib/xixo-link/xixo-link part %i --releases /var/lib/xixo-link-part/%i/releases --state /var/lib/xixo-link-part/%i --wanted /run/xixo-link/parts/%i --status /run/xixo-link-part/%i/status.json
 Restart=on-failure
 RestartSec=10
