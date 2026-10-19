@@ -96,6 +96,7 @@ class LinkMachinesTest < ActionDispatch::IntegrationTest
   test "the command line signs a person in through the device grant that xixo starts and polls for it" do
     post "/link/cli/device", headers: { "HOST" => host }
     assert_response :ok
+    assert_includes issuer.registrations.dig("items-test-client", "grant_types"), Masks::Client::Device::GRANT_TYPE
     device = response.parsed_body
     assert_match(/\A[A-Z0-9]{4}-[A-Z0-9]{4}\z/, device["user_code"])
     assert_includes device["verification_uri_complete"], device["user_code"]

@@ -74,6 +74,18 @@ class Tenant < ApplicationRecord
     )
   end
 
+  DEVICE_GRANT = Masks::Client::Device::GRANT_TYPE
+
+  def grants_devices!
+    registration = Masks::Client::Registration.held(issuer, masks_credentials)
+    raise Unconfigured, "this xixo is not connected to masks yet" if registration.nil?
+
+    held = Array(registration.read["grant_types"]).map(&:to_s)
+    return true if held.include?(DEVICE_GRANT)
+
+    Array(registration.update(grant_types: held | [ DEVICE_GRANT ]).metadata["grant_types"]).include?(DEVICE_GRANT)
+  end
+
   class TenancyConflict < StandardError
     def initialize(message = "XIXO_TENANT and XIXO_TENANTS are both set; declare one or the other")
       super

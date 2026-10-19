@@ -13,7 +13,7 @@ class FakeIssuer
     end
   end
 
-  attr_reader :port, :enrollments, :unenrollments
+  attr_reader :port, :enrollments, :unenrollments, :registrations
 
   def initialize
     @keys = {}
@@ -22,6 +22,7 @@ class FakeIssuer
     @approvals = {}
     @enrollments = []
     @unenrollments = []
+    @registrations = {}
     @lock = Mutex.new
     @server = TCPServer.new("127.0.0.1", 0)
     @port = @server.addr[1]
@@ -120,6 +121,8 @@ class FakeIssuer
         enrolled($1, payload, basic)
       elsif method == "DELETE" && path.to_s =~ %r{\A/([^/]+)/enrollments/([^/]+)\z}
         unenrolled($1, $2, basic)
+      elsif method == "PUT" && path.to_s =~ %r{\A/([^/]+)/register/([^/]+)\z}
+        updated($1, $2, payload, bearer)
       else
         method == "POST" ? post_for(path.to_s, payload, bearer) : body_for(path.to_s)
       end
@@ -150,9 +153,29 @@ class FakeIssuer
       case path
       when %r{\A/([^/]+)/\.well-known/openid-configuration\z} then discovery($1)
       when %r{\A/([^/]+)/\.well-known/jwks\.json\z} then jwks($1)
-      when %r{\A/([^/]+)/register/([^/]+)\z}
-        { "client_id" => $2, "registration_client_uri" => "#{url_for($1)}/register/#{$2}" }
+      when %r{\A/([^/]+)/register/([^/]+)\z} then registration_for($1, $2)
       end
+    end
+
+    def registration_for(subdomain, client_id)
+      held = @lock.synchronize { @registrations[client_id] } || {}
+
+      held.merge("client_id" => client_id, "registration_client_uri" => "#{url_for(subdomain)}/register/#{client_id}")
+    end
+
+    def updated(subdomain, client_id, payload, token)
+      return { "error" => "invalid_token" } if token.blank?
+
+      metadata = JSON.parse(payload) rescue {}
+      @lock.synchronize { @registrations[client_id] = (@registrations[client_id] || {}).merge(metadata) }
+
+      registration_for(subdomain, client_id)
+    end
+
+    def grants_devices?(client_id)
+      held = @lock.synchronize { @registrations[client_id] }
+
+      Array(held&.dig("grant_types")).include?(Masks::Client::Device::GRANT_TYPE)
     end
 
     def post_for(path, payload, token)
@@ -214,6 +237,7 @@ class FakeIssuer
     def device_polled(subdomain, form)
       held = @lock.synchronize { @devices[form["device_code"]] }
       return { "error" => "invalid_grant", "error_description" => "no such device code" } if held.nil?
+      return { "error" => "unauthorized_client", "error_description" => "this client is not registered for the device grant" } unless grants_devices?(form["client_id"])
       return { "error" => "authorization_pending", "error_description" => "waiting" } if held[:approved].nil?
 
       @lock.synchronize { @devices.delete(form["device_code"]) }
@@ -243,6 +267,8 @@ class FakeIssuer
 
       metadata = JSON.parse(payload) rescue {}
       client_id = SecureRandom.uuid
+
+      @lock.synchronize { @registrations[client_id] = metadata }
 
       metadata.merge(
         "client_id" => client_id,

@@ -7,6 +7,11 @@ class LinkCliController < ActionController::API
   before_action :no_store
 
   def device
+    unless Current.tenant.grants_devices!
+      return refused("unauthorized_client", "masks does not let this xixo sign people in from the command line. " \
+                                            "A manager of masks adds the device grant to its client", :service_unavailable)
+    end
+
     device = session.device_authorization(scope: Grant::SCOPES, resource: Tenant.resource_url(request))
 
     render json: {
