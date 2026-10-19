@@ -324,8 +324,10 @@ class LinkChannelTest < ActionCable::Channel::TestCase
       assert_equal [ "ollama-box", "Ollama on box", "http://127.0.0.1:11440/v1", "models" ], [ attached.key, attached.name, attached.details["base_url"], attached.details["part"] ]
       assert_equal({ "default" => "qwen3:8b", "vision" => "gemma3:4b", "embedding" => "nomic-embed-text" }, attached.details["models"])
       assert attached.default_inference?
+      assert fresh.offers?("models"), "the part's server counts as a model server the machine lets xixo use"
 
       fresh.set_plan!("models", false)
+      assert_not fresh.reload.offers?("models")
       assert_equal [ { "parts" => {} } ], ActionCable.server.pubsub.broadcasts(stream).last(1).map { |held| JSON.parse(held) }
     end
   end

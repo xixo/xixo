@@ -88,7 +88,9 @@ class Resource
       end
 
       def model_kinds
-        Array(machine["services"]).filter_map { |service| service["kind"] if service.is_a?(Hash) }.uniq
+        found = Array(machine["services"]).filter_map { |service| service["kind"] if service.is_a?(Hash) }
+
+        (found + served_parts.map { |part| part["kind"] }).uniq
       end
 
       def commands
