@@ -440,8 +440,8 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 
 		return link.Add(ctx, link.Adding{
 			Xixo: chosen, Token: token, Host: set.Arg(0), User: *user, Folders: set.Args()[1:],
-			Off: strings.FieldsFunc(*off, func(r rune) bool { return r == ',' || r == ' ' }),
-			SSH: overSSH, Client: dial.Client(dial.Answered), Out: stdout,
+			Off:      strings.FieldsFunc(*off, func(r rune) bool { return r == ',' || r == ' ' }),
+			Terminal: terminal.Is(os.Stdin), SSH: overSSH, Client: dial.Client(dial.Answered), Out: stdout,
 		})
 	case "remove":
 		xixo := set.String("xixo", "", "the address of xixo, when you are signed in to more than one")

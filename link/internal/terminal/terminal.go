@@ -17,9 +17,13 @@ func For(w io.Writer) Style {
 		return Style{}
 	}
 
+	return Style{On: Is(file)}
+}
+
+func Is(file *os.File) bool {
 	info, err := file.Stat()
 
-	return Style{On: err == nil && info.Mode()&os.ModeCharDevice != 0}
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
 func (s Style) paint(code, text string) string {

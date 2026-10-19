@@ -247,10 +247,13 @@ machine itself. The command numbers its steps:
    ssh to `~/.cache/xixo-link/xixo-link` on the machine.
 3. `xixo-link describe FOLDERS` runs there, and the description comes back
    over ssh. Each folder is checked before anything asks for a password.
-4. `POST <xixo>/link/machines`, with your token, sends the description and the
-   lines to leave off. xixo makes the plan, creates the request as approved,
-   and answers with the plan, a one-time enrollment token, and the device
-   code. The plan prints, one line each, as `on` or `off`.
+   `xixo-link linked` runs there too. When the machine is linked up with this
+   xixo already, its key goes along in the next step, so it keeps its place.
+4. `POST <xixo>/link/machines`, with your token, sends the description, the
+   lines to leave off, and the key when there is one. xixo makes the plan,
+   creates the request as approved, and answers with the plan, a one-time
+   enrollment token, and the device code. The plan prints, one line each, as
+   `on` or `off`.
 5. `xixo-link install` runs there with the folders, over `ssh -t` and `sudo`
    on Linux, which asks for the machine's password. On macOS it runs as you.
 6. `xixo-link join` runs there with the token and the device code on standard
@@ -258,11 +261,17 @@ machine itself. The command numbers its steps:
 7. `xixo-link start` runs there, with `sudo` on Linux, and `xixo-link status`
    prints the result.
 
+On Linux, `sudo -n true` runs there before step 2. When sudo asks for a
+password and the command runs without a terminal, it stops there, before xixo
+hears of the machine. When step 5 or 6 fails, the command asks xixo to put
+the machine away again, so the next try starts clean.
+
 `add` on a machine that is already linked installs the new build and keeps
-its identity, as a rerun of the install command does. `remove HOST` runs
-`xixo-link linked` there to learn the machine's key, runs `xixo-link uninstall`
-with `sudo` on Linux, and asks xixo to put the machine away with
-`DELETE <xixo>/link/machines/KEY`. Both take an administrator's sign-in.
+its identity: xixo replaces the machine's client and keeps its key, name,
+and operators. `remove HOST` runs `xixo-link linked` there to learn the
+machine's key, runs `xixo-link uninstall` with `sudo` on Linux, and asks xixo
+to put the machine away with `DELETE <xixo>/link/machines/KEY`. Both take an
+administrator's sign-in.
 
 ### Signing in
 

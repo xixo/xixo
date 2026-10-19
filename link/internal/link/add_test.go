@@ -22,10 +22,12 @@ type sshCall struct {
 }
 
 type fakeHost struct {
-	lock   sync.Mutex
-	calls  []sshCall
-	system string
-	linked string
+	lock     sync.Mutex
+	calls    []sshCall
+	system   string
+	linked   string
+	sudoFree bool
+	failing  string
 }
 
 func (h *fakeHost) ssh(_ context.Context, host, command string, stdin io.Reader, tty bool) ([]byte, error) {
@@ -44,8 +46,16 @@ func (h *fakeHost) ssh(_ context.Context, host, command string, stdin io.Reader,
 	}
 
 	switch {
+	case h.failing != "" && strings.Contains(command, h.failing):
+		return nil, errors.New("exit status 1")
 	case command == "uname -sm":
 		return []byte(h.system + "\n"), nil
+	case command == "sudo -n true 2>/dev/null":
+		if h.sudoFree {
+			return nil, nil
+		}
+
+		return nil, errors.New("exit status 1")
 	case command == "id -un":
 		return []byte("geiger\n"), nil
 	case strings.HasPrefix(command, remoteBuild+" describe"):
@@ -96,6 +106,7 @@ func newAddFake(t *testing.T) *addFake {
 			return
 		}
 
+		held.added = map[string]any{}
 		json.NewDecoder(r.Body).Decode(&held.added)
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(map[string]any{
@@ -124,7 +135,7 @@ func TestAddCopiesTheBuildDescribesTheMachineAddsItInstallsEnrollsAndStarts(t *t
 
 	err := Add(context.Background(), Adding{
 		Xixo: xixo.URL + "/", Token: "person-token", Host: "media", Folders: []string{"/srv/media", "/srv/in box:rw"}, Off: []string{"extract"},
-		SSH: host.ssh, Client: xixo.Client(), Out: out,
+		Terminal: true, SSH: host.ssh, Client: xixo.Client(), Out: out,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -137,9 +148,11 @@ func TestAddCopiesTheBuildDescribesTheMachineAddsItInstallsEnrollsAndStarts(t *t
 
 	want := []string{
 		"uname -sm",
+		"sudo -n true 2>/dev/null",
 		"mkdir -p ~/.cache/xixo-link && cat > ~/.cache/xixo-link/xixo-link.new && chmod 0755 ~/.cache/xixo-link/xixo-link.new && mv ~/.cache/xixo-link/xixo-link.new ~/.cache/xixo-link/xixo-link",
 		"~/.cache/xixo-link/xixo-link describe '/srv/media' '/srv/in box:rw'",
 		"id -un",
+		"xixo-link linked",
 		"sudo ~/.cache/xixo-link/xixo-link install --xixo '" + xixo.URL + "' --issuer 'https://id.example' --user 'geiger' --from ~/.cache/xixo-link/xixo-link '/srv/media' '/srv/in box:rw'",
 		"~/.cache/xixo-link/xixo-link join",
 		"sudo ~/.cache/xixo-link/xixo-link start",
@@ -150,17 +163,21 @@ func TestAddCopiesTheBuildDescribesTheMachineAddsItInstallsEnrollsAndStarts(t *t
 		t.Fatalf("ran:\n%s", strings.Join(commands, "\n"))
 	}
 
-	if host.calls[1].stdin != "the linux build" || host.calls[1].tty {
-		t.Fatalf("copy %+v", host.calls[1])
+	if host.calls[2].stdin != "the linux build" || host.calls[2].tty {
+		t.Fatalf("copy %+v", host.calls[2])
 	}
 
-	if !host.calls[4].tty || !host.calls[6].tty || host.calls[5].tty {
+	if !host.calls[6].tty || !host.calls[8].tty || host.calls[7].tty {
 		t.Fatalf("ttys %+v", host.calls)
 	}
 
 	joining := Joining{}
-	if json.Unmarshal([]byte(host.calls[5].stdin), &joining) != nil || joining != (Joining{EnrollmentToken: "enroll-9", DeviceCode: "device-9", Name: "media"}) {
-		t.Fatalf("join read %q", host.calls[5].stdin)
+	if json.Unmarshal([]byte(host.calls[7].stdin), &joining) != nil || joining != (Joining{EnrollmentToken: "enroll-9", DeviceCode: "device-9", Name: "media"}) {
+		t.Fatalf("join read %q", host.calls[7].stdin)
+	}
+
+	if _, sent := xixo.added["key"]; sent {
+		t.Fatalf("a key was sent for a machine that is not linked: %v", xixo.added)
 	}
 
 	if xixo.added["hostname"] != "media" || xixo.added["name"] != "media" {
@@ -178,11 +195,80 @@ func TestAddCopiesTheBuildDescribesTheMachineAddsItInstallsEnrollsAndStarts(t *t
 	}
 }
 
+func TestAddWithoutATerminalStopsBeforeXixoHearsOfTheMachineUnlessSudoAsksForNothing(t *testing.T) {
+	xixo := newAddFake(t)
+	host := &fakeHost{system: "Linux x86_64"}
+
+	err := Add(context.Background(), Adding{Xixo: xixo.URL, Token: "person-token", Host: "media", SSH: host.ssh, Client: xixo.Client(), Out: io.Discard})
+	if !errors.Is(err, ErrNoTerminal) {
+		t.Fatalf("got %v", err)
+	}
+
+	if len(host.calls) != 2 || xixo.added != nil {
+		t.Fatalf("ran %+v, added %v", host.calls, xixo.added)
+	}
+
+	free := &fakeHost{system: "Linux x86_64", sudoFree: true}
+	out := &bytes.Buffer{}
+
+	if err := Add(context.Background(), Adding{Xixo: xixo.URL, Token: "person-token", Host: "media", SSH: free.ssh, Client: xixo.Client(), Out: out}); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, call := range free.calls {
+		if call.tty {
+			t.Fatalf("a tty was asked for without a terminal: %+v", call)
+		}
+	}
+
+	if strings.Contains(out.String(), "asks for your password") {
+		t.Fatalf("printed %q", out)
+	}
+}
+
+func TestAddOnALinkedMachineSendsItsKeySoItKeepsItsPlace(t *testing.T) {
+	xixo := newAddFake(t)
+	host := &fakeHost{system: "Linux x86_64", linked: `{"name":"media","key":"media","url":"` + xixo.URL + `/settings/resources/1"}`}
+	out := &bytes.Buffer{}
+
+	if err := Add(context.Background(), Adding{Xixo: xixo.URL, Token: "person-token", Host: "media", Terminal: true, SSH: host.ssh, Client: xixo.Client(), Out: out}); err != nil {
+		t.Fatal(err)
+	}
+
+	if xixo.added["key"] != "media" || !strings.Contains(out.String(), "linked up as already") {
+		t.Fatalf("added %v, printed %q", xixo.added, out)
+	}
+
+	elsewhere := &fakeHost{system: "Linux x86_64", linked: `{"name":"media","key":"media","url":"https://other.example/settings/resources/1"}`}
+	if err := Add(context.Background(), Adding{Xixo: xixo.URL, Token: "person-token", Host: "media", Terminal: true, SSH: elsewhere.ssh, Client: xixo.Client(), Out: io.Discard}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, sent := xixo.added["key"]; sent {
+		t.Fatalf("a key linked to another xixo was sent: %v", xixo.added)
+	}
+}
+
+func TestAddPutsTheMachineAwayAgainWhenItDoesNotInstall(t *testing.T) {
+	xixo := newAddFake(t)
+	host := &fakeHost{system: "Linux x86_64", failing: " install "}
+	out := &bytes.Buffer{}
+
+	err := Add(context.Background(), Adding{Xixo: xixo.URL, Token: "person-token", Host: "media", Terminal: true, SSH: host.ssh, Client: xixo.Client(), Out: out})
+	if err == nil || !strings.Contains(err.Error(), "did not install") {
+		t.Fatalf("got %v", err)
+	}
+
+	if xixo.deleted != "media-2" || !strings.Contains(out.String(), "put media-2 away again") {
+		t.Fatalf("deleted %q, printed %q", xixo.deleted, out)
+	}
+}
+
 func TestAddStopsWhenTheBuildDoesNotMatchOrTheSignInIsStale(t *testing.T) {
 	xixo := newAddFake(t)
 	host := &fakeHost{system: "Linux x86_64"}
 
-	err := Add(context.Background(), Adding{Xixo: xixo.URL, Token: "stale", Host: "media", SSH: host.ssh, Client: xixo.Client(), Out: io.Discard})
+	err := Add(context.Background(), Adding{Xixo: xixo.URL, Token: "stale", Host: "media", Terminal: true, SSH: host.ssh, Client: xixo.Client(), Out: io.Discard})
 	if err == nil || !strings.Contains(err.Error(), "Run xixo-link login again") {
 		t.Fatalf("got %v", err)
 	}
@@ -194,7 +280,7 @@ func TestAddStopsWhenTheBuildDoesNotMatchOrTheSignInIsStale(t *testing.T) {
 	}
 
 	xixo.build = []byte("tampered")
-	err = Add(context.Background(), Adding{Xixo: xixo.URL, Token: "person-token", Host: "media", SSH: host.ssh, Client: xixo.Client(), Out: io.Discard})
+	err = Add(context.Background(), Adding{Xixo: xixo.URL, Token: "person-token", Host: "media", Terminal: true, SSH: host.ssh, Client: xixo.Client(), Out: io.Discard})
 	if err == nil || !strings.Contains(err.Error(), "did not match the SHA-256") {
 		t.Fatalf("got %v", err)
 	}
@@ -205,7 +291,7 @@ func TestAddStopsWhenTheBuildDoesNotMatchOrTheSignInIsStale(t *testing.T) {
 	}
 
 	host.system = "FreeBSD amd64"
-	err = Add(context.Background(), Adding{Xixo: xixo.URL, Token: "person-token", Host: "media", SSH: host.ssh, Client: xixo.Client(), Out: io.Discard})
+	err = Add(context.Background(), Adding{Xixo: xixo.URL, Token: "person-token", Host: "media", Terminal: true, SSH: host.ssh, Client: xixo.Client(), Out: io.Discard})
 	if !errors.Is(err, ErrOtherArch) {
 		t.Fatalf("got %v", err)
 	}

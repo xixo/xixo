@@ -263,15 +263,16 @@ you are signed in, and the machine never shows a code.
    ```
 
    The command copies xixo link over your own `ssh`, reads what the machine is, adds it to xixo
-   under your name, and prints the plan. On Linux, `sudo` on the machine asks for its password.
-   Then it enrolls the machine and starts xixo link. Pass `--off models` to leave a line of the
-   plan off, and `--user NAME` when the folders belong to another account on the machine.
+   under your name, and prints the plan. On Linux, `sudo` on the machine asks for its password,
+   so run the command in a terminal. Then it enrolls the machine and starts xixo link. Pass
+   `--off models` to leave a line of the plan off, and `--user NAME` when the folders belong to
+   another account on the machine.
 
 4. The machine's card fills in on **Resources** once it connects. Anything you want off, switch
    off there.
 
 Running `xixo-link add` on a machine that is already linked installs the new build and keeps its
-identity. `xixo-link remove media` uninstalls xixo link there and puts the machine away. See
+place in xixo: the same card, name, and operators. `xixo-link remove media` uninstalls xixo link there and puts the machine away. See
 [linking over ssh](https://github.com/xixo/xixo/tree/main/link#linking-over-ssh) for each step.
 
 ## Find machines on a tailnet

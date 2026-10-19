@@ -63,6 +63,32 @@ class LinkMachinesTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "adding a machine that is linked already keeps its place in xixo and replaces its client" do
+    machine = machine_on(@tenant, key: "media", client_id: "client-old", operators: [ "alice" ])
+
+    post "/link/machines", params: DESCRIBED.merge("key" => "media").to_json, headers: admin
+    assert_response :created
+    added = response.parsed_body
+    assert_equal "media", added["links_as"]
+
+    post "/link", params: { device_code: added["device_code"] }, headers: signed("client-new")
+    assert_response :ok
+
+    Tenant.switch(@tenant) do
+      relinked = Resource::Machine.enrolled("client-new")
+      assert_equal [ machine.id, "media", [ "alice" ], "bob" ], [ relinked.id, relinked.key, relinked.operators, relinked.details.dig("approved", "by") ]
+      assert_equal %w[pdf text], relinked.about["readers"]
+      assert_nil Resource::Machine.enrolled("client-old")
+      assert_equal 1, Resource::Machine.active.where(key: "media").count
+    end
+
+    assert_equal "client-old", issuer.unenrollments.last["machine"]
+
+    post "/link/machines", params: DESCRIBED.merge("key" => "attic").to_json, headers: admin
+    assert_response :unprocessable_content
+    assert_match(/no machine is linked as attic/, response.parsed_body["error_description"])
+  end
+
   test "a machine is added only by an administrator with a token, and a plan line that does not exist is refused" do
     post "/link/machines", params: DESCRIBED.to_json, headers: { "HOST" => host, "Content-Type" => "application/json" }
     assert_response :unauthorized

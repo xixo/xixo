@@ -24,22 +24,24 @@ const (
 )
 
 var (
-	ErrNoHost    = errors.New("add takes the host to link up, as ssh knows it, then the folders it shares")
-	ErrOtherArch = errors.New("xixo serves no build for that machine's system and processor")
+	ErrNoHost     = errors.New("add takes the host to link up, as ssh knows it, then the folders it shares")
+	ErrOtherArch  = errors.New("xixo serves no build for that machine's system and processor")
+	ErrNoTerminal = errors.New("sudo there asks for a password, and there is no terminal here to type it in. Run xixo-link add from a terminal")
 )
 
 type SSH func(ctx context.Context, host string, command string, stdin io.Reader, tty bool) ([]byte, error)
 
 type Adding struct {
-	Xixo    string
-	Token   string
-	Host    string
-	User    string
-	Folders []string
-	Off     []string
-	SSH     SSH
-	Client  *http.Client
-	Out     io.Writer
+	Xixo     string
+	Token    string
+	Host     string
+	User     string
+	Folders  []string
+	Off      []string
+	Terminal bool
+	SSH      SSH
+	Client   *http.Client
+	Out      io.Writer
 }
 
 type build struct {
@@ -75,6 +77,17 @@ func Add(ctx context.Context, a Adding) error {
 		return err
 	}
 
+	asksForPassword := false
+	if goos == "linux" {
+		if _, err := a.SSH(ctx, a.Host, "sudo -n true 2>/dev/null", nil, false); err != nil {
+			if !a.Terminal {
+				return fmt.Errorf("%s: %w", a.Host, ErrNoTerminal)
+			}
+
+			asksForPassword = true
+		}
+	}
+
 	step("Downloading xixo link for %s on %s from %s, and copying it to %s.", goos, goarch, terminal.Printable(a.Xixo), a.Host)
 
 	binary, err := a.download(ctx, goos, goarch)
@@ -103,9 +116,14 @@ func Add(ctx context.Context, a Adding) error {
 		user = strings.TrimSpace(string(named))
 	}
 
-	step("Adding %s to xixo as %s.", a.Host, style.Bold(terminal.Printable(described.Hostname)))
+	key := a.linkedAs(ctx)
+	if key == "" {
+		step("Adding %s to xixo as %s.", a.Host, style.Bold(terminal.Printable(described.Hostname)))
+	} else {
+		step("Adding %s to xixo again as %s, which it is linked up as already.", a.Host, style.Bold(terminal.Printable(key)))
+	}
 
-	added, err := a.post(ctx, described)
+	added, err := a.post(ctx, described, key)
 	if err != nil {
 		return err
 	}
@@ -122,28 +140,32 @@ func Add(ctx context.Context, a Adding) error {
 	install := remoteBuild + " install --xixo " + quoted(a.Xixo) + " --issuer " + quoted(added.Issuer) + " --user " + quoted(user) + " --from " + remoteBuild + quotedAll(a.Folders)
 	start := remoteBuild + " start"
 
-	if goos == "linux" {
+	switch {
+	case asksForPassword:
 		step("Installing xixo link on %s. sudo there asks for your password.", a.Host)
-		install = "sudo " + install
-		start = "sudo " + start
-	} else {
+	default:
 		step("Installing xixo link on %s.", a.Host)
 	}
 
-	if _, err := a.SSH(ctx, a.Host, install, nil, true); err != nil {
-		return fmt.Errorf("xixo link did not install on %s: %w", a.Host, err)
+	if goos == "linux" {
+		install = "sudo " + install
+		start = "sudo " + start
+	}
+
+	if _, err := a.SSH(ctx, a.Host, install, nil, a.Terminal); err != nil {
+		return a.undone(ctx, added, fmt.Errorf("xixo link did not install on %s: %w", a.Host, err))
 	}
 
 	step("Enrolling %s with masks, with its own key.", a.Host)
 
 	joining, _ := json.Marshal(Joining{EnrollmentToken: added.EnrollmentToken, DeviceCode: added.DeviceCode, Name: described.Hostname})
 	if out, err := a.SSH(ctx, a.Host, remoteBuild+" join", bytes.NewReader(joining), false); err != nil {
-		return fmt.Errorf("%s did not enroll: %w: %s", a.Host, err, strings.TrimSpace(string(out)))
+		return a.undone(ctx, added, fmt.Errorf("%s did not enroll: %w: %s", a.Host, err, strings.TrimSpace(string(out))))
 	}
 
 	step("Starting xixo link on %s.", a.Host)
 
-	if _, err := a.SSH(ctx, a.Host, start, nil, true); err != nil {
+	if _, err := a.SSH(ctx, a.Host, start, nil, a.Terminal); err != nil {
 		return fmt.Errorf("xixo link did not start on %s: %w", a.Host, err)
 	}
 
@@ -151,6 +173,38 @@ func Add(ctx context.Context, a Adding) error {
 	fmt.Fprintln(a.Out)
 	fmt.Fprintf(a.Out, "%s %s is linked up as %s.\n\n", style.Green("Done."), a.Host, style.Bold(terminal.Printable(added.LinksAs)))
 	fmt.Fprint(a.Out, terminal.Printable(string(status)))
+
+	return nil
+}
+
+func (a Adding) undone(ctx context.Context, added *Added, failure error) error {
+	if err := putAway(ctx, a.client(), a.Xixo, a.Token, added.LinksAs); err != nil {
+		return fmt.Errorf("%w. xixo still lists it as %s, so remove that before trying again: %v", failure, added.LinksAs, err)
+	}
+
+	fmt.Fprintf(a.Out, "   xixo put %s away again, so the next try starts clean.\n", added.LinksAs)
+
+	return failure
+}
+
+func putAway(ctx context.Context, client *http.Client, xixo, token, key string) error {
+	request, err := http.NewRequestWithContext(ctx, http.MethodDelete, xixo+"/link/machines/"+url.PathEscape(key), nil)
+	if err != nil {
+		return err
+	}
+
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := client.Do(request)
+	if err != nil {
+		return unreachable(err, xixo)
+	}
+	defer response.Body.Close()
+
+	raw, _ := io.ReadAll(io.LimitReader(response.Body, mostAdded))
+	if response.StatusCode != http.StatusNoContent && response.StatusCode != http.StatusNotFound {
+		return failed("xixo did not put the machine away", response, raw)
+	}
 
 	return nil
 }
@@ -226,12 +280,27 @@ func (a Adding) describe(ctx context.Context) (Description, error) {
 	return held, nil
 }
 
-func (a Adding) post(ctx context.Context, described Description) (*Added, error) {
+func (a Adding) linkedAs(ctx context.Context) string {
+	out, err := a.SSH(ctx, a.Host, "xixo-link linked", nil, false)
+	if err != nil {
+		return ""
+	}
+
+	linked := Linked{}
+	if json.Unmarshal(out, &linked) != nil || !machineKey.MatchString(linked.Key) || !strings.HasPrefix(linked.URL, a.Xixo+"/") {
+		return ""
+	}
+
+	return linked.Key
+}
+
+func (a Adding) post(ctx context.Context, described Description, key string) (*Added, error) {
 	body, _ := json.Marshal(struct {
 		Description
 		Name string   `json:"name"`
 		Off  []string `json:"off"`
-	}{Description: described, Name: described.Hostname, Off: a.Off})
+		Key  string   `json:"key,omitempty"`
+	}{Description: described, Name: described.Hostname, Off: a.Off, Key: key})
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, a.Xixo+"/link/machines", bytes.NewReader(body))
 	if err != nil {
@@ -361,22 +430,8 @@ func Remove(ctx context.Context, r Unlinking) error {
 
 	step("Putting %s away in xixo.", style.Bold(key))
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodDelete, r.Xixo+"/link/machines/"+url.PathEscape(key), nil)
-	if err != nil {
+	if err := putAway(ctx, adding.client(), r.Xixo, r.Token, key); err != nil {
 		return err
-	}
-
-	request.Header.Set("Authorization", "Bearer "+r.Token)
-
-	response, err := adding.client().Do(request)
-	if err != nil {
-		return unreachable(err, r.Xixo)
-	}
-	defer response.Body.Close()
-
-	raw, _ := io.ReadAll(io.LimitReader(response.Body, mostAdded))
-	if response.StatusCode != http.StatusNoContent && response.StatusCode != http.StatusNotFound {
-		return failed("xixo did not put the machine away", response, raw)
 	}
 
 	fmt.Fprintf(r.Out, "\n%s %s is no longer linked up.\n", style.Green("Done."), r.Host)

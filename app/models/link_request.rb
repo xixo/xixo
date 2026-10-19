@@ -55,7 +55,7 @@ class LinkRequest < ApplicationRecord
       request = create!(attributes.merge(
         device_digest: digest(device_code), user_code: fresh_code, remote_ip: remote_ip, expires_at: LASTS.from_now,
         status: "handed", decided_by: grant.speaks_for, decided_at: Time.current, polled_at: Time.current,
-        details: attributes[:details].merge("off" => unwanted.uniq)
+        details: attributes[:details].merge("off" => unwanted.uniq), resource: relinked(said.to_h["key"])
       ))
       request.announce!
 
@@ -98,6 +98,12 @@ class LinkRequest < ApplicationRecord
           writable: Resource::Machine::Hello.folders(said["writable"]) & folders,
           details: Resource::Machine::Description.from(said["details"], folders)
         }
+      end
+
+      def relinked(key)
+        return nil if key.blank?
+
+        Resource::Machine.active.find_by(key: key.to_s) || raise(Refused, "no machine is linked as #{key}")
       end
 
       def hostname(given)
@@ -183,12 +189,16 @@ class LinkRequest < ApplicationRecord
       raise Refused, "that request is not one xixo is waiting on. Run the command again" unless status == "handed" && live?
       raise Refused, "another machine is linked as that client already" if Resource::Machine.enrolled(client_id)
 
-      made = Resource::Machine.approved!(self, client_id)
+      made = relinking? ? resource.relinked!(self, client_id) : Resource::Machine.approved!(self, client_id)
       update!(status: "linked", resource: made)
       made
     end
     announce!
     machine
+  end
+
+  def relinking?
+    resource.present? && resource.archived_at.nil?
   end
 
   def announce!

@@ -516,6 +516,19 @@ class Resource
       reload
     end
 
+    def relinked!(request, client_id, revoker: Enrollment.method(:revoke))
+      before = self.client_id
+      revoker.call(tenant, before) if before.present? && before != client_id
+
+      update!(details: details.to_h.except("unenrolled").merge(
+        "client_id" => client_id,
+        "approved" => { "by" => request.decided_by, "at" => request.decided_at&.utc&.iso8601 }.compact,
+        "about" => request.details.to_h.except("off").merge("folders" => request.folders, "writable" => request.writable),
+        "plan" => request.off.index_with(false)
+      ))
+      self
+    end
+
     def unenrolled_details
       details.to_h.except("client_id").merge("unenrolled" => { "client_id" => client_id, "at" => now_stamp })
     end
