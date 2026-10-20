@@ -324,6 +324,20 @@ class MachineToolsTest < ActiveSupport::TestCase
     end
   end
 
+  test "chat asks the models part for its default model when no model is named" do
+    offering(gpus: [ { "maker" => "NVIDIA", "model" => "GTX 1070", "memory" => 8_589_934_592, "driver" => "580.178.04" } ],
+             parts: [ { "name" => "models", "state" => "running", "port" => 11_440 } ])
+    @answers["model"] = { "model" => "qwen3:8b", "text" => "four", "finish_reason" => "stop" }
+
+    as_member do
+      called(key: "box", do: "chat", input: { prompt: "two and two?" })
+      assert_equal "qwen3:8b", @asked.last.last["model"]
+
+      called(key: "box", do: "chat", input: { prompt: "two and two?", model: "gemma3:4b" })
+      assert_equal "gemma3:4b", @asked.last.last["model"]
+    end
+  end
+
   test "search answers from xixo's index of the machine's folders and from a walk of their names" do
     offering
     feed = nil
@@ -429,13 +443,13 @@ class MachineToolsTest < ActiveSupport::TestCase
 
   private
 
-    def offering(writable: [], services: [], lend: false, readers: %w[pdf text], off: [])
+    def offering(writable: [], services: [], lend: false, readers: %w[pdf text], off: [], gpus: [], parts: [])
       Tenant.switch(@tenant) do
         @machine.reload.update!(details: @machine.details.merge(
           "plan" => off.index_with(false),
           "machine" => @machine.machine.merge(
-            "writable" => writable, "services" => services, "lend" => lend, "extractors" => readers,
-            "details" => { "readers" => readers, "services" => services }
+            "writable" => writable, "services" => services, "lend" => lend, "extractors" => readers, "parts" => parts,
+            "details" => { "readers" => readers, "services" => services, "gpus" => gpus }
           )
         ))
       end

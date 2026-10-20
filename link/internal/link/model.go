@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -183,7 +184,7 @@ func firstModel(ctx context.Context, client *http.Client, origin string) (string
 	}
 
 	for _, model := range held.Data {
-		if model.ID != "" {
+		if model.ID != "" && !strings.Contains(strings.ToLower(model.ID), "embed") {
 			return model.ID, nil
 		}
 	}

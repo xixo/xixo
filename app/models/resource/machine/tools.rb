@@ -210,7 +210,8 @@ class Resource
 
         server = model_server!(kind)
         messages = [ ({ "role" => "system", "content" => told } if told.present?), { "role" => "user", "content" => asked } ].compact
-        wanted = { "kind" => server, "model" => text!(model, "model").first(200).presence, "messages" => messages,
+        named = text!(model, "model").first(200).presence || default_model(server)
+        wanted = { "kind" => server, "model" => named, "messages" => messages,
                    "max_tokens" => (count!(max_tokens, MOST_TOKENS) unless max_tokens.nil?) }.compact
         held = long(ANSWERED_WITHIN_MODEL) { ask("model", wanted, within: ANSWERED_WITHIN_MODEL) }.to_h
 
@@ -407,6 +408,10 @@ class Resource
 
             [ name.to_s.first(40), { "result" => result, "error" => held["error"].to_s.first(500).presence }.compact ]
           end
+        end
+
+        def default_model(kind)
+          served_parts.find { |part| part["kind"] == kind }&.dig("models", "default")
         end
 
         def model_server!(kind)

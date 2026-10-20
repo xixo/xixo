@@ -31,7 +31,7 @@ func TestARelayPassesXixosRequestToTheModelServer(t *testing.T) {
 	}
 
 	got := answered.(RelayAnswer)
-	if got.Status != 200 || got.Body != `{"data":[{"id":"qwen3:8b"},{"id":"other"}]}` {
+	if got.Status != 200 || got.Body != `{"data":[{"id":"nomic-embed-text:latest"},{"id":"qwen3:8b"},{"id":"other"}]}` {
 		t.Fatalf("answered %+v", got)
 	}
 

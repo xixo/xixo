@@ -21,7 +21,7 @@ func modelServer(t *testing.T, answer string) (*Link, *atomic.Value) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v1/models":
-			w.Write([]byte(`{"data":[{"id":"qwen3:8b"},{"id":"other"}]}`))
+			w.Write([]byte(`{"data":[{"id":"nomic-embed-text:latest"},{"id":"qwen3:8b"},{"id":"other"}]}`))
 		case "/v1/chat/completions":
 			held := map[string]any{}
 			json.NewDecoder(r.Body).Decode(&held)
