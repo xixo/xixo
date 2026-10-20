@@ -23,12 +23,18 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 
 Needs `xixo:catalog:read`.
 
-Search the whole catalog at once — every resource that has been synced, not one provider at a time. Matches titles, keys, paths, tags and text drawn out by analysis, and finds the passage inside a long document that means what was asked; a result found that way carries the passage and where it starts. Omit the query to list the most recent feeds, newest first. Every reply says how many matched in total.
+Search the whole catalog at once — every resource that has been synced, not one provider at a time. Matches titles, keys, paths, tags and text drawn out by analysis, and finds the passage inside a long document that means what was asked; a result found that way carries the passage and where it starts. Omit the query to list the most recent feeds, newest first. Narrow by where a feed lives, how far its analysis got, what kind of file it is, and when it was added; the catalog's filter chips ask for the same slice. Every reply says how many matched in total.
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
 | `query` | string |  | Words or a question. Matches the words, and what they mean. |
 | `type` | string |  | Leave it off to search everything. Restricts to one type: xixo:file, xixo:note, xixo:address, xixo:tag, xixo:mime. |
+| `machine_id` | string |  | Only feeds with an original on this machine, in a folder it shares or a resource reached through it. The resource tool lists machines and their ids. |
+| `resource_id` | string |  | Only feeds with an original in this one resource. |
+| `analysis` | string, one of `analyzed` `waiting` `parked` `failed` |  | By the feed's latest analysis. waiting covers a file no analysis has reached yet; parked, one waiting for a machine or a model server. |
+| `kind` | string, one of `pdf` `email` `calendar` `contact` `pkpass` `page` `xlsx` `doc` `data` `image` `video` `audio` `text` `file` |  | The kind of file, by its content type. file is everything the other kinds leave out. |
+| `since` | string |  | Only feeds added at this date or after it, as a date or a moment. |
+| `before` | string |  | Only feeds added before this date. |
 | `limit` | integer, 1–200 |  |  |
 
 

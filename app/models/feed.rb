@@ -193,7 +193,9 @@ class Feed < ApplicationRecord
     readable_to(reader).where(id: ids).in_order_of(:id, ids)
   end
 
-  def self.found(query, type: nil, mime: nil, tag: nil, limit: 50, from: 0)
+  def self.found(query, type: nil, mime: nil, tag: nil, limit: 50, from: 0, slice: nil)
+    return slice.found(query, type: type, mime: mime, tag: tag, limit: limit, from: from) if slice && !slice.empty?
+
     held = SearchIndex.page(query, type: type, mime: mime, tag: tag, limit: limit, from: from)
     ids = held[:ids]
     nodes = ids.empty? ? [] : readable_by(Current.grant).for_rows.where(id: ids).in_order_of(:id, ids).to_a
@@ -206,7 +208,7 @@ class Feed < ApplicationRecord
   end
 
   def self.for_rows
-    includes(:references, :analyses, :parent, upload_attachment: :blob)
+    includes(:references, :parent, upload_attachment: :blob, analyses: :waits_on)
   end
 
   def self.family_tags_for(feeds)

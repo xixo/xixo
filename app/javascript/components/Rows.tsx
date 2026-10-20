@@ -28,7 +28,9 @@ function Gist({ row, className }: { row: Row; className: string }) {
   if (row.staged)
     return <div className={className}>Waiting for somewhere to live</div>
   if (!row.analyzedAt && row.type === 'xixo:file') {
-    return <div className={className}>Not analyzed yet</div>
+    return (
+      <div className={className}>{row.unsummarized ?? 'Not analyzed yet'}</div>
+    )
   }
 
   return null

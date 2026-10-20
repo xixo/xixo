@@ -60,16 +60,16 @@ module Types
       argument :connected_to, ID, required: false
       argument :top_level, Boolean, required: false,
                description: "Only what was not extracted from something else."
+      argument :slice, Types::SliceInput, required: false,
+               description: "Where it lives, its analysis state, its kind, and when it was added."
       argument :after, ID, required: false
       argument :limit, Integer, required: false
     end
 
     def feeds(type: nil, types: nil, mime: nil, resource_id: nil, tag: nil, connected_to: nil,
-              top_level: false, after: nil, limit: nil)
-      scope = readable.matching({ type: types.presence || type, mime: mime, resource_id: resource_id,
-                                  tag: tag }.compact)
-      scope = scope.where(parent_id: nil) if top_level
-      scope = scope.where(id: Feed.connected_to(readable.find(connected_to)).select(:id)) if connected_to.present?
+              top_level: false, slice: nil, after: nil, limit: nil)
+      scope = sliced(listed(types.presence || type, mime: mime, resource_id: resource_id, tag: tag,
+                            connected_to: connected_to, top_level: top_level), slice)
 
       Page.of(scope.for_rows, after: after, limit: limit)
     end
@@ -78,14 +78,38 @@ module Types
       argument :query, String, required: false
       argument :type, String, required: false
       argument :types, [ String ], required: false, description: "Any of these types, instead of one."
+      argument :slice, Types::SliceInput, required: false,
+               description: "Where it lives, its analysis state, its kind, and when it was added. A search " \
+                            "narrowed this way ranks its best #{SearchIndex::CANDIDATES} matches."
       argument :after, ID, required: false,
                description: "How far into the matches to start. A search is walked by offset."
       argument :limit, Integer, required: false
     end
 
-    def search(query: nil, type: nil, types: nil, after: nil, limit: nil)
+    def search(query: nil, type: nil, types: nil, slice: nil, after: nil, limit: nil)
       Feed.found(query, type: types.presence || type, from: after.to_i,
-                        limit: (limit || Page::DEFAULT).to_i.clamp(1, Page::MAX))
+                        limit: (limit || Page::DEFAULT).to_i.clamp(1, Page::MAX), slice: slice_of(slice))
+    end
+
+    field :slice_counts, Types::SliceCountsType, null: false, grants: "xixo:catalog:read",
+          description: "How many feeds each choice of a slice would list, for the same listing or search the " \
+                       "slice narrows. A search counts among its best #{SearchIndex::CANDIDATES} matches." do
+      argument :query, String, required: false
+      argument :types, [ String ], required: false
+      argument :connected_to, ID, required: false
+      argument :top_level, Boolean, required: false
+      argument :slice, Types::SliceInput, required: false
+    end
+
+    def slice_counts(query: nil, types: nil, connected_to: nil, top_level: false, slice: nil)
+      base = if query.present?
+        found = SearchIndex.page(query, type: types.presence, limit: SearchIndex::CANDIDATES, from: 0)
+        readable.where(id: found[:ids])
+      else
+        listed(types.presence, connected_to: connected_to, top_level: top_level)
+      end
+
+      slice_of(slice).counts(base)
     end
 
     field :types, [ Types::TypeCountType ], null: false, grants: "xixo:catalog:read"
@@ -245,6 +269,23 @@ module Types
 
       def readable
         Feed.readable_by(context[:grant])
+      end
+
+      def listed(type, mime: nil, resource_id: nil, tag: nil, connected_to: nil, top_level: false)
+        scope = readable.matching({ type: type, mime: mime, resource_id: resource_id, tag: tag }.compact)
+        scope = scope.where(parent_id: nil) if top_level
+        scope = scope.where(id: Feed.connected_to(readable.find(connected_to)).select(:id)) if connected_to.present?
+        scope
+      end
+
+      def slice_of(given)
+        Feed::Slice.from(given, grant: context[:grant])
+      rescue ArgumentError => e
+        raise GraphQL::ExecutionError, e.message
+      end
+
+      def sliced(scope, given)
+        slice_of(given).apply(scope)
       end
   end
 end

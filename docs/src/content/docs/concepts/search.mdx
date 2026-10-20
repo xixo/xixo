@@ -51,6 +51,27 @@ mime type, resource, tag, the feed it is connected to, and whether a feed was ex
 another. The catalog uses it to list the feeds connected to the one selected. See the [GraphQL
 reference](/reference/graphql/).
 
+## Filters
+
+The catalog has four filters below the saved feeds. Each one is a chip that opens a short menu,
+and each choice in a menu shows how many items it would list.
+
+| Filter | Narrows to |
+| --- | --- |
+| Where | One machine, or one resource on it, such as a folder the machine shares. |
+| Analysis | Analyzed, waiting for analysis, waiting for a machine or a model server, or failed, by each item's latest analysis. |
+| Kind | One kind of file, by its content type: images, PDFs, spreadsheets, text, and so on. |
+| When | Items added in the past day, week, month, or year. |
+
+The filters combine with each other, with the type menu, with a saved feed, and with a search. A
+row that waits for a machine or a model server says what it waits for. The filters are kept in the
+address of the page, so a filtered list can be bookmarked, and moving to a saved feed keeps them.
+
+The `feeds` and `search` queries take the same filters as a `slice` argument, and the
+`sliceCounts` query returns the counts the menus show. The `search` tool takes them as
+`machine_id`, `resource_id`, `analysis`, `kind`, `since`, and `before`, so a person and an agent ask
+for the same slice. A search narrowed by a filter keeps to its best 200 matches.
+
 ## Embeddings
 
 Every minute, xixo embeds the feeds that changed since they were last embedded. A feed's vector is

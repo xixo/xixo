@@ -35,6 +35,7 @@ import { Export } from './Export'
 import { Failed } from './Failed'
 import { FeedForm } from './FeedForm'
 import { FeedHead } from './FeedHead'
+import { Filters, SLICE_PARAMS, sliceKey, useSlice } from './Filters'
 import { Lost } from './Lost'
 import { Move, type Moving } from './Move'
 import { type Row, Rows, type View } from './Rows'
@@ -104,7 +105,7 @@ export function Catalog() {
 
   return (
     <Listing
-      key={`${slug ?? ''} ${type ?? ''} ${term}`}
+      key={`${slug ?? ''} ${type ?? ''} ${term} ${sliceKey(params)}`}
       type={type}
       term={term}
       feed={here}
@@ -148,13 +149,16 @@ function Listing({
   const [cursor, setCursor] = useState<string | null>(null)
   const { settledAt } = useUploads()
   const { addedAt } = useAdd()
+  const { slice, set: sliced } = useSlice()
 
+  const listed = type ? [type] : feed ? null : KEPT
   const catalog = useQuery(
     CatalogDocument,
     {
-      types: type ? [type] : feed ? null : KEPT,
+      types: listed,
       connectedTo: feed?.id ?? null,
       topLevel: !feed,
+      ...slice,
       after: cursor,
       limit: PAGE,
     },
@@ -162,7 +166,13 @@ function Listing({
   )
   const found = useQuery(
     SearchDocument,
-    { query: term, types: type ? [type] : KEPT, after: cursor, limit: PAGE },
+    {
+      query: term,
+      types: type ? [type] : KEPT,
+      ...slice,
+      after: cursor,
+      limit: PAGE,
+    },
     { skip: !searching },
   )
   const { data: analyzed } = useSubscription(FeedAnalyzedDocument)
@@ -221,7 +231,7 @@ function Listing({
 
   return (
     <Stack gap="var(--s5)">
-      {!searching && !feed && !type && setup && (
+      {!searching && !feed && !type && !sliced && setup && (
         <Setup onHidden={onSetupHidden} />
       )}
 
@@ -267,10 +277,17 @@ function Listing({
           <Group gap="var(--s2)" wrap="nowrap">
             {!feed && <Types />}
             <Switcher view={view} onPick={onPick} />
-            {!feed && <Tools type={type} term={term} />}
+            {!feed && !sliced && <Tools type={type} term={term} />}
           </Group>
         </div>
       </div>
+
+      <Filters
+        query={searching ? term : null}
+        types={searching ? (type ? [type] : KEPT) : listed}
+        connectedTo={searching ? null : (feed?.id ?? null)}
+        topLevel={!searching && !feed}
+      />
 
       {feed && (
         <FeedHead
@@ -297,7 +314,7 @@ function Listing({
       )}
 
       {!loading && rows.length === 0 && (
-        <Empty searching={searching} type={type} feed={feed} />
+        <Empty searching={searching} sliced={sliced} type={type} feed={feed} />
       )}
 
       {next !== null && (
@@ -329,12 +346,20 @@ function Shelf({
 }) {
   const say = useSay()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const [making, setMaking] = useState(false)
+
+  const kept = new URLSearchParams()
+  for (const name of SLICE_PARAMS) {
+    const value = params.get(name)
+    if (value) kept.set(name, value)
+  }
+  const carried = kept.toString() ? `?${kept.toString()}` : ''
 
   return (
     <div className="shelf">
       <Link
-        to="/"
+        to={`/${carried}`}
         className="chip"
         data-on={here === null}
         aria-current={here === null ? 'page' : undefined}
@@ -345,7 +370,7 @@ function Shelf({
       {feeds.map((feed) => (
         <Link
           key={feed.id}
-          to={feed.key}
+          to={`${feed.key}${carried}`}
           className="chip"
           data-on={feed.id === here?.id}
           aria-current={feed.id === here?.id ? 'page' : undefined}
@@ -576,10 +601,12 @@ function AskAbout({ term }: { term: string }) {
 
 function Empty({
   searching,
+  sliced,
   type,
   feed,
 }: {
   searching: boolean
+  sliced: boolean
   type: string | null
   feed: Feed | null
 }) {
@@ -587,6 +614,14 @@ function Empty({
   const { open } = useAdd()
   const picker = useRef<HTMLInputElement>(null)
   const folders = useRef<HTMLInputElement>(null)
+
+  if (sliced) {
+    return (
+      <Text c="dimmed" size="sm">
+        Nothing matches these filters. Clear one to see more.
+      </Text>
+    )
+  }
 
   if (searching) {
     return (

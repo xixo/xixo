@@ -332,13 +332,44 @@ class FakeSearchEngine
 
       case name
       when "match_all" then true
-      when "bool" then Array(held["must"]).all? { |one| clause?(document, one) }
+      when "bool" then bool?(document, held)
       when "term" then held.all? { |field, value| holds?(document[field.delete_suffix(".raw")], value) }
       when "terms"
         held.all? { |field, values| Array(values).any? { |value| holds?(document[field.delete_suffix(".raw")], value) } }
+      when "prefix" then held.all? { |field, value| document[field].to_s.start_with?(value.to_s) }
+      when "range" then held.all? { |field, bounds| within?(document[field], bounds) }
       when "multi_match" then multi_match?(document, held)
       else raise ArgumentError, "the fake engine does not understand #{name}"
       end
+    end
+
+    def bool?(document, held)
+      return false unless Array(held["must"]).all? { |one| clause?(document, one) }
+      return false if Array(held["must_not"]).any? { |one| clause?(document, one) }
+
+      should = Array(held["should"])
+      should.empty? || should.count { |one| clause?(document, one) } >= (held["minimum_should_match"] || 1).to_i
+    end
+
+    def within?(value, bounds)
+      return false if value.nil?
+
+      held = comparable(value)
+      bounds.all? do |edge, limit|
+        case edge
+        when "gte" then held >= comparable(limit)
+        when "gt" then held > comparable(limit)
+        when "lte" then held <= comparable(limit)
+        when "lt" then held < comparable(limit)
+        else true
+        end
+      end
+    end
+
+    def comparable(value)
+      return value if value.is_a?(Numeric)
+
+      Time.zone.parse(value.to_s) || value.to_s
     end
 
     def holds?(held, value)

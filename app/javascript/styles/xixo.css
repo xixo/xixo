@@ -802,6 +802,44 @@ pre,
   color: rgb(255 255 255 / 70%);
 }
 
+.filters {
+  margin-top: calc(var(--s3) * -1);
+}
+
+.filter {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+.filter-mark {
+  color: var(--muted);
+}
+
+.filter[data-on="true"] .chip {
+  padding-right: 10px;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.filter-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  width: 28px;
+  border: 1px solid var(--brand);
+  border-left: 1px solid rgb(255 255 255 / 25%);
+  border-radius: 0 999px 999px 0;
+  background: var(--brand);
+  color: #fff;
+  cursor: pointer;
+}
+
+.filter-clear:hover {
+  filter: brightness(1.1);
+}
+
 .chip-new {
   padding: 0;
   width: 28px;

@@ -8,8 +8,12 @@ module Tool
       provider at a time. Matches titles, keys, paths, tags and text drawn out by analysis, and
       finds the passage inside a long document that means what was asked; a result found that
       way carries the passage and where it starts. Omit the query to list the most recent feeds,
-      newest first. Every reply says how many matched in total.
+      newest first. Narrow by where a feed lives, how far its analysis got, what kind of file it
+      is, and when it was added; the catalog's filter chips ask for the same slice. Every reply
+      says how many matched in total.
     TEXT
+
+    SLICE = %i[machine_id resource_id analysis kind since before].freeze
 
     input_schema(
       properties: {
@@ -19,6 +23,25 @@ module Tool
           description: "Leave it off to search everything. Restricts to one type: xixo:file, xixo:note, " \
                        "xixo:address, xixo:tag, xixo:mime."
         },
+        machine_id: {
+          type: "string",
+          description: "Only feeds with an original on this machine, in a folder it shares or a resource reached " \
+                       "through it. The resource tool lists machines and their ids."
+        },
+        resource_id: { type: "string", description: "Only feeds with an original in this one resource." },
+        analysis: {
+          type: "string",
+          enum: Feed::Slice::STATES,
+          description: "By the feed's latest analysis. waiting covers a file no analysis has reached yet; parked, " \
+                       "one waiting for a machine or a model server."
+        },
+        kind: {
+          type: "string",
+          enum: MimeType.families,
+          description: "The kind of file, by its content type. file is everything the other kinds leave out."
+        },
+        since: { type: "string", description: "Only feeds added at this date or after it, as a date or a moment." },
+        before: { type: "string", description: "Only feeds added before this date." },
         limit: { type: "integer", minimum: 1, maximum: 200 }
       }
     )
@@ -43,17 +66,20 @@ module Tool
 
     def self.saying(arguments)
       within = arguments[:type].present? ? " among #{arguments[:type]}" : ""
+      narrowed = arguments.slice(*SLICE).compact_blank.map { |name, value| "#{name} #{value}" }
+      within += " narrowed to #{narrowed.join(', ')}" if narrowed.any?
 
       arguments[:query].present? ? "searched for #{arguments[:query]}#{within}" : "listed the catalog#{within}"
     end
 
-    def self.call(server_context:, query: nil, type: nil, limit: 50)
-      respond(server_context, { query: query, type: type, limit: limit }) do
+    def self.call(server_context:, query: nil, type: nil, limit: 50, **slice)
+      respond(server_context, { query: query, type: type, limit: limit, **slice.slice(*SLICE) }) do
         Current.grant.reaches!(:catalog)
         wanted = limit.to_i.clamp(1, 200)
-        page = searched(query, type, wanted)
+        narrowed = Feed::Slice.new(**slice.slice(*SLICE))
+        page = searched(query, type, wanted, narrowed)
         widened = page.nodes.empty? && type.present? && query.present?
-        page = searched(query, nil, wanted) if widened
+        page = searched(query, nil, wanted, narrowed) if widened
         widened &&= page.nodes.any?
         passages = type.present? && !widened ? {} : passages_for(query)
 
@@ -74,8 +100,8 @@ module Tool
       told.join(" ").presence
     end
 
-    def self.searched(query, type, limit)
-      found = Feed.found(query, type: type, limit: limit)
+    def self.searched(query, type, limit, slice = nil)
+      found = Feed.found(query, type: type, limit: limit, slice: slice)
       kept = found.nodes.reject { |feed| feed.id == Current.acting_for }
 
       Page.new(kept, found.has_more, nil, found.total - (found.nodes.size - kept.size))

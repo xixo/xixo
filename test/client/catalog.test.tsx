@@ -22,6 +22,10 @@ function showCatalog(
     Feeds: () => ({ feeds: page([]) }),
     Catalog: () => ({ feeds }),
     Types: () => ({ types: [] }),
+    SliceCounts: () => ({
+      sliceCounts: { where: [], analysis: [], kind: [], when: [] },
+    }),
+    Places: () => ({ resources: [] }),
   })
 
   show(

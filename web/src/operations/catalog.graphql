@@ -8,6 +8,7 @@ fragment Row on Feed {
   thumbnailUrl
   staged
   analyzedAt
+  unsummarized
   createdAt
   parent {
     id
@@ -20,6 +21,11 @@ query Catalog(
   $types: [String!]
   $connectedTo: ID
   $topLevel: Boolean
+  $machineId: ID
+  $resourceId: ID
+  $analysis: String
+  $kind: String
+  $since: ISO8601DateTime
   $after: ID
   $limit: Int
 ) {
@@ -32,6 +38,13 @@ query Catalog(
     types: $types
     connectedTo: $connectedTo
     topLevel: $topLevel
+    slice: {
+      machineId: $machineId
+      resourceId: $resourceId
+      analysis: $analysis
+      kind: $kind
+      since: $since
+    }
     after: $after
     limit: $limit
   ) {
@@ -51,14 +64,89 @@ query Types {
   }
 }
 
-query Search($query: String, $types: [String!], $after: ID, $limit: Int) {
-  search(query: $query, types: $types, after: $after, limit: $limit) {
+query Search(
+  $query: String
+  $types: [String!]
+  $machineId: ID
+  $resourceId: ID
+  $analysis: String
+  $kind: String
+  $since: ISO8601DateTime
+  $after: ID
+  $limit: Int
+) {
+  search(
+    query: $query
+    types: $types
+    slice: {
+      machineId: $machineId
+      resourceId: $resourceId
+      analysis: $analysis
+      kind: $kind
+      since: $since
+    }
+    after: $after
+    limit: $limit
+  ) {
     hasMore
     nextCursor
     total
     nodes {
       ...Row
     }
+  }
+}
+
+query SliceCounts(
+  $query: String
+  $types: [String!]
+  $connectedTo: ID
+  $topLevel: Boolean
+  $machineId: ID
+  $resourceId: ID
+  $analysis: String
+  $kind: String
+  $since: ISO8601DateTime
+) {
+  sliceCounts(
+    query: $query
+    types: $types
+    connectedTo: $connectedTo
+    topLevel: $topLevel
+    slice: {
+      machineId: $machineId
+      resourceId: $resourceId
+      analysis: $analysis
+      kind: $kind
+      since: $since
+    }
+  ) {
+    where {
+      key
+      count
+    }
+    analysis {
+      key
+      count
+    }
+    kind {
+      key
+      count
+    }
+    when {
+      key
+      count
+    }
+  }
+}
+
+query Places {
+  resources {
+    id
+    type
+    key
+    name
+    machineId
   }
 }
 

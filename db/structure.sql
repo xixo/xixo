@@ -1450,6 +1450,13 @@ CREATE INDEX index_feed_references_on_tenant_id_and_feed_id_and_role ON public.f
 
 
 --
+-- Name: index_feed_references_on_tenant_id_and_mime; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feed_references_on_tenant_id_and_mime ON public.feed_references USING btree (tenant_id, mime varchar_pattern_ops);
+
+
+--
 -- Name: index_feed_references_on_tenant_id_and_resource_id_and_seen_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2497,6 +2504,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261020100000'),
 ('20261014120000'),
 ('20261014000000'),
 ('20261013200000'),

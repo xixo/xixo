@@ -89,7 +89,13 @@ module Types
       settled = object.analysis
       return nil if settled&.summary
 
-      object.analyses.parked.where(id: (settled&.id || 0)..).last&.waiting || settled&.unsummarized
+      parked_since(settled&.id || 0)&.waiting || settled&.unsummarized
+    end
+
+    def parked_since(id)
+      return object.analyses.select { |held| held.parked? && held.id >= id }.last if object.analyses.loaded?
+
+      object.analyses.parked.where(id: id..).last
     end
 
     def connected_count = object.connected.readable_by(context[:grant]).count

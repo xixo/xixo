@@ -228,10 +228,10 @@ module SearchIndex
     end
 
     def page(query, tenant: Current.tenant, reader: Current.grant&.speaks_for, type: nil, mime: nil, tag: nil, limit: 50, from: 0,
-             least: LOOSE_MATCH)
+             least: LOOSE_MATCH, resource_ids: nil, since: nil, before: nil, kind: nil)
       raise ArgumentError, "no tenant" if tenant.nil?
 
-      facets = { type: type, mime: mime, tag: tag }
+      facets = { type: type, mime: mime, tag: tag, resource_ids: resource_ids, since: since, before: before, kind: kind }
       visible = readable(reader)
       vector = wanted_vector(query, limit: limit, from: from)
 
@@ -253,8 +253,8 @@ module SearchIndex
     end
 
     def lexical(query, tenant:, limit:, from:, visible: readable(Current.grant&.speaks_for), type: nil, mime: nil, tag: nil,
-                least: LOOSE_MATCH)
-      facets = { type: type, mime: mime, tag: tag }
+                least: LOOSE_MATCH, resource_ids: nil, since: nil, before: nil, kind: nil)
+      facets = { type: type, mime: mime, tag: tag, resource_ids: resource_ids, since: since, before: before, kind: kind }
       wanted = from + limit
       strict = matched(query, tenant: tenant, visible: visible, size: wanted, **facets)
 
@@ -268,7 +268,8 @@ module SearchIndex
         total: [ strict[:total], loose[:total] ].max }
     end
 
-    def matched(query, tenant:, size:, visible: readable(Current.grant&.speaks_for), least: nil, type: nil, mime: nil, tag: nil)
+    def matched(query, tenant:, size:, visible: readable(Current.grant&.speaks_for), least: nil, type: nil, mime: nil, tag: nil,
+                resource_ids: nil, since: nil, before: nil, kind: nil)
       must = if query.present?
         [ { multi_match: {
           query: query, fields: FIELDS,
@@ -278,7 +279,7 @@ module SearchIndex
         [ { match_all: {} } ]
       end
 
-      must.concat(faceted(type: type, mime: mime, tag: tag))
+      must.concat(faceted(type: type, mime: mime, tag: tag, resource_ids: resource_ids, since: since, before: before, kind: kind))
       must << visible
 
       response = client.search(
@@ -296,9 +297,10 @@ module SearchIndex
       }
     end
 
-    def nearest(vector, tenant:, limit:, visible: readable(Current.grant&.speaks_for), type: nil, mime: nil, tag: nil)
+    def nearest(vector, tenant:, limit:, visible: readable(Current.grant&.speaks_for), type: nil, mime: nil, tag: nil,
+                resource_ids: nil, since: nil, before: nil, kind: nil)
       must = [ { term: { tenant_id: tenant.id } }, visible ]
-      must.concat(faceted(type: type, mime: mime, tag: tag))
+      must.concat(faceted(type: type, mime: mime, tag: tag, resource_ids: resource_ids, since: since, before: before, kind: kind))
 
       response = client.search(
         index: alias_for(tenant),
@@ -336,9 +338,27 @@ module SearchIndex
       { terms: { readers: [ EVERYONE, reader ].compact_blank } }
     end
 
-    def faceted(type:, mime:, tag:)
-      { type: type, mime: mime, "tags.raw": tag }.compact_blank
-                                           .map { |field, value| { (value.is_a?(Array) ? :terms : :term) => { field => value } } }
+    def faceted(type:, mime:, tag:, resource_ids: nil, since: nil, before: nil, kind: nil)
+      clauses = { type: type, mime: mime, "tags.raw": tag }.compact_blank
+                                                     .map { |field, value| { (value.is_a?(Array) ? :terms : :term) => { field => value } } }
+      clauses << { terms: { resource_ids: resource_ids } } unless resource_ids.nil?
+      added = { gte: since&.utc&.iso8601, lt: before&.utc&.iso8601 }.compact
+      clauses << { range: { created_at: added } } if added.any?
+      clauses << kinded(kind) if kind
+      clauses
+    end
+
+    def kinded(kind)
+      rule = MimeType::FAMILIES[kind.to_s]
+
+      if rule.nil?
+        every = MimeType::FAMILIES.values.map { |held| held[:exact] ? { terms: { mime: held[:exact] } } : { prefix: { mime: held[:prefix] } } }
+        { bool: { must_not: every } }
+      elsif rule[:exact]
+        { terms: { mime: rule[:exact] } }
+      else
+        { bool: { must: [ { prefix: { mime: rule[:prefix] } } ], must_not: [ { terms: { mime: Array(rule[:except]) } } ] } }
+      end
     end
 
     def fuse(*lists)

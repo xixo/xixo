@@ -51,6 +51,38 @@ module MimeType
 
   ANIMATABLE = %w[image/gif image/webp image/apng].freeze
 
+  SHEETS = %w[
+    application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+    application/vnd.ms-excel
+    application/vnd.oasis.opendocument.spreadsheet
+  ].freeze
+
+  DOCS = %w[
+    application/msword
+    application/vnd.openxmlformats-officedocument.wordprocessingml.document
+    application/vnd.oasis.opendocument.text
+  ].freeze
+
+  DATA = %w[application/json application/xml text/csv text/tab-separated-values].freeze
+
+  FAMILIES = {
+    "pdf" => { exact: %w[application/pdf] },
+    "email" => { exact: %w[message/rfc822] },
+    "calendar" => { exact: %w[text/calendar] },
+    "contact" => { exact: %w[text/vcard] },
+    "pkpass" => { exact: %w[application/vnd.apple.pkpass] },
+    "page" => { exact: [ PAGE, ENTRY ] },
+    "xlsx" => { exact: SHEETS },
+    "doc" => { exact: DOCS },
+    "data" => { exact: DATA },
+    "image" => { prefix: "image/" },
+    "video" => { prefix: "video/" },
+    "audio" => { prefix: "audio/" },
+    "text" => { prefix: "text/", except: %w[text/calendar text/vcard text/csv text/tab-separated-values] }
+  }.freeze
+
+  OTHER = "file".freeze
+
   class << self
     def for_filename(name)
       BY_EXTENSION.fetch(extension(name), DEFAULT)
@@ -71,6 +103,21 @@ module MimeType
 
     def text?(mime)
       mime.to_s.start_with?("text/") && !%w[text/calendar text/vcard].include?(mime.to_s)
+    end
+
+    def families
+      FAMILIES.keys + [ OTHER ]
+    end
+
+    def family(mime)
+      held = mime.to_s.downcase
+
+      FAMILIES.each do |name, rule|
+        return name if rule[:exact]&.include?(held)
+        return name if rule[:prefix] && held.start_with?(rule[:prefix]) && !Array(rule[:except]).include?(held)
+      end
+
+      OTHER
     end
   end
 end
