@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"path/filepath"
 	"testing"
+
+	"github.com/xixo/xixo/link/internal/parts"
 )
 
 func relayArgs(t *testing.T, held map[string]any) json.RawMessage {
@@ -73,5 +76,47 @@ func TestARelayNamesAServerThatIsDown(t *testing.T) {
 
 	if _, err := down.relay(context.Background(), relayArgs(t, map[string]any{"port": 1, "method": "GET", "path": "/v1/models"})); !errors.Is(err, ErrNoModelServer) {
 		t.Fatalf("err %v", err)
+	}
+}
+
+func TestARelayReachesTheModelServerAPartOfThisMachineRuns(t *testing.T) {
+	served, _ := modelServer(t, "four")
+	port := served.ModelPorts["ollama"]
+
+	dir := t.TempDir()
+	keeper := &parts.Keeper{Dir: dir, Allowed: parts.Known(), Status: func(name string) string { return filepath.Join(dir, name+".status.json") }}
+	held := &Link{Parts: keeper}
+
+	if _, err := held.relay(context.Background(), relayArgs(t, map[string]any{"port": port, "method": "GET", "path": "/v1/models"})); !errors.Is(err, ErrRelayPort) {
+		t.Fatalf("before the part runs, err %v", err)
+	}
+
+	if err := parts.WriteWanted(filepath.Join(dir, parts.Models), parts.Wanted{Version: parts.Recipes[parts.Models].Version, Settings: parts.Settings{Port: port}}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := parts.WriteStatus(keeper.Status(parts.Models), parts.Status{Name: parts.Models, State: parts.StateStarting, Port: port, Pulls: []parts.Pull{}}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := held.relay(context.Background(), relayArgs(t, map[string]any{"port": port, "method": "GET", "path": "/v1/models"})); !errors.Is(err, ErrRelayPort) {
+		t.Fatalf("while the part starts, err %v", err)
+	}
+
+	if err := parts.WriteStatus(keeper.Status(parts.Models), parts.Status{Name: parts.Models, State: parts.StateRunning, Port: port, Pulls: []parts.Pull{}}); err != nil {
+		t.Fatal(err)
+	}
+
+	answered, err := held.relay(context.Background(), relayArgs(t, map[string]any{"port": port, "method": "GET", "path": "/v1/models"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := answered.(RelayAnswer); got.Status != 200 {
+		t.Fatalf("answered %+v", got)
+	}
+
+	if found, ok := held.modelPort("ollama"); !ok || found != port {
+		t.Fatalf("modelPort = %d, %v", found, ok)
 	}
 }

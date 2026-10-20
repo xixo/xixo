@@ -23,6 +23,7 @@ type Build struct {
 
 type Recipe struct {
 	Name    string
+	Kind    string
 	Version string
 	Builds  map[string]Build
 	Health  string
@@ -33,6 +34,7 @@ var ErrNoBuild = errors.New("this part has no build for this system and processo
 
 var ollama = Recipe{
 	Name:    Models,
+	Kind:    "ollama",
 	Version: "0.40.6",
 	Health:  "/api/version",
 	Args:    []string{"serve"},

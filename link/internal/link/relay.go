@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/xixo/xixo/link/internal/machine"
+	"github.com/xixo/xixo/link/internal/parts"
 )
 
 const (
@@ -71,7 +72,21 @@ func (a *Link) modelPortKnown(port int) bool {
 		}
 	}
 
+	for _, served := range a.serving() {
+		if served.Port == port {
+			return true
+		}
+	}
+
 	return false
+}
+
+func (a *Link) serving() []parts.Served {
+	if a.Parts == nil {
+		return nil
+	}
+
+	return a.Parts.Serving()
 }
 
 func (a *Link) relay(ctx context.Context, raw json.RawMessage) (any, error) {

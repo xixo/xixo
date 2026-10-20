@@ -62,6 +62,12 @@ func (a *Link) modelPort(kind string) (int, bool) {
 		return port, ok
 	}
 
+	for _, served := range a.serving() {
+		if served.Kind == kind {
+			return served.Port, true
+		}
+	}
+
 	for _, known := range machine.Known {
 		if known.Kind == kind {
 			return known.Port, true

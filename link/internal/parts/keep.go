@@ -112,6 +112,27 @@ func (k *Keeper) Statuses() []Status {
 	return held
 }
 
+type Served struct {
+	Kind string
+	Port int
+}
+
+func (k *Keeper) Serving() []Served {
+	held := []Served{}
+
+	for _, status := range k.Statuses() {
+		if status.State != StateRunning || status.Port <= 0 {
+			continue
+		}
+
+		if kind := Recipes[status.Name].Kind; kind != "" {
+			held = append(held, Served{Kind: kind, Port: status.Port})
+		}
+	}
+
+	return held
+}
+
 func (k *Keeper) Wait() {
 	k.work.Wait()
 }
