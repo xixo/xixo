@@ -7,6 +7,7 @@ class Resource
     ANSWERED_WITHIN = 30.seconds
     READ_STALLS_AFTER = 60.seconds
     POLLED_EVERY = 0.05
+    MOST_POLLED_EVERY = 0.5
     MOST_FOLDERS = 64
     MOST_SERVICES = 16
     MOST_DISKS = 32
@@ -393,7 +394,7 @@ class Resource
     end
 
     def waiting
-      sleep POLLED_EVERY
+      sleep(@pause || POLLED_EVERY)
     end
 
     def greeted!(said, session:)
@@ -613,6 +614,7 @@ class Resource
 
       def waited(exchange, verb, within)
         deadline = within.from_now
+        @pause = POLLED_EVERY
 
         loop do
           held = LinkExchange.uncached { LinkExchange.find(exchange.id) }
@@ -625,6 +627,7 @@ class Resource
           end
 
           waiting
+          @pause = [ @pause * 1.5, MOST_POLLED_EVERY ].min
         end
       end
 

@@ -189,6 +189,23 @@ class LinkChannelTest < ActionCable::Channel::TestCase
     assert_empty told(fresh).select { |message| message.key?("cancel") }
   end
 
+  test "a long wait for an answer polls less and less often, down to twice a second" do
+    connected
+    perform :hello, HELLO
+    machine = fresh
+    pauses = []
+    machine.define_singleton_method(:sleep) do |pause|
+      pauses << pause
+      raise IOError, "waited long enough" if pauses.size >= 12
+    end
+
+    assert_raises(IOError) { Tenant.switch(@tenant) { machine.ask("health", {}, within: 5.minutes) } }
+
+    assert_equal Resource::Machine::POLLED_EVERY, pauses.first
+    assert_equal pauses.sort, pauses
+    assert_equal Resource::Machine::MOST_POLLED_EVERY, pauses.last
+  end
+
   test "a wait that ends early tells the link to stop the question" do
     connected
     perform :hello, HELLO
