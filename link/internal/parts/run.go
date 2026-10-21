@@ -96,6 +96,10 @@ func (r *Runner) Run(ctx context.Context) error {
 		return r.failed(err)
 	}
 
+	if err := os.MkdirAll(r.State, 0o700); err != nil {
+		return r.failed(err)
+	}
+
 	version := r.Recipe.Version
 
 	for {

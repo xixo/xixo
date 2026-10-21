@@ -302,6 +302,10 @@ func TestAPartIsFetchedStartedCheckedAndStopsWhenNoLongerWanted(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if info, err := os.Stat(held.State); err != nil || !info.IsDir() || info.Mode().Perm() != 0o700 {
+		t.Fatalf("state %v %v", info, err)
+	}
+
 	Unwant(held.Wanted)
 
 	select {
