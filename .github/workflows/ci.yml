@@ -276,6 +276,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
 
     steps:
       - name: Checkout code
@@ -312,6 +314,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build the production image
+        id: image
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -324,6 +327,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Attest what built the image
+        if: github.event_name == 'push'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.image.outputs.digest }}
+          push-to-registry: true
+
       - name: Derive the link image tags
         id: link
         uses: docker/metadata-action@v6
@@ -335,6 +346,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build the link image
+        id: link_image
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -346,3 +358,11 @@ jobs:
           labels: ${{ steps.link.outputs.labels }}
           cache-from: type=gha,scope=link
           cache-to: type=gha,mode=max,scope=link
+
+      - name: Attest what built the link image
+        if: github.event_name == 'push'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ghcr.io/${{ github.repository }}-link
+          subject-digest: ${{ steps.link_image.outputs.digest }}
+          push-to-registry: true

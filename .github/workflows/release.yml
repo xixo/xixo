@@ -125,6 +125,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
 
     steps:
       - uses: actions/checkout@v7
@@ -160,6 +162,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push the release image
+        id: image
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -169,6 +172,13 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
+
+      - name: Attest what built the image
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.image.outputs.digest }}
+          push-to-registry: true
 
       - name: Derive the link's version tags
         id: link
@@ -180,6 +190,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.release-please.outputs.server_version }}
 
       - name: Build and push the link's release image
+        id: link_image
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -189,3 +200,10 @@ jobs:
           tags: ${{ steps.link.outputs.tags }}
           labels: ${{ steps.link.outputs.labels }}
           cache-from: type=gha,scope=link
+
+      - name: Attest what built the link image
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ghcr.io/${{ github.repository }}-link
+          subject-digest: ${{ steps.link_image.outputs.digest }}
+          push-to-registry: true
