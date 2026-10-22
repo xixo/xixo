@@ -33,17 +33,17 @@ var (
 	released = regexp.MustCompile(`^\d{1,6}\.\d{1,6}\.\d{1,6}(\+[0-9a-f]{7,40})?$`)
 	hexed    = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
-	ErrMismatch  = errors.New("the download did not match the SHA-256 xixo sent")
-	ErrDowngrade = errors.New("xixo named an older version without saying it is rolling back")
-	ErrTooLarge  = errors.New("the download is larger than xixo link accepts")
-	ErrUntold    = errors.New("xixo named no version and SHA-256 xixo link can use")
+	ErrMismatch = errors.New("the download did not match the SHA-256 xixo sent")
+	ErrTooLarge = errors.New("the download is larger than xixo link accepts")
+	ErrUntold   = errors.New("xixo named no version and SHA-256 xixo link can use")
 )
 
 type Target struct {
 	Version   string `json:"version"`
 	SHA256    string `json:"sha256"`
-	Downgrade bool   `json:"downgrade,omitempty"`
 	MacReader string `json:"mac_reader,omitempty"`
+	Release   string `json:"release,omitempty"`
+	Serial    int64  `json:"serial,omitempty"`
 }
 
 func (t Target) Check() error {
@@ -52,6 +52,10 @@ func (t Target) Check() error {
 	}
 
 	if t.MacReader != "" && !hexed.MatchString(t.MacReader) {
+		return ErrUntold
+	}
+
+	if t.Release != "" && !hexed.MatchString(t.Release) || t.Serial < 0 {
 		return ErrUntold
 	}
 
@@ -121,18 +125,6 @@ func parts(version string) ([3]int, bool) {
 	}
 
 	return held, true
-}
-
-func Allowed(running string, target Target) error {
-	if err := target.Check(); err != nil {
-		return err
-	}
-
-	if order, ok := Compare(target.Version, running); ok && order < 0 && !target.Downgrade {
-		return fmt.Errorf("%w: it runs %s and xixo named %s", ErrDowngrade, running, target.Version)
-	}
-
-	return nil
 }
 
 func Digest(path string) (string, error) {

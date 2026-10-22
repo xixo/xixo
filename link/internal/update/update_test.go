@@ -71,35 +71,22 @@ func TestCompareOrdersReleasedVersions(t *testing.T) {
 	}
 }
 
-func TestAnOlderVersionNeedsXixoToSayItRollsBack(t *testing.T) {
+func TestAnOfferIsCheckedForItsShape(t *testing.T) {
 	sha := strings.Repeat("a", 64)
 
-	if err := Allowed("0.3.0", Target{Version: "0.2.0", SHA256: sha}); !errors.Is(err, ErrDowngrade) {
-		t.Fatalf("an unannounced downgrade: %v", err)
+	for name, target := range map[string]Target{
+		"hash":    {Version: "0.2.0", SHA256: "ABC"},
+		"version": {Version: "0.3.0; rm -rf /", SHA256: sha},
+		"release": {Version: "0.2.0", SHA256: sha, Release: "../release.json"},
+		"serial":  {Version: "0.2.0", SHA256: sha, Release: sha, Serial: -1},
+	} {
+		if err := target.Check(); !errors.Is(err, ErrUntold) {
+			t.Errorf("%s: %v", name, err)
+		}
 	}
 
-	if err := Allowed("0.3.0", Target{Version: "0.2.0", SHA256: sha, Downgrade: true}); err != nil {
-		t.Fatalf("a rollback xixo named: %v", err)
-	}
-
-	if err := Allowed("dev", Target{Version: "0.2.0", SHA256: sha}); err != nil {
-		t.Fatalf("a dev build: %v", err)
-	}
-
-	if err := Allowed("0.2.0", Target{Version: "0.2.0", SHA256: "ABC"}); !errors.Is(err, ErrUntold) {
-		t.Fatalf("a malformed hash: %v", err)
-	}
-
-	if err := Allowed("0.2.0", Target{Version: "0.3.0; rm -rf /", SHA256: sha}); !errors.Is(err, ErrUntold) {
-		t.Fatalf("a malformed version: %v", err)
-	}
-
-	if err := Allowed("0.2.0", Target{Version: "0.2.0+1a2b3c4", SHA256: sha}); err != nil {
-		t.Fatalf("a build from main after the release it names: %v", err)
-	}
-
-	if err := Allowed("0.2.0+1a2b3c4", Target{Version: "0.2.0", SHA256: sha}); err != nil {
-		t.Fatalf("the release a build from main is named after: %v", err)
+	if err := (Target{Version: "0.2.0+1a2b3c4", SHA256: sha, Release: sha, Serial: 12}).Check(); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -264,10 +251,6 @@ func TestACurrentLinkAsksForNothing(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, RequestFile)); !os.IsNotExist(err) {
 		t.Fatalf("a current link made a request: %v", err)
 	}
-
-	if err := asking.Offer(context.Background(), Target{Version: "0.2.0", SHA256: strings.Repeat("2", 64)}); !errors.Is(err, ErrDowngrade) {
-		t.Fatalf("an unannounced downgrade: %v", err)
-	}
 }
 
 func applying(t *testing.T, fresh []byte, connects bool) (*Updater, string, string) {
@@ -302,6 +285,7 @@ func applying(t *testing.T, fresh []byte, connects bool) (*Updater, string, stri
 	return &Updater{
 		Xixo: server.URL, Requests: requests, Results: results, Binary: binary, Build: "xixo-link-linux-amd64",
 		Client: server.Client(), Wait: 500 * time.Millisecond, Poll: 20 * time.Millisecond,
+		Vouch: &Vouch{Unsigned: true},
 	}, binary, results
 }
 

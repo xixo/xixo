@@ -10,6 +10,7 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/bundle"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	sigstore "github.com/sigstore/sigstore-go/pkg/verify"
+	"github.com/xixo/xixo/link/internal/release"
 )
 
 const (
@@ -137,4 +138,22 @@ func signed(result *sigstore.VerificationResult, signer Signer) (Signed, error) 
 	workflow, _, _ = strings.Cut(workflow, "@")
 
 	return Signed{Repository: signer.Repository, Workflow: workflow, Commit: held.SourceRepositoryDigest, Ref: held.SourceRepositoryRef}, nil
+}
+
+func (c *Checker) Release(bundle, raw []byte, signer Signer) (release.Release, Signed, error) {
+	signed, err := c.Check(bundle, "sha256:"+release.Sum(raw), signer)
+	if err != nil {
+		return release.Release{}, Signed{}, err
+	}
+
+	held, err := release.Parse(raw)
+	if err != nil {
+		return release.Release{}, Signed{}, fmt.Errorf("%w: %v", ErrUnsigned, err)
+	}
+
+	if held.Revision != signed.Commit {
+		return release.Release{}, Signed{}, fmt.Errorf("%w: the release names %s, and CI signed %s", ErrUnsigned, held.Revision, signed.Commit)
+	}
+
+	return held, signed, nil
 }

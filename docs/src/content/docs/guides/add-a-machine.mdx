@@ -321,8 +321,10 @@ The setting lives in a drop-in file, so running the link-up command again keeps 
 ## Keep xixo link up to date
 
 xixo updates xixo link on each machine to the build the server ships, and the card says "updating
-to" and the version. When a new build does not connect within three minutes, xixo link goes back
-to the one before it, and tries again after six hours.
+to" and the version. Each machine checks that xixo's CI signed the build, and refuses a release
+older than one it has run, so the server cannot install anything else. When a new build does not
+connect within three minutes, xixo link goes back to the one before it, and tries again after six
+hours.
 
 - To hold a machine at the build it runs, turn off **Update xixo link automatically** on its card.
   Turn it on again to update at once.

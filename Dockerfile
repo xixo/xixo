@@ -48,6 +48,8 @@ RUN version=$(sed -n 's/.*"\.": *"\([^"]*\)".*/\1/p' .release-please-manifest.js
     cp xixo-link.service xixo-link-update.service xixo-link-update.path xixo-link-part@.service xixo-link-part@.path xixo-link.plist /opt/xixo-link/ && \
     printf '%s\n' "$version" > /opt/xixo-link/version
 
+FROM link AS link-release
+
 FROM scratch AS masks-client
 COPY vendor/.keep /
 
@@ -125,7 +127,7 @@ USER 1000:1000
 COPY --chown=rails:rails --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"
 COPY --chown=rails:rails --from=build /masks /masks
 COPY --chown=rails:rails --from=build /rails /rails
-COPY --from=link /opt/xixo-link /opt/xixo-link
+COPY --from=link-release /opt/xixo-link /opt/xixo-link
 COPY --from=mac-reader / /opt/xixo-link/mac/
 
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]

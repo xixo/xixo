@@ -53,6 +53,14 @@ class LinksController < ActionController::API
     served(Resource::Machine::Downloads.part_unit, Resource::Machine::Downloads::PART_UNIT, "text/plain")
   end
 
+  def release
+    served(Resource::Machine::Downloads.release_file, Resource::Machine::Downloads::RELEASE, "application/json")
+  end
+
+  def bundle
+    served(Resource::Machine::Downloads.bundle_file, Resource::Machine::Downloads::BUNDLE, "application/json")
+  end
+
   def part_path
     served(Resource::Machine::Downloads.part_path, Resource::Machine::Downloads::PART_PATH, "text/plain")
   end

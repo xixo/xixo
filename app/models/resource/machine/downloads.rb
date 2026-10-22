@@ -12,6 +12,8 @@ class Resource
         tesseract-ocr ffmpeg libreoffice-writer libreoffice-calc fonts-liberation
       ].freeze
       PLIST = "xixo-link.plist".freeze
+      RELEASE = "release.json".freeze
+      BUNDLE = "release.sigstore.json".freeze
       MAC_READER = "xixo-mac-reader".freeze
       MAC_DIR = "mac".freeze
       RELEASES = "https://github.com/xixo/xixo/releases/download".freeze
@@ -89,6 +91,24 @@ class Resource
         held(PART_PATH)
       end
 
+      def release_file
+        held(RELEASE)
+      end
+
+      def bundle_file
+        held(BUNDLE)
+      end
+
+      def signed
+        path = release_file
+        return unless path && bundle_file
+
+        serial = JSON.parse(File.read(path, 1.megabyte))["serial"]
+        { "release" => digest(path), "serial" => serial } if serial.is_a?(Integer) && serial.positive?
+      rescue SystemCallError, JSON::ParserError
+        nil
+      end
+
       def held(file)
         path = Machine.binaries + file
         path if File.lstat(path).file?
@@ -125,10 +145,6 @@ class Resource
 
       def numbered(version)
         version.to_s.split("+").first
-      end
-
-      def older?(version, than)
-        released?(version) && released?(than) && Gem::Version.new(numbered(version)) < Gem::Version.new(numbered(than))
       end
 
       def digest(path)

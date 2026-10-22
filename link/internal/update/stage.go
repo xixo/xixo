@@ -35,6 +35,7 @@ type Stager struct {
 	Restart  func()
 	Now      func() time.Time
 	Retry    time.Duration
+	Vouch    *Vouch
 	once     sync.Once
 	ledger   *ledger
 	busy     sync.Mutex
@@ -108,6 +109,15 @@ func (s *Stager) stage(ctx context.Context, target Target) error {
 
 	goos, goarch := s.system()
 
+	if s.Vouch == nil {
+		return ErrUnsignedOffer
+	}
+
+	signed, err := s.Vouch.Release(ctx, target, goos, goarch)
+	if err != nil {
+		return err
+	}
+
 	fetched, err := Fetch(ctx, s.Client, Address(s.Xixo, BuildFor(goos, goarch)), target.SHA256, part)
 	if err != nil {
 		return err
@@ -143,7 +153,7 @@ func (s *Stager) stage(ctx context.Context, target Target) error {
 
 	Prune(s.Releases, running)
 
-	return nil
+	return s.Vouch.Accept(signed)
 }
 
 func (s *Stager) reader(ctx context.Context, target Target, part string) error {

@@ -15,7 +15,7 @@ func connects(state string, then string) []byte {
 %s`, state, then))
 }
 
-func release(t *testing.T, releases, name string, body []byte) {
+func staged(t *testing.T, releases, name string, body []byte) {
 	t.Helper()
 
 	os.MkdirAll(filepath.Join(releases, name), 0o700)
@@ -82,7 +82,7 @@ func TestTheSupervisorPassesTheChildItsReleases(t *testing.T) {
 func TestANewReleaseThatConnectsBecomesTheGoodOne(t *testing.T) {
 	held := supervisor(t, script("exit 9"))
 	count := filepath.Join(held.State, "count")
-	release(t, held.Releases, "aaaaaaaaaaaaaaaa", connects(held.State, fmt.Sprintf(`if [ -f %q ]; then exit 5; fi
+	staged(t, held.Releases, "aaaaaaaaaaaaaaaa", connects(held.State, fmt.Sprintf(`if [ -f %q ]; then exit 5; fi
 touch %q
 exit 75`, count, count)))
 	Point(held.Releases, Current, "aaaaaaaaaaaaaaaa")
@@ -98,7 +98,7 @@ exit 75`, count, count)))
 
 func TestANewReleaseThatStopsIsRolledBack(t *testing.T) {
 	held := supervisor(t, script("exit 7"))
-	release(t, held.Releases, "bbbbbbbbbbbbbbbb", script("exit 1"))
+	staged(t, held.Releases, "bbbbbbbbbbbbbbbb", script("exit 1"))
 	Point(held.Releases, Current, "bbbbbbbbbbbbbbbb")
 
 	if status := supervised(t, held); status != 7 {
@@ -118,8 +118,8 @@ func TestANewReleaseThatStopsIsRolledBack(t *testing.T) {
 func TestANewReleaseThatNeverConnectsIsRolledBackToTheGoodOne(t *testing.T) {
 	held := supervisor(t, script("exit 8"))
 	held.Probation = 300 * time.Millisecond
-	release(t, held.Releases, "cccccccccccccccc", script("exit 6"))
-	release(t, held.Releases, "dddddddddddddddd", script("exec sleep 30"))
+	staged(t, held.Releases, "cccccccccccccccc", script("exit 6"))
+	staged(t, held.Releases, "dddddddddddddddd", script("exec sleep 30"))
 	Point(held.Releases, Good, "cccccccccccccccc")
 	Point(held.Releases, Current, "dddddddddddddddd")
 
@@ -142,7 +142,7 @@ func TestStagingPutsAVerifiedReleaseInPlace(t *testing.T) {
 	staging := &Stager{
 		Xixo: server.URL, Releases: filepath.Join(root, "releases"), State: root,
 		Self: Self{Version: "0.2.0", SHA256: strings.Repeat("1", 64)}, Client: server.Client(),
-		OS: "darwin", Arch: "arm64", Restart: func() { restarted = true },
+		OS: "darwin", Arch: "arm64", Vouch: &Vouch{Unsigned: true}, Restart: func() { restarted = true },
 	}
 	target := Target{Version: "0.3.0", SHA256: sum(fresh), MacReader: sum(reader)}
 
@@ -176,7 +176,7 @@ func TestStagingRefusesAMismatchedMacReader(t *testing.T) {
 	staging := &Stager{
 		Xixo: server.URL, Releases: filepath.Join(root, "releases"), State: root,
 		Self: Self{Version: "0.2.0", SHA256: strings.Repeat("1", 64)}, Client: server.Client(),
-		OS: "darwin", Arch: "arm64", Restart: func() { t.Error("restarted after a failed update") },
+		OS: "darwin", Arch: "arm64", Vouch: &Vouch{Unsigned: true}, Restart: func() { t.Error("restarted after a failed update") },
 		Now: func() time.Time { return now },
 	}
 
@@ -200,7 +200,7 @@ func TestStagingRefusesAMismatchedMacReader(t *testing.T) {
 func TestAReleaseIsGoodAsSoonAsItConnects(t *testing.T) {
 	held := supervisor(t, script("exit 9"))
 	good := filepath.Join(held.Releases, Good)
-	release(t, held.Releases, "eeeeeeeeeeeeeeee", connects(held.State, fmt.Sprintf(`i=0
+	staged(t, held.Releases, "eeeeeeeeeeeeeeee", connects(held.State, fmt.Sprintf(`i=0
 while [ "$i" -lt 200 ]; do
   [ "$(readlink %q)" = eeeeeeeeeeeeeeee ] && exit 5
   i=$((i + 1))
@@ -219,13 +219,13 @@ func TestStagingKeepsTheReleaseItRunsFrom(t *testing.T) {
 	server, _ := served(t, map[string][]byte{"xixo-link-darwin-arm64": fresh})
 	root := t.TempDir()
 	releases := filepath.Join(root, "releases")
-	release(t, releases, "ffffffffffffffff", script("exit 0"))
+	staged(t, releases, "ffffffffffffffff", script("exit 0"))
 	Point(releases, Current, "ffffffffffffffff")
 
 	staging := &Stager{
 		Xixo: server.URL, Releases: releases, State: root,
 		Self: Self{Version: "0.2.0", SHA256: strings.Repeat("1", 64)}, Client: server.Client(),
-		OS: "darwin", Arch: "arm64", Restart: func() {},
+		OS: "darwin", Arch: "arm64", Vouch: &Vouch{Unsigned: true}, Restart: func() {},
 	}
 
 	if err := staging.Offer(context.Background(), Target{Version: "0.3.0", SHA256: sum(fresh)}); err != nil {

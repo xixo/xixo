@@ -72,9 +72,15 @@ func updater(ctx context.Context, mode, releases, stateDir string, config *state
 			return nil
 		}
 
+		root := filepath.Dir(releases)
+
 		return &update.Stager{
 			Xixo: config.Xixo, Releases: releases, State: stateDir, Self: running.Identity,
 			Client: dial.Fetcher(), Restart: restart,
+			Vouch: &update.Vouch{
+				Xixo: config.Xixo, Client: dial.Fetcher(), Unsigned: config.Unsigned(),
+				Floor: filepath.Join(root, update.FloorFile), Trust: filepath.Join(root, update.TrustDir),
+			},
 		}
 	}
 
@@ -121,6 +127,10 @@ func updated(ctx context.Context, configPath, requests, results string) error {
 		Build:    update.BuildFor(runtime.GOOS, runtime.GOARCH),
 		Client:   dial.Fetcher(),
 		Log:      slog.New(slog.NewTextHandler(os.Stderr, nil)),
+		Vouch: &update.Vouch{
+			Xixo: config.Xixo, Client: dial.Fetcher(), Unsigned: config.Unsigned(),
+			Floor: filepath.Join(filepath.Dir(self), update.FloorFile), Trust: filepath.Join(filepath.Dir(self), update.TrustDir),
+		},
 	}
 
 	return held.Apply(ctx)

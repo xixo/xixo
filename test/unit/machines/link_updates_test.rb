@@ -30,7 +30,7 @@ class LinkUpdatesTest < ActionCable::Channel::TestCase
 
     told = greeted("version" => "0.0.1", "sha256" => OLD, "updates" => "systemd")
 
-    assert_equal [ { "version" => SHIPPED, "sha256" => Digest::SHA256.hexdigest("linux binary"), "downgrade" => false } ],
+    assert_equal [ { "version" => SHIPPED, "sha256" => Digest::SHA256.hexdigest("linux binary") } ],
                  told
     assert_equal OLD, fresh.machine["sha256"]
     assert_equal "systemd", fresh.machine["updates"]
@@ -49,18 +49,15 @@ class LinkUpdatesTest < ActionCable::Channel::TestCase
     assert fresh.current?
   end
 
-  test "an image built from main names its commit after the release, and that is neither a downgrade nor the release" do
+  test "an image built from main names its commit after the release" do
     File.write(File.join(@binaries, "version"), "#{SHIPPED}+1a2b3c4\n")
 
     assert_equal "#{SHIPPED}+1a2b3c4", Resource::Machine::Downloads.version
     assert_equal "#{Resource::Machine::Downloads::RELEASES}/server-v#{SHIPPED}/xixo-mac-reader", Resource::Machine::Downloads.mac_reader
-    assert_not Resource::Machine::Downloads.older?("#{SHIPPED}+1a2b3c4", SHIPPED)
-    assert_not Resource::Machine::Downloads.older?(SHIPPED, "#{SHIPPED}+1a2b3c4")
-    assert Resource::Machine::Downloads.older?("#{SHIPPED}+1a2b3c4", "999.0.0")
 
     told = greeted("version" => SHIPPED, "sha256" => OLD, "updates" => "systemd")
 
-    assert_equal [ { "version" => "#{SHIPPED}+1a2b3c4", "sha256" => Digest::SHA256.hexdigest("linux binary"), "downgrade" => false } ],
+    assert_equal [ { "version" => "#{SHIPPED}+1a2b3c4", "sha256" => Digest::SHA256.hexdigest("linux binary") } ],
                  told
   end
 
@@ -75,10 +72,25 @@ class LinkUpdatesTest < ActionCable::Channel::TestCase
     assert fresh.current?
   end
 
-  test "a newer link is told to go back only with a downgrade xixo names" do
+  test "xixo cannot tell a link to go back: the offer names the build, and the link checks its signature and serial" do
     told = greeted("version" => "999.0.0", "sha256" => OLD, "updates" => "systemd")
 
-    assert_equal [ true ], told.map { |offer| offer["downgrade"] }
+    assert_equal [ [ "sha256", "version" ] ], told.map { |offer| offer.keys.sort }
+  end
+
+  test "an image with a signed release names it and its serial in the offer" do
+    release = { "version" => SHIPPED, "serial" => 1234, "files" => [] }.to_json
+    File.write(File.join(@binaries, "release.json"), release)
+    File.write(File.join(@binaries, "release.sigstore.json"), "{}")
+
+    told = greeted("version" => "0.0.1", "sha256" => OLD, "updates" => "systemd")
+
+    assert_equal [ [ Digest::SHA256.hexdigest(release), 1234 ] ], told.map { |offer| offer.values_at("release", "serial") }
+
+    File.delete(File.join(@binaries, "release.sigstore.json"))
+    told = greeted("version" => "0.0.1", "sha256" => OLD, "updates" => "systemd")
+
+    assert_equal [ nil ], told.map { |offer| offer["release"] }
   end
 
   test "a link that cannot update itself, a paused one, and the one beside the server hear nothing" do

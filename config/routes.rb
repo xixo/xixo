@@ -26,6 +26,8 @@ Rails.application.routes.draw do
   get "/link/download/xixo-link-update.path", to: "links#update_path", as: :link_update_path
   get "/link/download/xixo-link-part@.service", to: "links#part_unit", as: :link_part_unit
   get "/link/download/xixo-link-part@.path", to: "links#part_path", as: :link_part_path
+  get "/link/download/release.json", to: "links#release", as: :link_release
+  get "/link/download/release.sigstore.json", to: "links#bundle", as: :link_bundle
   get "/link/download/:file", to: "links#download", as: :link_download,
                               constraints: { file: /xixo-link-[a-z0-9]+-[a-z0-9]+|xixo-mac-reader/ }
   get "/link/builds", to: "links#builds", as: :link_builds

@@ -85,7 +85,7 @@ func (l *ledger) last() (Request, bool) {
 }
 
 func (l *ledger) claim(self Self, target Target) (bool, error) {
-	if err := Allowed(self.Version, target); err != nil {
+	if err := target.Check(); err != nil {
 		return false, err
 	}
 

@@ -79,6 +79,10 @@ func (r *recording) DownloadFile(address string, most int64, timeout time.Durati
 		return nil, err
 	}
 
+	if r.mirror == "" {
+		return held, nil
+	}
+
 	if target, err := mirrored(r.mirror, address); err == nil {
 		written(target, held)
 	}

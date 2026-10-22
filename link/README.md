@@ -410,20 +410,41 @@ To raise the memory cap, run `sudo systemctl edit xixo-link` and set
 xixo keeps every machine on the build of xixo link the server ships. When xixo
 link says `hello`, xixo compares the SHA-256 of its binary, and on a Mac of its
 mac reader, with that build. When they differ and the machine's updates are on,
-xixo sends an `update` naming the version and the SHA-256 values. xixo link
-then:
+xixo sends an `update` naming the version, the SHA-256 values, and the release
+they belong to. xixo link then:
 
-1. Downloads the build from the xixo address in its own configuration,
-   following no redirect, so the message cannot send it to another host.
-2. Checks each download against the SHA-256 in the message.
-3. Runs the new binary's `version`, which must print the version xixo sent.
-4. Swaps the new binary in and keeps the one before it.
-5. Restarts into it. When the new binary does not connect within three
-   minutes, the one before it comes back.
+1. Downloads `release.json` and `release.sigstore.json` from the xixo address
+   in its own configuration, following no redirect, so the message cannot send
+   it to another host.
+2. Checks the signature itself. It must be a build attestation from GitHub
+   Actions, signed through Sigstore, for `xixo/xixo` on `main`, from `ci.yml` or
+   `release.yml` on a GitHub-hosted runner, and it must cover `release.json`.
+3. Checks that `release.json` lists the build xixo named, for this system and
+   processor, and that its serial is not lower than the highest one this
+   machine accepted.
+4. Downloads the build and checks it against that SHA-256.
+5. Runs the new binary's `version`, which must print the version xixo sent.
+6. Swaps the new binary in and keeps the one before it.
+7. Restarts into it. When the new binary does not connect within three
+   minutes, the one before it comes back. Once it connects, the machine
+   remembers the release's serial.
 
-xixo link moves to an older version only when xixo says it is a downgrade, such
-as after the server was rolled back. A failed update shows as a warning, and
-xixo link asks again six hours later.
+The server only mirrors the release. A server that was taken over cannot make a
+machine install a build CI did not sign, or an older release than it has run.
+A failed update shows as a warning, and xixo link asks again six hours later.
+
+The repository, workflows, and branch it trusts are compiled into xixo link,
+so a fork builds its own. A machine running a build from a fork, or from a dev
+stack, accepts unsigned builds only when its configuration says so:
+
+```json
+{
+  "xixo": "https://xixo.localhost",
+  "issuer": "https://xixo.localhost/id",
+  "folders": ["/srv/media"],
+  "releases": "unsigned"
+}
+```
 
 ### On Linux
 
@@ -441,8 +462,11 @@ second system user, `xixo-link-update`, and a separate unit swaps it:
 5. The updater waits three minutes for the new one to connect, and puts the old
    one back when it does not.
 
-The updater cannot see `/var/lib/xixo-link`, where the keys are, and holds no
-capabilities. Nothing runs as root after the install.
+The updater keeps the highest serial it accepted in
+`/usr/local/lib/xixo-link/serial`, where xixo link cannot write, and its
+Sigstore trust files in `/usr/local/lib/xixo-link/trust`. It cannot see
+`/var/lib/xixo-link`, where the keys are, and holds no capabilities. Nothing
+runs as root after the install.
 
 ### On macOS
 

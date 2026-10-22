@@ -23,11 +23,16 @@ const PartModels = "models"
 var Parts = []string{PartModels}
 
 type Config struct {
-	Xixo    string           `json:"xixo"`
-	Issuer  string           `json:"issuer"`
-	Folders []folders.Shared `json:"folders"`
-	Lend    *bool            `json:"lend"`
-	Parts   []string         `json:"parts"`
+	Xixo     string           `json:"xixo"`
+	Issuer   string           `json:"issuer"`
+	Folders  []folders.Shared `json:"folders"`
+	Lend     *bool            `json:"lend"`
+	Parts    []string         `json:"parts"`
+	Releases string           `json:"releases,omitempty"`
+}
+
+func (c *Config) Unsigned() bool {
+	return c.Releases == "unsigned"
 }
 
 func (c *Config) LendCeiling() bool {
