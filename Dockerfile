@@ -118,7 +118,7 @@ ENV MASKS_CLIENT_PATH=${MASKS_CLIENT_PATH}
 # Run and own only the runtime files as a non-root user for security
 RUN groupadd --system --gid 1000 rails && \
     useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash && \
-    mkdir -p /handoff && chown rails:rails /handoff
+    mkdir -p /handoff /run/xixo-updates/requests && chown rails:rails /handoff /run/xixo-updates/requests
 USER 1000:1000
 
 # Copy built artifacts: gems, application

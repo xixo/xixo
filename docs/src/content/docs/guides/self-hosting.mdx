@@ -584,6 +584,7 @@ refused, and the refusal is logged.
          - updater-tuf:/run/xixo-updates/tuf
          - updater-state:/var/lib/xixo-updates/state
          - updater-cache:/var/lib/xixo-updates/cache
+         - updater-requests:/run/xixo-updates/requests:ro
 
    volumes:
      updater-gate:
@@ -591,9 +592,20 @@ refused, and the refusal is logged.
      updater-gate-cache:
      updater-state:
      updater-cache:
+     updater-requests:
    ```
 
-5. Start the stack:
+5. Give `xixo` the updater's state to read and a folder to leave requests in, so
+   **Settings > Updates** works:
+
+   ```yaml
+   xixo:
+     volumes:
+       - updater-state:/var/lib/xixo-updates/state:ro
+       - updater-requests:/run/xixo-updates/requests
+   ```
+
+6. Start the stack:
 
    ```sh
    docker compose up -d
@@ -626,6 +638,11 @@ tables and columns. Back up before you follow a channel, and see
 | --- | --- | --- |
 | `XIXO_UPDATES_CHANNEL` | `releases` | `releases` follows the highest `x.y.z` tag, signed by `release.yml`. `main` follows `:main`, signed by `ci.yml` after the tests pass. Set on `updater`. |
 | `XIXO_UPDATES_KINDS` | `xixo,xixo-link` | What the gate keeps up to date. Add `masks` when a [masks server of your own](#a-masks-server-of-your-own) runs on the same host, and label its container `network.xixo.updates: masks`. Set on `updater-gate`. |
+
+**Settings > Updates** shows what each image runs, the last ten events, and **Update now**, **Pause
+updates**, **Roll back**, and the channel. Administrators of the tenant in `XIXO_UPDATES_TENANT`, or
+of the single `XIXO_TENANT`, see it. A request goes to the updater through `request.json`, which the
+updater reads and never writes back to, and each one is in the audit log.
 
 `/var/lib/xixo-updates/state` in the `updater` container holds `status.json`, with each image's
 digest, commit, and containers, and `events.jsonl`, with the last 1,000 checks, pulls, swaps,

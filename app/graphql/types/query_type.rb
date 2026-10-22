@@ -23,6 +23,16 @@ module Types
       {}
     end
 
+    field :server_updates, Types::ServerUpdatesType, grants: "xixo:settings:read",
+          description: "How xixo-updater keeps this server up to date. Empty for anyone but an administrator of the " \
+                       "tenant that runs the server's updates, named by XIXO_UPDATES_TENANT or XIXO_TENANT."
+
+    def server_updates
+      return nil unless context[:grant].administers? && ServerUpdates.controlled_by?(context[:tenant])
+
+      { status: ServerUpdates.status, events: ServerUpdates.events }
+    end
+
     field :settings, [ Types::SettingType ], null: false, grants: "xixo:settings:read"
 
     def settings

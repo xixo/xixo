@@ -16,13 +16,15 @@ RUN version=$(sed -n 's/.*"\.": *"\([^"]*\)".*/\1/p' .release-please-manifest.js
     version="${version:-dev}${XIXO_COMMIT:++$(printf %.7s "$XIXO_COMMIT")}" && \
     CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
       -ldflags "-s -w -X main.version=$version" -o /out/xixo-updater ./cmd/xixo-updater && \
-    mkdir -p /out/run/xixo-updates/gate /out/run/xixo-updates/tuf /out/var/lib/xixo-updates/state /out/var/lib/xixo-updates/cache
+    mkdir -p /out/run/xixo-updates/gate /out/run/xixo-updates/tuf /out/var/lib/xixo-updates/state /out/var/lib/xixo-updates/cache && \
+    mkdir -p /out/requests && chmod 1777 /out/requests
 
 FROM gcr.io/distroless/static-debian12:nonroot
 
 COPY --from=build /out/xixo-updater /usr/local/bin/xixo-updater
 COPY --from=build --chown=65532:65532 /out/run/xixo-updates /run/xixo-updates
 COPY --from=build --chown=65532:65532 /out/var/lib/xixo-updates /var/lib/xixo-updates
+COPY --from=build /out/requests /run/xixo-updates/requests
 
 ENTRYPOINT ["/usr/local/bin/xixo-updater"]
 CMD ["watch"]

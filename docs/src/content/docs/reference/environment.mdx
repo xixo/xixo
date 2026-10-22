@@ -166,6 +166,17 @@ the `analysis` queue.
 | `XIXO_WORKER_QUIET_SECONDS` | `300` | How long the workers can go without a heartbeat before `/up` reports `worker` failing and `bin/jobs-healthy` fails. |
 | `XIXO_ITERATORS_DISABLED` | `false` | Closes every gate in every tenant, which stops every sync, analysis, export, and reindex, including ones in progress. See [budgets and gates](/concepts/agents/#budgets-and-gates). |
 
+### Updates
+
+These connect the server to [xixo-updater](/guides/self-hosting/#keep-xixo-up-to-date). Without an
+updater beside it, **Settings > Updates** says the server is updated by hand.
+
+| Variable | Default | |
+| --- | --- | --- |
+| `XIXO_UPDATES_STATE` | `/var/lib/xixo-updates/state` | The updater's state folder, mounted read-only. xixo reads `status.json` and `events.jsonl` from it. |
+| `XIXO_UPDATES_REQUEST` | `/run/xixo-updates/requests/request.json` | The file xixo writes when an administrator asks the updater to update now, pause, resume, roll back, or follow another channel. The updater reads it. |
+| `XIXO_UPDATES_TENANT` | the `XIXO_TENANT` tenant | The tenant whose administrators see and control the server's updates. With several tenants and no `XIXO_UPDATES_TENANT`, no one controls them from xixo. |
+
 ### Web server
 
 The image runs `./bin/thrust ./bin/rails server`. [Thruster](https://github.com/basecamp/thruster)

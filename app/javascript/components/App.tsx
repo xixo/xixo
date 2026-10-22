@@ -30,6 +30,7 @@ import { Resources } from './Resources'
 import { SayProvider } from './Say'
 import { Settings, SignedIn } from './Settings'
 import { Shared } from './Shared'
+import { Updates } from './Updates'
 import { UploadsProvider } from './Uploads'
 
 const VERBS: [string, string][] = [
@@ -191,6 +192,7 @@ function Shell({
               <Route path="resources" element={<Resources />} />
               <Route path="resources/:id" element={<Resources />} />
               <Route path="activity" element={<Audit />} />
+              <Route path="updates" element={<Updates />} />
             </Route>
             <Route path="/link/:code" element={<LinkApproval />} />
             <Route path="/:slug" element={<Catalog />} />

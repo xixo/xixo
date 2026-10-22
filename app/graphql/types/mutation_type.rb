@@ -32,6 +32,7 @@ module Types
     field :set_sync_interval, mutation: Mutations::SetSyncInterval, grants: "xixo:resources:command"
 
     field :set_setting, mutation: Mutations::SetSetting, grants: "xixo:settings:write"
+    field :request_server_update, mutation: Mutations::RequestServerUpdate, grants: "xixo:settings:write"
 
     field :export_feeds, mutation: Mutations::ExportFeeds, grants: "xixo:catalog:write"
     field :move_files, mutation: Mutations::MoveFiles, grants: "xixo:resources:command"

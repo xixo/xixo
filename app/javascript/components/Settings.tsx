@@ -4,11 +4,16 @@ import {
   IconActivity,
   IconArrowUpRight,
   IconDatabase,
+  IconRefresh,
   IconUser,
 } from '@tabler/icons-react'
 import type { ReactNode } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { SetSettingDocument, SettingsDocument } from 'xixo'
+import {
+  ServerUpdatesDocument,
+  SetSettingDocument,
+  SettingsDocument,
+} from 'xixo'
 import { useQuery } from 'xixo/react'
 import { useTitle } from '../hooks/useTitle'
 import { Face } from './Face'
@@ -21,13 +26,17 @@ const TABS = [
   { to: '/settings/activity', label: 'Activity', icon: IconActivity },
 ]
 
+const UPDATES = { to: '/settings/updates', label: 'Updates', icon: IconRefresh }
+
 export function Settings() {
   const { pathname } = useLocation()
+  const { data } = useQuery(ServerUpdatesDocument)
+  const tabs = data?.serverUpdates ? [...TABS, UPDATES] : TABS
 
   return (
     <div className="settings">
       <nav className="subnav" aria-label="Settings">
-        {TABS.map(({ to, label, icon: Icon }) => (
+        {tabs.map(({ to, label, icon: Icon }) => (
           <Link
             key={to}
             to={to}

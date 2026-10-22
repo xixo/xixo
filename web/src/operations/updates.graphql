@@ -1,0 +1,41 @@
+query ServerUpdates {
+  serverUpdates {
+    manual
+    channel
+    paused
+    checkedAt
+    images {
+      name
+      current
+      previous
+      created
+      revision
+      version
+      target
+      containers {
+        name
+        service
+        state
+        health
+        stale
+      }
+    }
+    events {
+      at
+      action
+      kind
+      digest
+      error
+      by
+      channel
+    }
+  }
+}
+
+mutation RequestServerUpdate($action: String!, $channel: String) {
+  requestServerUpdate(input: { action: $action, channel: $channel }) {
+    serverUpdates {
+      manual
+    }
+  }
+}
