@@ -33,7 +33,9 @@ Any other command starts without them.
 | `:<version>`, such as `:0.2.0`, and `:<major>.<minor>`, such as `:0.2` | each server release |
 | `:main`, `:sha-<full commit sha>`, and `:latest` | every push to main |
 
-`ghcr.io/xixo/xixo` is built for amd64. `ghcr.io/xixo/xixo-link` is built for amd64 and arm64.
+`ghcr.io/xixo/xixo` is built for amd64. `ghcr.io/xixo/xixo-link` and `ghcr.io/xixo/xixo-updater` are built
+for amd64 and arm64. Each image carries a build attestation, which `gh attestation verify
+oci://ghcr.io/xixo/xixo:main --repo xixo/xixo` checks.
 
 A server release has a `server-v<version>` tag and its changes in `CHANGELOG.md`. An image built
 from main holds the same xixo link builds and mac reader as a release, and names its commit after
@@ -500,22 +502,137 @@ To go back, [restore](/guides/back-up-and-restore/#restore) the backup and start
 
 ## Keep xixo up to date
 
-A timer on the host pulls the tag the compose file names and recreates the containers that changed.
-With `:0.2` it follows patch releases. With `:main` it follows every push.
+xixo-updater keeps the server on builds that xixo's CI built and signed. It runs as two containers
+from `ghcr.io/xixo/xixo-updater`:
 
-1. Copy [`deploy/xixo-update.service` and `deploy/xixo-update.timer`](https://github.com/xixo/xixo/tree/main/deploy)
-   to `/etc/systemd/system/`.
-2. Set `WorkingDirectory` in the service to the folder that holds your `compose.yml`.
-3. Start the timer:
+| | |
+| --- | --- |
+| `updater` | Checks the registry every 15 minutes. It has network access and no Docker socket. |
+| `updater-gate` | Pulls images and replaces containers. It has the Docker socket and no network. |
 
-   ```sh
-   sudo systemctl enable --now xixo-update.timer
+Each image CI pushes carries a build attestation, signed through Sigstore, that names the
+repository, workflow, and commit that built it. The updater checks it before asking for an update,
+and the gate checks it again offline before it pulls or replaces anything. An image without one is
+refused, and the refusal is logged.
+
+### Set it up
+
+1. In `x-xixo`, change the image to a local tag that only the gate moves:
+
+   ```yaml
+   x-xixo: &xixo
+     image: xixo-updates/xixo:current
+     pull_policy: never
    ```
 
-It runs two minutes after boot and every ten minutes after that. `journalctl -u xixo-update` shows
-each run. The timer runs on the host, so no container holds the Docker socket. Linked machines
-update themselves on their next hello, as [add a machine](/guides/add-a-machine/#keep-xixo-link-up-to-date)
-describes.
+2. Do the same for `link`:
+
+   ```yaml
+   link:
+     image: xixo-updates/xixo-link:current
+     pull_policy: never
+     labels:
+       network.xixo.updates: xixo-link
+   ```
+
+3. Label `xixo` and `worker`, and make `xixo` wait for the gate:
+
+   ```yaml
+   xixo:
+     labels:
+       network.xixo.updates: xixo
+       network.xixo.updates.order: "1"
+     depends_on:
+       updater-gate:
+         condition: service_healthy
+
+   worker:
+     labels:
+       network.xixo.updates: xixo
+       network.xixo.updates.order: "2"
+   ```
+
+4. Add the two updater services and their volumes:
+
+   ```yaml
+   services:
+     updater-gate:
+       image: ghcr.io/xixo/xixo-updater:0.2
+       command: ["gate"]
+       user: root
+       network_mode: none
+       restart: unless-stopped
+       volumes:
+         - /var/run/docker.sock:/var/run/docker.sock
+         - updater-gate:/run/xixo-updates/gate
+         - updater-tuf:/run/xixo-updates/tuf:ro
+         - updater-gate-cache:/var/lib/xixo-updates/cache
+       healthcheck:
+         test: ["CMD", "/usr/local/bin/xixo-updater", "ready"]
+         interval: 30s
+         start_period: 30m
+         start_interval: 5s
+
+     updater:
+       image: ghcr.io/xixo/xixo-updater:0.2
+       command: ["watch"]
+       restart: unless-stopped
+       environment:
+         XIXO_UPDATES_CHANNEL: releases
+       volumes:
+         - updater-gate:/run/xixo-updates/gate
+         - updater-tuf:/run/xixo-updates/tuf
+         - updater-state:/var/lib/xixo-updates/state
+         - updater-cache:/var/lib/xixo-updates/cache
+
+   volumes:
+     updater-gate:
+     updater-tuf:
+     updater-gate-cache:
+     updater-state:
+     updater-cache:
+   ```
+
+5. Start the stack:
+
+   ```sh
+   docker compose up -d
+   ```
+
+On the first start, the updater fetches the newest signed build and the gate tags it as
+`xixo-updates/xixo:current` and `xixo-updates/xixo-link:current`. The other containers wait until
+the gate reports healthy, which it does once it holds a build of each. After that,
+`docker compose up -d` keeps the build the gate pinned, because the tag never changes.
+
+### What an update does
+
+1. The gate pulls every new image by digest.
+2. It replaces each labeled container, lowest `network.xixo.updates.order` first. It keeps the
+   container's own settings, volumes, and networks, changes only the image, and waits until Docker
+   reports the container healthy. The web container runs the migrations, so it goes first.
+3. The updater watches the containers for five minutes.
+
+When a container does not come up, or turns unhealthy while it is watched, every container goes back
+to the build before it, tagged `xixo-updates/xixo:previous`. That build is marked bad and is not
+tried again. A newer build is. The gate refuses a build older than the one running.
+
+A rollback starts the old image against the new schema. That works when a release only added
+tables and columns. Back up before you follow a channel, and see
+[restore](/guides/back-up-and-restore/#restore) when a rollback does not come up.
+
+### Settings
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `XIXO_UPDATES_CHANNEL` | `releases` | `releases` follows the highest `x.y.z` tag, signed by `release.yml`. `main` follows `:main`, signed by `ci.yml` after the tests pass. Set on `updater`. |
+| `XIXO_UPDATES_KINDS` | `xixo,xixo-link` | What the gate keeps up to date. Add `masks` when a [masks server of your own](#a-masks-server-of-your-own) runs on the same host, and label its container `network.xixo.updates: masks`. Set on `updater-gate`. |
+
+`/var/lib/xixo-updates/state` in the `updater` container holds `status.json`, with each image's
+digest, commit, and containers, and `events.jsonl`, with the last 1,000 checks, pulls, swaps,
+rollbacks, and refusals. `docker compose logs updater updater-gate` shows the same events.
+
+Linked machines update themselves on their next hello, as
+[add a machine](/guides/add-a-machine/#keep-xixo-link-up-to-date) describes.
 
 ### Upgrading from 0.1
 
