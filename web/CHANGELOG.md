@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.7.0](https://github.com/xixo/xixo/compare/client-v0.6.0...client-v0.7.0) (2026-10-22)
+
+
+### Features
+
+* **catalog:** the catalog filters by machine, folder, analysis state, kind, and date, and keeps the filters in the URL ([df6304e](https://github.com/xixo/xixo/commit/df6304ec3e3984752c2054573e0e1980c8b7d48d))
+* **server:** a machine describes itself when it links up, xixo plans what it does, and one approval with switches replaces the settings message ([26924e1](https://github.com/xixo/xixo/commit/26924e1d09b81414a4bce500a0fa335b3d64be23))
+* **server:** a machine with a usable GPU runs the models part, and xixo attaches the Ollama it brings up ([4aee3d2](https://github.com/xixo/xixo/commit/4aee3d223025b0528f7afd41730cb4cba1fb5b8a))
+* **server:** a model backend learns which of its models read images, picks one for the vision role, and never sends an image to a model that cannot read it ([5d75a51](https://github.com/xixo/xixo/commit/5d75a510c1ef2975dc02a3f4508b21d954c469c6))
+* **server:** the tailnet transport, the Tailscale sidecar, and the unlinked-machines list go, since a found model server is attached through the machine ([aa4a3a6](https://github.com/xixo/xixo/commit/aa4a3a65dcf121be82f51e16efde449b50bb4a66))
+* **server:** xixo has full access to what a machine shares, and each folder's owner decides whether it is writable ([07576bd](https://github.com/xixo/xixo/commit/07576bdcca41f3ad626302173302f5d3ecbe597a))
+* **settings:** Settings &gt; Updates shows what the server runs and asks the updater to update now, pause, resume, roll back, or change channel ([d687e43](https://github.com/xixo/xixo/commit/d687e43663389944cd1eeec5e99587629be0b922))
+* **web:** a machine card lists the folders it shares as the folders in the catalog, with their items and sync state ([5d13329](https://github.com/xixo/xixo/commit/5d13329a894bf6608a20829ec8ef5855ee97fa9e))
+* **web:** a machine's card names its xixo link version, says whether it is up to date, and has a switch to pause its updates ([64a3e22](https://github.com/xixo/xixo/commit/64a3e220f9da6580ed06b73916d3e06e1869a22b))
+* **web:** Move files… on a folder, Move these… in the catalog, and Move to… on a file pick a folder and follow the move ([4a6817e](https://github.com/xixo/xixo/commit/4a6817e1bc6978d286247dd95cd9d42d60ede586))
+
+
+### Fixes
+
+* **server:** an image is described rather than transcribed, and an item says why it has no summary when a model could not write one ([3a9d2ce](https://github.com/xixo/xixo/commit/3a9d2cea5afd423e0cf080a6434220b046822a58))
+* **web:** the catalog shows how many items it holds, not how many rows have loaded ([c634440](https://github.com/xixo/xixo/commit/c6344400daf46d8bb82f07ba38e441df3b19f173))
+
+
+### Documentation
+
+* every concept page, guide, and README says what xixo does now, in fewer words ([2300fe7](https://github.com/xixo/xixo/commit/2300fe7ad406e0ee043a34111f4c4fdea6e61780))
+
 ## [0.6.0](https://github.com/xixo/xixo/compare/client-v0.5.1...client-v0.6.0) (2026-10-13)
 
 
