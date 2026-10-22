@@ -28,11 +28,12 @@ const (
 )
 
 var (
+	Versioned = regexp.MustCompile(`^\d{1,6}\.\d{1,6}\.\d{1,6}(\+[0-9a-f]{7,40})?$`)
+	Hexed     = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
 	binaryName = regexp.MustCompile(`^xixo-link-(linux|darwin)-(amd64|arm64)$`)
 	unitName   = regexp.MustCompile(`^xixo-link[a-z@-]*\.(service|path|timer)$`)
-	versioned  = regexp.MustCompile(`^\d{1,6}\.\d{1,6}\.\d{1,6}(\+[0-9a-f]{7,40})?$`)
 	revised    = regexp.MustCompile(`^[0-9a-f]{40}$`)
-	hexed      = regexp.MustCompile(`^[0-9a-f]{64}$`)
 )
 
 type Entry struct {
@@ -54,7 +55,7 @@ type Release struct {
 
 func (r Release) Check() error {
 	switch {
-	case !versioned.MatchString(r.Version):
+	case !Versioned.MatchString(r.Version):
 		return fmt.Errorf("the release names the version %q", r.Version)
 	case r.Serial <= 0:
 		return errors.New("the release has no serial")
@@ -76,7 +77,7 @@ func (r Release) Check() error {
 }
 
 func (e Entry) check() error {
-	if !hexed.MatchString(e.SHA256) || e.Size <= 0 {
+	if !Hexed.MatchString(e.SHA256) || e.Size <= 0 {
 		return fmt.Errorf("the release lists %q with no SHA-256 or size", e.Name)
 	}
 
@@ -142,8 +143,8 @@ func Sum(raw []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func Describe(dir, version, revision, channel string, serial int64) (Release, error) {
-	held := Release{Version: version, Serial: serial, Revision: revision, Channel: channel, Files: []Entry{}}
+func Describe(dir, version, revision string, serial int64) (Release, error) {
+	held := Release{Version: version, Serial: serial, Revision: revision, Channel: Channel(version), Files: []Entry{}}
 
 	names, err := os.ReadDir(dir)
 	if err != nil {
@@ -179,7 +180,7 @@ func Describe(dir, version, revision, channel string, serial int64) (Release, er
 			continue
 		}
 
-		if entry.SHA256, entry.Size, err = digested(filepath.Join(dir, filepath.FromSlash(name))); err != nil {
+		if entry.SHA256, entry.Size, err = Digest(filepath.Join(dir, filepath.FromSlash(name))); err != nil {
 			return Release{}, err
 		}
 
@@ -189,7 +190,7 @@ func Describe(dir, version, revision, channel string, serial int64) (Release, er
 	return held, held.Check()
 }
 
-func digested(path string) (string, int64, error) {
+func Digest(path string) (string, int64, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return "", 0, err

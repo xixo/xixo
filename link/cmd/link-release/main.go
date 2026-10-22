@@ -17,7 +17,7 @@ func main() {
 	serial := flag.Int64("serial", 0, "the number of commits on main up to that commit")
 	flag.Parse()
 
-	held, err := release.Describe(*dir, *version, *revision, release.Channel(*version), *serial)
+	held, err := release.Describe(*dir, *version, *revision, *serial)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "link-release:", err)
 		os.Exit(1)

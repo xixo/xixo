@@ -118,6 +118,15 @@ func (s *Supervisor) promote(release string) {
 	if err := Point(s.Releases, Good, release); err != nil {
 		s.Log.Warn("xixo link could not keep the release that connected as the good one", "release", release, "error", err)
 	}
+
+	serial, err := Floor(filepath.Join(s.Releases, release, FloorFile))
+	if err == nil && serial > 0 {
+		err = Raise(FloorFor(s.Releases), serial)
+	}
+
+	if err != nil {
+		s.Log.Warn("xixo link could not keep the serial of the release that connected", "release", release, "error", err)
+	}
 }
 
 func (s *Supervisor) child(ctx context.Context, path, release string, trial bool) (int, bool, error) {

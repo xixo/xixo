@@ -46,31 +46,6 @@ func served(t *testing.T, files map[string][]byte) (*httptest.Server, *atomic.In
 	return server, asked
 }
 
-func TestCompareOrdersReleasedVersions(t *testing.T) {
-	cases := []struct {
-		a, b  string
-		order int
-		ok    bool
-	}{
-		{"0.2.0", "0.10.0", -1, true},
-		{"1.0.0", "0.9.9", 1, true},
-		{"0.3.1", "0.3.1", 0, true},
-		{"dev", "0.3.1", 0, false},
-		{"0.3", "0.3.1", 0, false},
-		{"0.2.0+1a2b3c4", "0.2.0", 0, true},
-		{"0.2.0+1a2b3c4", "0.2.0+9f8e7d6", 0, true},
-		{"0.2.1", "0.2.0+1a2b3c4", 1, true},
-		{"0.2.0+main", "0.2.0", 0, false},
-	}
-
-	for _, held := range cases {
-		order, ok := Compare(held.a, held.b)
-		if order != held.order || ok != held.ok {
-			t.Errorf("Compare(%q, %q) = %d, %v", held.a, held.b, order, ok)
-		}
-	}
-}
-
 func TestAnOfferIsCheckedForItsShape(t *testing.T) {
 	sha := strings.Repeat("a", 64)
 
@@ -78,14 +53,13 @@ func TestAnOfferIsCheckedForItsShape(t *testing.T) {
 		"hash":    {Version: "0.2.0", SHA256: "ABC"},
 		"version": {Version: "0.3.0; rm -rf /", SHA256: sha},
 		"release": {Version: "0.2.0", SHA256: sha, Release: "../release.json"},
-		"serial":  {Version: "0.2.0", SHA256: sha, Release: sha, Serial: -1},
 	} {
 		if err := target.Check(); !errors.Is(err, ErrUntold) {
 			t.Errorf("%s: %v", name, err)
 		}
 	}
 
-	if err := (Target{Version: "0.2.0+1a2b3c4", SHA256: sha, Release: sha, Serial: 12}).Check(); err != nil {
+	if err := (Target{Version: "0.2.0+1a2b3c4", SHA256: sha, Release: sha}).Check(); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -283,7 +257,7 @@ func applying(t *testing.T, fresh []byte, connects bool) (*Updater, string, stri
 	}
 
 	return &Updater{
-		Xixo: server.URL, Requests: requests, Results: results, Binary: binary, Build: "xixo-link-linux-amd64",
+		Xixo: server.URL, Requests: requests, Results: results, Binary: binary, OS: "linux", Arch: "amd64",
 		Client: server.Client(), Wait: 500 * time.Millisecond, Poll: 20 * time.Millisecond,
 		Vouch: &Vouch{Unsigned: true},
 	}, binary, results

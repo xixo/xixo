@@ -84,7 +84,10 @@ func (s *Stager) Connected() error {
 }
 
 func (s *Stager) system() (string, string) {
-	goos, goarch := s.OS, s.Arch
+	return system(s.OS, s.Arch)
+}
+
+func system(goos, goarch string) (string, string) {
 	if goos == "" {
 		goos = runtime.GOOS
 	}
@@ -109,10 +112,6 @@ func (s *Stager) stage(ctx context.Context, target Target) error {
 
 	goos, goarch := s.system()
 
-	if s.Vouch == nil {
-		return ErrUnsignedOffer
-	}
-
 	signed, err := s.Vouch.Release(ctx, target, goos, goarch)
 	if err != nil {
 		return err
@@ -129,6 +128,12 @@ func (s *Stager) stage(ctx context.Context, target Target) error {
 
 	if err := s.reader(ctx, target, part); err != nil {
 		return err
+	}
+
+	if signed.Serial > 0 {
+		if err := Write(filepath.Join(part, FloorFile), signed.Serial, 0o600); err != nil {
+			return err
+		}
 	}
 
 	if err := Probe(ctx, filepath.Join(part, Binary), target.Version); err != nil {
@@ -153,7 +158,7 @@ func (s *Stager) stage(ctx context.Context, target Target) error {
 
 	Prune(s.Releases, running)
 
-	return s.Vouch.Accept(signed)
+	return nil
 }
 
 func (s *Stager) reader(ctx context.Context, target Target, part string) error {

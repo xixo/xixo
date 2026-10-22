@@ -26,7 +26,7 @@ func signedFiles(t *testing.T, files map[string][]byte, serial int64, entries ..
 	files[release.File] = raw
 	files[release.Bundle] = []byte("signed")
 
-	return Target{Version: held.Version, Release: release.Sum(raw), Serial: serial}
+	return Target{Version: held.Version, Release: release.Sum(raw)}
 }
 
 func entry(name, goos, goarch, role string, body []byte) release.Entry {
@@ -140,5 +140,55 @@ func TestAnUpdaterWithNoWayToCheckSignaturesInstallsNothing(t *testing.T) {
 
 	if held, _ := Digest(binary); held == sum(fresh) {
 		t.Fatal("an unchecked build was installed")
+	}
+}
+
+func TestTheRunningBuildsOwnSerialIsTheLowestItAccepts(t *testing.T) {
+	fresh := script("echo 0.3.0+c589ffe")
+	files := map[string][]byte{}
+	target := signedFiles(t, files, 40, entry("xixo-link-linux-amd64", "linux", "amd64", release.RoleBinary, fresh))
+	target.SHA256 = sum(fresh)
+	server, _ := served(t, files)
+	vouch := vouching(t, server.URL)
+	vouch.Client = server.Client()
+	vouch.Running = 41
+
+	if _, err := vouch.Release(context.Background(), target, "linux", "amd64"); !errors.Is(err, ErrOlderRelease) {
+		t.Fatalf("a machine with no floor file took an older release than it runs: %v", err)
+	}
+}
+
+func TestAFloorThatCannotBeReadInstallsNothing(t *testing.T) {
+	fresh := script("echo 0.3.0+c589ffe")
+	files := map[string][]byte{}
+	target := signedFiles(t, files, 40, entry("xixo-link-linux-amd64", "linux", "amd64", release.RoleBinary, fresh))
+	target.SHA256 = sum(fresh)
+	server, _ := served(t, files)
+	vouch := vouching(t, server.URL)
+	vouch.Client = server.Client()
+	os.WriteFile(vouch.Floor, []byte("forty\n"), 0o644)
+
+	if _, err := vouch.Release(context.Background(), target, "linux", "amd64"); err == nil {
+		t.Fatal("a damaged floor let a release through")
+	}
+
+	os.Remove(vouch.Floor)
+	os.Symlink(filepath.Join(t.TempDir(), "elsewhere"), vouch.Floor)
+	if _, err := vouch.Release(context.Background(), target, "linux", "amd64"); err == nil {
+		t.Fatal("a floor that is a link let a release through")
+	}
+}
+
+func TestTheFloorOnlyRises(t *testing.T) {
+	path := filepath.Join(t.TempDir(), FloorFile)
+
+	for _, serial := range []int64{40, 12, 41} {
+		if err := Raise(path, serial); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if held, err := Floor(path); err != nil || held != 41 {
+		t.Fatalf("floor %d err %v", held, err)
 	}
 }

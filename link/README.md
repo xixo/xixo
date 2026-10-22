@@ -431,6 +431,9 @@ they belong to. xixo link then:
 
 The server only mirrors the release. A server that was taken over cannot make a
 machine install a build CI did not sign, or an older release than it has run.
+Each build carries its own serial, so a machine that has never updated still
+refuses anything older than what it was installed with. On macOS the serial is
+kept once the supervisor sees the new release connect.
 A failed update shows as a warning, and xixo link asks again six hours later.
 
 The repository, workflows, and branch it trusts are compiled into xixo link,

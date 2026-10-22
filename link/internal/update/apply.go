@@ -8,10 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
-
-	"github.com/xixo/xixo/link/internal/release"
 )
 
 type Updater struct {
@@ -19,7 +16,8 @@ type Updater struct {
 	Requests string
 	Results  string
 	Binary   string
-	Build    string
+	OS       string
+	Arch     string
 	Client   *http.Client
 	Wait     time.Duration
 	Poll     time.Duration
@@ -75,12 +73,14 @@ func (u *Updater) Apply(ctx context.Context) error {
 func (u *Updater) apply(ctx context.Context, asked Request) error {
 	u.Log.Info("updating xixo link", "version", asked.Version, "from", asked.From)
 
-	signed, err := u.vouched(ctx, asked.Target)
+	goos, goarch := system(u.OS, u.Arch)
+
+	signed, err := u.Vouch.Release(ctx, asked.Target, goos, goarch)
 	if err != nil {
 		return err
 	}
 
-	fetched, err := Fetch(ctx, u.Client, Address(u.Xixo, u.Build), asked.SHA256, filepath.Dir(u.Binary))
+	fetched, err := Fetch(ctx, u.Client, Address(u.Xixo, BuildFor(goos, goarch)), asked.SHA256, filepath.Dir(u.Binary))
 	if err != nil {
 		return err
 	}
@@ -99,8 +99,8 @@ func (u *Updater) apply(ctx context.Context, asked Request) error {
 	if u.connected(ctx, asked, swapped) {
 		u.Log.Info("xixo link updated and connected", "version", asked.Version, "serial", signed.Serial)
 
-		if u.Vouch != nil {
-			return u.Vouch.Accept(signed)
+		if err := u.Vouch.Accept(signed); err != nil {
+			u.Log.Warn("xixo link updated, and the serial it accepted could not be kept", "serial", signed.Serial, "error", err)
 		}
 
 		return nil
@@ -165,14 +165,4 @@ func (u *Updater) record(asked Request, err error) {
 	if werr := Write(filepath.Join(u.Results, ResultFile), told, 0o644); werr != nil && !errors.Is(werr, os.ErrNotExist) {
 		u.Log.Warn("the update's result could not be kept", "error", werr)
 	}
-}
-
-func (u *Updater) vouched(ctx context.Context, target Target) (release.Release, error) {
-	if u.Vouch == nil {
-		return release.Release{}, ErrUnsignedOffer
-	}
-
-	goos, goarch, _ := strings.Cut(strings.TrimPrefix(u.Build, Binary+"-"), "-")
-
-	return u.Vouch.Release(ctx, target, goos, goarch)
 }

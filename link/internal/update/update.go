@@ -11,12 +11,13 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/xixo/xixo/link/internal/release"
 )
 
 const (
@@ -24,15 +25,12 @@ const (
 	MostBinary = 256 << 20
 	mostRecord = 4096
 	Binary     = "xixo-link"
-	MacReader  = "xixo-mac-reader"
+	MacReader  = release.MacReader
 	Previous   = ".previous"
 	Fetching   = 10 * time.Minute
 )
 
 var (
-	released = regexp.MustCompile(`^\d{1,6}\.\d{1,6}\.\d{1,6}(\+[0-9a-f]{7,40})?$`)
-	hexed    = regexp.MustCompile(`^[0-9a-f]{64}$`)
-
 	ErrMismatch = errors.New("the download did not match the SHA-256 xixo sent")
 	ErrTooLarge = errors.New("the download is larger than xixo link accepts")
 	ErrUntold   = errors.New("xixo named no version and SHA-256 xixo link can use")
@@ -43,19 +41,18 @@ type Target struct {
 	SHA256    string `json:"sha256"`
 	MacReader string `json:"mac_reader,omitempty"`
 	Release   string `json:"release,omitempty"`
-	Serial    int64  `json:"serial,omitempty"`
 }
 
 func (t Target) Check() error {
-	if !released.MatchString(t.Version) || !hexed.MatchString(t.SHA256) {
+	if !release.Versioned.MatchString(t.Version) || !release.Hexed.MatchString(t.SHA256) {
 		return ErrUntold
 	}
 
-	if t.MacReader != "" && !hexed.MatchString(t.MacReader) {
+	if t.MacReader != "" && !release.Hexed.MatchString(t.MacReader) {
 		return ErrUntold
 	}
 
-	if t.Release != "" && !hexed.MatchString(t.Release) || t.Serial < 0 {
+	if t.Release != "" && !release.Hexed.MatchString(t.Release) {
 		return ErrUntold
 	}
 
@@ -90,56 +87,10 @@ const (
 	ResultFile  = "result.json"
 )
 
-func Compare(a, b string) (int, bool) {
-	left, ok := parts(a)
-	if !ok {
-		return 0, false
-	}
-
-	right, ok := parts(b)
-	if !ok {
-		return 0, false
-	}
-
-	for i := range left {
-		switch {
-		case left[i] < right[i]:
-			return -1, true
-		case left[i] > right[i]:
-			return 1, true
-		}
-	}
-
-	return 0, true
-}
-
-func parts(version string) ([3]int, bool) {
-	held := [3]int{}
-	if !released.MatchString(version) {
-		return held, false
-	}
-
-	numbered, _, _ := strings.Cut(version, "+")
-	for i, part := range strings.Split(numbered, ".") {
-		held[i], _ = strconv.Atoi(part)
-	}
-
-	return held, true
-}
-
 func Digest(path string) (string, error) {
-	opened, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer opened.Close()
+	held, _, err := release.Digest(path)
 
-	hashed := sha256.New()
-	if _, err := io.Copy(hashed, opened); err != nil {
-		return "", err
-	}
-
-	return hex.EncodeToString(hashed.Sum(nil)), nil
+	return held, err
 }
 
 func Address(xixo, file string) string {
@@ -150,32 +101,42 @@ func BuildFor(goos, goarch string) string {
 	return Binary + "-" + goos + "-" + goarch
 }
 
+func get(ctx context.Context, client *http.Client, address string) (*http.Response, error) {
+	if !strings.HasPrefix(address, "https://") && !strings.HasPrefix(address, "http://") {
+		return nil, fmt.Errorf("xixo link downloads only over http or https, not from %s", address)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		response.Body.Close()
+		return nil, fmt.Errorf("xixo answered %s with %s", path.Base(address), response.Status)
+	}
+
+	return response, nil
+}
+
 func Fetch(ctx context.Context, client *http.Client, address, sum, dir string) (string, error) {
-	if !hexed.MatchString(sum) {
+	if !release.Hexed.MatchString(sum) {
 		return "", ErrUntold
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, Fetching)
 	defer cancel()
 
-	if !strings.HasPrefix(address, "https://") && !strings.HasPrefix(address, "http://") {
-		return "", fmt.Errorf("xixo link downloads only over http or https, not from %s", address)
-	}
-
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
-	if err != nil {
-		return "", err
-	}
-
-	response, err := client.Do(request)
+	response, err := get(ctx, client, address)
 	if err != nil {
 		return "", err
 	}
 	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("xixo answered the download with %s", response.Status)
-	}
 
 	if response.ContentLength > MostBinary {
 		return "", ErrTooLarge

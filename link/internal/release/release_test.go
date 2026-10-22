@@ -35,7 +35,7 @@ func built(t *testing.T) string {
 }
 
 func TestABuildFolderIsDescribedWithEachFilesRoleAndDigest(t *testing.T) {
-	held, err := Describe(built(t), "0.2.0+c589ffe", revision, "main", 1234)
+	held, err := Describe(built(t), "0.2.0+c589ffe", revision, 1234)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestABuildFolderIsDescribedWithEachFilesRoleAndDigest(t *testing.T) {
 }
 
 func TestAReleaseThatNamesAnythingOddIsRefused(t *testing.T) {
-	good, _ := Describe(built(t), "0.2.0+c589ffe", revision, "main", 1234)
+	good, _ := Describe(built(t), "0.2.0+c589ffe", revision, 1234)
 
 	for name, change := range map[string]func(*Release){
 		"version":   func(r *Release) { r.Version = "latest" },

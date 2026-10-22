@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -72,15 +72,9 @@ func updater(ctx context.Context, mode, releases, stateDir string, config *state
 			return nil
 		}
 
-		root := filepath.Dir(releases)
-
 		return &update.Stager{
 			Xixo: config.Xixo, Releases: releases, State: stateDir, Self: running.Identity,
-			Client: dial.Fetcher(), Restart: restart,
-			Vouch: &update.Vouch{
-				Xixo: config.Xixo, Client: dial.Fetcher(), Unsigned: config.Unsigned(),
-				Floor: filepath.Join(root, update.FloorFile), Trust: filepath.Join(root, update.TrustDir),
-			},
+			Client: dial.Fetcher(), Restart: restart, Vouch: vouchFor(config, filepath.Dir(releases)),
 		}
 	}
 
@@ -124,14 +118,19 @@ func updated(ctx context.Context, configPath, requests, results string) error {
 		Requests: requests,
 		Results:  results,
 		Binary:   self,
-		Build:    update.BuildFor(runtime.GOOS, runtime.GOARCH),
 		Client:   dial.Fetcher(),
 		Log:      slog.New(slog.NewTextHandler(os.Stderr, nil)),
-		Vouch: &update.Vouch{
-			Xixo: config.Xixo, Client: dial.Fetcher(), Unsigned: config.Unsigned(),
-			Floor: filepath.Join(filepath.Dir(self), update.FloorFile), Trust: filepath.Join(filepath.Dir(self), update.TrustDir),
-		},
+		Vouch:    vouchFor(config, filepath.Dir(self)),
 	}
 
 	return held.Apply(ctx)
+}
+
+func vouchFor(config *state.Config, root string) *update.Vouch {
+	running, _ := strconv.ParseInt(serial, 10, 64)
+
+	return &update.Vouch{
+		Xixo: config.Xixo, Client: dial.Fetcher(), Unsigned: config.Unsigned(), Running: running,
+		Floor: filepath.Join(root, update.FloorFile), Trust: filepath.Join(root, update.TrustDir),
+	}
 }

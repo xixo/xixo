@@ -27,7 +27,7 @@ class Resource
         version = release
         return if build.nil? || version.nil? || current?
 
-        offer = { "version" => version, "sha256" => build.sha256, **Downloads.signed.to_h }
+        offer = { "version" => version, "sha256" => build.sha256, **Downloads.signed(build).to_h }
         reader = mac_reader_build
         offer["mac_reader"] = reader.sha256 if reader
         offer

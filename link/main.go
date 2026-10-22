@@ -36,7 +36,10 @@ import (
 	"github.com/xixo/xixo/link/internal/update"
 )
 
-var version = "dev"
+var (
+	version = "dev"
+	serial  = "0"
+)
 
 const (
 	revoked     = 78

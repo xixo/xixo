@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"strconv"
-	"strings"
+	"path/filepath"
 
 	"github.com/xixo/xixo/link/internal/release"
 	"github.com/xixo/xixo/link/internal/verify"
@@ -32,6 +30,7 @@ type Vouch struct {
 	Client   *http.Client
 	Floor    string
 	Trust    string
+	Running  int64
 	Unsigned bool
 	Verified func(bundle, raw []byte) (release.Release, error)
 }
@@ -46,18 +45,25 @@ func (v *Vouch) verified(bundle, raw []byte) (release.Release, error) {
 		return release.Release{}, err
 	}
 
-	held, _, err := (&verify.Checker{Trusted: trusted}).Release(bundle, raw, Signer)
-
-	return held, err
+	return (&verify.Checker{Trusted: trusted}).Release(bundle, raw, Signer)
 }
 
 func (v *Vouch) Release(ctx context.Context, target Target, goos, goarch string) (release.Release, error) {
+	if v == nil {
+		return release.Release{}, ErrUnsignedOffer
+	}
+
 	if v.Unsigned {
 		return release.Release{}, nil
 	}
 
 	if target.Release == "" {
 		return release.Release{}, ErrUnsignedOffer
+	}
+
+	floor, err := v.floor()
+	if err != nil {
+		return release.Release{}, err
 	}
 
 	raw, err := v.fetched(ctx, release.File)
@@ -79,7 +85,7 @@ func (v *Vouch) Release(ctx context.Context, target Target, goos, goarch string)
 		return release.Release{}, err
 	}
 
-	if floor := v.floor(); held.Serial < floor {
+	if held.Serial < floor {
 		return release.Release{}, fmt.Errorf("%w: it is serial %d, and this machine accepted %d", ErrOlderRelease, held.Serial, floor)
 	}
 
@@ -99,47 +105,53 @@ func (v *Vouch) Release(ctx context.Context, target Target, goos, goarch string)
 }
 
 func (v *Vouch) Accept(held release.Release) error {
-	if v.Unsigned || held.Serial <= v.floor() {
+	if v == nil || v.Unsigned {
 		return nil
 	}
 
-	return Write(v.Floor, held.Serial, 0o644)
+	return Raise(v.Floor, held.Serial)
 }
 
-func (v *Vouch) floor() int64 {
-	raw, err := os.ReadFile(v.Floor)
+func (v *Vouch) floor() (int64, error) {
+	held, err := Floor(v.Floor)
 	if err != nil {
-		return 0
+		return 0, err
 	}
 
-	held, err := strconv.ParseInt(strings.TrimSpace(string(raw)), 10, 64)
-	if err != nil {
-		return 0
+	return max(held, v.Running), nil
+}
+
+func Floor(path string) (int64, error) {
+	var held int64
+	if err := Read(path, &held); err != nil && !missing(err) {
+		return 0, fmt.Errorf("the serial this machine accepted cannot be read, so it installs nothing: %w", err)
 	}
 
-	return held
+	return held, nil
+}
+
+func Raise(path string, serial int64) error {
+	held, err := Floor(path)
+	if err != nil || serial <= held {
+		return err
+	}
+
+	return Write(path, serial, 0o644)
+}
+
+func FloorFor(releases string) string {
+	return filepath.Join(filepath.Dir(releases), FloorFile)
 }
 
 func (v *Vouch) fetched(ctx context.Context, file string) ([]byte, error) {
-	address := Address(v.Xixo, file)
-	if !strings.HasPrefix(address, "https://") && !strings.HasPrefix(address, "http://") {
-		return nil, fmt.Errorf("xixo link downloads only over http or https, not from %s", address)
-	}
+	ctx, cancel := context.WithTimeout(ctx, Fetching)
+	defer cancel()
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	response, err := v.Client.Do(request)
+	response, err := get(ctx, v.Client, Address(v.Xixo, file))
 	if err != nil {
 		return nil, err
 	}
 	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("xixo answered %s with %s", file, response.Status)
-	}
 
 	raw, err := io.ReadAll(io.LimitReader(response.Body, release.MostFile+1))
 	if err != nil {

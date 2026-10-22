@@ -208,9 +208,14 @@ while [ "$i" -lt 200 ]; do
 done
 exit 6`, good)))
 	Point(held.Releases, Current, "eeeeeeeeeeeeeeee")
+	Write(filepath.Join(held.Releases, "eeeeeeeeeeeeeeee", FloorFile), int64(40), 0o600)
 
 	if status := supervised(t, held); status != 5 {
 		t.Fatalf("the release was not good while it ran: status %d", status)
+	}
+
+	if floor, err := Floor(FloorFor(held.Releases)); err != nil || floor != 40 {
+		t.Fatalf("the serial of the release that connected was not kept: %d %v", floor, err)
 	}
 }
 

@@ -78,14 +78,20 @@ class LinkUpdatesTest < ActionCable::Channel::TestCase
     assert_equal [ [ "sha256", "version" ] ], told.map { |offer| offer.keys.sort }
   end
 
-  test "an image with a signed release names it and its serial in the offer" do
-    release = { "version" => SHIPPED, "serial" => 1234, "files" => [] }.to_json
+  test "an image with a signed release names it in the offer, when the release lists the build offered" do
+    listed = { "name" => "xixo-link-linux-arm64", "sha256" => Digest::SHA256.hexdigest("linux binary") }
+    release = { "version" => SHIPPED, "serial" => 1234, "files" => [ listed ] }.to_json
     File.write(File.join(@binaries, "release.json"), release)
     File.write(File.join(@binaries, "release.sigstore.json"), "{}")
 
     told = greeted("version" => "0.0.1", "sha256" => OLD, "updates" => "systemd")
 
-    assert_equal [ [ Digest::SHA256.hexdigest(release), 1234 ] ], told.map { |offer| offer.values_at("release", "serial") }
+    assert_equal [ Digest::SHA256.hexdigest(release) ], told.map { |offer| offer["release"] }
+
+    File.write(File.join(@binaries, "release.json"), { "version" => SHIPPED, "serial" => 1, "files" => [ listed.merge("sha256" => OLD) ] }.to_json)
+    told = greeted("version" => "0.0.1", "sha256" => OLD, "updates" => "systemd")
+
+    assert_equal [ nil ], told.map { |offer| offer["release"] }
 
     File.delete(File.join(@binaries, "release.sigstore.json"))
     told = greeted("version" => "0.0.1", "sha256" => OLD, "updates" => "systemd")

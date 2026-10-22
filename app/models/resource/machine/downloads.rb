@@ -99,12 +99,14 @@ class Resource
         held(BUNDLE)
       end
 
-      def signed
+      def signed(build)
         path = release_file
         return unless path && bundle_file
 
-        serial = JSON.parse(File.read(path, 1.megabyte))["serial"]
-        { "release" => digest(path), "serial" => serial } if serial.is_a?(Integer) && serial.positive?
+        listed = Array(JSON.parse(File.read(path, 1.megabyte))["files"]).any? do |entry|
+          entry.is_a?(Hash) && entry["name"] == build.file && entry["sha256"] == build.sha256
+        end
+        { "release" => digest(path) } if listed
       rescue SystemCallError, JSON::ParserError
         nil
       end
@@ -137,10 +139,6 @@ class Resource
       def mac_reader
         held = version
         "#{RELEASES}/server-v#{numbered(held)}/#{MAC_READER}" if held
-      end
-
-      def released?(value)
-        value.to_s.match?(RELEASED)
       end
 
       def numbered(version)

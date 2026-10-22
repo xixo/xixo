@@ -140,20 +140,20 @@ func signed(result *sigstore.VerificationResult, signer Signer) (Signed, error) 
 	return Signed{Repository: signer.Repository, Workflow: workflow, Commit: held.SourceRepositoryDigest, Ref: held.SourceRepositoryRef}, nil
 }
 
-func (c *Checker) Release(bundle, raw []byte, signer Signer) (release.Release, Signed, error) {
+func (c *Checker) Release(bundle, raw []byte, signer Signer) (release.Release, error) {
 	signed, err := c.Check(bundle, "sha256:"+release.Sum(raw), signer)
 	if err != nil {
-		return release.Release{}, Signed{}, err
+		return release.Release{}, err
 	}
 
 	held, err := release.Parse(raw)
 	if err != nil {
-		return release.Release{}, Signed{}, fmt.Errorf("%w: %v", ErrUnsigned, err)
+		return release.Release{}, fmt.Errorf("%w: %v", ErrUnsigned, err)
 	}
 
 	if held.Revision != signed.Commit {
-		return release.Release{}, Signed{}, fmt.Errorf("%w: the release names %s, and CI signed %s", ErrUnsigned, held.Revision, signed.Commit)
+		return release.Release{}, fmt.Errorf("%w: the release names %s, and CI signed %s", ErrUnsigned, held.Revision, signed.Commit)
 	}
 
-	return held, signed, nil
+	return held, nil
 }
