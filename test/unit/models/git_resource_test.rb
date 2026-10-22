@@ -282,11 +282,16 @@ class GitResourceTest < ActiveSupport::TestCase
   end
 
   test "git that runs past its time is stopped rather than holding the worker" do
-    Tenant.switch(@tenant) do
-      error = with_timeout(0) { assert_raises(Resource::Failed) { @resource.check! } }
+    held = Command.method(:capture)
+    Command.define_singleton_method(:capture) { |*, **| raise Command::Stopped, "git ran past 300 seconds and was stopped" }
 
-      assert_match(/ran past/, error.message)
+    Tenant.switch(@tenant) do
+      error = assert_raises(Resource::Failed) { @resource.check! }
+
+      assert_match(/ran past 300s/, error.message)
     end
+  ensure
+    Command.define_singleton_method(:capture, held)
   end
 
   test "with no clone root set the type says so rather than writing somewhere" do
@@ -346,15 +351,5 @@ class GitResourceTest < ActiveSupport::TestCase
       _out, err, status = Open3.capture3(*args)
 
       raise "#{args.join(' ')} failed: #{err}" unless status.success?
-    end
-
-    def with_timeout(seconds)
-      held = Resource::Git::TIMEOUT
-      Resource::Git.send(:remove_const, :TIMEOUT)
-      Resource::Git.const_set(:TIMEOUT, seconds)
-      yield
-    ensure
-      Resource::Git.send(:remove_const, :TIMEOUT)
-      Resource::Git.const_set(:TIMEOUT, held)
     end
 end
