@@ -147,6 +147,7 @@ func (w *Watcher) Once(ctx context.Context) error {
 			w.Book.Note(Event{Action: "swap", Kind: next.kind.Name, Digest: next.digest, Error: err.Error()})
 			w.Book.Bad(next.digest)
 			w.back(ctx, swapped)
+			w.checked(ctx, targets)
 
 			return nil
 		}
@@ -160,9 +161,7 @@ func (w *Watcher) Once(ctx context.Context) error {
 		return nil
 	}
 
-	if during, err := w.Gate.Status(ctx); err == nil {
-		w.Book.Checked(w.channel(), during, targets)
-	}
+	w.checked(ctx, targets)
 
 	if err := w.watch(ctx, swapped); err != nil {
 		w.log().Warn("an updated service failed while it was watched, so the updates roll back", "error", err)
@@ -173,12 +172,15 @@ func (w *Watcher) Once(ctx context.Context) error {
 		w.back(ctx, swapped)
 	}
 
-	after, err := w.Gate.Status(ctx)
-	if err == nil {
-		w.Book.Checked(w.channel(), after, targets)
-	}
+	w.checked(ctx, targets)
 
 	return nil
+}
+
+func (w *Watcher) checked(ctx context.Context, targets map[string]string) {
+	if held, err := w.Gate.Status(ctx); err == nil {
+		w.Book.Checked(w.channel(), held, targets)
+	}
 }
 
 func (w *Watcher) wanted(ctx context.Context, kind Kind, status Held, checker *verify.Checker) (planned, error) {
