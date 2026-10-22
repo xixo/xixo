@@ -93,3 +93,26 @@ func TestASignerMustNameAFileAndARepository(t *testing.T) {
 		}
 	}
 }
+
+func TestAReleaseCISignedChecksOutAndNamesItsCommit(t *testing.T) {
+	raw, _ := os.ReadFile("testdata/release.json")
+	bundle, _ := os.ReadFile("testdata/release.sigstore.json")
+
+	held, err := checker(t).Release(bundle, raw, xixo)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if held.Version != "0.2.0+6714d10" || held.Serial != 901 || held.Channel != "main" || !strings.HasPrefix(held.Revision, "6714d104") {
+		t.Fatalf("release %+v", held)
+	}
+
+	if _, found := held.Build("linux", "amd64"); !found {
+		t.Fatal("the release lists no Linux build")
+	}
+
+	changed := []byte(strings.Replace(string(raw), `"serial": 901`, `"serial": 9901`, 1))
+	if _, err := checker(t).Release(bundle, changed, xixo); !errors.Is(err, ErrUnsigned) {
+		t.Fatalf("a changed release checked out: %v", err)
+	}
+}

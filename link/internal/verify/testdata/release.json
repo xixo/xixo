@@ -1,0 +1,84 @@
+{
+  "version": "0.2.0+6714d10",
+  "serial": 901,
+  "revision": "6714d10428d4eb69c94d06242e4a84781be3bd78",
+  "channel": "main",
+  "files": [
+    {
+      "name": "mac/xixo-mac-reader",
+      "os": "darwin",
+      "arch": "universal",
+      "role": "mac_reader",
+      "sha256": "529690d2478e9d9e8bb1a5f9e1224fad1441354e31014ce3213ca000b6f01607",
+      "size": 768288
+    },
+    {
+      "name": "xixo-link-darwin-amd64",
+      "os": "darwin",
+      "arch": "amd64",
+      "role": "binary",
+      "sha256": "6d31e4f58554e6580bc9a59214def107108d5c8d9f26bdf75273c2539d0e5f30",
+      "size": 27715872
+    },
+    {
+      "name": "xixo-link-darwin-arm64",
+      "os": "darwin",
+      "arch": "arm64",
+      "role": "binary",
+      "sha256": "64d8915b21cce7dfa5777d3b12cd4099e06c9f6cca6d4c2d3b3636ada0a8300b",
+      "size": 25917458
+    },
+    {
+      "name": "xixo-link-linux-amd64",
+      "os": "linux",
+      "arch": "amd64",
+      "role": "binary",
+      "sha256": "fbb0cdc3b999900c53d897de45420c4941c28ce4a754429b6bbafd3ed0177d10",
+      "size": 26906786
+    },
+    {
+      "name": "xixo-link-linux-arm64",
+      "os": "linux",
+      "arch": "arm64",
+      "role": "binary",
+      "sha256": "4ca7a5e7fb557145340d5a94c775174c7da2f91603d22d27d852f31429a2e2d4",
+      "size": 24903842
+    },
+    {
+      "name": "xixo-link-part@.path",
+      "role": "unit",
+      "sha256": "b3d328ea984dc362bca07e1be9e5bb1a59f72574427eef6b969415d5c075261d",
+      "size": 230
+    },
+    {
+      "name": "xixo-link-part@.service",
+      "role": "unit",
+      "sha256": "172a6b510ba225ac2e5073d6564f7bd3b6f15631fa0bc417feca79967a151e60",
+      "size": 1574
+    },
+    {
+      "name": "xixo-link-update.path",
+      "role": "unit",
+      "sha256": "96016f3164e02e46a9841cfabfa7dc3abcae76a4de7c29f9462afb75a6111815",
+      "size": 218
+    },
+    {
+      "name": "xixo-link-update.service",
+      "role": "unit",
+      "sha256": "af82cf6e753a0f6fe836646cb26a9a94a9ec2a77c9c039423509eca727d3c475",
+      "size": 1195
+    },
+    {
+      "name": "xixo-link.plist",
+      "role": "plist",
+      "sha256": "ab00a321040b393c0ba8ab0266ab34501b88b19f99c6c3d321c1383c863c28b2",
+      "size": 1148
+    },
+    {
+      "name": "xixo-link.service",
+      "role": "unit",
+      "sha256": "a4fdf73cf3adfd2205e3882708c08063cc32a915a2bf033525de0b925ead82b2",
+      "size": 1563
+    }
+  ]
+}
