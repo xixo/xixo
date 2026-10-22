@@ -34,6 +34,7 @@ Settings come from the environment:
   XIXO_UPDATES_SOCKET   the gate's socket (/run/xixo-updates/gate/gate.sock)
   XIXO_UPDATES_MIRROR   sigstore's TUF files, written by watch, read by gate (/run/xixo-updates/tuf)
   XIXO_UPDATES_STATE    where watch keeps status.json and events.jsonl (/var/lib/xixo-updates/state)
+  XIXO_UPDATES_REQUEST  the request.json xixo writes for watch to read (/run/xixo-updates/requests/request.json)
   XIXO_UPDATES_CACHE    the TUF cache each one keeps for itself (/var/lib/xixo-updates/cache)
   DOCKER_SOCKET         the Docker socket the gate uses (/var/run/docker.sock)
 `
@@ -167,7 +168,9 @@ func watch(ctx context.Context, log *slog.Logger, socket, mirror, cache string) 
 		},
 	}
 
-	log.Info("watching for updates", "channel", channel)
+	go book.Requests(ctx, setting("XIXO_UPDATES_REQUEST", "/run/xixo-updates/requests/request.json"), 0)
+
+	log.Info("watching for updates", "channel", book.Channel(channel))
 
 	return watcher.Run(ctx)
 }

@@ -19,11 +19,13 @@ const (
 )
 
 type Event struct {
-	At     time.Time `json:"at"`
-	Action string    `json:"action"`
-	Kind   string    `json:"kind,omitempty"`
-	Digest string    `json:"digest,omitempty"`
-	Error  string    `json:"error,omitempty"`
+	At      time.Time `json:"at"`
+	Action  string    `json:"action"`
+	Kind    string    `json:"kind,omitempty"`
+	Digest  string    `json:"digest,omitempty"`
+	Error   string    `json:"error,omitempty"`
+	By      string    `json:"by,omitempty"`
+	Channel string    `json:"channel,omitempty"`
 }
 
 type Report struct {
@@ -37,10 +39,17 @@ type Report struct {
 type Book struct {
 	Dir string
 
-	lock   sync.Mutex
-	bad    map[string]time.Time
-	paused bool
-	asked  chan struct{}
+	lock     sync.Mutex
+	bad      map[string]time.Time
+	settings Settings
+	asked    chan struct{}
+}
+
+type Settings struct {
+	Paused   bool      `json:"paused"`
+	Channel  string    `json:"channel,omitempty"`
+	Handled  time.Time `json:"handled"`
+	RollBack bool      `json:"roll_back,omitempty"`
 }
 
 func Open(dir string) (*Book, error) {
@@ -50,11 +59,13 @@ func Open(dir string) (*Book, error) {
 
 	book := &Book{Dir: dir, bad: map[string]time.Time{}, asked: make(chan struct{}, 1)}
 
-	raw, err := os.ReadFile(filepath.Join(dir, "bad.json"))
-	if err == nil {
-		json.Unmarshal(raw, &book.bad)
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return nil, err
+	for name, held := range map[string]any{"bad.json": &book.bad, "settings.json": &book.settings} {
+		raw, err := os.ReadFile(filepath.Join(dir, name))
+		if err == nil {
+			json.Unmarshal(raw, held)
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			return nil, err
+		}
 	}
 
 	return book, nil
@@ -127,7 +138,44 @@ func (b *Book) Paused() bool {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	return b.paused
+	return b.settings.Paused
+}
+
+func (b *Book) Channel(fallback string) string {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	if b.settings.Channel != "" {
+		return b.settings.Channel
+	}
+
+	return fallback
+}
+
+func (b *Book) TakeRollBack() bool {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	held := b.settings.RollBack
+	if held {
+		b.settings.RollBack = false
+		b.saved()
+	}
+
+	return held
+}
+
+func (b *Book) saved() {
+	if raw, err := json.Marshal(b.settings); err == nil {
+		written(filepath.Join(b.Dir, "settings.json"), raw)
+	}
+}
+
+func (b *Book) ask() {
+	select {
+	case b.asked <- struct{}{}:
+	default:
+	}
 }
 
 func (b *Book) Asked() <-chan struct{} {

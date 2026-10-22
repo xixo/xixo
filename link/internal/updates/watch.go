@@ -73,9 +73,25 @@ func (w *Watcher) Run(ctx context.Context) error {
 	}
 }
 
+func (w *Watcher) channel() string {
+	return w.Book.Channel(w.Channel)
+}
+
 func (w *Watcher) Once(ctx context.Context) error {
+	if w.Book.TakeRollBack() {
+		if err := w.rolledBack(ctx); err != nil {
+			return err
+		}
+	}
+
 	if w.Book.Paused() {
-		w.Book.Checked(w.Channel, nil, nil)
+		held, err := w.Gate.Status(ctx)
+		if err != nil {
+			return fmt.Errorf("the gate did not answer: %w", err)
+		}
+
+		w.Book.Checked(w.channel(), held, nil)
+
 		return nil
 	}
 
@@ -111,7 +127,7 @@ func (w *Watcher) Once(ctx context.Context) error {
 		}
 	}
 
-	w.Book.Checked(w.Channel, held, targets)
+	w.Book.Checked(w.channel(), held, targets)
 
 	pulled := []planned{}
 	for _, next := range plan {
@@ -145,7 +161,7 @@ func (w *Watcher) Once(ctx context.Context) error {
 	}
 
 	if during, err := w.Gate.Status(ctx); err == nil {
-		w.Book.Checked(w.Channel, during, targets)
+		w.Book.Checked(w.channel(), during, targets)
 	}
 
 	if err := w.watch(ctx, swapped); err != nil {
@@ -159,14 +175,14 @@ func (w *Watcher) Once(ctx context.Context) error {
 
 	after, err := w.Gate.Status(ctx)
 	if err == nil {
-		w.Book.Checked(w.Channel, after, targets)
+		w.Book.Checked(w.channel(), after, targets)
 	}
 
 	return nil
 }
 
 func (w *Watcher) wanted(ctx context.Context, kind Kind, status Held, checker *verify.Checker) (planned, error) {
-	signer, err := kind.On(w.Channel)
+	signer, err := kind.On(w.channel())
 	if err != nil {
 		return planned{}, err
 	}
@@ -198,7 +214,7 @@ func (w *Watcher) wanted(ctx context.Context, kind Kind, status Held, checker *v
 }
 
 func (w *Watcher) latest(ctx context.Context, kind Kind) (string, error) {
-	if w.Channel == Main {
+	if w.channel() == Main {
 		return w.Registry.Digest(ctx, kind.Image, Main)
 	}
 
@@ -303,4 +319,31 @@ func or(held, fallback time.Duration) time.Duration {
 	}
 
 	return held
+}
+
+func (w *Watcher) rolledBack(ctx context.Context) error {
+	held, err := w.Gate.Status(ctx)
+	if err != nil {
+		return fmt.Errorf("the gate did not answer: %w", err)
+	}
+
+	back := []planned{}
+	for _, status := range held {
+		kind, err := Named(status.Name)
+		if err != nil || status.Previous == "" || status.Previous == status.Current {
+			continue
+		}
+
+		w.Book.Bad(status.Current)
+		back = append(back, planned{kind: kind, digest: status.Current})
+	}
+
+	if len(back) == 0 {
+		w.Book.Note(Event{Action: "rollback", Error: "there is no previous build to roll back to"})
+		return nil
+	}
+
+	w.back(ctx, back)
+
+	return nil
 }
