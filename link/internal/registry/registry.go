@@ -62,7 +62,7 @@ type manifest struct {
 }
 
 func split(image string) (string, string, error) {
-	if !nameShape.MatchString(image) {
+	if !nameShape.MatchString(image) || strings.Contains(image, "..") || strings.Contains(image, "//") {
 		return "", "", fmt.Errorf("%q is not an image name", image)
 	}
 
