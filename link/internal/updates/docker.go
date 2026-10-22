@@ -24,6 +24,8 @@ type Docker struct {
 }
 
 type Image struct {
+	keyed map[string]bool
+
 	ID          string   `json:"Id"`
 	RepoDigests []string `json:"RepoDigests"`
 	Config      struct {

@@ -320,8 +320,14 @@ func (g *Gate) replace(ctx context.Context, kind Kind, id string, to Image) erro
 	}
 
 	from, err := g.Docker.Image(ctx, fmt.Sprint(inspected["Image"]))
-	if err != nil {
-		return fmt.Errorf("the image %v the container runs is gone, so its own settings cannot be told apart from the image's: %w", inspected["Image"], err)
+	gone := errors.Is(err, ErrNoImage)
+	if err != nil && !gone {
+		return err
+	}
+
+	if gone {
+		g.log().Warn("the image a container runs is gone, so every setting the new image names comes from the new image", "container", inspected["Name"], "image", inspected["Image"])
+		from = Keyed(to)
 	}
 
 	body, err := Recreated(inspected, from, kind.Local(Current), to.ID)
@@ -481,6 +487,16 @@ func digested(image Image, kind Kind) string {
 	}
 
 	return ""
+}
+
+func (g *Gate) Idle() bool {
+	if !g.lock.TryLock() {
+		return false
+	}
+
+	g.lock.Unlock()
+
+	return true
 }
 
 func (g *Gate) Ready(ctx context.Context) error {

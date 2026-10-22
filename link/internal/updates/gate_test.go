@@ -274,3 +274,45 @@ func TestAContainerLeftOnAnOldBuildIsReportedAndMovedOnTheNextSwap(t *testing.T)
 		t.Fatalf("status %+v", status[1])
 	}
 }
+
+func TestAContainerWhoseImageIsGoneMovesWithTheNewImagesSettings(t *testing.T) {
+	fake, gate := stack(t, "healthy")
+	ctx := context.Background()
+	gate.Pull(ctx, signed(t))
+	fake.tags[LocalRepo+"xixo:current"] = "sha256:new"
+	delete(fake.images, "sha256:old")
+
+	if err := gate.Swap(ctx, signed(t)); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, container := range fake.containers {
+		env := []string{}
+		for _, entry := range container.Config["Env"].([]any) {
+			env = append(env, entry.(string))
+		}
+
+		if container.Image != "sha256:new" || slices.Contains(env, "XIXO_REVISION=old") || !slices.Contains(env, "XIXO_REVISION=new") || !slices.Contains(env, "XIXO_TENANT=jon") {
+			t.Fatalf("%s runs %s with %v", container.Name, container.Image, env)
+		}
+
+		if container.Config["Labels"].(map[string]any)[Revision] != "c589ffe682d3497df159d3615be691387ebea7d9" {
+			t.Fatalf("%s labels %v", container.Name, container.Config["Labels"])
+		}
+	}
+}
+
+func TestTheGateSaysWhenItIsBusy(t *testing.T) {
+	_, gate := stack(t, "healthy")
+
+	if !gate.Idle() {
+		t.Fatal("an idle gate said it was busy")
+	}
+
+	gate.lock.Lock()
+	defer gate.lock.Unlock()
+
+	if gate.Idle() {
+		t.Fatal("a busy gate said it was idle")
+	}
+}

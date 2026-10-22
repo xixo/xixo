@@ -36,6 +36,42 @@ func same(held any, image any) bool {
 	return string(left) == string(right)
 }
 
+func Keyed(image Image) Image {
+	held := image
+	held.Config.Env = nil
+	held.Config.Labels = map[string]string{}
+	held.keyed = map[string]bool{}
+
+	for _, entry := range image.Config.Env {
+		name, _, _ := strings.Cut(entry, "=")
+		held.keyed[name] = true
+	}
+
+	for name := range image.Config.Labels {
+		held.keyed["label:"+name] = true
+	}
+
+	return held
+}
+
+func (i Image) owns(entry string) bool {
+	if slices.Contains(i.Config.Env, entry) {
+		return true
+	}
+
+	name, _, _ := strings.Cut(entry, "=")
+
+	return i.keyed[name]
+}
+
+func (i Image) labels(name, value string) bool {
+	if fromImage, found := i.Config.Labels[name]; found && fromImage == value {
+		return true
+	}
+
+	return i.keyed["label:"+name]
+}
+
 func Recreated(container map[string]any, old Image, image string, imageID string) (map[string]any, error) {
 	config := object(container["Config"])
 	if config["Image"] != image {
@@ -51,7 +87,7 @@ func Recreated(container map[string]any, old Image, image string, imageID string
 
 	kept := []string{}
 	for _, entry := range texts(config["Env"]) {
-		if !slices.Contains(old.Config.Env, entry) {
+		if !old.owns(entry) {
 			kept = append(kept, entry)
 		}
 	}
@@ -79,7 +115,7 @@ func Recreated(container map[string]any, old Image, image string, imageID string
 	labels := map[string]any{}
 	for name, value := range object(config["Labels"]) {
 		text, _ := value.(string)
-		if fromImage, found := old.Config.Labels[name]; !found || fromImage != text {
+		if !old.labels(name, text) {
 			labels[name] = value
 		}
 	}

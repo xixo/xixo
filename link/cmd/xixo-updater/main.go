@@ -25,6 +25,7 @@ const usage = `xixo-updater keeps a xixo server on builds CI signed.
   xixo-updater watch    check the registry and ask the gate to update (has network, no Docker)
   xixo-updater gate     pull, swap, and roll back containers (has Docker, no network)
   xixo-updater ready    exit 0 once the gate holds a build of everything it keeps
+  xixo-updater idle     exit 0 when the gate is not pulling, swapping, or rolling back
   xixo-updater version  print the version
 
 Settings come from the environment:
@@ -72,6 +73,11 @@ func command(ctx context.Context, args []string, stdout io.Writer) error {
 	case "version":
 		fmt.Fprintln(stdout, version)
 		return nil
+	case "idle":
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		return updates.Dial(socket).Idle(ctx)
 	case "ready":
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()

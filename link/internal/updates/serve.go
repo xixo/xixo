@@ -23,6 +23,15 @@ func (g *Gate) Handler() http.Handler {
 		answer(w, held, err)
 	})
 
+	mux.HandleFunc("GET /idle", func(w http.ResponseWriter, r *http.Request) {
+		if g.Idle() {
+			answer(w, map[string]bool{"idle": true}, nil)
+			return
+		}
+
+		answer(w, nil, errors.New("the gate is pulling, swapping, or rolling back"))
+	})
+
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
 		answer(w, map[string]bool{"ready": true}, g.Ready(r.Context()))
 	})
@@ -30,7 +39,7 @@ func (g *Gate) Handler() http.Handler {
 	mux.HandleFunc("POST /pull", func(w http.ResponseWriter, r *http.Request) {
 		request, err := read(r)
 		if err == nil {
-			err = g.Pull(r.Context(), request)
+			err = g.Pull(context.WithoutCancel(r.Context()), request)
 		}
 		answer(w, map[string]bool{"pulled": true}, err)
 	})
@@ -38,7 +47,7 @@ func (g *Gate) Handler() http.Handler {
 	mux.HandleFunc("POST /swap", func(w http.ResponseWriter, r *http.Request) {
 		request, err := read(r)
 		if err == nil {
-			err = g.Swap(r.Context(), request)
+			err = g.Swap(context.WithoutCancel(r.Context()), request)
 		}
 		answer(w, map[string]bool{"swapped": true}, err)
 	})
@@ -46,7 +55,7 @@ func (g *Gate) Handler() http.Handler {
 	mux.HandleFunc("POST /rollback", func(w http.ResponseWriter, r *http.Request) {
 		request, err := read(r)
 		if err == nil {
-			err = g.Rollback(r.Context(), request.Kind)
+			err = g.Rollback(context.WithoutCancel(r.Context()), request.Kind)
 		}
 		answer(w, map[string]bool{"rolled_back": true}, err)
 	})
@@ -152,6 +161,10 @@ func (r *Remote) Status(ctx context.Context) ([]Held, error) {
 	err := r.call(ctx, http.MethodGet, "/status", nil, &held)
 
 	return held, err
+}
+
+func (r *Remote) Idle(ctx context.Context) error {
+	return r.call(ctx, http.MethodGet, "/idle", nil, nil)
 }
 
 func (r *Remote) Ready(ctx context.Context) error {
