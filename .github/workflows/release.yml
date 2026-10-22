@@ -207,3 +207,31 @@ jobs:
           subject-name: ghcr.io/${{ github.repository }}-link
           subject-digest: ${{ steps.link_image.outputs.digest }}
           push-to-registry: true
+
+      - name: Derive the updater's version tags
+        id: updater
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}-updater
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.release-please.outputs.server_version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release-please.outputs.server_version }}
+
+      - name: Build and push the updater's release image
+        id: updater_image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.updater
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.updater.outputs.tags }}
+          labels: ${{ steps.updater.outputs.labels }}
+          cache-from: type=gha,scope=updater
+
+      - name: Attest what built the updater image
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ghcr.io/${{ github.repository }}-updater
+          subject-digest: ${{ steps.updater_image.outputs.digest }}
+          push-to-registry: true

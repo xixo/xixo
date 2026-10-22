@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+# check=error=true
+
+ARG GO_VERSION=1.26
+
+FROM --platform=$BUILDPLATFORM docker.io/library/golang:$GO_VERSION AS build
+ARG TARGETOS
+ARG TARGETARCH
+WORKDIR /link
+COPY link/go.mod link/go.sum ./
+RUN go mod download
+COPY link/ ./
+COPY .release-please-manifest.json /link/
+ARG XIXO_COMMIT=
+RUN version=$(sed -n 's/.*"\.": *"\([^"]*\)".*/\1/p' .release-please-manifest.json) && \
+    version="${version:-dev}${XIXO_COMMIT:++$(printf %.7s "$XIXO_COMMIT")}" && \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
+      -ldflags "-s -w -X main.version=$version" -o /out/xixo-updater ./cmd/xixo-updater && \
+    mkdir -p /out/run/xixo-updates/gate /out/run/xixo-updates/tuf /out/var/lib/xixo-updates/state /out/var/lib/xixo-updates/cache
+
+FROM gcr.io/distroless/static-debian12:nonroot
+
+COPY --from=build /out/xixo-updater /usr/local/bin/xixo-updater
+COPY --from=build --chown=65532:65532 /out/run/xixo-updates /run/xixo-updates
+COPY --from=build --chown=65532:65532 /out/var/lib/xixo-updates /var/lib/xixo-updates
+
+ENTRYPOINT ["/usr/local/bin/xixo-updater"]
+CMD ["watch"]

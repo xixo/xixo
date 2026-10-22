@@ -72,6 +72,9 @@ jobs:
       - name: Test
         run: go test -race ./...
 
+      - name: Check for known vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+
       - name: Build for Linux
         run: |
           for arch in amd64 arm64; do
@@ -365,4 +368,36 @@ jobs:
         with:
           subject-name: ghcr.io/${{ github.repository }}-link
           subject-digest: ${{ steps.link_image.outputs.digest }}
+          push-to-registry: true
+
+      - name: Derive the updater image tags
+        id: updater
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}-updater
+          tags: |
+            type=ref,event=branch
+            type=sha,format=long
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build the updater image
+        id: updater_image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.updater
+          build-args: XIXO_COMMIT=${{ github.sha }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.updater.outputs.tags }}
+          labels: ${{ steps.updater.outputs.labels }}
+          cache-from: type=gha,scope=updater
+          cache-to: type=gha,mode=max,scope=updater
+
+      - name: Attest what built the updater image
+        if: github.event_name == 'push'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ghcr.io/${{ github.repository }}-updater
+          subject-digest: ${{ steps.updater_image.outputs.digest }}
           push-to-registry: true
