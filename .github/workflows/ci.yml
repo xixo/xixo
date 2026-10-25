@@ -58,7 +58,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: link/go.mod
           cache-dependency-path: link/go.sum
@@ -93,7 +93,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: link/go.mod
           cache-dependency-path: link/go.sum
@@ -113,7 +113,7 @@ jobs:
           done
 
       - name: Hand the mac reader to the image build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mac-reader
           path: link/macos/build/xixo-mac-reader
@@ -288,13 +288,13 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: link/go.mod
           cache-dependency-path: link/go.sum
 
       - name: Fetch the mac reader
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mac-reader
           path: ${{ runner.temp }}/release/opt/xixo-link/mac
@@ -329,7 +329,7 @@ jobs:
         run: cp "$BUNDLE" "$RUNNER_TEMP/release/opt/xixo-link/release.sigstore.json"
 
       - name: Hand the release to the image build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: link-release
           path: ${{ runner.temp }}/release
@@ -350,13 +350,13 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Fetch the signed xixo link release the image serves
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: link-release
           path: ${{ runner.temp }}/link-release
 
       - name: Set up QEMU, for the link's arm64 image
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
