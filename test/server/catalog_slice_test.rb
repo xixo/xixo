@@ -108,6 +108,20 @@ class CatalogSliceTest < ActionDispatch::IntegrationTest
     assert_equal({ "text" => 2 }, tallied(counts["kind"]).reject { |_key, count| count.zero? })
   end
 
+  test "a file kept in default storage counts and filters by its kind like one with an original" do
+    Tenant.switch(@tenant) do
+      memo = Feed.create!(type: Feed::FILE, key: "memo.pdf", title: "memo.pdf")
+      Staged.stage!(memo, path: "memo.pdf", body: "%PDF-1.4", mime: "application/pdf")
+    end
+
+    assert_equal %w[memo.pdf plan.pdf], keys(FEEDS, slice: { kind: "pdf" })
+    assert_equal %w[broken.txt diary.txt], keys(FEEDS, slice: { kind: "text" })
+
+    counts = execute(COUNTS, variables: {}).dig("data", "sliceCounts")
+
+    assert_equal 2, tallied(counts["kind"])["pdf"]
+  end
+
   test "a state or a kind that is not one of the choices is refused" do
     assert_match(/analysis is one of analyzed, waiting, parked, failed/, execute(FEEDS, variables: { slice: { analysis: "lost" } }).dig("errors", 0, "message"))
     assert_match(/kind is one of/, execute(SEARCH, variables: { slice: { kind: "sheet" } }).dig("errors", 0, "message"))

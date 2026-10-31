@@ -48,7 +48,7 @@ class Feed
 
     def apply(scope)
       scope = scope.where(id: Reference.where(resource_id: resource_ids).select(:feed_id)) unless resource_ids.nil?
-      scope = scope.where(id: Reference.originals.of_kind(kind).select(:feed_id)) if kind
+      scope = scope.where(id: of_kind(kind).select(:id)) if kind
       scope = scope.where(id: in_state(analysis).select(:id)) if analysis
       scope = scope.where(created_at: since..) if since
       scope = scope.where(created_at: ...before) if before
@@ -162,8 +162,23 @@ class Feed
         Reference.originals.where(feed_id: ids_of(scope)).group(:mime).distinct.count(:feed_id).each do |mime, count|
           tallied[MimeType.family(mime)] += count
         end
+        staged.where(record_id: ids_of(scope)).group("active_storage_blobs.content_type").distinct.count(:record_id).each do |mime, count|
+          tallied[MimeType.family(mime)] += count
+        end
 
         MimeType.families.map { |family| { key: family, count: tallied[family] } }
+      end
+
+      def staged
+        ActiveStorage::Attachment.joins(:blob).where(record_type: Feed.name, name: "upload")
+                                 .where.not(record_id: Reference.originals.select(:feed_id))
+      end
+
+      def of_kind(kind)
+        blobs = MimeType.of_kind(ActiveStorage::Blob.all, "active_storage_blobs.content_type", kind)
+
+        Feed.where(id: Reference.originals.of_kind(kind).select(:feed_id))
+            .or(Feed.where(id: staged.where(blob_id: blobs.select(:id)).select(:record_id)))
       end
 
       def when_counts(scope)

@@ -109,6 +109,21 @@ module MimeType
       FAMILIES.keys + [ OTHER ]
     end
 
+    def of_kind(relation, column, family)
+      rule = FAMILIES[family.to_s]
+
+      if rule.nil?
+        known = FAMILIES.values.flat_map { |held| held[:exact].to_a }
+        prefixes = FAMILIES.values.filter_map { |held| held[:prefix] }
+        relation.where(column => nil)
+                .or(relation.where.not(column => known).where.not(prefixes.map { "#{column} LIKE ?" }.join(" OR "), *prefixes.map { |prefix| "#{prefix}%" }))
+      elsif rule[:exact]
+        relation.where(column => rule[:exact])
+      else
+        relation.where("#{column} LIKE ?", "#{rule[:prefix]}%").where.not(column => Array(rule[:except]))
+      end
+    end
+
     def family(mime)
       held = mime.to_s.downcase
 

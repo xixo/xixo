@@ -33,19 +33,7 @@ class Reference < ApplicationRecord
              .where(resource: Resource.active.external)
   }
 
-  scope :of_kind, ->(family) {
-    rule = MimeType::FAMILIES[family.to_s]
-
-    if rule.nil?
-      known = MimeType::FAMILIES.values.flat_map { |held| held[:exact].to_a }
-      prefixes = MimeType::FAMILIES.values.filter_map { |held| held[:prefix] }
-      where(mime: nil).or(where.not(mime: known).where.not(prefixes.map { "feed_references.mime LIKE ?" }.join(" OR "), *prefixes.map { |prefix| "#{prefix}%" }))
-    elsif rule[:exact]
-      where(mime: rule[:exact])
-    else
-      where("feed_references.mime LIKE ?", "#{rule[:prefix]}%").where.not(mime: Array(rule[:except]))
-    end
-  }
+  scope :of_kind, ->(family) { MimeType.of_kind(all, "feed_references.mime", family) }
 
   scope :under, ->(prefix) {
     escaped = sanitize_sql_like(prefix.to_s.delete_prefix("/").chomp("/"))
