@@ -7,7 +7,7 @@ on:
 
 jobs:
   format:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout code
@@ -37,7 +37,7 @@ jobs:
           shellcheck "${scripts[@]}"
 
   actions:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout code
@@ -47,7 +47,7 @@ jobs:
         uses: raven-actions/actionlint@v2
 
   link:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     defaults:
       run:
@@ -121,7 +121,7 @@ jobs:
 
   boot:
     needs: [format, actions, lint, lint_js]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     strategy:
       fail-fast: false
@@ -154,7 +154,7 @@ jobs:
 
   scan_ruby:
     needs: [format, actions, lint, lint_js]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout code
@@ -172,7 +172,7 @@ jobs:
         run: bin/bundler-audit
 
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       RUBOCOP_CACHE_ROOT: tmp/rubocop
     steps:
@@ -198,7 +198,7 @@ jobs:
         run: bin/rubocop -f github
 
   lint_js:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -231,7 +231,7 @@ jobs:
 
   reference:
     needs: [format, actions, lint, lint_js]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout code
@@ -255,7 +255,7 @@ jobs:
 
   test:
     needs: [format, actions, lint, lint_js]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     strategy:
       fail-fast: false
@@ -274,7 +274,7 @@ jobs:
 
   link_release:
     needs: [link, mac_reader]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     permissions:
       contents: read
@@ -338,7 +338,7 @@ jobs:
 
   image:
     needs: [test, boot, scan_ruby, reference, mac_reader, link_release]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     permissions:
       contents: read

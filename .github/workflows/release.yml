@@ -17,7 +17,7 @@ permissions: {}
 jobs:
   release-please:
     if: github.event_name == 'push' || inputs.package == 'release-please'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
       pull-requests: write
@@ -42,7 +42,7 @@ jobs:
       !cancelled() &&
       needs.release-please.result != 'failure' &&
       (needs.release-please.outputs.client == 'true' || inputs.package == 'client')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: npm
     permissions:
       contents: read
@@ -121,7 +121,7 @@ jobs:
   link_release:
     needs: [release-please, mac_reader]
     if: needs.release-please.outputs.server == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
       id-token: write
@@ -187,7 +187,7 @@ jobs:
   server:
     needs: [release-please, mac_reader, link_release]
     if: needs.release-please.outputs.server == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
