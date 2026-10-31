@@ -43,7 +43,7 @@ var (
 
 const (
 	revoked     = 78
-	interrupted = 130
+	interrupted = update.Interrupted
 )
 
 const (

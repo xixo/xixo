@@ -63,7 +63,9 @@ func (s *Supervisor) Run(ctx context.Context) int {
 
 		switch {
 		case ctx.Err() != nil:
-			return 0
+			s.Log.Info("xixo link stops, since it was told to")
+
+			return Interrupted
 		case trial && !connected:
 			s.Log.Warn("the new xixo link did not connect, so xixo link goes back to the one before it", "release", release, "error", err)
 			s.rollback(release, good, err)
@@ -74,12 +76,16 @@ func (s *Supervisor) Run(ctx context.Context) int {
 		}
 
 		if status != Restart {
+			s.Log.Info("xixo link stops", "status", status, "error", err)
+
 			return status
 		}
 
 		select {
 		case <-ctx.Done():
-			return 0
+			s.Log.Info("xixo link stops, since it was told to")
+
+			return Interrupted
 		case <-time.After(s.Pause):
 		}
 	}

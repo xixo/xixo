@@ -21,13 +21,14 @@ import (
 )
 
 const (
-	Restart    = 75
-	MostBinary = 256 << 20
-	mostRecord = 4096
-	Binary     = "xixo-link"
-	MacReader  = release.MacReader
-	Previous   = ".previous"
-	Fetching   = 10 * time.Minute
+	Interrupted = 130
+	Restart     = 75
+	MostBinary  = 256 << 20
+	mostRecord  = 4096
+	Binary      = "xixo-link"
+	MacReader   = release.MacReader
+	Previous    = ".previous"
+	Fetching    = 10 * time.Minute
 )
 
 var (

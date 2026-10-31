@@ -65,6 +65,26 @@ func TestTheSupervisorRunsItselfUntilThereIsARelease(t *testing.T) {
 	}
 }
 
+func TestTheSupervisorToldToStopExitsWithAStatusThatBringsItBack(t *testing.T) {
+	held := supervisor(t, script("sleep 30"))
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan int, 1)
+
+	go func() { done <- held.Run(ctx) }()
+
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	select {
+	case status := <-done:
+		if status != Interrupted {
+			t.Fatalf("status %d", status)
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("the supervisor did not stop")
+	}
+}
+
 func TestTheSupervisorPassesTheChildItsReleases(t *testing.T) {
 	held := supervisor(t, nil)
 	said := filepath.Join(held.State, "args")
