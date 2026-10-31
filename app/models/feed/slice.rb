@@ -175,7 +175,7 @@ class Feed
       end
 
       def of_kind(kind)
-        blobs = MimeType.of_kind(ActiveStorage::Blob.all, "active_storage_blobs.content_type", kind)
+        blobs = MimeType.of_kind(ActiveStorage::Blob.all, ActiveStorage::Blob.arel_table[:content_type], kind)
 
         Feed.where(id: Reference.originals.of_kind(kind).select(:feed_id))
             .or(Feed.where(id: staged.where(blob_id: blobs.select(:id)).select(:record_id)))

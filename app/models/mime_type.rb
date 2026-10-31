@@ -114,13 +114,13 @@ module MimeType
 
       if rule.nil?
         known = FAMILIES.values.flat_map { |held| held[:exact].to_a }
-        prefixes = FAMILIES.values.filter_map { |held| held[:prefix] }
-        relation.where(column => nil)
-                .or(relation.where.not(column => known).where.not(prefixes.map { "#{column} LIKE ?" }.join(" OR "), *prefixes.map { |prefix| "#{prefix}%" }))
+        prefixed = FAMILIES.values.filter_map { |held| held[:prefix] }.map { |prefix| column.matches("#{prefix}%", nil, true) }.reduce(:or)
+        relation.where(column.eq(nil)).or(relation.where(column.not_in(known)).where(prefixed.not))
       elsif rule[:exact]
-        relation.where(column => rule[:exact])
+        relation.where(column.in(rule[:exact]))
       else
-        relation.where("#{column} LIKE ?", "#{rule[:prefix]}%").where.not(column => Array(rule[:except]))
+        held = relation.where(column.matches("#{rule[:prefix]}%", nil, true))
+        rule[:except] ? held.where(column.not_in(Array(rule[:except]))) : held
       end
     end
 

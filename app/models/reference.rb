@@ -33,7 +33,7 @@ class Reference < ApplicationRecord
              .where(resource: Resource.active.external)
   }
 
-  scope :of_kind, ->(family) { MimeType.of_kind(all, "feed_references.mime", family) }
+  scope :of_kind, ->(family) { MimeType.of_kind(all, arel_table[:mime], family) }
 
   scope :under, ->(prefix) {
     escaped = sanitize_sql_like(prefix.to_s.delete_prefix("/").chomp("/"))
