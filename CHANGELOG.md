@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.0](https://github.com/xixo/xixo/compare/server-v0.3.0...server-v0.4.0) (2026-10-31)
+
+
+### Features
+
+* **server:** the machine xixo runs on is called Hub ([15e263c](https://github.com/xixo/xixo/commit/15e263ca226661d22b57e2ae1d5803ad9c1fe836))
+* **web:** the catalog header is one scrolling row on a phone, with the views, the count, the type, the view switch, and the filters side by side ([e9d54a3](https://github.com/xixo/xixo/commit/e9d54a3ec384c84c77b14fe7013aca81f2d91659))
+
+
+### Fixes
+
+* **link:** xixo link on macOS exits with a status that brings it back when it is told to stop, and the supervisor logs why it stops ([83b12b8](https://github.com/xixo/xixo/commit/83b12b8a9ae19a124eea11f7402cfaddbd1324d1))
+* **server:** a file kept in default storage counts and filters by its kind, the way a file with an original on a machine does ([d4b248a](https://github.com/xixo/xixo/commit/d4b248a06de199f0b9757fc1cfab4b26ed5d1c29))
+* **server:** a machine that comes back has its offline folders and model servers checked at once, so they stop showing offline without a recheck by hand ([b1133e1](https://github.com/xixo/xixo/commit/b1133e1092cb51ea72e767393a6896c5795379ce))
+
 ## [0.3.0](https://github.com/xixo/xixo/compare/server-v0.2.0...server-v0.3.0) (2026-10-31)
 
 
