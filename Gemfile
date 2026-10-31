@@ -24,7 +24,7 @@ masks_server = ENV["MASKS_SERVER_PATH"].to_s
 if File.file?(File.join(masks_server, "masks-server.gemspec"))
   gem "masks-server", path: masks_server, require: false
 else
-  gem "masks-server", "~> 0.10", require: false
+  gem "masks-server", "~> 0.11", require: false
 end
 
 gem "vite_rails"
