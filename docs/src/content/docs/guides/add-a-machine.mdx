@@ -321,8 +321,9 @@ The setting lives in a drop-in file, so running the link-up command again keeps 
 ## Keep xixo link up to date
 
 xixo updates xixo link on each machine to the release the server ships, and the card says "updating
-to" and the version. A release holds the binary, the systemd units on Linux, and the list of
-programs that read files, so a change to any of them reaches every machine. Each machine checks
+to" and the version. A release holds the binary, the systemd units on Linux, the launch agent on
+macOS, and the list of programs that read files, so a change to any of them reaches every machine.
+Each machine checks
 that xixo's CI signed the release, and refuses one older than it has run, so the server cannot
 install anything else. When a new release does not connect within three minutes, xixo link goes
 back to the one before it, and tries again after six hours.
