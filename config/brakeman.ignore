@@ -1,4 +1,28 @@
 {
-  "ignored_warnings": [],
-  "brakeman_version": "8.0.6"
+  "ignored_warnings": [
+    {
+      "warning_type": "File Access",
+      "warning_code": 16,
+      "fingerprint": "a3d7a1ea4d7e7cb60c2f23ea047e929f37bbd201d9f484e5749d395a3b62752b",
+      "check_name": "SendFile",
+      "message": "Parameter value used in file name",
+      "file": "app/controllers/links_controller.rb",
+      "line": 25,
+      "link": "https://brakemanscanner.org/docs/warning_types/file_access/",
+      "code": "send_file(Resource::Machine::Downloads.served(params[:file].to_s).path, :type => \"application/octet-stream\", :disposition => \"attachment\", :filename => Resource::Machine::Downloads.served(params[:file].to_s).name)",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "LinksController",
+        "method": "download"
+      },
+      "user_input": "params[:file].to_s",
+      "confidence": "Weak",
+      "cwe_id": [
+        22
+      ],
+      "note": "The route constrains :file to the names a release lists, FILES.include? lets through only the five build names, and served returns a path only for a build in the binaries folder."
+    }
+  ],
+  "brakeman_version": "8.1.0"
 }
