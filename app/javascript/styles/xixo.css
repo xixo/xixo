@@ -1700,16 +1700,51 @@ a.entry:hover {
   white-space: nowrap;
 }
 
+.catalog-head {
+  display: contents;
+}
+
 @media (max-width: 640px) {
-  .catalog-bar .shelf {
-    flex-basis: 100%;
+  .catalog-head {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: var(--s2);
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: calc(var(--gutter) * -1);
+    padding-inline: var(--gutter);
+    scroll-padding-inline: var(--gutter);
+    mask-image: linear-gradient(
+      90deg,
+      transparent,
+      #000 var(--gutter),
+      #000 calc(100% - var(--gutter)),
+      transparent
+    );
   }
 
-  .catalog-tools {
-    flex: 1 0 100%;
-    justify-content: space-between;
-    gap: var(--s2);
-    margin-left: 0;
+  .catalog-head::-webkit-scrollbar {
+    display: none;
+  }
+
+  .catalog-head .catalog-bar,
+  .catalog-head .catalog-bar .shelf,
+  .catalog-head .catalog-tools,
+  .catalog-head .filters {
+    display: contents;
+  }
+
+  .catalog-head .chip,
+  .catalog-head .filter,
+  .catalog-head .switcher {
+    flex: none;
+  }
+
+  .catalog-head .catalog-tools .eyebrow {
+    flex: none;
+    overflow: visible;
+    padding-inline: var(--s2);
   }
 
   .entry-ask > .tag {

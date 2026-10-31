@@ -241,53 +241,55 @@ function Listing({
         </div>
       )}
 
-      <div className="catalog-bar">
-        <Shelf feeds={feeds} here={feed} onChanged={onChanged} />
+      <div className="catalog-head">
+        <div className="catalog-bar">
+          <Shelf feeds={feeds} here={feed} onChanged={onChanged} />
 
-        <div className="catalog-tools">
-          <div className="eyebrow">
-            {searching ? (
-              <>
-                <span className="figure">{rows.length.toLocaleString()}</span>
-                {total !== null && total > rows.length && (
-                  <>
-                    {' of '}
-                    <span className="figure">{total.toLocaleString()}</span>
-                  </>
-                )}{' '}
-                {total === 1 ? 'match' : 'matches'}
-                {type ? ` among ${pluralOf(type)}` : ''}
-              </>
-            ) : (
-              <>
-                <span className="figure">
-                  {(total ?? rows.length).toLocaleString()}
-                </span>{' '}
-                {type
-                  ? pluralOf(type)
-                  : (total ?? rows.length) === 1
-                    ? 'item'
-                    : 'items'}
-                {total === null && page?.hasMore ? ' so far' : ''}
-                {feed ? ' kept by this feed' : ''}
-              </>
-            )}
+          <div className="catalog-tools">
+            <div className="eyebrow">
+              {searching ? (
+                <>
+                  <span className="figure">{rows.length.toLocaleString()}</span>
+                  {total !== null && total > rows.length && (
+                    <>
+                      {' of '}
+                      <span className="figure">{total.toLocaleString()}</span>
+                    </>
+                  )}{' '}
+                  {total === 1 ? 'match' : 'matches'}
+                  {type ? ` among ${pluralOf(type)}` : ''}
+                </>
+              ) : (
+                <>
+                  <span className="figure">
+                    {(total ?? rows.length).toLocaleString()}
+                  </span>{' '}
+                  {type
+                    ? pluralOf(type)
+                    : (total ?? rows.length) === 1
+                      ? 'item'
+                      : 'items'}
+                  {total === null && page?.hasMore ? ' so far' : ''}
+                  {feed ? ' kept by this feed' : ''}
+                </>
+              )}
+            </div>
+
+            <Group gap="var(--s2)" wrap="nowrap">
+              {!feed && <Types />}
+              <Switcher view={view} onPick={onPick} />
+              {!feed && !sliced && <Tools type={type} term={term} />}
+            </Group>
           </div>
-
-          <Group gap="var(--s2)" wrap="nowrap">
-            {!feed && <Types />}
-            <Switcher view={view} onPick={onPick} />
-            {!feed && !sliced && <Tools type={type} term={term} />}
-          </Group>
         </div>
-      </div>
 
-      <Filters
-        query={searching ? term : null}
-        types={searching ? (type ? [type] : KEPT) : listed}
-        connectedTo={searching ? null : (feed?.id ?? null)}
-        topLevel={!searching && !feed}
-      />
+        <Filters
+          query={searching ? term : null}
+          types={searching ? (type ? [type] : KEPT) : listed}
+          connectedTo={searching ? null : (feed?.id ?? null)}
+          topLevel={!searching && !feed}
+        />
+      </div>
 
       {feed && (
         <FeedHead
