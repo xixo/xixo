@@ -4,24 +4,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
-	"net/http"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/xixo/xixo/link/internal/release"
 )
 
 type Updater struct {
-	Xixo     string
+	Placer
 	Requests string
 	Results  string
-	Binary   string
 	OS       string
 	Arch     string
-	Client   *http.Client
 	Wait     time.Duration
 	Poll     time.Duration
-	Log      *slog.Logger
+	Now      func() time.Time
 	Vouch    *Vouch
 }
 
@@ -34,88 +32,221 @@ func (u *Updater) settle() {
 		u.Poll = 2 * time.Second
 	}
 
-	if u.Log == nil {
-		u.Log = slog.New(slog.DiscardHandler)
+	if u.Now == nil {
+		u.Now = time.Now
 	}
 }
 
 func (u *Updater) Apply(ctx context.Context) error {
 	u.settle()
 
-	asked := Request{}
-	if err := Read(filepath.Join(u.Requests, RequestFile), &asked); err != nil {
-		if missing(err) {
-			return nil
-		}
-
+	if err := u.recover(ctx); err != nil {
 		return err
 	}
 
-	if err := asked.Check(); err != nil {
-		return err
+	staged, id := Staged(u.Staged())
+	if staged == "" {
+		return u.relay()
 	}
 
-	held, err := Digest(u.Binary)
-	if err != nil {
-		return err
-	}
-
-	if held == asked.SHA256 || u.handled(asked) {
+	if id == u.Pointed(Current) || u.Refused(id) {
 		return nil
 	}
 
-	err = u.apply(ctx, asked)
-	u.record(asked, err)
+	asked := Request{}
+	if Read(filepath.Join(staged, RequestKept), &asked) != nil || asked.Check() != nil {
+		asked = Request{}
+	}
+
+	if asked.SHA256 != "" && u.handled(asked) {
+		return nil
+	}
+
+	err := u.apply(ctx, staged, id, asked)
+	if asked.SHA256 != "" {
+		u.record(asked, err)
+	}
 
 	return err
 }
 
-func (u *Updater) apply(ctx context.Context, asked Request) error {
-	u.Log.Info("updating xixo link", "version", asked.Version, "from", asked.From)
-
-	goos, goarch := system(u.OS, u.Arch)
-
-	signed, err := u.Vouch.Release(ctx, asked.Target, goos, goarch)
+func (u *Updater) apply(ctx context.Context, staged, id string, asked Request) error {
+	raw, err := os.ReadFile(filepath.Join(staged, release.File))
 	if err != nil {
 		return err
 	}
 
-	fetched, err := Fetch(ctx, u.Client, Address(u.Xixo, BuildFor(goos, goarch)), asked.SHA256, filepath.Dir(u.Binary))
+	bundle, err := os.ReadFile(filepath.Join(staged, release.Bundle))
+	if err != nil && !missing(err) {
+		return err
+	}
+
+	held, err := u.Vouch.Verify(raw, bundle)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(fetched)
 
-	if err := Probe(ctx, fetched, asked.Version); err != nil {
+	if held.ID != id {
+		return fmt.Errorf("the staged folder %s holds release %s", id, held.ID)
+	}
+
+	if asked.SHA256 != "" && asked.Release != "" && asked.Release != release.Sum(raw) {
+		return fmt.Errorf("%w: the staged release is not the one xixo named", ErrNotInRelease)
+	}
+
+	_, goarch := system(u.OS, u.Arch)
+
+	files, err := held.Linux(goarch)
+	if err != nil {
 		return err
 	}
 
-	swapped := time.Now()
-
-	if err := Swap(fetched, u.Binary); err != nil {
+	if err := u.Keep(held, files, staged); err != nil {
 		return err
 	}
 
-	if u.connected(ctx, asked, swapped) {
-		u.Log.Info("xixo link updated and connected", "version", asked.Version, "serial", signed.Serial)
+	u.log().Info("updating xixo link", "version", held.Version, "serial", held.Serial, "release", held.ID)
 
-		if err := u.Vouch.Accept(signed); err != nil {
-			u.Log.Warn("xixo link updated, and the serial it accepted could not be kept", "serial", signed.Serial, "error", err)
+	from := u.Pointed(Good)
+	since := u.Now()
+
+	if err := u.switchTo(ctx, held.ID); err != nil {
+		return err
+	}
+
+	if u.connected(ctx, files[0].SHA256, since) {
+		if err := u.promote(ctx, held); err != nil {
+			u.log().Warn("xixo link updated and connected, and what follows an update did not all happen", "error", err)
 		}
+
+		u.log().Info("xixo link updated and connected", "version", held.Version, "serial", held.Serial)
 
 		return nil
 	}
 
-	if err := Restore(u.Binary); err != nil {
+	if err := u.rollback(ctx, held.ID, from); err != nil {
 		return fmt.Errorf("the new version did not connect, and the one before it could not be put back: %w", err)
 	}
 
-	u.Log.Warn("the new xixo link did not connect, so the one before it is back", "version", asked.Version)
-
-	return fmt.Errorf("version %s did not connect to xixo within %s, so xixo link went back to %s", asked.Version, u.Wait, asked.From)
+	return fmt.Errorf("version %s did not connect to xixo within %s, so xixo link went back to the release before it", held.Version, u.Wait)
 }
 
-func (u *Updater) connected(ctx context.Context, asked Request, since time.Time) bool {
+func (u *Updater) switchTo(ctx context.Context, id string) error {
+	changed, err := u.Render(id)
+	if err != nil {
+		return err
+	}
+
+	if err := u.Link(id); err != nil {
+		return err
+	}
+
+	if err := u.Reload(ctx); err != nil {
+		return err
+	}
+
+	if changed {
+		return u.Restart(ctx)
+	}
+
+	return nil
+}
+
+func (u *Updater) promote(ctx context.Context, held Verified) error {
+	if err := u.Promote(held.ID); err != nil {
+		return err
+	}
+
+	if err := u.Vouch.Accept(held.Release); err != nil {
+		return err
+	}
+
+	os.Remove(u.Bad())
+
+	if err := u.Enable(ctx); err != nil {
+		return err
+	}
+
+	Prune(u.Releases())
+
+	if (&Packages{Layout: u.Layout}).Changed() {
+		return u.run(ctx, "systemctl", "start", "--no-block", PackagesUnit)
+	}
+
+	return nil
+}
+
+func (u *Updater) rollback(ctx context.Context, bad, good string) error {
+	u.log().Warn("the new xixo link did not connect, so the release before it is back", "release", bad, "good", good)
+
+	if err := u.Refuse(bad); err != nil {
+		return err
+	}
+
+	if good == "" {
+		return errors.New("this machine holds no release that connected before")
+	}
+
+	if _, err := u.Render(good); err != nil {
+		return err
+	}
+
+	if err := u.Link(good); err != nil {
+		return err
+	}
+
+	if err := u.Reload(ctx); err != nil {
+		return err
+	}
+
+	if err := u.Restart(ctx); err != nil {
+		return err
+	}
+
+	Prune(u.Releases())
+
+	return nil
+}
+
+func (u *Updater) recover(ctx context.Context) error {
+	current, good := u.Pointed(Current), u.Pointed(Good)
+
+	switch {
+	case current == "":
+		return nil
+	case good == "":
+		return u.Promote(current)
+	case current == good:
+		return nil
+	}
+
+	sha, err := Digest(filepath.Join(u.Release(current), Binary))
+	if err != nil {
+		return err
+	}
+
+	if u.running(sha, time.Time{}) {
+		held, err := u.Held(current)
+		if err != nil {
+			return err
+		}
+
+		return u.promote(ctx, Verified{Release: held, ID: current})
+	}
+
+	pointed, err := os.Lstat(filepath.Join(u.Releases(), Current))
+	if err != nil {
+		return err
+	}
+
+	if u.Now().Sub(pointed.ModTime()) < u.Wait {
+		return nil
+	}
+
+	return u.rollback(ctx, current, good)
+}
+
+func (u *Updater) connected(ctx context.Context, sha string, since time.Time) bool {
 	deadline := time.NewTimer(u.Wait)
 	defer deadline.Stop()
 
@@ -123,9 +254,7 @@ func (u *Updater) connected(ctx context.Context, asked Request, since time.Time)
 	defer poll.Stop()
 
 	for {
-		held := Running{}
-		if Read(filepath.Join(u.Requests, RunningFile), &held) == nil &&
-			held.SHA256 == asked.SHA256 && !held.At.Before(since.Add(-time.Second)) {
+		if u.running(sha, since) {
 			return true
 		}
 
@@ -137,6 +266,29 @@ func (u *Updater) connected(ctx context.Context, asked Request, since time.Time)
 		case <-poll.C:
 		}
 	}
+}
+
+func (u *Updater) running(sha string, since time.Time) bool {
+	held := Running{}
+
+	return Read(filepath.Join(u.Requests, RunningFile), &held) == nil &&
+		held.SHA256 == sha && !held.At.Before(since.Add(-time.Second))
+}
+
+func (u *Updater) relay() error {
+	told := Result{}
+	if Read(filepath.Join(u.Cache(), FetchFile), &told) != nil || told.OK || told.SHA256 == "" {
+		return nil
+	}
+
+	asked := Request{Target: Target{Version: told.Version, SHA256: told.SHA256}, RequestedAt: told.RequestedAt}
+	if u.handled(asked) {
+		return nil
+	}
+
+	u.record(asked, errors.New(told.Error))
+
+	return nil
 }
 
 func (u *Updater) handled(asked Request) bool {
@@ -157,12 +309,12 @@ func (u *Updater) record(asked Request, err error) {
 		return
 	}
 
-	told := Result{Version: asked.Version, SHA256: asked.SHA256, RequestedAt: asked.RequestedAt, OK: err == nil, At: time.Now().UTC()}
+	told := Result{Version: asked.Version, SHA256: asked.SHA256, RequestedAt: asked.RequestedAt, OK: err == nil, At: u.Now().UTC()}
 	if err != nil {
 		told.Error = err.Error()
 	}
 
 	if werr := Write(filepath.Join(u.Results, ResultFile), told, 0o644); werr != nil && !errors.Is(werr, os.ErrNotExist) {
-		u.Log.Warn("the update's result could not be kept", "error", werr)
+		u.log().Warn("the update's result could not be kept", "error", werr)
 	}
 }

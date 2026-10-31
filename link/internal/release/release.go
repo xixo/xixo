@@ -15,25 +15,34 @@ import (
 )
 
 const (
-	File       = "release.json"
-	Bundle     = "release.sigstore.json"
-	MostFile   = 1 << 20
-	MostFiles  = 64
-	RoleBinary = "binary"
-	RoleReader = "mac_reader"
-	RoleUnit   = "unit"
-	RolePlist  = "plist"
-	MacReader  = "xixo-mac-reader"
-	MacDir     = "mac"
+	File         = "release.json"
+	Bundle       = "release.sigstore.json"
+	MostFile     = 1 << 20
+	MostFiles    = 64
+	MostPackages = 64
+	RoleBinary   = "binary"
+	RoleReader   = "mac_reader"
+	RoleUnit     = "unit"
+	RolePlist    = "plist"
+	Service      = "xixo-link.service"
+	Plist        = "xixo-link.plist"
+	MacReader    = "xixo-mac-reader"
+	MacDir       = "mac"
 )
 
 var (
 	Versioned = regexp.MustCompile(`^\d{1,6}\.\d{1,6}\.\d{1,6}(\+[0-9a-f]{7,40})?$`)
 	Hexed     = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	UnitName  = regexp.MustCompile(`^xixo-link[a-z@-]*\.(service|path|timer)$`)
 
-	binaryName = regexp.MustCompile(`^xixo-link-(linux|darwin)-(amd64|arm64)$`)
-	unitName   = regexp.MustCompile(`^xixo-link[a-z@-]*\.(service|path|timer)$`)
-	revised    = regexp.MustCompile(`^[0-9a-f]{40}$`)
+	Packages = []string{
+		"ca-certificates", "libvips-tools", "libraw-bin", "libimage-exiftool-perl", "libarchive-zip-perl", "poppler-utils",
+		"tesseract-ocr", "ffmpeg", "libreoffice-writer", "libreoffice-calc", "fonts-liberation",
+	}
+
+	binaryName  = regexp.MustCompile(`^xixo-link-(linux|darwin)-(amd64|arm64)$`)
+	packageName = regexp.MustCompile(`^[a-z0-9][a-z0-9+.-]{1,62}$`)
+	revised     = regexp.MustCompile(`^[0-9a-f]{40}$`)
 )
 
 type Entry struct {
@@ -46,11 +55,12 @@ type Entry struct {
 }
 
 type Release struct {
-	Version  string  `json:"version"`
-	Serial   int64   `json:"serial"`
-	Revision string  `json:"revision"`
-	Channel  string  `json:"channel"`
-	Files    []Entry `json:"files"`
+	Version     string   `json:"version"`
+	Serial      int64    `json:"serial"`
+	Revision    string   `json:"revision"`
+	Channel     string   `json:"channel"`
+	PackagesApt []string `json:"packages_apt"`
+	Files       []Entry  `json:"files"`
 }
 
 func (r Release) Check() error {
@@ -65,12 +75,28 @@ func (r Release) Check() error {
 		return fmt.Errorf("the release names the channel %q", r.Channel)
 	case len(r.Files) == 0 || len(r.Files) > MostFiles:
 		return fmt.Errorf("the release lists %d files", len(r.Files))
+	case len(r.PackagesApt) > MostPackages:
+		return fmt.Errorf("the release lists %d apt packages", len(r.PackagesApt))
 	}
+
+	for _, name := range r.PackagesApt {
+		if !packageName.MatchString(name) {
+			return fmt.Errorf("the release lists the apt package %q", name)
+		}
+	}
+
+	seen := map[string]bool{}
 
 	for _, entry := range r.Files {
 		if err := entry.check(); err != nil {
 			return err
 		}
+
+		if seen[entry.Name] {
+			return fmt.Errorf("the release lists %q twice", entry.Name)
+		}
+
+		seen[entry.Name] = true
 	}
 
 	return nil
@@ -92,11 +118,11 @@ func (e Entry) check() error {
 			return fmt.Errorf("the release lists the mac reader as %q", e.Name)
 		}
 	case RoleUnit:
-		if !unitName.MatchString(e.Name) {
+		if !UnitName.MatchString(e.Name) {
 			return fmt.Errorf("the release lists the unit %q", e.Name)
 		}
 	case RolePlist:
-		if e.Name != "xixo-link.plist" {
+		if e.Name != Plist {
 			return fmt.Errorf("the release lists the launch agent as %q", e.Name)
 		}
 	default:
@@ -112,6 +138,36 @@ func (r Release) Build(goos, goarch string) (Entry, bool) {
 
 func (r Release) Reader() (Entry, bool) {
 	return r.find(func(entry Entry) bool { return entry.Role == RoleReader })
+}
+
+func (r Release) LaunchAgent() (Entry, bool) {
+	return r.find(func(entry Entry) bool { return entry.Role == RolePlist })
+}
+
+func (r Release) Units() []Entry {
+	held := []Entry{}
+
+	for _, entry := range r.Files {
+		if entry.Role == RoleUnit {
+			held = append(held, entry)
+		}
+	}
+
+	return held
+}
+
+func (r Release) Linux(goarch string) ([]Entry, error) {
+	build, found := r.Build("linux", goarch)
+	if !found {
+		return nil, fmt.Errorf("the release has no build for linux/%s", goarch)
+	}
+
+	units := r.Units()
+	if len(units) == 0 {
+		return nil, errors.New("the release lists no systemd units")
+	}
+
+	return append([]Entry{build}, units...), nil
 }
 
 func (r Release) find(wanted func(Entry) bool) (Entry, bool) {
@@ -143,8 +199,12 @@ func Sum(raw []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
+func ID(raw []byte) string {
+	return Sum(raw)[:16]
+}
+
 func Describe(dir, version, revision string, serial int64) (Release, error) {
-	held := Release{Version: version, Serial: serial, Revision: revision, Channel: Channel(version), Files: []Entry{}}
+	held := Release{Version: version, Serial: serial, Revision: revision, Channel: Channel(version), PackagesApt: Packages, Files: []Entry{}}
 
 	names, err := os.ReadDir(dir)
 	if err != nil {
@@ -172,9 +232,9 @@ func Describe(dir, version, revision string, serial int64) (Release, error) {
 			entry.Role, entry.OS, entry.Arch = RoleBinary, found[1], found[2]
 		case name == MacDir+"/"+MacReader:
 			entry.Role, entry.OS, entry.Arch = RoleReader, "darwin", "universal"
-		case unitName.MatchString(name):
+		case UnitName.MatchString(name):
 			entry.Role = RoleUnit
-		case name == "xixo-link.plist":
+		case name == Plist:
 			entry.Role = RolePlist
 		default:
 			continue

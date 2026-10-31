@@ -1,24 +1,22 @@
 [Unit]
 Description=xixo link update
 Documentation=https://github.com/xixo/xixo/tree/main/link
-Wants=network-online.target
-After=network-online.target
 
 [Service]
 Type=oneshot
-User=xixo-link-update
-Group=xixo-link-update
-ExecStart=/usr/local/lib/xixo-link/xixo-link update --config /etc/xixo-link/config.json --requests /run/xixo-link
+ExecStart=/usr/local/lib/xixo-link/xixo-link update --config /etc/xixo-link/config.json --requests /run/xixo-link --results /run/xixo-link-update
 TimeoutStartSec=15min
 RuntimeDirectory=xixo-link-update
 RuntimeDirectoryMode=0755
 RuntimeDirectoryPreserve=yes
 UMask=0022
+PrivateNetwork=yes
 NoNewPrivileges=yes
 ProtectSystem=strict
-ReadWritePaths=/usr/local/lib/xixo-link
+ReadWritePaths=/usr/local/lib/xixo-link /etc/systemd/system
 ProtectHome=yes
-InaccessiblePaths=-/var/lib/xixo-link -/var/cache/xixo-link
+InaccessiblePaths=-/var/lib/xixo-link -/var/cache/xixo-link -/var/lib/xixo-link-part
+RestrictAddressFamilies=AF_UNIX
 PrivateTmp=yes
 PrivateDevices=yes
 ProtectKernelTunables=yes
@@ -33,7 +31,6 @@ RestrictRealtime=yes
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 SystemCallArchitectures=native
-RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 CapabilityBoundingSet=
 AmbientCapabilities=
 ProtectProc=invisible

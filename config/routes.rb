@@ -20,16 +20,8 @@ Rails.application.routes.draw do
 
   get "/link/uploads/:request", to: "link_uploads#show", as: :link_upload
   get "/link.sh", to: "links#script", as: :link_script, format: false
-  get "/link/download/xixo-link.service", to: "links#unit", as: :link_unit
-  get "/link/download/xixo-link.plist", to: "links#plist", as: :link_plist
-  get "/link/download/xixo-link-update.service", to: "links#update_unit", as: :link_update_unit
-  get "/link/download/xixo-link-update.path", to: "links#update_path", as: :link_update_path
-  get "/link/download/xixo-link-part@.service", to: "links#part_unit", as: :link_part_unit
-  get "/link/download/xixo-link-part@.path", to: "links#part_path", as: :link_part_path
-  get "/link/download/release.json", to: "links#release", as: :link_release
-  get "/link/download/release.sigstore.json", to: "links#bundle", as: :link_bundle
-  get "/link/download/:file", to: "links#download", as: :link_download,
-                              constraints: { file: /xixo-link-[a-z0-9]+-[a-z0-9]+|xixo-mac-reader/ }
+  get "/link/download/:file", to: "links#download", as: :link_download, format: false,
+                              constraints: { file: /xixo-link-[a-z0-9]+-[a-z0-9]+|xixo-mac-reader|xixo-link[a-z@-]*\.(?:service|path|timer)|xixo-link\.plist|release\.(?:sigstore\.)?json/ }
   get "/link/builds", to: "links#builds", as: :link_builds
   post "/link/cli/device", to: "link_cli#device", as: :link_cli_device
   post "/link/cli/token", to: "link_cli#token", as: :link_cli_token

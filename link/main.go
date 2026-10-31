@@ -250,6 +250,21 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 		}
 
 		return updated(ctx, *configPath, *requests, *results)
+	case "fetch":
+		requests := set.String("requests", updateRequests, "the directory xixo link leaves update requests in")
+		cache := set.String("cache", cacheDirOr(updateCache), "the directory this command downloads a release into")
+
+		if err := parse(); err != nil {
+			return err
+		}
+
+		return fetched(ctx, *configPath, *requests, *cache)
+	case "packages":
+		if err := parse(); err != nil {
+			return err
+		}
+
+		return packaged(ctx, stdout)
 	case "run":
 		stopped := set.Int("revoked-status", revoked, "the exit status when this machine was unenrolled")
 		updates := set.String("updates", "", "how xixo link updates itself: systemd, self, or not at all when empty")
@@ -590,9 +605,13 @@ func searchPath() {
 }
 
 func cacheDir() string {
+	return cacheDirOr(state.DefaultCache)
+}
+
+func cacheDirOr(fallback string) string {
 	cache, _, _ := strings.Cut(os.Getenv("CACHE_DIRECTORY"), ":")
 	if cache == "" {
-		cache = state.DefaultCache
+		cache = fallback
 	}
 
 	return cache

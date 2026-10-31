@@ -48,7 +48,7 @@ func overSSH(ctx context.Context, host, command string, stdin io.Reader, tty boo
 
 func installer(xixo, issuer, user, from string, folders []string, out io.Writer) *install.Installer {
 	return &install.Installer{
-		Xixo: xixo, Issuer: issuer, User: user, From: from, Folders: folders,
+		Xixo: xixo, Issuer: issuer, User: user, From: from, Folders: folders, Unsigned: serial == "0",
 		Client: dial.Client(dial.Answered), Out: out, Stage: stage,
 	}
 }

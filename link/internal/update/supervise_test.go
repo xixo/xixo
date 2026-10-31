@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/xixo/xixo/link/internal/release"
 )
 
 func connects(state string, then string) []byte {
@@ -135,14 +137,16 @@ func TestANewReleaseThatNeverConnectsIsRolledBackToTheGoodOne(t *testing.T) {
 func TestStagingPutsAVerifiedReleaseInPlace(t *testing.T) {
 	fresh := script("echo 0.3.0")
 	reader := []byte("reader")
-	server, _ := served(t, map[string][]byte{"xixo-link-darwin-arm64": fresh, MacReader: reader})
+	files := map[string][]byte{"xixo-link-darwin-arm64": fresh, MacReader: reader}
+	listed(t, files, "0.3.0", 40, entry("xixo-link-darwin-arm64", "darwin", "arm64", release.RoleBinary, fresh), entry("mac/xixo-mac-reader", "darwin", "universal", release.RoleReader, reader))
+	server, _ := served(t, files)
 	root := t.TempDir()
 	restarted := false
 
 	staging := &Stager{
 		Xixo: server.URL, Releases: filepath.Join(root, "releases"), State: root,
 		Self: Self{Version: "0.2.0", SHA256: strings.Repeat("1", 64)}, Client: server.Client(),
-		OS: "darwin", Arch: "arm64", Vouch: &Vouch{Unsigned: true}, Restart: func() { restarted = true },
+		OS: "darwin", Arch: "arm64", Vouch: &Vouch{Unsigned: true, Xixo: server.URL, Client: server.Client()}, Restart: func() { restarted = true },
 	}
 	target := Target{Version: "0.3.0", SHA256: sum(fresh), MacReader: sum(reader)}
 
@@ -169,14 +173,16 @@ func TestStagingPutsAVerifiedReleaseInPlace(t *testing.T) {
 
 func TestStagingRefusesAMismatchedMacReader(t *testing.T) {
 	fresh := script("echo 0.3.0")
-	server, _ := served(t, map[string][]byte{"xixo-link-darwin-arm64": fresh, MacReader: []byte("tampered")})
+	files := map[string][]byte{"xixo-link-darwin-arm64": fresh, MacReader: []byte("tampered")}
+	listed(t, files, "0.3.0", 40, entry("xixo-link-darwin-arm64", "darwin", "arm64", release.RoleBinary, fresh), entry("mac/xixo-mac-reader", "darwin", "universal", release.RoleReader, []byte("tampered")))
+	server, _ := served(t, files)
 	root := t.TempDir()
 	now := time.Now()
 
 	staging := &Stager{
 		Xixo: server.URL, Releases: filepath.Join(root, "releases"), State: root,
 		Self: Self{Version: "0.2.0", SHA256: strings.Repeat("1", 64)}, Client: server.Client(),
-		OS: "darwin", Arch: "arm64", Vouch: &Vouch{Unsigned: true}, Restart: func() { t.Error("restarted after a failed update") },
+		OS: "darwin", Arch: "arm64", Vouch: &Vouch{Unsigned: true, Xixo: server.URL, Client: server.Client()}, Restart: func() { t.Error("restarted after a failed update") },
 		Now: func() time.Time { return now },
 	}
 
@@ -192,7 +198,7 @@ func TestStagingRefusesAMismatchedMacReader(t *testing.T) {
 	now = now.Add(InFlight + time.Minute)
 
 	warned := staging.Warnings()
-	if len(warned) != 1 || !strings.Contains(warned[0], "did not match") {
+	if len(warned) != 1 || !strings.Contains(warned[0], "mac reader") {
 		t.Fatalf("warnings %v", warned)
 	}
 }
@@ -221,7 +227,9 @@ exit 6`, good)))
 
 func TestStagingKeepsTheReleaseItRunsFrom(t *testing.T) {
 	fresh := script("echo 0.3.0")
-	server, _ := served(t, map[string][]byte{"xixo-link-darwin-arm64": fresh})
+	files := map[string][]byte{"xixo-link-darwin-arm64": fresh}
+	listed(t, files, "0.3.0", 40, entry("xixo-link-darwin-arm64", "darwin", "arm64", release.RoleBinary, fresh))
+	server, _ := served(t, files)
 	root := t.TempDir()
 	releases := filepath.Join(root, "releases")
 	staged(t, releases, "ffffffffffffffff", script("exit 0"))
@@ -230,7 +238,7 @@ func TestStagingKeepsTheReleaseItRunsFrom(t *testing.T) {
 	staging := &Stager{
 		Xixo: server.URL, Releases: releases, State: root,
 		Self: Self{Version: "0.2.0", SHA256: strings.Repeat("1", 64)}, Client: server.Client(),
-		OS: "darwin", Arch: "arm64", Vouch: &Vouch{Unsigned: true}, Restart: func() {},
+		OS: "darwin", Arch: "arm64", Vouch: &Vouch{Unsigned: true, Xixo: server.URL, Client: server.Client()}, Restart: func() {},
 	}
 
 	if err := staging.Offer(context.Background(), Target{Version: "0.3.0", SHA256: sum(fresh)}); err != nil {

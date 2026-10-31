@@ -10,51 +10,56 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"runtime"
 	"strconv"
-	"strings"
 
 	"github.com/xixo/xixo/link/internal/parts"
+	"github.com/xixo/xixo/link/internal/release"
 	"github.com/xixo/xixo/link/internal/state"
+	"github.com/xixo/xixo/link/internal/update"
 )
 
 const (
 	Updater     = "xixo-link-update"
 	PartUser    = "xixo-link-part"
-	Lib         = "/usr/local/lib/xixo-link"
-	Bin         = "/usr/local/bin/xixo-link"
-	Etc         = "/etc/xixo-link"
-	Units       = "/etc/systemd/system"
+	Lib         = update.Lib
+	Bin         = update.Bin
+	Etc         = update.Etc
+	Units       = update.UnitsDir
 	StateDir    = "/var/lib/xixo-link"
 	PartsState  = "/var/lib/xixo-link-part"
 	Cache       = "/var/cache/xixo-link"
-	Service     = "xixo-link.service"
-	UpdateUnit  = "xixo-link-update.service"
-	UpdatePath  = "xixo-link-update.path"
-	PartUnit    = "xixo-link-part@.service"
-	PartPath    = "xixo-link-part@.path"
-	Plist       = "xixo-link.plist"
+	Service     = update.Service
+	Plist       = release.Plist
 	LaunchLabel = "network.xixo.link"
 	mostUnit    = 64 << 10
 )
 
 var (
-	ErrNoRoot = errors.New("installing on Linux needs root: run it with sudo")
-	ErrNoFrom = errors.New("install takes --from, the build to install")
+	ErrNoRoot    = errors.New("installing on Linux needs root: run it with sudo")
+	ErrNoFrom    = errors.New("install takes --from, the build to install")
+	ErrNotListed = errors.New("the xixo link you downloaded is not the build the release lists. Run the link-up command again")
+
+	LinuxUnits = []string{Service, update.FetchUnit, update.UpdateUnit, update.UpdatePath, update.UpdateTimer, update.PackagesUnit, update.PartUnit, update.PartPath}
 )
 
 type Installer struct {
-	Root    string
-	Xixo    string
-	Issuer  string
-	User    string
-	From    string
-	Folders []string
-	Client  *http.Client
-	Out     io.Writer
-	Run     func(ctx context.Context, name string, args ...string) error
-	Lookup  func(name string) (int, int, error)
-	Stage   func(from, releases string) (string, error)
-	Home    string
+	Root     string
+	Xixo     string
+	Issuer   string
+	User     string
+	From     string
+	Arch     string
+	Folders  []string
+	Unsigned bool
+	Client   *http.Client
+	Out      io.Writer
+	Run      func(ctx context.Context, name string, args ...string) error
+	Lookup   func(name string) (int, int, error)
+	LookPath func(name string) (string, error)
+	Stage    func(from, releases string) (string, error)
+	Vouch    *update.Vouch
+	Home     string
 }
 
 func (i *Installer) run(ctx context.Context, name string, args ...string) error {
@@ -77,6 +82,14 @@ func (i *Installer) out() io.Writer {
 	return io.Discard
 }
 
+func (i *Installer) layout() update.Layout {
+	return update.Layout{Root: i.Root}
+}
+
+func (i *Installer) placer() *update.Placer {
+	return &update.Placer{Layout: i.layout(), Run: i.Run, Out: i.Out}
+}
+
 func (i *Installer) path(held string) string {
 	return filepath.Join(i.Root, held)
 }
@@ -97,22 +110,25 @@ func (i *Installer) lookup(name string) (int, int, error) {
 	return uid, gid, nil
 }
 
+func (i *Installer) client() *http.Client {
+	if i.Client != nil {
+		return i.Client
+	}
+
+	return http.DefaultClient
+}
+
 func (i *Installer) fetch(ctx context.Context, name string) ([]byte, error) {
 	return i.fetchUpTo(ctx, name, mostUnit)
 }
 
 func (i *Installer) fetchUpTo(ctx context.Context, name string, most int64) ([]byte, error) {
-	client := i.Client
-	if client == nil {
-		client = http.DefaultClient
-	}
-
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimSuffix(i.Xixo, "/")+"/link/download/"+name, nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, update.Address(i.Xixo, name), nil)
 	if err != nil {
 		return nil, err
 	}
 
-	response, err := client.Do(request)
+	response, err := i.client().Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("%s did not download from %s: %w", name, i.Xixo, err)
 	}
@@ -125,6 +141,27 @@ func (i *Installer) fetchUpTo(ctx context.Context, name string, most int64) ([]b
 	return io.ReadAll(io.LimitReader(response.Body, most))
 }
 
+func (i *Installer) vouch(config *state.Config) *update.Vouch {
+	if i.Vouch != nil {
+		return i.Vouch
+	}
+
+	held := i.layout()
+
+	return &update.Vouch{
+		Xixo: config.Xixo, Client: i.client(), Unsigned: config.Unsigned(),
+		Floor: held.Floor(), Trust: held.Trust(),
+	}
+}
+
+func (i *Installer) arch() string {
+	if i.Arch != "" {
+		return i.Arch
+	}
+
+	return runtime.GOARCH
+}
+
 func (i *Installer) Linux(ctx context.Context) error {
 	if i.From == "" {
 		return ErrNoFrom
@@ -134,104 +171,104 @@ func (i *Installer) Linux(ctx context.Context) error {
 		return ErrNoRoot
 	}
 
-	for _, account := range []string{Updater, PartUser} {
-		if _, _, err := i.lookup(account); err == nil {
-			continue
-		}
-
-		if err := i.run(ctx, "useradd", "--system", "--user-group", "--no-create-home", "--home-dir", "/nonexistent", "--shell", "/usr/sbin/nologin", account); err != nil {
-			return fmt.Errorf("the %s account could not be made: %w", account, err)
-		}
-	}
-
-	uid, gid, err := i.lookup(Updater)
-	if err != nil {
-		return err
-	}
-
-	lib := i.path(Lib)
-	if err := os.MkdirAll(lib, 0o755); err != nil {
-		return err
-	}
-
-	if err := os.Chown(lib, uid, gid); err != nil && i.Root == "" {
-		return err
-	}
-
-	if err := copied(i.From, filepath.Join(lib, "xixo-link"), 0o755, uid, gid, i.Root == ""); err != nil {
-		return err
-	}
-
-	os.Remove(filepath.Join(lib, "xixo-link.previous"))
-
-	if err := os.MkdirAll(filepath.Dir(i.path(Bin)), 0o755); err != nil {
-		return err
-	}
-
-	os.Remove(i.path(Bin))
-
-	if err := os.Symlink(Lib+"/xixo-link", i.path(Bin)); err != nil {
-		return err
-	}
-
-	if err := os.MkdirAll(i.path(Etc), 0o755); err != nil {
-		return err
-	}
-
-	config, err := state.Setup(i.path(Etc+"/config.json"), i.Xixo, i.Issuer, i.Folders)
-	if err != nil {
-		return err
-	}
-
-	template, err := i.fetch(ctx, Service)
-	if err != nil {
-		return err
-	}
-
-	unit, err := state.Unit(string(template), i.User, config.Folders)
-	if err != nil {
-		return err
-	}
-
-	if err := os.MkdirAll(i.path(Units), 0o755); err != nil {
-		return err
-	}
-
-	if err := os.WriteFile(i.path(Units+"/"+Service), []byte(unit), 0o644); err != nil {
-		return err
-	}
-
-	for _, name := range []string{UpdateUnit, UpdatePath} {
-		raw, err := i.fetch(ctx, name)
-		if err != nil {
-			return err
-		}
-
-		if err := os.WriteFile(i.path(Units+"/"+name), raw, 0o644); err != nil {
-			return err
-		}
-	}
-
-	partUnits := true
-
-	for _, name := range []string{PartUnit, PartPath} {
-		raw, err := i.fetch(ctx, name)
-		if err != nil {
-			partUnits = false
-			fmt.Fprintf(i.out(), "   xixo serves no %s yet, so this machine runs no parts until it is updated.\n", name)
-
-			break
-		}
-
-		if err := os.WriteFile(i.path(Units+"/"+name), raw, 0o644); err != nil {
-			return err
-		}
-	}
-
 	userID, userGID, err := i.lookup(i.User)
 	if err != nil {
 		return fmt.Errorf("%q is not an account on this machine: %w", i.User, err)
 	}
+
+	if _, _, err := i.lookup(PartUser); err != nil {
+		if err := i.run(ctx, "useradd", "--system", "--user-group", "--no-create-home", "--home-dir", "/nonexistent", "--shell", "/usr/sbin/nologin", PartUser); err != nil {
+			return fmt.Errorf("the %s account could not be made: %w", PartUser, err)
+		}
+	}
+
+	held := i.layout()
+
+	for _, dir := range []string{held.Lib(), held.Etc()} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return err
+		}
+	}
+
+	config, err := state.Setup(held.Config(), i.Xixo, i.Issuer, i.Folders)
+	if err != nil {
+		return err
+	}
+
+	if i.Unsigned && !config.Unsigned() {
+		if err := state.AllowUnsigned(held.Config()); err != nil {
+			return err
+		}
+
+		if config, err = state.LoadConfig(held.Config()); err != nil {
+			return err
+		}
+	}
+
+	if err := update.Write(held.Install(), update.Installed{User: i.User}, 0o644); err != nil {
+		return err
+	}
+
+	signed, err := i.vouch(config).Served(ctx)
+	if err != nil {
+		return err
+	}
+
+	files, err := signed.Linux(i.arch())
+	if err != nil {
+		return err
+	}
+
+	if sum, err := update.Digest(i.From); err != nil || sum != files[0].SHA256 {
+		return ErrNotListed
+	}
+
+	staging, err := os.MkdirTemp(held.Lib(), ".install-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(staging)
+
+	if err := copied(i.From, filepath.Join(staging, files[0].Name), 0o755, 0, 0, false); err != nil {
+		return err
+	}
+
+	for _, entry := range files[1:] {
+		fetched, err := update.Fetch(ctx, i.client(), update.Address(i.Xixo, entry.Name), entry.SHA256, staging)
+		if err != nil {
+			return fmt.Errorf("%s did not download from %s: %w", entry.Name, i.Xixo, err)
+		}
+
+		if err := os.Rename(fetched, filepath.Join(staging, entry.Name)); err != nil {
+			return err
+		}
+	}
+
+	placer := i.placer()
+
+	if err := placer.Keep(signed, files, staging); err != nil {
+		return err
+	}
+
+	i.retire(ctx)
+
+	if _, err := placer.Render(signed.ID); err != nil {
+		return err
+	}
+
+	if err := placer.Link(signed.ID); err != nil {
+		return err
+	}
+
+	if err := placer.Promote(signed.ID); err != nil {
+		return err
+	}
+
+	if err := i.vouch(config).Accept(signed.Release); err != nil {
+		return err
+	}
+
+	update.Prune(held.Releases())
 
 	if err := os.MkdirAll(i.path(StateDir), 0o700); err != nil {
 		return err
@@ -241,27 +278,38 @@ func (i *Installer) Linux(ctx context.Context) error {
 		return err
 	}
 
-	if err := i.run(ctx, "systemctl", "daemon-reload"); err != nil {
+	if err := placer.Reload(ctx); err != nil {
 		return err
 	}
 
-	if err := i.run(ctx, "systemctl", "enable", "--quiet", "xixo-link"); err != nil {
+	if err := placer.Enable(ctx); err != nil {
 		return err
 	}
 
-	if err := i.run(ctx, "systemctl", "enable", "--now", "--quiet", UpdatePath); err != nil {
-		return err
-	}
-
-	if partUnits {
-		for _, part := range parts.Known() {
-			if err := i.run(ctx, "systemctl", "enable", "--now", "--quiet", "xixo-link-part@"+part+".path"); err != nil {
-				return err
-			}
-		}
+	packages := &update.Packages{Layout: held, Run: i.Run, Out: i.Out, LookPath: i.LookPath}
+	if err := packages.Install(ctx); err != nil {
+		fmt.Fprintf(i.out(), "   %s\n", err)
 	}
 
 	return nil
+}
+
+func (i *Installer) retire(ctx context.Context) {
+	held := i.layout()
+
+	for _, stale := range []string{held.Binary() + update.Previous, held.Trust()} {
+		if info, err := os.Lstat(stale); err == nil && (info.Mode().IsRegular() || info.IsDir()) {
+			os.RemoveAll(stale)
+		}
+	}
+
+	if info, err := os.Lstat(held.Binary()); err == nil && info.Mode().IsRegular() {
+		os.Remove(held.Binary())
+	}
+
+	if _, _, err := i.lookup(Updater); err == nil {
+		i.run(ctx, "userdel", Updater)
+	}
 }
 
 func (i *Installer) StartLinux(ctx context.Context) error {
@@ -277,20 +325,20 @@ func (i *Installer) StartLinux(ctx context.Context) error {
 }
 
 func (i *Installer) UninstallLinux(ctx context.Context) error {
-	units := []string{"xixo-link", UpdatePath, UpdateUnit}
+	units := []string{"xixo-link", update.UpdatePath, update.UpdateTimer, update.FetchUnit, update.UpdateUnit, update.PackagesUnit}
 	for _, part := range parts.Known() {
 		units = append(units, "xixo-link-part@"+part+".path", "xixo-link-part@"+part+".service")
 	}
 
 	i.run(ctx, "systemctl", append([]string{"disable", "--now", "--quiet"}, units...)...)
 
-	for _, name := range []string{Service, UpdateUnit, UpdatePath, PartUnit, PartPath} {
+	for _, name := range LinuxUnits {
 		os.Remove(i.path(Units + "/" + name))
 	}
 
 	i.run(ctx, "systemctl", "daemon-reload")
 
-	for _, held := range []string{Bin, Lib, Etc, StateDir, Cache, PartsState} {
+	for _, held := range []string{Bin, Lib, Etc, StateDir, Cache, PartsState, update.Cache, "/var/cache/private/xixo-link-update"} {
 		if err := os.RemoveAll(i.path(held)); err != nil {
 			return err
 		}

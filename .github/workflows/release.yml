@@ -162,6 +162,7 @@ jobs:
             ${{ runner.temp }}/release/opt/xixo-link/xixo-link-*
             ${{ runner.temp }}/release/opt/xixo-link/*.service
             ${{ runner.temp }}/release/opt/xixo-link/*.path
+            ${{ runner.temp }}/release/opt/xixo-link/*.timer
             ${{ runner.temp }}/release/opt/xixo-link/xixo-link.plist
             ${{ runner.temp }}/release/opt/xixo-link/mac/xixo-mac-reader
             ${{ runner.temp }}/release/opt/xixo-link/release.json

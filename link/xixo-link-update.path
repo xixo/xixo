@@ -4,7 +4,7 @@ Documentation=https://github.com/xixo/xixo/tree/main/link
 
 [Path]
 PathChanged=/run/xixo-link/update.json
-Unit=xixo-link-update.service
+Unit=xixo-link-fetch.service
 
 [Install]
 WantedBy=multi-user.target

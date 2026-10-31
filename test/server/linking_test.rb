@@ -36,8 +36,9 @@ class LinkingTest < ActionDispatch::IntegrationTest
     File.binwrite(File.join(@binaries, "xixo-link-linux-riscv64"), "not a build")
     FileUtils.cp(Rails.root.join("link/xixo-link.service"), File.join(@binaries, "xixo-link.service"))
     FileUtils.cp(Rails.root.join("link/xixo-link.plist"), File.join(@binaries, "xixo-link.plist"))
-    FileUtils.cp(Rails.root.join("link/xixo-link-update.service"), File.join(@binaries, "xixo-link-update.service"))
-    FileUtils.cp(Rails.root.join("link/xixo-link-update.path"), File.join(@binaries, "xixo-link-update.path"))
+    %w[xixo-link-fetch.service xixo-link-update.service xixo-link-update.path xixo-link-update.timer xixo-link-packages.service].each do |unit|
+      FileUtils.cp(Rails.root.join("link", unit), File.join(@binaries, unit))
+    end
     ENV["XIXO_LINK_DIR"] = @binaries
   end
 
@@ -57,7 +58,7 @@ class LinkingTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "linux-amd64) sum=#{Digest::SHA256.hexdigest('x86 binary')} ;;"
     assert_includes response.body, "darwin-arm64) sum=#{Digest::SHA256.hexdigest('mac binary')} ;;"
     assert_not_includes response.body, "linux-arm64)"
-    assert_includes response.body, Resource::Machine::Downloads::PACKAGES.join(" ")
+    assert_not_includes response.body, "apt-get"
     assert_includes response.body, '"$work/xixo-link" up'
     assert_not_includes response.body, "enroll-"
   end
@@ -102,13 +103,10 @@ class LinkingTest < ActionDispatch::IntegrationTest
     assert_no_match(/(?:^|[;|&(]) *read\s|<&0|\bcat -/, script)
     assert_includes script, 'step "Downloading xixo link for $system on $arch."'
     assert_includes script, "sudo asks for your password to write to /usr/local/lib/xixo-link, /etc/xixo-link, and /etc/systemd/system."
-    assert_includes script, "with apt. This can take a few minutes."
-    assert_includes script, 'note "The whole log is in $log."'
     assert_includes script, 'step "Restarting xixo link with the new version. This can take up to 15 seconds."'
     assert_includes script, '"$work/xixo-link" status || true'
     assert_includes script, 'if [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != dumb ]; then'
     assert_operator script.index("sudo asks for your password"), :<, script.index("sudo -v")
-    assert_operator script.index("with apt. This can take"), :<, script.index("apt_get update")
   end
 
   test "a Mac whose xixo link can update itself gets the new build as an update, so Full Disk Access stays" do
@@ -135,11 +133,19 @@ class LinkingTest < ActionDispatch::IntegrationTest
 
     get "/link/download/xixo-link-update.service", headers: { "HOST" => host }
     assert_response :ok
-    assert_includes response.body, "User=xixo-link-update"
+    assert_includes response.body, "PrivateNetwork=yes"
+    assert_equal "text/plain", response.media_type
 
     get "/link/download/xixo-link-update.path", headers: { "HOST" => host }
     assert_response :ok
-    assert_includes response.body, "PathChanged=/run/xixo-link/update.json"
+    assert_includes response.body, "Unit=xixo-link-fetch.service"
+
+    get "/link/download/xixo-link-update.timer", headers: { "HOST" => host }
+    assert_response :ok
+    assert_includes response.body, "OnUnitActiveSec=1d"
+
+    get "/link/download/xixo-link-part@.service", headers: { "HOST" => host }
+    assert_response :not_found
 
     get "/link/download/xixo-link-linux-arm64", headers: { "HOST" => host }
     assert_response :not_found

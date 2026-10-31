@@ -116,6 +116,11 @@ func get(ctx context.Context, client *http.Client, address string) (*http.Respon
 		return nil, err
 	}
 
+	if response.StatusCode == http.StatusNotFound {
+		response.Body.Close()
+		return nil, notFound{file: path.Base(address)}
+	}
+
 	if response.StatusCode != http.StatusOK {
 		response.Body.Close()
 		return nil, fmt.Errorf("xixo answered %s with %s", path.Base(address), response.Status)

@@ -167,3 +167,24 @@ func Unit(template, user string, shared []folders.Shared) (string, error) {
 
 	return strings.Replace(strings.ReplaceAll(template, "@USER@", user), "@FOLDERS@\n", bound, 1), nil
 }
+
+func AllowUnsigned(path string) error {
+	held, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	raw := map[string]json.RawMessage{}
+	if err := json.Unmarshal(held, &raw); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+
+	raw["releases"], _ = json.Marshal("unsigned")
+
+	encoded, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return written(path, append(encoded, '\n'), configMode())
+}

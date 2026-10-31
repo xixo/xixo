@@ -1,0 +1,13 @@
+[Unit]
+Description=xixo link reader programs
+Documentation=https://github.com/xixo/xixo/tree/main/link
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/xixo-link/xixo-link packages
+TimeoutStartSec=1h
+Environment=DEBIAN_FRONTEND=noninteractive NEEDRESTART_SUSPEND=1
+ProtectHome=yes
+InaccessiblePaths=-/var/lib/xixo-link -/var/cache/xixo-link -/var/lib/xixo-link-part

@@ -59,8 +59,22 @@ func TestABuildFolderIsDescribedWithEachFilesRoleAndDigest(t *testing.T) {
 	}
 
 	raw, _ := json.Marshal(held)
-	if parsed, err := Parse(raw); err != nil || parsed.Serial != 1234 {
+	if parsed, err := Parse(raw); err != nil || parsed.Serial != 1234 || strings.Join(parsed.PackagesApt, " ") != strings.Join(Packages, " ") {
 		t.Fatalf("parsed %+v err %v", parsed, err)
+	}
+
+	units := held.Units()
+	if len(units) != 2 || units[0].Name != "xixo-link-part@.path" || units[1].Name != "xixo-link.service" {
+		t.Fatalf("units %v", units)
+	}
+
+	linux, err := held.Linux("amd64")
+	if err != nil || len(linux) != 3 || linux[0].Role != RoleBinary {
+		t.Fatalf("linux files %v err %v", linux, err)
+	}
+
+	if _, err := held.Linux("arm64"); err == nil {
+		t.Fatal("a build that is not there was listed for linux")
 	}
 }
 
@@ -78,6 +92,8 @@ func TestAReleaseThatNamesAnythingOddIsRefused(t *testing.T) {
 		"role":      func(r *Release) { r.Files[0].Role = "script" },
 		"digest":    func(r *Release) { r.Files[0].SHA256 = "abc" },
 		"unit name": func(r *Release) { r.Files[3].Name = "sshd.service" },
+		"package":   func(r *Release) { r.PackagesApt = []string{"poppler-utils; rm -rf /"} },
+		"twice":     func(r *Release) { r.Files = append(r.Files, r.Files[0]) },
 	} {
 		copied := good
 		copied.Files = append([]Entry{}, good.Files...)

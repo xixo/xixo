@@ -15,6 +15,7 @@ for os in linux darwin; do
   done
 done
 
-cp xixo-link.service xixo-link-update.service xixo-link-update.path \
-  xixo-link-part@.service xixo-link-part@.path xixo-link.plist "$out/"
+cp xixo-link.service xixo-link-fetch.service xixo-link-update.service xixo-link-update.path \
+  xixo-link-update.timer xixo-link-packages.service xixo-link-part@.service xixo-link-part@.path \
+  xixo-link.plist "$out/"
 printf '%s\n' "$version" > "$out/version"

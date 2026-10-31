@@ -41,7 +41,9 @@ COPY .release-please-manifest.json /link/
 ARG XIXO_COMMIT=
 RUN version=$(sed -n 's/.*"\.": *"\([^"]*\)".*/\1/p' .release-please-manifest.json) && \
     version="${version:-dev}${XIXO_COMMIT:++$(printf %.7s "$XIXO_COMMIT")}" && \
-    sh release.sh /opt/xixo-link "$version"
+    sh release.sh /opt/xixo-link "$version" && \
+    go run ./cmd/link-release --dir /opt/xixo-link --version "$version" \
+      --revision "${XIXO_COMMIT:-0000000000000000000000000000000000000000}" --serial 1
 
 FROM link AS link-release
 

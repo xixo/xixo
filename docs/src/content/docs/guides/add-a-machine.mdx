@@ -320,17 +320,18 @@ The setting lives in a drop-in file, so running the link-up command again keeps 
 
 ## Keep xixo link up to date
 
-xixo updates xixo link on each machine to the build the server ships, and the card says "updating
-to" and the version. Each machine checks that xixo's CI signed the build, and refuses a release
-older than one it has run, so the server cannot install anything else. When a new build does not
-connect within three minutes, xixo link goes back to the one before it, and tries again after six
-hours.
+xixo updates xixo link on each machine to the release the server ships, and the card says "updating
+to" and the version. A release holds the binary, the systemd units on Linux, and the list of
+programs that read files, so a change to any of them reaches every machine. Each machine checks
+that xixo's CI signed the release, and refuses one older than it has run, so the server cannot
+install anything else. When a new release does not connect within three minutes, xixo link goes
+back to the one before it, and tries again after six hours.
 
-- To hold a machine at the build it runs, turn off **Update xixo link automatically** on its card.
-  Turn it on again to update at once.
-- A machine whose card says "Run the link-up command again so it updates itself" was linked up
-  before xixo link updated itself. Run the [link-up command](#link-up-a-machine) once more. It
-  keeps the link.
+- To hold a machine at the release it runs, turn off **Update xixo link automatically** on its
+  card. Turn it on again to update at once.
+- A Linux machine linked up before xixo link installed releases as root takes the first release
+  only through the [link-up command](#link-up-a-machine). Run it once more. It keeps the link, and
+  every release after that arrives by itself.
 
 xixo link beside the server updates with its image. See
 [updates](https://github.com/xixo/xixo/tree/main/link#updates) in the xixo link README.

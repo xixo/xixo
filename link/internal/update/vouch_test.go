@@ -6,7 +6,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/xixo/xixo/link/internal/release"
@@ -15,18 +14,25 @@ import (
 
 const commit = "c589ffe682d3497df159d3615be691387ebea7d9"
 
-func signedFiles(t *testing.T, files map[string][]byte, serial int64, entries ...release.Entry) Target {
+func listed(t *testing.T, files map[string][]byte, version string, serial int64, entries ...release.Entry) (Target, []byte) {
 	t.Helper()
-	held := release.Release{Version: "0.3.0+c589ffe", Serial: serial, Revision: commit, Channel: "main", Files: entries}
+	held := release.Release{Version: version, Serial: serial, Revision: commit, Channel: release.Channel(version), PackagesApt: release.Packages, Files: entries}
 	raw, err := json.Marshal(held)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	files[release.File] = raw
+
+	return Target{Version: held.Version, Release: release.Sum(raw)}, raw
+}
+
+func signedFiles(t *testing.T, files map[string][]byte, serial int64, entries ...release.Entry) Target {
+	t.Helper()
+	target, _ := listed(t, files, "0.3.0+c589ffe", serial, entries...)
 	files[release.Bundle] = []byte("signed")
 
-	return Target{Version: held.Version, Release: release.Sum(raw)}
+	return target
 }
 
 func entry(name, goos, goarch, role string, body []byte) release.Entry {
@@ -48,31 +54,35 @@ func vouching(t *testing.T, xixo string) *Vouch {
 	}
 }
 
-func TestTheUpdaterInstallsOnlyABuildTheSignedReleaseListsAndRaisesItsFloor(t *testing.T) {
+func TestTheUpdaterInstallsOnlyAReleaseWhoseSignatureChecksOutAndRaisesItsFloor(t *testing.T) {
+	held := machine(t)
 	fresh := script("echo 0.3.0+c589ffe")
-	files := map[string][]byte{"xixo-link-linux-amd64": fresh}
-	target := signedFiles(t, files, 40, entry("xixo-link-linux-amd64", "linux", "amd64", release.RoleBinary, fresh))
-	target.SHA256 = sum(fresh)
-	server, _ := served(t, files)
+	updater := held.updater(true)
+	updater.Vouch = vouching(t, "")
+	updater.Vouch.Floor = held.layout.Floor()
 
-	updater, binary, _ := applying(t, fresh, true)
-	updater.Xixo = server.URL
-	updater.Client = server.Client()
-	updater.Vouch = vouching(t, server.URL)
-	updater.Vouch.Client = server.Client()
-	Write(filepath.Join(updater.Requests, RequestFile), Request{Target: target, From: "0.2.0"}, 0o644)
+	id := held.stage(t, fresh, "0.3.0+c589ffe", 40, nil, []byte("signed"))
 
 	if err := updater.Apply(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 
-	if held, _ := Digest(binary); held != sum(fresh) {
-		t.Fatal("the signed build is not in place")
+	if held.layout.Pointed(Current) != id {
+		t.Fatal("the signed release is not current")
 	}
 
-	raw, _ := os.ReadFile(updater.Vouch.Floor)
-	if strings.TrimSpace(string(raw)) != "40" {
-		t.Fatalf("floor %q", raw)
+	if floor, _ := Floor(held.layout.Floor()); floor != 40 {
+		t.Fatalf("floor %d", floor)
+	}
+
+	forged := held.stage(t, script("echo 0.3.1+c589ffe"), "0.3.1+c589ffe", 41, nil, []byte("forged"))
+
+	if err := updater.Apply(context.Background()); !errors.Is(err, verify.ErrUnsigned) {
+		t.Fatalf("a forged bundle gave %v", err)
+	}
+
+	if held.layout.Pointed(Current) != id || regular(filepath.Join(held.layout.Release(forged), Binary)) {
+		t.Fatal("a release with a forged signature was kept")
 	}
 }
 
@@ -109,7 +119,7 @@ func TestABuildIsRefusedWithoutASignedReleaseThatListsIt(t *testing.T) {
 	}
 }
 
-func TestTheSameSerialIsAcceptedAgainAndAnUnsignedDevMachineSkipsTheCheck(t *testing.T) {
+func TestTheSameSerialIsAcceptedAgainAndAnUnsignedDevMachineChecksOnlyTheList(t *testing.T) {
 	fresh := script("echo 0.3.0+c589ffe")
 	files := map[string][]byte{}
 	target := signedFiles(t, files, 40, entry("xixo-link-linux-amd64", "linux", "amd64", release.RoleBinary, fresh))
@@ -123,23 +133,32 @@ func TestTheSameSerialIsAcceptedAgainAndAnUnsignedDevMachineSkipsTheCheck(t *tes
 		t.Fatal(err)
 	}
 
-	unsigned := &Vouch{Unsigned: true}
+	plain := map[string][]byte{}
+	listed(t, plain, "0.3.0", 40, entry("xixo-link-linux-amd64", "linux", "amd64", release.RoleBinary, fresh))
+	dev, _ := served(t, plain)
+	unsigned := &Vouch{Unsigned: true, Xixo: dev.URL, Client: dev.Client(), Floor: filepath.Join(t.TempDir(), FloorFile)}
+
 	if _, err := unsigned.Release(context.Background(), Target{Version: "0.3.0", SHA256: sum(fresh)}, "linux", "amd64"); err != nil {
 		t.Fatal(err)
+	}
+
+	if _, err := unsigned.Release(context.Background(), Target{Version: "0.3.0", SHA256: sum(script("echo other"))}, "linux", "amd64"); !errors.Is(err, ErrNotInRelease) {
+		t.Fatalf("an unsigned dev machine took a build the release does not list: %v", err)
 	}
 }
 
 func TestAnUpdaterWithNoWayToCheckSignaturesInstallsNothing(t *testing.T) {
-	fresh := script("echo 0.3.0")
-	updater, binary, _ := applying(t, fresh, true)
+	held := machine(t)
+	id := held.stage(t, script("echo 0.3.0"), "0.3.0", 20, nil, nil)
+	updater := held.updater(true)
 	updater.Vouch = nil
 
 	if err := updater.Apply(context.Background()); !errors.Is(err, ErrUnsignedOffer) {
 		t.Fatalf("err %v", err)
 	}
 
-	if held, _ := Digest(binary); held == sum(fresh) {
-		t.Fatal("an unchecked build was installed")
+	if held.layout.Pointed(Current) == id {
+		t.Fatal("an unchecked release was installed")
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -22,6 +23,7 @@ const (
 	modeSelf       = "self"
 	updateRequests = "/run/xixo-link"
 	updateResults  = "/run/xixo-link-update"
+	updateCache    = update.Cache
 	replacedEvery  = 5 * time.Second
 )
 
@@ -58,7 +60,7 @@ func executable() (string, error) {
 func updater(ctx context.Context, mode, releases, stateDir string, config *state.Config, running *link.Link, restart func()) link.Updater {
 	switch mode {
 	case modeSystemd:
-		if self, err := executable(); err == nil {
+		if self, err := installedBinary(); err == nil {
 			go func() {
 				if update.Replaced(ctx, self, replacedEvery) {
 					restart()
@@ -102,28 +104,62 @@ func supervise(ctx context.Context, args []string, stateDir string) error {
 	return nil
 }
 
+func installedBinary() (string, error) {
+	if info, err := os.Lstat(update.Layout{}.Binary()); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		return update.Layout{}.Binary(), nil
+	}
+
+	return executable()
+}
+
 func updated(ctx context.Context, configPath, requests, results string) error {
 	config, err := state.LoadConfig(configPath)
 	if err != nil {
 		return err
 	}
 
-	self, err := executable()
+	layout := update.Layout{}
+	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	running, _ := strconv.ParseInt(serial, 10, 64)
+
+	held := &update.Updater{
+		Placer:   update.Placer{Layout: layout, Out: os.Stderr, Log: log},
+		Requests: requests,
+		Results:  results,
+		Vouch: &update.Vouch{
+			Offline: true, Mirror: filepath.Join(update.Cache, update.MirrorDir), Trust: layout.Trust(),
+			Floor: layout.Floor(), Running: running, Unsigned: config.Unsigned(),
+		},
+	}
+
+	return held.Apply(ctx)
+}
+
+func fetched(ctx context.Context, configPath, requests, cache string) error {
+	config, err := state.LoadConfig(configPath)
 	if err != nil {
 		return err
 	}
 
-	held := &update.Updater{
+	running, _ := strconv.ParseInt(serial, 10, 64)
+
+	held := &update.Fetcher{
 		Xixo:     config.Xixo,
 		Requests: requests,
-		Results:  results,
-		Binary:   self,
+		Cache:    cache,
 		Client:   dial.Fetcher(),
 		Log:      slog.New(slog.NewTextHandler(os.Stderr, nil)),
-		Vouch:    vouchFor(config, filepath.Dir(self)),
+		Vouch: &update.Vouch{
+			Xixo: config.Xixo, Client: dial.Fetcher(), Mirror: filepath.Join(cache, update.MirrorDir), Trust: filepath.Join(cache, update.TrustDir),
+			Floor: update.Layout{}.Floor(), Running: running, Unsigned: config.Unsigned(),
+		},
 	}
 
-	return held.Apply(ctx)
+	return held.Fetch(ctx)
+}
+
+func packaged(ctx context.Context, stdout io.Writer) error {
+	return (&update.Packages{Out: stdout}).Install(ctx)
 }
 
 func vouchFor(config *state.Config, root string) *update.Vouch {

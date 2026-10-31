@@ -2,15 +2,8 @@ class Resource
   class Machine
     module Downloads
       BUILD = /\Axixo-link-(linux|darwin)-(amd64|arm64)\z/
+      TEXT = /\Axixo-link[a-z@-]*\.(?:service|path|timer)\z|\Axixo-link\.plist\z|\Arelease\.json\z|\Arelease\.sigstore\.json\z/
       UNIT = "xixo-link.service".freeze
-      UPDATE_UNIT = "xixo-link-update.service".freeze
-      UPDATE_PATH = "xixo-link-update.path".freeze
-      PART_UNIT = "xixo-link-part@.service".freeze
-      PART_PATH = "xixo-link-part@.path".freeze
-      PACKAGES = %w[
-        ca-certificates libvips-tools libraw-bin libimage-exiftool-perl libarchive-zip-perl poppler-utils
-        tesseract-ocr ffmpeg libreoffice-writer libreoffice-calc fonts-liberation
-      ].freeze
       PLIST = "xixo-link.plist".freeze
       RELEASE = "release.json".freeze
       BUNDLE = "release.sigstore.json".freeze
@@ -21,6 +14,7 @@ class Resource
       RELEASED = /\A\d+\.\d+\.\d+(\+[0-9a-f]{7,40})?\z/
       VERSION = "version".freeze
       FILES = (%w[linux darwin].product(%w[amd64 arm64]).map { |os, arch| "xixo-link-#{os}-#{arch}" } + [ MAC_READER ]).freeze
+      TYPES = { RELEASE => "application/json", BUNDLE => "application/json", PLIST => "application/xml" }.freeze
 
       Build = Data.define(:os, :arch, :file, :path) do
         def sha256 = Downloads.digest(path)
@@ -67,28 +61,12 @@ class Resource
         nil
       end
 
-      def plist
-        held(PLIST)
+      def text(file)
+        held(file) if file.to_s.match?(TEXT)
       end
 
-      def unit
-        held(UNIT)
-      end
-
-      def update_unit
-        held(UPDATE_UNIT)
-      end
-
-      def update_path
-        held(UPDATE_PATH)
-      end
-
-      def part_unit
-        held(PART_UNIT)
-      end
-
-      def part_path
-        held(PART_PATH)
+      def type(file)
+        TYPES.fetch(file.to_s, "text/plain")
       end
 
       def release_file

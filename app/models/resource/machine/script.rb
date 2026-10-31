@@ -8,7 +8,6 @@ class Resource
       end
 
       LIB = "/usr/local/lib/xixo-link".freeze
-      READS = "PDFs, images, audio, video, and office documents".freeze
 
       def initialize(xixo:, issuer:, builds: Downloads.builds)
         @xixo = xixo
@@ -107,16 +106,6 @@ class Resource
             if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo "$@"; fi
           }
 
-          apt_get() {
-            as_root env DEBIAN_FRONTEND=noninteractive NEEDRESTART_SUSPEND=1 apt-get -q "$@"
-          }
-
-          installed() {
-            for package in "$@"; do
-              dpkg-query -W -f='${Status}' "$package" 2> /dev/null | grep -q 'ok installed' || return 1
-            done
-          }
-
           kept() {
             [ -s "$1" ] && cmp -s "$1" "$work/registration.json"
           }
@@ -138,34 +127,14 @@ class Resource
             user="$(id -un)"
 
             if [ "$(id -u)" -eq 0 ] || sudo -n true 2> /dev/null; then
-              step "Installing xixo link in #{LIB}, /etc/xixo-link, and /etc/systemd/system."
+              step "Installing xixo link in #{LIB}, /etc/xixo-link, and /etc/systemd/system, and the programs that read files."
             else
-              step "Installing xixo link. sudo asks for your password to write to #{LIB}, /etc/xixo-link, and /etc/systemd/system."
+              step "Installing xixo link and the programs that read files. sudo asks for your password to write to #{LIB}, /etc/xixo-link, and /etc/systemd/system."
               sudo -v || fail "sudo did not get your password, so nothing was installed. Run the command again in a terminal, or run it as root."
             fi
 
             as_root "$work/xixo-link" install --xixo "$xixo" --issuer "$issuer" --user "$user" --from "$work/xixo-link" "$@" ||
               fail "xixo link did not install. Read what it said above, then run the command again."
-
-            if [ -r /etc/os-release ] && grep -Eqi '^(ID|ID_LIKE)=.*(debian|ubuntu)' /etc/os-release; then
-              if installed #{Downloads::PACKAGES.join(' ')}; then
-                step "Checking the programs that read #{READS}. They are installed already."
-              else
-                step "Installing the programs that read #{READS}, with apt. This can take a few minutes."
-                log="$(mktemp "${TMPDIR:-/tmp}/xixo-link-apt.XXXXXX")"
-                if apt_get update > "$log" 2>&1 && apt_get install -y --no-install-recommends #{Downloads::PACKAGES.join(' ')} >> "$log" 2>&1; then
-                  rm -f "$log"
-                else
-                  note "apt did not install every program. This machine reads the files it can, and other machines read the rest."
-                  note "The last lines apt wrote:"
-                  tail -n 5 "$log" | sed 's/^/     /'
-                  note "The whole log is in $log."
-                fi
-              fi
-            else
-              step "Skipping the programs that read #{READS}, since this system has no apt."
-              note "To read more kinds of files here, install poppler, tesseract, ffmpeg, vips, and LibreOffice."
-            fi
 
             if [ -n "$linked" ]; then
               step "Checking the link with xixo."
@@ -245,7 +214,7 @@ class Resource
           }
 
           case "$os" in
-            linux) state=/var/lib/xixo-link total=5 ;;
+            linux) state=/var/lib/xixo-link total=4 ;;
             darwin) state="$HOME/Library/Application Support/xixo-link/state" total=4 ;;
           esac
 

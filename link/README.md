@@ -26,17 +26,16 @@ each one before it starts:
 1. It downloads xixo link for the machine's system and processor from xixo,
    and checks it against the SHA-256 that xixo wrote into the script. It checks
    that each folder exists before anything asks for a password.
-2. It runs `xixo-link install`, which installs the binary, writes the
+2. It runs `xixo-link install`, which installs the release, writes the
    configuration, and installs the services, as [`install`](#commands)
    describes. On Linux that runs as root, and the script says before sudo asks
-   for a password why it needs one.
-3. On Debian or Ubuntu, it installs the programs that read PDFs, images, audio,
-   video, and office documents with apt, unless they are installed already.
-   apt writes to a log file. When apt fails, the script shows its last lines
-   and the log's path, and goes on. macOS skips this step.
-4. It runs `xixo-link up`, which waits for an administrator to approve the
+   for a password why it needs one. On Debian or Ubuntu, the install also
+   installs the programs that read PDFs, images, audio, video, and office
+   documents with apt, from the list in the signed release. When apt fails,
+   the install says so and goes on. macOS skips the programs.
+3. It runs `xixo-link up`, which waits for an administrator to approve the
    machine.
-5. It runs `xixo-link start`, which starts the service or the launch agent, or
+4. It runs `xixo-link start`, which starts the service or the launch agent, or
    restarts it on a rerun.
 
 To link up a machine from your own computer instead, over ssh, see
@@ -142,10 +141,12 @@ part as its child, as the user, under `~/Library/Application Support/xixo-link/p
 | `xixo-link describe [FOLDER[:rw] ...]` | Prints the machine's description as JSON, as `up` sends it: hostname, system, processor, the folders, and the details in [linking up](#linking-up). With folders named, it describes those and checks that each exists. Without, it describes the folders in the configuration, or none when there is no configuration. |
 | `xixo-link enroll --token - [--name NAME]` | Reads an enrollment token from standard input, or from `XIXO_ENROLLMENT_TOKEN`, and registers xixo link's key with masks. `--name` defaults to the hostname. |
 | `xixo-link run [--updates systemd\|self] [--revoked-status N]` | Connects to xixo and serves it until it is stopped. On SIGTERM or SIGINT, it waits at most five seconds for the requests it is answering, then exits. `--updates systemd` works only on Linux under systemd, and `--updates self` only on macOS. Without it, xixo link ignores updates. |
-| `xixo-link update` | The Linux updater, run by `xixo-link-update.service`. |
+| `xixo-link fetch` | Downloads the release xixo named in `/run/xixo-link/update.json`, checks its signature and its serial, and stages its files under `/var/cache/xixo-link-update/staged/`. `xixo-link-fetch.service` runs it with no privileges, as described in [on Linux](#on-linux). |
+| `xixo-link update` | Installs the staged release as root, after checking it again offline: it keeps the release under `releases/`, renders `xixo-link.service` for the installed account and folders, writes the units that changed, reloads systemd, and goes back to the last release that connected when the new one does not connect within three minutes. With nothing staged, it finishes an update that was cut short. `xixo-link-update.service` runs it. |
+| `xixo-link packages` | Installs the apt packages the current release lists, when the list changed since the last install. `xixo-link-packages.service` runs it as root. |
 | `xixo-link stage [--releases DIR]` | On macOS, installs its own binary and the mac reader beside it as an [update](#on-macos): a new folder under `releases/`, named by the start of its SHA-256, with `releases/current` pointing at it. The install command runs it on a rerun. |
 | `xixo-link version` | Prints the version. |
-| `xixo-link install --xixo URL --issuer URL --from PATH [--user NAME] [FOLDER[:rw] ...]` | Installs xixo link from the build at `--from`. On Linux, as root: it makes the `xixo-link-update` and `xixo-link-part` accounts when they are missing, installs the binary in `/usr/local/lib/xixo-link` owned by the updater, links it from `/usr/local/bin`, writes the configuration for the folders, fetches the service template and the updater and part units from xixo and writes them to `/etc/systemd/system`, makes the state directory for `--user`, and enables the services. On macOS, as the user: it installs the binary and the mac reader, as an update when the installed xixo link supervises itself, writes the configuration, and writes the launch agent. It starts nothing. |
+| `xixo-link install --xixo URL --issuer URL --from PATH [--user NAME] [FOLDER[:rw] ...]` | Installs xixo link from the build at `--from`. On Linux, as root: it downloads `release.json` and its signature from xixo, checks them as [updates](#updates) does, and refuses a build the release does not list. It makes the `xixo-link-part` account when it is missing, keeps the release under `/usr/local/lib/xixo-link/releases/`, links the binary from `/usr/local/lib/xixo-link/xixo-link` and `/usr/local/bin/xixo-link`, writes the configuration for the folders and `install.json` for `--user`, renders `xixo-link.service` and writes every unit the release lists to `/etc/systemd/system`, makes the state directory, enables the services, and installs the apt packages the release lists. A build with no serial, such as one from a dev stack, marks the configuration `"releases": "unsigned"`. On macOS, as the user: it installs the binary and the mac reader, as an update when the installed xixo link supervises itself, writes the configuration, and writes the launch agent. It starts nothing. |
 | `xixo-link start` | Starts the service, or restarts it: `systemctl restart xixo-link` on Linux, as root, and the launch agent on macOS. |
 | `xixo-link uninstall` | Stops xixo link and removes it, its configuration, its state, and its parts from the machine. It puts nothing away in xixo. Linux needs root. |
 | `xixo-link join` | Reads `{"enrollment_token", "device_code", "name"}` as JSON on standard input, enrolls with masks as `enroll` does, and binds the machine with the device code as `up` does after approval. `xixo-link add` runs it over ssh. |
@@ -163,13 +164,17 @@ On Linux xixo link runs as a systemd service:
 
 | Path | Holds |
 | --- | --- |
-| `/usr/local/lib/xixo-link/xixo-link` | The binary, owned by the `xixo-link-update` user, and `xixo-link.previous`, the one before the last update. |
+| `/usr/local/lib/xixo-link/releases/` | One folder per release, named by the start of its `release.json`'s SHA-256, with the binary, the units, `release.json`, and its signature. `current` points at the release that runs, and `good` at the last one that connected. Everything here belongs to root. |
+| `/usr/local/lib/xixo-link/xixo-link` | A link to `releases/current/xixo-link`. |
+| `/usr/local/lib/xixo-link/serial` | The highest serial this machine accepted. `trust/` holds root's copy of Sigstore's trust files, `packages` the apt packages installed, and `bad` the release that last failed to connect. |
 | `/usr/local/bin/xixo-link` | A link to the binary. |
 | `/etc/xixo-link/config.json` | The configuration. |
+| `/etc/xixo-link/install.json` | The account xixo link runs as, which root reads when it renders `xixo-link.service`. |
 | `/var/lib/xixo-link/` | The state: `key.json` and `dpop.json`, the keys xixo link signs with, and `registration.json`, its masks client. |
 | `/var/cache/xixo-link/work/` | Each extraction's private work folder, emptied when xixo link starts. |
 | `/var/cache/xixo-link/digests.json` | The SHA-256 of each file of 1 MB or more that xixo link read, as in [hashing](#hashing). |
-| `/etc/systemd/system/` | `xixo-link.service`, `xixo-link-update.service`, and `xixo-link-update.path`. |
+| `/var/cache/xixo-link-update/` | What the fetch service downloaded: a release under `staged/`, Sigstore's trust files under `mirror/`, and `fetch.json`, how the last fetch went. |
+| `/etc/systemd/system/` | `xixo-link.service`, `xixo-link-fetch.service`, `xixo-link-update.service`, `xixo-link-update.path`, `xixo-link-update.timer`, `xixo-link-packages.service`, and the part units. |
 
 On macOS xixo link runs as the user whose files it shares:
 
@@ -407,11 +412,13 @@ To raise the memory cap, run `sudo systemctl edit xixo-link` and set
 
 ## Updates
 
-xixo keeps every machine on the build of xixo link the server ships. When xixo
-link says `hello`, xixo compares the SHA-256 of its binary, and on a Mac of its
-mac reader, with that build. When they differ and the machine's updates are on,
-xixo sends an `update` naming the version, the SHA-256 values, and the release
-they belong to. xixo link then:
+xixo keeps every machine on the release of xixo link the server ships. A
+release is `release.json`: the version, a serial, the commit, the apt packages,
+and every file with its SHA-256, which CI signs together with the files. When
+xixo link says `hello`, xixo compares the SHA-256 of its binary, and on a Mac of
+its mac reader, with the release. When they differ and the machine's updates
+are on, xixo sends an `update` naming the version, the SHA-256 values, and the
+release they belong to. The machine then:
 
 1. Downloads `release.json` and `release.sigstore.json` from the xixo address
    in its own configuration, following no redirect, so the message cannot send
@@ -422,23 +429,21 @@ they belong to. xixo link then:
 3. Checks that `release.json` lists the build xixo named, for this system and
    processor, and that its serial is not lower than the highest one this
    machine accepted.
-4. Downloads the build and checks it against that SHA-256.
-5. Runs the new binary's `version`, which must print the version xixo sent.
-6. Swaps the new binary in and keeps the one before it.
-7. Restarts into it. When the new binary does not connect within three
-   minutes, the one before it comes back. Once it connects, the machine
-   remembers the release's serial.
+4. Downloads the release's files and checks each against its SHA-256.
+5. Puts the release in place and restarts into it. When the new binary does not
+   connect within three minutes, the release before it comes back. Once it
+   connects, the machine remembers the release's serial.
 
 The server only mirrors the release. A server that was taken over cannot make a
-machine install a build CI did not sign, or an older release than it has run.
+machine install a file CI did not sign, or an older release than it has run.
 Each build carries its own serial, so a machine that has never updated still
-refuses anything older than what it was installed with. On macOS the serial is
-kept once the supervisor sees the new release connect.
+refuses anything older than what it was installed with.
 A failed update shows as a warning, and xixo link asks again six hours later.
 
 The repository, workflows, and branch it trusts are compiled into xixo link,
 so a fork builds its own. A machine running a build from a fork, or from a dev
-stack, accepts unsigned builds only when its configuration says so:
+stack, accepts unsigned releases only when its configuration says so. The
+install writes this line when the build that installs has no serial:
 
 ```json
 {
@@ -451,25 +456,48 @@ stack, accepts unsigned builds only when its configuration says so:
 
 ### On Linux
 
-xixo link must not be able to change the binary it runs, or a program that a
-file took over during extraction could replace it. So the binary belongs to a
-second system user, `xixo-link-update`, and a separate unit swaps it:
+A release changes the units as well as the binary, so a machine needs root to
+take one. Root never talks to the network, and the process with network access
+never has privileges. xixo link itself, which runs file readers on untrusted
+files, can only ask for a check:
 
 1. xixo link writes the request to `/run/xixo-link/update.json`.
-2. `xixo-link-update.path` sees it and starts `xixo-link-update.service`, which
-   runs `xixo-link update` as `xixo-link-update`.
-3. The updater installs the new binary and keeps the old one as
-   `xixo-link.previous`.
-4. xixo link sees its binary change, finishes its work, and exits, and systemd
-   starts the new one.
-5. The updater waits three minutes for the new one to connect, and puts the old
-   one back when it does not.
+2. `xixo-link-update.path` sees it and starts `xixo-link-fetch.service`, which
+   runs `xixo-link fetch` as a dynamic user with network access and nothing
+   else. It downloads the release and its signature, checks them, downloads
+   the binary and every unit, checks each against the release, and stages them
+   under `/var/cache/xixo-link-update/staged/`. It records how the fetch went
+   in `fetch.json`.
+3. When the fetch service ends, `xixo-link-update.service` starts and runs
+   `xixo-link update` as root with `PrivateNetwork=yes`, no capabilities, and
+   write access to `/usr/local/lib/xixo-link` and `/etc/systemd/system` only.
+   It checks the signature again, offline, against the Sigstore trust files the
+   fetch service mirrored, which are signed themselves. It checks the serial
+   floor again, and copies each file into `releases/<id>/` only when its bytes
+   hash to what the release lists.
+4. It renders `xixo-link.service` from the release's template with the account
+   in `/etc/xixo-link/install.json` and the folders in `config.json`, and
+   writes each unit whose content changed. It never touches drop-ins,
+   `config.json`, or `/var/lib/xixo-link`. It points `releases/current` at the
+   new release, runs `systemctl daemon-reload`, and restarts xixo link when a
+   unit changed. When only the binary changed, xixo link sees its binary
+   change, finishes its work, and exits, and systemd starts the new one.
+5. It waits three minutes for the new xixo link to connect. Then it points
+   `releases/good` at the release, raises the serial floor, enables the units,
+   removes older releases, and starts `xixo-link-packages.service` when the
+   release's apt packages changed. When nothing connects, it points `current`
+   back at `good`, puts that release's units back, restarts xixo link, and
+   names the release in `bad` so it is not tried again.
 
-The updater keeps the highest serial it accepted in
-`/usr/local/lib/xixo-link/serial`, where xixo link cannot write, and its
-Sigstore trust files in `/usr/local/lib/xixo-link/trust`. It cannot see
-`/var/lib/xixo-link`, where the keys are, and holds no capabilities. Nothing
-runs as root after the install.
+`xixo-link-update.timer` runs the update service daily and 15 minutes after
+boot. With nothing staged, the service finishes an update that was cut short:
+a release that connected becomes `good`, and one that never connected within
+three minutes goes back.
+
+The update service reads `running.json` from xixo link's runtime directory,
+and nothing else of xixo link's. That file can only make a release good or
+bring the one before it back. Nothing runs as root after the install, apart
+from the update and packages services that a signed release drives.
 
 ### On macOS
 
@@ -594,12 +622,12 @@ tail -f ~/Library/Logs/xixo-link.log
 Remove the machine in xixo first, so masks forgets its client. Then, on Linux:
 
 ```sh
-sudo systemctl disable --now xixo-link xixo-link-update.path
+sudo systemctl disable --now xixo-link xixo-link-update.path xixo-link-update.timer xixo-link-part@models.path
 sudo rm -rf /etc/systemd/system/xixo-link.service /etc/systemd/system/xixo-link.service.d
-sudo rm -f /etc/systemd/system/xixo-link-update.service /etc/systemd/system/xixo-link-update.path
+sudo rm -f /etc/systemd/system/xixo-link-*.service /etc/systemd/system/xixo-link-*.path /etc/systemd/system/xixo-link-*.timer
 sudo rm -rf /usr/local/bin/xixo-link /usr/local/lib/xixo-link
-sudo rm -rf /etc/xixo-link /var/lib/xixo-link /var/cache/xixo-link
-sudo userdel xixo-link-update
+sudo rm -rf /etc/xixo-link /var/lib/xixo-link /var/cache/xixo-link /var/cache/xixo-link-update /var/lib/xixo-link-part
+sudo userdel xixo-link-part
 sudo systemctl daemon-reload
 ```
 
