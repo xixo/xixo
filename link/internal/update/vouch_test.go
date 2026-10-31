@@ -16,7 +16,14 @@ const commit = "c589ffe682d3497df159d3615be691387ebea7d9"
 
 func listed(t *testing.T, files map[string][]byte, version string, serial int64, entries ...release.Entry) (Target, []byte) {
 	t.Helper()
-	held := release.Release{Version: version, Serial: serial, Revision: commit, Channel: release.Channel(version), PackagesApt: release.Packages, Files: entries}
+	raw := listedWithEpoch(t, files, version, serial, 0, entries...)
+
+	return Target{Version: version, Release: release.Sum(raw)}, raw
+}
+
+func listedWithEpoch(t *testing.T, files map[string][]byte, version string, serial, epoch int64, entries ...release.Entry) []byte {
+	t.Helper()
+	held := release.Release{Version: version, Serial: serial, Revision: commit, Channel: release.Channel(version), SupervisorEpoch: epoch, PackagesApt: release.Packages, Files: entries}
 	raw, err := json.Marshal(held)
 	if err != nil {
 		t.Fatal(err)
@@ -24,7 +31,7 @@ func listed(t *testing.T, files map[string][]byte, version string, serial int64,
 
 	files[release.File] = raw
 
-	return Target{Version: held.Version, Release: release.Sum(raw)}, raw
+	return raw
 }
 
 func signedFiles(t *testing.T, files map[string][]byte, serial int64, entries ...release.Entry) Target {

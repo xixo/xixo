@@ -146,6 +146,8 @@ part as its child, as the user, under `~/Library/Application Support/xixo-link/p
 | `xixo-link packages` | Installs the apt packages the current release lists, when the list changed since the last install. `xixo-link-packages.service` runs it as root. |
 | `xixo-link stage [--releases DIR]` | On macOS, installs its own binary and the mac reader beside it as an [update](#on-macos): a new folder under `releases/`, named by the start of its SHA-256, with `releases/current` pointing at it. The install command runs it on a rerun. |
 | `xixo-link version` | Prints the version. |
+| `xixo-link epoch` | Prints the supervisor epoch of this build. A Mac replaces `bin/xixo-link` only when a release's epoch is higher. |
+| `xixo-link relaunch` | On macOS, waits a second, boots the launch agent out, and bootstraps it again from the plist. An update that changed the plist or the supervisor starts this in its own session. |
 | `xixo-link install --xixo URL --issuer URL --from PATH [--user NAME] [FOLDER[:rw] ...]` | Installs xixo link from the build at `--from`. On Linux, as root: it downloads `release.json` and its signature from xixo, checks them as [updates](#updates) does, and refuses a build the release does not list. It makes the `xixo-link-part` account when it is missing, keeps the release under `/usr/local/lib/xixo-link/releases/`, links the binary from `/usr/local/lib/xixo-link/xixo-link` and `/usr/local/bin/xixo-link`, writes the configuration for the folders and `install.json` for `--user`, renders `xixo-link.service` and writes every unit the release lists to `/etc/systemd/system`, makes the state directory, enables the services, and installs the apt packages the release lists. A build with no serial, such as one from a dev stack, marks the configuration `"releases": "unsigned"`. On macOS, as the user: it installs the binary and the mac reader, as an update when the installed xixo link supervises itself, writes the configuration, and writes the launch agent. It starts nothing. |
 | `xixo-link start` | Starts the service, or restarts it: `systemctl restart xixo-link` on Linux, as root, and the launch agent on macOS. |
 | `xixo-link uninstall` | Stops xixo link and removes it, its configuration, its state, and its parts from the machine. It puts nothing away in xixo. Linux needs root. |
@@ -513,6 +515,21 @@ in place and installs the new build with `xixo-link stage`, and the launch
 agent tries it for three minutes like any update. Only a first install, or a
 `bin/xixo-link` too old to run updates, replaces the binary, and then the
 access has to be granted again.
+
+A release carries the launch agent, `xixo-link.plist`, and a supervisor epoch.
+When the plist in a release differs from the installed one, the update writes
+`~/Library/LaunchAgents/network.xixo.link.plist` and starts a helper in its own
+session that runs `xixo-link relaunch`: it waits a second, boots the agent out,
+and bootstraps it again from the new plist. The helper survives the bootout
+because it is not in the agent's process group. When the release's epoch is
+higher than what `bin/xixo-link epoch` prints, the update also replaces
+`bin/xixo-link` with the new build before the relaunch. The epoch rises only
+for a change to the supervisor itself, so this stays rare.
+
+When launchd tells the supervisor to stop, it exits with status 130, and the
+launch agent restarts it, since `KeepAlive` is set to restart after a failed
+exit. A clean exit stops it for good, and only an unenrolled machine exits
+cleanly.
 
 ## Beside the server
 

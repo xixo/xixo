@@ -7,12 +7,15 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/xixo/xixo/link/internal/dial"
+	"github.com/xixo/xixo/link/internal/install"
 	"github.com/xixo/xixo/link/internal/link"
 	"github.com/xixo/xixo/link/internal/state"
 	"github.com/xixo/xixo/link/internal/update"
@@ -74,10 +77,18 @@ func updater(ctx context.Context, mode, releases, stateDir string, config *state
 			return nil
 		}
 
-		return &update.Stager{
+		held := &update.Stager{
 			Xixo: config.Xixo, Releases: releases, State: stateDir, Self: running.Identity,
 			Client: dial.Fetcher(), Restart: restart, Vouch: vouchFor(config, filepath.Dir(releases)),
+			Supervisor: filepath.Join(filepath.Dir(releases), "bin", "xixo-link"), Relaunch: relaunch,
 		}
+
+		if home, err := os.UserHomeDir(); err == nil {
+			held.Home = home
+			held.Agent = filepath.Join(home, "Library", "LaunchAgents", install.LaunchLabel+".plist")
+		}
+
+		return held
 	}
 
 	return nil
@@ -169,4 +180,28 @@ func vouchFor(config *state.Config, root string) *update.Vouch {
 		Xixo: config.Xixo, Client: dial.Fetcher(), Unsigned: config.Unsigned(), Running: running,
 		Floor: filepath.Join(root, update.FloorFile), Trust: filepath.Join(root, update.TrustDir),
 	}
+}
+
+func relaunch(_ context.Context) error {
+	self, err := executable()
+	if err != nil {
+		return err
+	}
+
+	command := exec.Command(self, "relaunch")
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
+	command.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+
+	return command.Start()
+}
+
+func relaunched(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(time.Second):
+	}
+
+	return (&install.Installer{Out: os.Stderr}).StartMac(ctx)
 }

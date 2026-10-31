@@ -30,6 +30,8 @@ var commands = []about{
 	{"up", "", "Link up this machine. It waits until an administrator approves it in xixo.", false},
 	{"describe", "[FOLDER[:rw] ...]", "Print what this machine is, as JSON: its system, processor, GPUs, disks, readers, and folders.", false},
 	{"stage", "[--releases DIR]", "Install this build as an update on a Mac, so Full Disk Access stays.", false},
+	{"epoch", "", "Print the supervisor epoch of this build. A Mac replaces its supervisor only when a release's epoch is higher.", false},
+	{"relaunch", "", "Reload the launch agent on a Mac from outside it. An update that changed the agent runs this.", false},
 	{"enroll", "--token - [--name NAME]", "Enroll with a token, for the xixo link beside the server.", false},
 	{"run", "[--updates systemd|self]", "Connect to xixo and serve it. The service runs this.", false},
 	{"fetch", "", "Download the release xixo names and check its signature. The Linux fetch service runs this.", false},

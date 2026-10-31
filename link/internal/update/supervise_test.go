@@ -191,6 +191,91 @@ func TestStagingPutsAVerifiedReleaseInPlace(t *testing.T) {
 	}
 }
 
+func TestStagingWritesAChangedLaunchAgentAndRelaunchesInsteadOfRestarting(t *testing.T) {
+	fresh := script("echo 0.3.0")
+	plist := []byte("<plist>@HOME@/Library/Application Support/xixo-link/bin/xixo-link</plist>\n")
+	files := map[string][]byte{"xixo-link-darwin-arm64": fresh, release.Plist: plist}
+	listed(t, files, "0.3.0", 40, entry("xixo-link-darwin-arm64", "darwin", "arm64", release.RoleBinary, fresh), entry(release.Plist, "darwin", "", release.RolePlist, plist))
+	server, _ := served(t, files)
+	root := t.TempDir()
+	agent := filepath.Join(root, "LaunchAgents", "network.xixo.link.plist")
+	os.MkdirAll(filepath.Dir(agent), 0o700)
+	os.WriteFile(agent, []byte("<plist>old</plist>\n"), 0o644)
+	relaunched := false
+
+	staging := &Stager{
+		Xixo: server.URL, Releases: filepath.Join(root, "releases"), State: root,
+		Self: Self{Version: "0.2.0", SHA256: strings.Repeat("1", 64)}, Client: server.Client(),
+		OS: "darwin", Arch: "arm64", Vouch: &Vouch{Unsigned: true, Xixo: server.URL, Client: server.Client()},
+		Restart: func() { t.Error("restarted when the launch agent changed") },
+		Home:    "/Users/someone", Agent: agent, Relaunch: func(context.Context) error { relaunched = true; return nil },
+	}
+
+	if err := staging.Offer(context.Background(), Target{Version: "0.3.0", SHA256: sum(fresh)}); err != nil {
+		t.Fatal(err)
+	}
+
+	held, _ := os.ReadFile(agent)
+	if !relaunched || string(held) != "<plist>/Users/someone/Library/Application Support/xixo-link/bin/xixo-link</plist>\n" {
+		t.Fatalf("relaunched %v, agent %q", relaunched, held)
+	}
+
+	relaunched = false
+	staging.Restart = func() {}
+	staging.Self = Self{Version: "0.3.0", SHA256: strings.Repeat("2", 64)}
+	later := script("echo 0.3.1")
+	files["xixo-link-darwin-arm64"] = later
+	listed(t, files, "0.3.1", 41, entry("xixo-link-darwin-arm64", "darwin", "arm64", release.RoleBinary, later), entry(release.Plist, "darwin", "", release.RolePlist, plist))
+
+	if err := staging.Offer(context.Background(), Target{Version: "0.3.1", SHA256: sum(later)}); err != nil {
+		t.Fatal(err)
+	}
+
+	if relaunched {
+		t.Fatal("relaunched when the launch agent had not changed")
+	}
+}
+
+func TestStagingReplacesTheSupervisorOnlyWhenTheEpochRises(t *testing.T) {
+	fresh := script("echo 0.3.0")
+	files := map[string][]byte{"xixo-link-darwin-arm64": fresh}
+	listed(t, files, "0.3.0", 40, entry("xixo-link-darwin-arm64", "darwin", "arm64", release.RoleBinary, fresh))
+	server, _ := served(t, files)
+	root := t.TempDir()
+	supervisor := filepath.Join(root, "bin", "xixo-link")
+	os.MkdirAll(filepath.Dir(supervisor), 0o700)
+	os.WriteFile(supervisor, script("echo 0"), 0o755)
+	relaunched := false
+
+	staging := &Stager{
+		Xixo: server.URL, Releases: filepath.Join(root, "releases"), State: root,
+		Self: Self{Version: "0.2.0", SHA256: strings.Repeat("1", 64)}, Client: server.Client(),
+		OS: "darwin", Arch: "arm64", Vouch: &Vouch{Unsigned: true, Xixo: server.URL, Client: server.Client()},
+		Restart: func() {}, Supervisor: supervisor, Relaunch: func(context.Context) error { relaunched = true; return nil },
+	}
+
+	if err := staging.Offer(context.Background(), Target{Version: "0.3.0", SHA256: sum(fresh)}); err != nil {
+		t.Fatal(err)
+	}
+
+	if held, _ := Digest(supervisor); relaunched || held == sum(fresh) {
+		t.Fatal("the supervisor was replaced by a release with the same epoch")
+	}
+
+	staging.Self = Self{Version: "0.3.0", SHA256: strings.Repeat("2", 64)}
+	later := script("echo 0.3.1")
+	files["xixo-link-darwin-arm64"] = later
+	raw := listedWithEpoch(t, files, "0.3.1", 41, 1, entry("xixo-link-darwin-arm64", "darwin", "arm64", release.RoleBinary, later))
+
+	if err := staging.Offer(context.Background(), Target{Version: "0.3.1", SHA256: sum(later), Release: release.Sum(raw)}); err != nil {
+		t.Fatal(err)
+	}
+
+	if held, _ := Digest(supervisor); !relaunched || held != sum(later) {
+		t.Fatalf("relaunched %v, supervisor replaced %v", relaunched, held == sum(later))
+	}
+}
+
 func TestStagingRefusesAMismatchedMacReader(t *testing.T) {
 	fresh := script("echo 0.3.0")
 	files := map[string][]byte{"xixo-link-darwin-arm64": fresh, MacReader: []byte("tampered")}

@@ -1,14 +1,18 @@
 package update
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -25,20 +29,24 @@ func ReleaseName(target Target) string {
 }
 
 type Stager struct {
-	Xixo     string
-	Releases string
-	State    string
-	Self     Self
-	Client   *http.Client
-	OS       string
-	Arch     string
-	Restart  func()
-	Now      func() time.Time
-	Retry    time.Duration
-	Vouch    *Vouch
-	once     sync.Once
-	ledger   *ledger
-	busy     sync.Mutex
+	Xixo       string
+	Releases   string
+	State      string
+	Self       Self
+	Client     *http.Client
+	OS         string
+	Arch       string
+	Restart    func()
+	Now        func() time.Time
+	Retry      time.Duration
+	Vouch      *Vouch
+	Home       string
+	Agent      string
+	Supervisor string
+	Relaunch   func(context.Context) error
+	once       sync.Once
+	ledger     *ledger
+	busy       sync.Mutex
 }
 
 func (s *Stager) book() *ledger {
@@ -60,10 +68,15 @@ func (s *Stager) Offer(ctx context.Context, target Target) error {
 		return err
 	}
 
-	if err := s.stage(ctx, target); err != nil {
+	relaunch, err := s.stage(ctx, target)
+	if err != nil {
 		Write(filepath.Join(s.State, ResultFile), Result{Version: target.Version, SHA256: target.SHA256, Error: err.Error(), At: time.Now().UTC()}, 0o600)
 
 		return err
+	}
+
+	if relaunch && s.Relaunch != nil {
+		return s.Relaunch(ctx)
 	}
 
 	if s.Restart != nil {
@@ -99,14 +112,14 @@ func system(goos, goarch string) (string, string) {
 	return goos, goarch
 }
 
-func (s *Stager) stage(ctx context.Context, target Target) error {
+func (s *Stager) stage(ctx context.Context, target Target) (bool, error) {
 	if err := os.MkdirAll(s.Releases, 0o700); err != nil {
-		return err
+		return false, err
 	}
 
 	part, err := os.MkdirTemp(s.Releases, ".part-")
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer os.RemoveAll(part)
 
@@ -114,30 +127,35 @@ func (s *Stager) stage(ctx context.Context, target Target) error {
 
 	signed, err := s.Vouch.Release(ctx, target, goos, goarch)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	fetched, err := Fetch(ctx, s.Client, Address(s.Xixo, BuildFor(goos, goarch)), target.SHA256, part)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if err := os.Rename(fetched, filepath.Join(part, Binary)); err != nil {
-		return err
+		return false, err
 	}
 
 	if err := s.reader(ctx, target, part); err != nil {
-		return err
+		return false, err
+	}
+
+	agent, err := s.agent(ctx, signed, part)
+	if err != nil {
+		return false, err
 	}
 
 	if signed.Serial > 0 {
 		if err := Write(filepath.Join(part, FloorFile), signed.Serial, 0o600); err != nil {
-			return err
+			return false, err
 		}
 	}
 
 	if err := Probe(ctx, filepath.Join(part, Binary), target.Version); err != nil {
-		return err
+		return false, err
 	}
 
 	name := ReleaseName(target)
@@ -145,20 +163,85 @@ func (s *Stager) stage(ctx context.Context, target Target) error {
 	running := Pointed(s.Releases, Current)
 
 	if err := os.RemoveAll(placed); err != nil {
-		return err
+		return false, err
 	}
 
 	if err := os.Rename(part, placed); err != nil {
-		return err
+		return false, err
 	}
 
 	if err := Point(s.Releases, Current, name); err != nil {
-		return err
+		return false, err
 	}
 
 	Prune(s.Releases, running)
 
-	return nil
+	supervisor, err := s.supervisor(ctx, signed, filepath.Join(placed, Binary))
+	if err != nil {
+		return false, err
+	}
+
+	if agent != nil {
+		if err := replaced(s.Agent, agent, 0o644); err != nil {
+			return false, err
+		}
+	}
+
+	return agent != nil || supervisor, nil
+}
+
+func (s *Stager) agent(ctx context.Context, signed Verified, part string) ([]byte, error) {
+	entry, ok := signed.LaunchAgent()
+	if !ok || s.Agent == "" {
+		return nil, nil
+	}
+
+	fetched, err := Fetch(ctx, s.Client, Address(s.Xixo, entry.Name), entry.SHA256, part)
+	if err != nil {
+		return nil, fmt.Errorf("the launch agent: %w", err)
+	}
+
+	raw, err := os.ReadFile(fetched)
+	if err != nil {
+		return nil, err
+	}
+
+	rendered := []byte(strings.ReplaceAll(string(raw), "@HOME@", s.Home))
+	if installed, err := os.ReadFile(s.Agent); err == nil && bytes.Equal(installed, rendered) {
+		return nil, nil
+	}
+
+	return rendered, nil
+}
+
+func (s *Stager) supervisor(ctx context.Context, signed Verified, binary string) (bool, error) {
+	if s.Supervisor == "" || signed.SupervisorEpoch <= s.epoch(ctx) {
+		return false, nil
+	}
+
+	raw, err := os.ReadFile(binary)
+	if err != nil {
+		return false, err
+	}
+
+	return true, replaced(s.Supervisor, raw, 0o755)
+}
+
+func (s *Stager) epoch(ctx context.Context) int64 {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	out, err := exec.CommandContext(ctx, s.Supervisor, "epoch").Output()
+	if err != nil {
+		return 0
+	}
+
+	held, err := strconv.ParseInt(strings.TrimSpace(string(out)), 10, 64)
+	if err != nil {
+		return 0
+	}
+
+	return held
 }
 
 func (s *Stager) reader(ctx context.Context, target Target, part string) error {

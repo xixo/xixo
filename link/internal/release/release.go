@@ -54,13 +54,16 @@ type Entry struct {
 	Size   int64  `json:"size"`
 }
 
+const SupervisorEpoch int64 = 1
+
 type Release struct {
-	Version     string   `json:"version"`
-	Serial      int64    `json:"serial"`
-	Revision    string   `json:"revision"`
-	Channel     string   `json:"channel"`
-	PackagesApt []string `json:"packages_apt"`
-	Files       []Entry  `json:"files"`
+	Version         string   `json:"version"`
+	Serial          int64    `json:"serial"`
+	Revision        string   `json:"revision"`
+	Channel         string   `json:"channel"`
+	SupervisorEpoch int64    `json:"supervisor_epoch"`
+	PackagesApt     []string `json:"packages_apt"`
+	Files           []Entry  `json:"files"`
 }
 
 func (r Release) Check() error {
@@ -204,7 +207,10 @@ func ID(raw []byte) string {
 }
 
 func Describe(dir, version, revision string, serial int64) (Release, error) {
-	held := Release{Version: version, Serial: serial, Revision: revision, Channel: Channel(version), PackagesApt: Packages, Files: []Entry{}}
+	held := Release{
+		Version: version, Serial: serial, Revision: revision, Channel: Channel(version),
+		SupervisorEpoch: SupervisorEpoch, PackagesApt: Packages, Files: []Entry{},
+	}
 
 	names, err := os.ReadDir(dir)
 	if err != nil {

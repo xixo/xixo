@@ -31,6 +31,7 @@ import (
 	"github.com/xixo/xixo/link/internal/machine"
 	"github.com/xixo/xixo/link/internal/parts"
 	"github.com/xixo/xixo/link/internal/person"
+	"github.com/xixo/xixo/link/internal/release"
 	"github.com/xixo/xixo/link/internal/state"
 	"github.com/xixo/xixo/link/internal/terminal"
 	"github.com/xixo/xixo/link/internal/update"
@@ -98,6 +99,16 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 		fmt.Fprintln(stdout, version)
 
 		return nil
+	case "epoch":
+		fmt.Fprintln(stdout, release.SupervisorEpoch)
+
+		return nil
+	case "relaunch":
+		if err := parse(); err != nil {
+			return err
+		}
+
+		return relaunched(ctx)
 	case "status":
 		if err := parse(); err != nil {
 			return err
