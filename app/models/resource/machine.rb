@@ -406,8 +406,16 @@ class Resource
       restate_folders!
       catalog_shared!
       attach_found!
+      recheck_carried!
       ResumeParkedJob.perform_later(id) if Analysis.parked.exists?
       announce!
+    end
+
+    def recheck_carried!
+      away = Resource.active.where(via_id: id).where.not(offline_host: nil)
+      ids = away.pluck(:id)
+      away.update_all(checked_at: nil)
+      ids.each { |held| CheckResourceJob.perform_later(held) }
     end
 
     def restate_folders!

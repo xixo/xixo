@@ -260,6 +260,20 @@ class FilesystemTest < ActiveSupport::TestCase
     end
   end
 
+  test "a folder marked offline is checked again as soon as its machine says hello" do
+    Tenant.switch(@tenant) do
+      folder = attached
+      folder.update_columns(offline_host: "media", offline_last_seen_at: 2.days.ago, checked_at: 1.minute.ago)
+
+      assert_enqueued_with(job: CheckResourceJob, args: [ folder.id ]) do
+        @machine.greeted!({ "folders" => [ "/srv/media" ], "writable" => [] }, session: "s5")
+      end
+
+      assert_nil folder.reload.checked_at
+      assert_includes Resource.due_for_check, folder
+    end
+  end
+
   test "a folder is accepted before its machine has said which folders it shares" do
     Tenant.switch(@tenant) do
       quiet = Resource::Machine.create!(key: "quiet", name: "Quiet", details: { "local" => true })
