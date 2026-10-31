@@ -39,7 +39,7 @@ class FilesystemMigrationTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       local = Resource::Machine.local
       assert_equal 1, Resource::Machine.where(key: "local").count
-      assert_equal "This server", local.name
+      assert_equal "Hub", local.name
       assert local.local?
 
       files = Resource.find(ids[:files])

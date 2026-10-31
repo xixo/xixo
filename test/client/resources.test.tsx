@@ -93,7 +93,7 @@ const local = resource({
   id: '9',
   type: 'machine',
   key: 'local',
-  name: 'This server',
+  name: 'Hub',
   capabilities: ['transport'],
   defaultStorage: false,
   changeable: false,
@@ -258,9 +258,9 @@ describe('Resources', () => {
     const headings = (await screen.findAllByRole('heading', { level: 2 })).map(
       (heading) => heading.textContent,
     )
-    expect(headings).toEqual(['This server', 'Studio'])
+    expect(headings).toEqual(['Hub', 'Studio'])
 
-    const server = screen.getByRole('region', { name: 'This server' })
+    const server = screen.getByRole('region', { name: 'Hub' })
     expect(within(server).getByText('Where xixo runs')).toBeTruthy()
     expect(
       within(server).getByText(
@@ -272,10 +272,10 @@ describe('Resources', () => {
     expect(within(server).getByText('Household')).toBeTruthy()
     expect(within(server).getByText('drops land here')).toBeTruthy()
     expect(
-      within(server).getByRole('button', { name: /Add to This server/ }),
+      within(server).getByRole('button', { name: /Add to Hub/ }),
     ).toBeTruthy()
     expect(screen.getByText(/Drops land in/).textContent).toBe(
-      'Drops land in Household on This server',
+      'Drops land in Household on Hub',
     )
   })
 
@@ -317,7 +317,7 @@ describe('Resources', () => {
     expect(within(machine).getByText('answers questions')).toBeTruthy()
     expect(within(machine).queryByText(/Found Ollama/)).toBeNull()
 
-    const server = screen.getByRole('region', { name: 'This server' })
+    const server = screen.getByRole('region', { name: 'Hub' })
     expect(within(server).getByText('A model server')).toBeTruthy()
     expect(screen.getByText(/Questions go to/).textContent).toBe(
       'Questions go to Ollama on Studio',
@@ -391,7 +391,7 @@ describe('Resources', () => {
     })
     expect(
       within(dialog)
-        .getByRole('button', { name: 'This server' })
+        .getByRole('button', { name: 'Hub' })
         .getAttribute('aria-pressed'),
     ).toBe('true')
     expect(within(dialog).getByText('Reached from here')).toBeTruthy()
@@ -469,7 +469,7 @@ describe('Resources', () => {
     expect(
       within(studioCard).getByText(/2 files wait for it to come back/),
     ).toBeTruthy()
-    const server = screen.getByRole('region', { name: 'This server' })
+    const server = screen.getByRole('region', { name: 'Hub' })
     expect(
       within(server).getByText(
         /12 files wait for it to read PDFs or audio and video/,
@@ -724,7 +724,7 @@ describe('Resources', () => {
       within(card).getByText(/xixo link 0\.3\.0, updating to 0\.4\.0/),
     ).toBeTruthy()
 
-    const server = await screen.findByRole('region', { name: 'This server' })
+    const server = await screen.findByRole('region', { name: 'Hub' })
     expect(within(server).queryByText(/updating to/)).toBeNull()
     expect(
       within(server).queryByLabelText('Update xixo link automatically'),

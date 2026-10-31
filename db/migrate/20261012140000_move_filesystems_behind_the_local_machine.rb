@@ -58,7 +58,7 @@ class MoveFilesystemsBehindTheLocalMachine < ActiveRecord::Migration[8.1]
 
       select_value(<<~SQL.squish)
         INSERT INTO resources (tenant_id, type, key, name, details, serving, created_at, updated_at)
-        VALUES (#{tenant.to_i}, 'machine', #{quote(LOCAL)}, 'This server', '{"local": true}'::jsonb,
+        VALUES (#{tenant.to_i}, 'machine', #{quote(LOCAL)}, 'Hub', '{"local": true}'::jsonb,
                 '{"capabilities": ["transport"], "accepts": []}'::jsonb, now(), now())
         RETURNING id
       SQL

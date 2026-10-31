@@ -2504,6 +2504,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261031190000'),
 ('20261020100000'),
 ('20261014120000'),
 ('20261014000000'),

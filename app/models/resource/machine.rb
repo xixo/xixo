@@ -133,7 +133,7 @@ class Resource
       end
 
       def local!
-        find_by(key: LOCAL) || create!(key: LOCAL, name: "This server", details: { "local" => true })
+        find_by(key: LOCAL) || create!(key: LOCAL, name: "Hub", details: { "local" => true })
       end
 
       def adopted_by!(grant)

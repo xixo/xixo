@@ -197,7 +197,7 @@ function sharedAs(folders: string[], rows: Resource[]) {
 
 const MACHINE = 'machine'
 const LOCAL = 'local'
-const THIS_SERVER = 'This server'
+const THIS_SERVER = 'Hub'
 
 const CHECKING_POLL = 2000
 

@@ -45,7 +45,7 @@ module FakeLink
 
     def id = nil
     def key = "local"
-    def name = "This server"
+    def name = "Hub"
     def local? = true
     def reads_for_others? = true
     def connected? = true
