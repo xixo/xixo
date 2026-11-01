@@ -1,7 +1,7 @@
 require "test_helper"
 
 class ServerUpdatesTest < ActionDispatch::IntegrationTest
-  UPDATES = "{ serverUpdates { manual channel paused images { name current revision target containers { name stale } } events { action kind by } } }".freeze
+  UPDATES = "{ serverUpdates { manual channel paused migrationNote rollbackNote images { name current revision target containers { name stale } } events { action kind by } } }".freeze
 
   setup do
     @tenant = Tenant.create!(subdomain: "updates-#{SecureRandom.hex(4)}", name: "Updates")
@@ -34,6 +34,20 @@ class ServerUpdatesTest < ActionDispatch::IntegrationTest
     assert_equal [ "xixo", "sha256:old", "c589ffe", "sha256:new" ], updates["images"][0].values_at("name", "current", "revision", "target")
     assert_equal [ { "name" => "xixo-xixo-1", "stale" => false } ], updates["images"][0]["containers"]
     assert_equal [ "pause", "pull" ], updates["events"].map { |held| held["action"] }
+    assert_nil updates["migrationNote"]
+    assert_nil updates["rollbackNote"]
+  end
+
+  test "an administrator reads what rolling back to the build before does to the database" do
+    report!
+    ActiveRecord::Base.connection_pool.internal_metadata["xixo_release:0.3.0+0ld0ld0"] =
+      { latest: SchemaRelease.known.min, count: 1, at: 1.day.ago.utc.iso8601 }.to_json
+
+    updates = graphql(Grant::SCOPES, UPDATES).dig("data", "serverUpdates")
+
+    assert_match(/\ARolling back to 0\.3\.0\+0ld0ld0 keeps the \d+ migrations this build added\./, updates["rollbackNote"])
+  ensure
+    ActiveRecord::Base.connection.execute("DELETE FROM ar_internal_metadata WHERE key LIKE 'xixo_release:%'")
   end
 
   test "a server with no updater says its updates are manual" do
@@ -85,7 +99,8 @@ class ServerUpdatesTest < ActionDispatch::IntegrationTest
     def report!
       File.write(File.join(@dir, "status.json"), {
         channel: "main", paused: false, checked_at: "2026-10-22T02:21:53Z",
-        kinds: [ { name: "xixo", current: "sha256:old", revision: "c589ffe", containers: [ { name: "xixo-xixo-1", state: "running" } ] } ],
+        kinds: [ { name: "xixo", current: "sha256:old", revision: "c589ffe", previous: "sha256:older", previous_revision: "0ld0ld0ld0ld0ld0",
+                   previous_version: "main", containers: [ { name: "xixo-xixo-1", state: "running" } ] } ],
         targets: { xixo: "sha256:new" }
       }.to_json)
     end

@@ -4,6 +4,8 @@ query ServerUpdates {
     channel
     paused
     checkedAt
+    migrationNote
+    rollbackNote
     images {
       name
       current

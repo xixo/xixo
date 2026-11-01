@@ -263,6 +263,15 @@ export function Updates() {
                 </div>
               </div>
 
+              {updates.migrationNote && (
+                <div className="setting">
+                  <div>
+                    <div className="setting-name">Database</div>
+                    <div className="setting-note">{updates.migrationNote}</div>
+                  </div>
+                </div>
+              )}
+
               <div className="setting">
                 <div>
                   <div className="setting-name">Roll back</div>
@@ -361,8 +370,9 @@ export function Updates() {
         verb="Roll back"
         loading={ask.loading}
       >
-        Every image goes back to the build before it. A rollback does not undo a
-        migration, so the build before runs against the newer database.
+        Every image goes back to the build before it.{' '}
+        {updates?.rollbackNote ??
+          'A rollback does not undo a migration, so the build before runs against the newer database.'}
       </Sure>
     </div>
   )

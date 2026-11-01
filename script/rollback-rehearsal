@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage="usage: script/rollback-rehearsal <image of the last release> <image built from this checkout>"
+old="${1:?$usage}"
+new="${2:?$usage}"
+port="${REHEARSAL_PORT:-18080}"
+within="${REHEARSAL_WITHIN:-300}"
+root="$(cd "$(dirname "$0")/.." && pwd)"
+name="rehearsal-$$"
+
+old_platform=()
+if [ -n "${REHEARSAL_OLD_PLATFORM:-}" ]; then
+  old_platform=(--platform "$REHEARSAL_OLD_PLATFORM")
+fi
+
+settings=(
+  --network "$name"
+  -e "POSTGRES_HOST=$name-postgres"
+  -e XIXO_DATABASE_PASSWORD=xixo
+  -e "OPENSEARCH_URL=http://$name-opensearch:9200"
+  -e SECRET_KEY_BASE=rehearsal_secret_key_base_for_the_rollback_rehearsal_only
+  -e ENCRYPTION_PRIMARY_KEY=rehearsal_primary_key_for_the_rollback_rehearsal_only
+  -e ENCRYPTION_DETERMINISTIC_KEY=rehearsal_deterministic_key_for_the_rehearsal_only
+  -e ENCRYPTION_KEY_DERIVATION_SALT=rehearsal_key_derivation_salt_for_the_rehearsal
+  -e XIXO_TENANT=rehearsal
+  -e "XIXO_PUBLIC_ORIGIN=http://127.0.0.1:$port"
+  -e RAILS_FORCE_SSL=false
+  -e RAILS_ASSUME_SSL=false
+)
+
+say() {
+  printf '\n== %s\n' "$*"
+}
+
+clean() {
+  docker rm -f "$name-xixo" "$name-postgres" "$name-opensearch" >/dev/null 2>&1 || true
+  docker network rm "$name" >/dev/null 2>&1 || true
+}
+trap clean EXIT
+
+await() {
+  local what="$1" container="$2" waited=0
+  shift 2
+  until "$@" >/dev/null 2>&1; do
+    if [ "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null)" != "true" ]; then
+      say "$what stopped"
+      docker logs --tail 80 "$container" || true
+      exit 1
+    fi
+    if ((waited >= within)); then
+      say "$what was not ready within ${within}s"
+      docker logs --tail 80 "$container" || true
+      exit 1
+    fi
+    sleep 3
+    waited=$((waited + 3))
+  done
+}
+
+serve() {
+  local image="$1"
+  shift
+  docker rm -f "$name-xixo" >/dev/null 2>&1 || true
+  docker run -d --name "$name-xixo" "${settings[@]}" -p "127.0.0.1:$port:80" "$@" "$image" >/dev/null
+  await "$image" "$name-xixo" curl -fsS "http://127.0.0.1:$port/up"
+  curl -fsS -o /dev/null "http://127.0.0.1:$port/"
+  say "$image answers at /up and /"
+}
+
+say "starting Postgres and OpenSearch"
+docker network create "$name" >/dev/null
+docker run -d --name "$name-postgres" --network "$name" -e POSTGRES_PASSWORD=rehearsal \
+  -v "$root/db/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro" postgres:17-alpine >/dev/null
+docker run -d --name "$name-opensearch" --network "$name" -e discovery.type=single-node \
+  -e DISABLE_SECURITY_PLUGIN=true -e OPENSEARCH_JAVA_OPTS="-Xms512m -Xmx512m" \
+  -e cluster.routing.allocation.disk.threshold_enabled=false opensearchproject/opensearch:2.19.1 >/dev/null
+await Postgres "$name-postgres" docker exec "$name-postgres" pg_isready -h localhost -U postgres
+await OpenSearch "$name-opensearch" docker exec "$name-opensearch" curl -fs localhost:9200/_cluster/health
+
+say "the last release, $old, sets up the database"
+serve "$old" ${old_platform[@]+"${old_platform[@]}"}
+
+say "this build, $new, migrates it"
+serve "$new"
+
+say "the last release starts again on the migrated database"
+serve "$old" ${old_platform[@]+"${old_platform[@]}"}
+
+say "every table and column the last release has must still be there"
+docker run --rm "${settings[@]}" ${old_platform[@]+"${old_platform[@]}"} \
+  -v "$root/script/rollback-rehearsal-probe.rb:/probe.rb:ro" "$old" ./bin/rails runner /probe.rb

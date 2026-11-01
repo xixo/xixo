@@ -59,6 +59,10 @@ need assets that a checkout does not hold. Build them once, and again after mask
 The Rails suites clear `XIXO_TENANT` and `XIXO_TENANTS`, so they run against several tenants whichever
 way the stack was started. CI runs each suite through `./dev test`.
 
+CI also runs `script/rollback-rehearsal <last release image> <this build's image>`, which needs
+Docker. It starts the last release, migrates with this build, starts the last release again, and
+fails when `/up` fails or when a table or column the last release has is gone.
+
 ## ENV vars
 
 Read by `./dev`, the compose files, the seeds, and the test suite. A deployed server ignores them.
@@ -125,3 +129,6 @@ Read by `./dev`, the compose files, the seeds, and the test suite. A deployed se
 | `XIXO_TEST_SEARCH_ENGINE` | none | The URL of a real OpenSearch server for the tests. Unset, the tests use an in-process fake and skip the ones that assert what OpenSearch itself does. |
 | `TEST_ENV_NUMBER` | none | Added to the search index's alias, such as `xixo_test_2`, so parallel test workers do not share an index. The test suite sets it for each worker. |
 | `CI` | unset | Eager loads the application in tests, as production does. |
+| `REHEARSAL_PORT` | `18080` | The port on `127.0.0.1` where `script/rollback-rehearsal` publishes each xixo container it starts. |
+| `REHEARSAL_WITHIN` | `300` | How many seconds `script/rollback-rehearsal` waits for Postgres, OpenSearch, and each xixo container to answer. |
+| `REHEARSAL_OLD_PLATFORM` | none | The platform of the last release's image, such as `linux/amd64`, when it differs from the machine running `script/rollback-rehearsal`. CI leaves it unset. |

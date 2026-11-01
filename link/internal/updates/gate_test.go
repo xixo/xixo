@@ -105,7 +105,7 @@ func TestAnAttestedBuildReplacesEachContainerInOrderAndKeepsWhatComposeSet(t *te
 	}
 
 	for _, held := range status {
-		if held.Name == "xixo" && (held.Current != built || held.Previous != running || len(held.Containers) != 2 || held.Containers[0].Health != "healthy") {
+		if held.Name == "xixo" && (held.Current != built || held.Previous != running || held.PreviousRevision != "old" || len(held.Containers) != 2 || held.Containers[0].Health != "healthy") {
 			t.Fatalf("status %+v", held)
 		}
 	}

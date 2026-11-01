@@ -9,6 +9,8 @@ const reported = (overrides: Record<string, unknown> = {}) => ({
   channel: 'main',
   paused: false,
   checkedAt: new Date(Date.now() - 3 * 60_000).toISOString(),
+  migrationNote: null,
+  rollbackNote: null,
   images: [
     {
       name: 'xixo',
@@ -222,6 +224,25 @@ describe('server updates', () => {
     expect(requests(asked)).toEqual([
       { action: 'roll_back', channel: undefined },
     ])
+  })
+
+  test('a rollback across a migration says what the database keeps', async () => {
+    updates(
+      reported({
+        migrationNote:
+          'The database holds 2 migrations from 0.5.0 that this build does not have. A release adds to the database and removes one release later, so this build runs on it.',
+        rollbackNote:
+          'Rolling back to 0.4.0 keeps the 2 migrations this build added. 0.4.0 runs on them, because a release only adds to the database.',
+      }),
+    )
+
+    expect(
+      await screen.findByText(/holds 2 migrations from 0\.5\.0/),
+    ).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: 'Roll back' }))
+    expect(
+      await screen.findByText(/keeps the 2 migrations this build added/),
+    ).toBeTruthy()
   })
 
   test('a paused server offers resume and no update now', async () => {

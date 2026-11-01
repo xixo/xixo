@@ -26,3 +26,18 @@ generated from: GraphQL descriptions, MCP tool descriptions, and
 - Check every claim against the code before writing it down.
 - The repo is public. Leave out real hostnames, addresses, and anything about
   private infrastructure.
+
+## Releases
+
+- Add first, remove later. A release may add tables, columns, indexes, enum
+  values, jobs, and settings. It removes or renames one of them only in the
+  release after the one that stopped reading it. The same holds for a key in a
+  message between xixo and xixo link, and in a file the updater or xixo link
+  reads. The updater rolls a server back to the build before, which then runs on
+  the database the newer build migrated.
+- A migration that moves data runs in the release that adds the new place. The
+  release after removes the old one.
+- CI checks the rule for the database with `script/rollback-rehearsal`. It
+  starts the last release, migrates with this build, starts the last release
+  again, and fails when `/up` fails or when a table or column the last release
+  has is gone.

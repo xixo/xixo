@@ -12,6 +12,8 @@ module Types
     field :checked_at, String, description: "When the updater last looked for a new build."
     field :images, [ Types::ServerImageType ], null: false, description: "Each image the updater keeps up to date."
     field :events, [ Types::ServerUpdateEventType ], null: false, description: "The last ten things the updater did, newest first."
+    field :migration_note, String, description: "A sentence when the database holds migrations this build does not have, as it does after a rollback."
+    field :rollback_note, String, description: "A sentence on what a rollback to the build before does to the database, when that build has run on this server."
 
     def manual = object[:status].nil?
     def channel = object[:status]&.dig("channel")
@@ -28,5 +30,13 @@ module Types
     end
 
     def events = object[:events]
+    def migration_note = SchemaRelease.migration_note
+
+    def rollback_note
+      xixo = Array(object[:status]&.dig("kinds")).find { |held| held.is_a?(Hash) && held["name"] == "xixo" }
+      return nil unless xixo
+
+      SchemaRelease.rollback_note(revision: xixo["previous_revision"], version: xixo["previous_version"])
+    end
   end
 end

@@ -51,13 +51,15 @@ type Running struct {
 }
 
 type Held struct {
-	Name       string    `json:"name"`
-	Current    string    `json:"current,omitempty"`
-	Previous   string    `json:"previous,omitempty"`
-	Created    string    `json:"created,omitempty"`
-	Revision   string    `json:"revision,omitempty"`
-	Version    string    `json:"version,omitempty"`
-	Containers []Running `json:"containers"`
+	Name             string    `json:"name"`
+	Current          string    `json:"current,omitempty"`
+	Previous         string    `json:"previous,omitempty"`
+	PreviousRevision string    `json:"previous_revision,omitempty"`
+	PreviousVersion  string    `json:"previous_version,omitempty"`
+	Created          string    `json:"created,omitempty"`
+	Revision         string    `json:"revision,omitempty"`
+	Version          string    `json:"version,omitempty"`
+	Containers       []Running `json:"containers"`
 }
 
 func (g *Gate) kind(name string) (Kind, error) {
@@ -457,6 +459,8 @@ func (g *Gate) Status(ctx context.Context) ([]Held, error) {
 
 		if previous, err := g.Docker.Image(ctx, kind.Local(Previous)); err == nil {
 			status.Previous = digested(previous, kind)
+			status.PreviousRevision = previous.Config.Labels[Revision]
+			status.PreviousVersion = previous.Config.Labels[Version]
 		}
 
 		containers, err := g.labeled(ctx, kind)

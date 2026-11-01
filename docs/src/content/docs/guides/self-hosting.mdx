@@ -628,8 +628,11 @@ When a container does not come up, or turns unhealthy while it is watched, every
 to the build before it, tagged `xixo-updates/xixo:previous`. That build is marked bad and is not
 tried again. A newer build is. The gate refuses a build older than the one running.
 
-A rollback starts the old image against the new schema. That works when a release only added
-tables and columns. Back up before you follow a channel, and see
+A rollback starts the build before on the database the newer build migrated. A release adds tables
+and columns and removes them one release later, and CI rehearses the rollback of every build: it
+starts the last release, migrates with the new build, and starts the last release again.
+**Settings > Updates** says what a rollback keeps, and after one, what the database holds from the
+newer build. Back up before you follow a channel, and see
 [restore](/guides/back-up-and-restore/#restore) when a rollback does not come up.
 
 ### Settings

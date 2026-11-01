@@ -939,7 +939,9 @@ How xixo-updater keeps this server on the builds CI signed. Manual when no updat
 | `events` | [`[ServerUpdateEvent!]!`](#serverupdateevent) | The last ten things the updater did, newest first. |
 | `images` | [`[ServerImage!]!`](#serverimage) | Each image the updater keeps up to date. |
 | `manual` | `Boolean!` | Whether no updater reports to this server, so it is updated by hand. |
+| `migrationNote` | `String` | A sentence when the database holds migrations this build does not have, as it does after a rollback. |
 | `paused` | `Boolean!` | Whether updates are paused. |
+| `rollbackNote` | `String` | A sentence on what a rollback to the build before does to the database, when that build has run on this server. |
 
 ### SetDefaultInferencePayload
 

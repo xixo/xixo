@@ -336,8 +336,53 @@ jobs:
           path: ${{ runner.temp }}/release
           if-no-files-found: error
 
+  rollback_rehearsal:
+    needs: [format, actions, lint, lint_js]
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Find the last release that has an image
+        id: last
+        run: |
+          for version in $(git ls-remote --tags --refs origin 'refs/tags/server-v*' | sed 's|.*/server-v||' | sort -rV); do
+            if docker manifest inspect "ghcr.io/$GITHUB_REPOSITORY:$version" >/dev/null 2>&1; then
+              echo "version=$version" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "No release of ghcr.io/$GITHUB_REPOSITORY has an image yet."
+          exit 1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build the production image from this checkout
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          build-args: XIXO_COMMIT=${{ github.sha }}
+          load: true
+          tags: xixo-rehearsal:this
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start the last release, migrate with this build, and start the last release again
+        run: script/rollback-rehearsal "ghcr.io/${{ github.repository }}:${{ steps.last.outputs.version }}" xixo-rehearsal:this
+
   image:
-    needs: [test, boot, scan_ruby, reference, mac_reader, link_release]
+    needs:
+      [
+        test,
+        boot,
+        scan_ruby,
+        reference,
+        mac_reader,
+        link_release,
+        rollback_rehearsal,
+      ]
     runs-on: ubuntu-24.04
 
     permissions:
