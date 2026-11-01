@@ -33,11 +33,11 @@ module Granted
       grant
     rescue Grant::Denied => e
       denied(e)
-      refuse(Masks::Client::Unauthorized.new(e.message))
-    rescue Masks::Client::Challenge => e
+      refuse(Masks::Client::InvalidToken.new(e.message))
+    rescue Masks::Client::InvalidToken, Masks::Client::Forbidden => e
       denied(e)
       refuse(e)
-    rescue Tenant::Unconfigured, Masks::Client::Unreachable => e
+    rescue Tenant::Unconfigured, Masks::Client::Unavailable => e
       unavailable(e)
     end
 

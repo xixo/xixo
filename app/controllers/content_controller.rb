@@ -34,7 +34,7 @@ class ContentController < ApplicationController
     def authorize
       super && grant.permit!("xixo:catalog:read")
     rescue Grant::Denied => e
-      refuse(Masks::Client::Unauthorized.new(e.message))
+      refuse(Masks::Client::InvalidToken.new(e.message))
     end
 
     def inline?(kind)

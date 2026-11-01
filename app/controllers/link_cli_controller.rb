@@ -18,7 +18,7 @@ class LinkCliController < ActionController::API
       device_code: device.device_code, user_code: device.user_code, verification_uri: device.verification_uri,
       verification_uri_complete: device.verification_uri_complete, expires_in: device.expires_in, interval: device.interval
     }
-  rescue Masks::Client::Rejected => e
+  rescue Masks::Client::Refused => e
     refused(e.code, e.message, :bad_request)
   rescue Tenant::Unconfigured, Masks::Client::Error => e
     refused("server_error", e.message, :service_unavailable)
@@ -34,7 +34,7 @@ class LinkCliController < ActionController::API
 
     render json: { access_token: tokens.access_token, refresh_token: tokens.refresh_token, expires_in: tokens.expires_in,
                    scope: tokens.scope, token_type: "Bearer" }.compact
-  rescue Masks::Client::Rejected => e
+  rescue Masks::Client::Refused => e
     refused(e.code, e.message, PENDING.include?(e.code) ? :bad_request : :unauthorized)
   rescue Tenant::Unconfigured, Masks::Client::Error => e
     refused("server_error", e.message, :service_unavailable)

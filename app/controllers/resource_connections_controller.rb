@@ -47,7 +47,7 @@ class ResourceConnectionsController < ApplicationController
     def authorize
       super && grant.permit!("xixo:resources:command")
     rescue Grant::Denied => e
-      refuse(Masks::Client::Unauthorized.new(e.message))
+      refuse(Masks::Client::InvalidToken.new(e.message))
     end
 
     def connectable(id)

@@ -31,7 +31,7 @@ class UploadsController < ApplicationController
     def authorize
       super && grant.permit!("xixo:catalog:write")
     rescue Grant::Denied => e
-      refuse(Masks::Client::Unauthorized.new(e.message))
+      refuse(Masks::Client::InvalidToken.new(e.message))
     end
 
     def already_there(feed)

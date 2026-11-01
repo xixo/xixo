@@ -28,7 +28,7 @@ class Resource
         Masks::Client::HTTP.delete("#{endpoint(tenant)}/#{URI.encode_www_form_component(client_id)}",
                                    "Authorization" => basic(credentials))
         true
-      rescue Masks::Client::Rejected => e
+      rescue Masks::Client::Refused => e
         return true if e.status == 404
 
         raise Resource::Failed, "masks would not unenroll the machine: #{e.message}"
