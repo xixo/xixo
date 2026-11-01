@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/xixo/xixo/compare/server-v0.5.0...server-v0.6.0) (2026-11-01)
+
+
+### Features
+
+* **server:** CI rehearses a rollback of every build, and the Updates page says what a rollback does to the database ([eb7c371](https://github.com/xixo/xixo/commit/eb7c371b38a000b5b5204b26fe88d9242b4698b2))
+
 ## [0.5.0](https://github.com/xixo/xixo/compare/server-v0.4.0...server-v0.5.0) (2026-11-01)
 
 
