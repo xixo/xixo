@@ -57,6 +57,7 @@ query Resources($archived: Boolean) {
       current
       updates
       updatesItself
+      updateState
       connected
       seenAt
       uptime
@@ -235,18 +236,6 @@ mutation SetFolderForEveryone($id: ID!, $everyone: Boolean!) {
       id
       forOperators
       manageable
-    }
-  }
-}
-
-mutation SetMachineUpdates($id: ID!, $automatic: Boolean!) {
-  setMachineUpdates(input: { id: $id, automatic: $automatic }) {
-    resource {
-      id
-      machine {
-        updates
-        current
-      }
     }
   }
 }

@@ -83,12 +83,14 @@ class LinkUpdatesTest < ActionCable::Channel::TestCase
     release = { "version" => SHIPPED, "serial" => 1234, "files" => [ listed ] }.to_json
     File.write(File.join(@binaries, "release.json"), release)
     File.write(File.join(@binaries, "release.sigstore.json"), "{}")
+    everyone!
 
     told = greeted("version" => "0.0.1", "sha256" => OLD, "updates" => "systemd")
 
     assert_equal [ Digest::SHA256.hexdigest(release) ], told.map { |offer| offer["release"] }
 
     File.write(File.join(@binaries, "release.json"), { "version" => SHIPPED, "serial" => 1, "files" => [ listed.merge("sha256" => OLD) ] }.to_json)
+    everyone!
     told = greeted("version" => "0.0.1", "sha256" => OLD, "updates" => "systemd")
 
     assert_equal [ nil ], told.map { |offer| offer["release"] }
@@ -142,7 +144,76 @@ class LinkUpdatesTest < ActionCable::Channel::TestCase
     assert_nil fresh.machine["updates"]
   end
 
+  test "with a signed release, a link hears nothing until the rollout reaches it, and the rollout starts waiting for the server" do
+    release!
+
+    assert_empty greeted("version" => "0.0.1", "sha256" => OLD, "updates" => "systemd")
+
+    rollout = Tenant.switch(@tenant) { LinkRollout.current! }
+    assert_equal "waiting_for_server", rollout.phase
+    assert_equal "waiting", fresh.update_state
+
+    Tenant.switch(@tenant) { rollout.update!(phase: "everyone") }
+    told = greeted("version" => "0.0.1", "sha256" => OLD, "updates" => "systemd")
+
+    assert_equal [ rollout.release ], told.map { |offer| offer["release"] }
+    assert_equal "updating", fresh.update_state
+  end
+
+  test "a link that speaks a newer protocol than xixo accepts is asked to go back to a release it holds within the window" do
+    before = Digest::SHA256.hexdigest("before")
+    held = [
+      { "release" => Digest::SHA256.hexdigest("r1"), "sha256" => before, "version" => "0.3.0", "serial" => 5, "protocol" => 1 },
+      { "release" => Digest::SHA256.hexdigest("r2"), "sha256" => OLD, "version" => "0.4.0", "serial" => 6, "protocol" => 2 },
+      { "release" => Digest::SHA256.hexdigest("r0"), "sha256" => Digest::SHA256.hexdigest("older"), "version" => "0.2.0", "serial" => 4, "protocol" => 0 }
+    ]
+
+    assert_empty greeted("version" => "0.4.0", "sha256" => OLD, "updates" => "systemd", "protocol" => 2, "releases" => held)
+    assert_equal [ { "version" => "0.3.0", "sha256" => before, "release" => Digest::SHA256.hexdigest("r1") } ], heard("roll_back")
+    assert_equal "ahead", fresh.update_state
+    assert_equal 2, fresh.protocol
+
+    assert_empty greeted("version" => "0.4.0", "sha256" => OLD, "updates" => "systemd", "protocol" => 2, "releases" => [ held[1] ])
+    assert_equal "waiting_for_xixo", fresh.update_state
+  end
+
+  test "a link reports what came of the last update, and xixo keeps the failure and counts the arrival" do
+    failed = { "version" => SHIPPED, "sha256" => Digest::SHA256.hexdigest("linux binary"), "ok" => false,
+               "error" => "it did not connect", "at" => "2026-10-31T12:00:00Z" }
+
+    greeted("version" => "0.0.1", "sha256" => OLD, "updates" => "systemd", "update_result" => failed)
+
+    assert_equal failed.except("ok"), fresh.last_rollback
+    assert_equal "updating", fresh.update_state
+    Tenant.switch(@tenant) { assert_equal 1, AuditEvent.where(action: "link_update_failed").count }
+
+    greeted("version" => "0.0.1", "sha256" => OLD, "updates" => "systemd", "update_result" => failed)
+    Tenant.switch(@tenant) { assert_equal 1, AuditEvent.where(action: "link_update_failed").count }
+
+    greeted("version" => SHIPPED, "sha256" => Digest::SHA256.hexdigest("linux binary"), "updates" => "systemd")
+
+    assert_equal 1, fresh.updates_done
+    assert_in_delta Time.current, fresh.last_updated_at, 5
+    assert_nil fresh.details["offered"]
+    assert_equal "current", fresh.update_state
+    Tenant.switch(@tenant) { assert_equal 1, AuditEvent.where(action: "link_updated").count }
+  end
+
   private
+
+    def release!
+      listed = { "name" => "xixo-link-linux-arm64", "sha256" => Digest::SHA256.hexdigest("linux binary"), "os" => "linux", "arch" => "arm64", "role" => "binary", "size" => 12 }
+      File.write(File.join(@binaries, "release.json"), { "version" => SHIPPED, "serial" => 1234, "protocol" => 1, "files" => [ listed ] }.to_json)
+      File.write(File.join(@binaries, "release.sigstore.json"), "{}")
+    end
+
+    def everyone!
+      Tenant.switch(@tenant) { LinkRollout.current!.update!(phase: "everyone") }
+    end
+
+    def heard(kind)
+      ActionCable.server.pubsub.broadcasts(LinkChannel.broadcasting_for(@machine)).filter_map { |held| JSON.parse(held)[kind] }
+    end
 
     def greeted(said)
       stub_connection(tenant: @tenant, grant: nil, machine: @machine, client_id: @machine.client_id)

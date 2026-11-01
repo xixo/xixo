@@ -42,6 +42,11 @@ shared: &shared
     queue: sync
     schedule: every minute
 
+  link_rollout:
+    class: LinkRolloutJob
+    queue: sync
+    schedule: every minute
+
   sweep_parked:
     class: SweepParkedJob
     queue: sync

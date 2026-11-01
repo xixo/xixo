@@ -446,12 +446,19 @@ func (s *session) listen(ctx context.Context) {
 			}
 
 			told := struct {
-				Update *update.Target            `json:"update"`
-				Parts  map[string]parts.Settings `json:"parts"`
-				Cancel string                    `json:"cancel"`
+				Update   *update.Target            `json:"update"`
+				RollBack *update.Target            `json:"roll_back"`
+				Parts    map[string]parts.Settings `json:"parts"`
+				Cancel   string                    `json:"cancel"`
 			}{}
 			if json.Unmarshal(frame.Message, &told) == nil && told.Update != nil {
 				s.updateTo(ctx, *told.Update)
+
+				continue
+			}
+
+			if told.RollBack != nil {
+				s.rollBackTo(ctx, *told.RollBack)
 
 				continue
 			}

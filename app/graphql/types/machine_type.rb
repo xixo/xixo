@@ -24,8 +24,19 @@ module Types
                        "system and processor, and when xixo link is older than updates and does not say which build it " \
                        "runs."
     field :updates, Boolean, null: false,
-          description: "Whether xixo updates xixo link on the machine to the build it ships. An administrator turns it " \
-                       "off with setMachineUpdates."
+          description: "Whether xixo updates xixo link on the machine to the build it ships. An administrator pauses " \
+                       "and resumes it with requestMachineUpdate."
+    field :protocol, Integer, null: false,
+          description: "The protocol xixo link speaks. xixo accepts the protocol it speaks and the one before. A link " \
+                       "from before protocols speaks 0."
+    field :serial, GraphQL::Types::BigInt, description: "The serial of the release xixo link runs, when it knows it."
+    field :update_state, String, null: false,
+          description: "Where the machine stands with updates: server for the link beside the server, manual, paused, " \
+                       "ahead (newer than xixo allows, and asked to go back), waiting_for_xixo (newer, with no release " \
+                       "to go back to), current, unknown, updating, held, waiting, or offline."
+    field :last_updated_at, GraphQL::Types::ISO8601DateTime, description: "When xixo link last arrived on a release xixo offered."
+    field :last_rollback, String, description: "What went wrong the last time xixo link could not update, as a sentence."
+    field :last_rollback_at, String, description: "When that was."
     field :updates_itself, Boolean, null: false,
           description: "Whether xixo link on the machine can update itself. It cannot when it runs in a container, which " \
                        "updates with its image, or when it was installed before xixo link updated itself."
@@ -79,6 +90,12 @@ module Types
     def release = object.release
     def current = object.current?
     def updates = object.updates?
+    def protocol = object.protocol
+    def serial = object.serial
+    def update_state = object.update_state
+    def last_updated_at = object.last_updated_at
+    def last_rollback = object.last_rollback&.then { |held| "xixo link could not update to #{held['version']}: #{held['error']}" }
+    def last_rollback_at = object.last_rollback&.dig("at")
     def updates_itself = object.updates_itself?
     def connected = object.connected?
     def seen_at = object.seen_at

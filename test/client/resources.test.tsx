@@ -63,6 +63,7 @@ const machineSaid = (overrides: Record<string, unknown>) => ({
   current: true,
   updates: true,
   updatesItself: false,
+  updateState: 'current',
   connected: true,
   seenAt: new Date().toISOString(),
   uptime: 90000,
@@ -710,10 +711,8 @@ describe('Resources', () => {
     const { client, asked } = fakeClient({
       ...QUIET,
       Resources: () => ({ administrator: true, resources: [local, behind] }),
-      SetMachineUpdates: () => ({
-        setMachineUpdates: {
-          resource: { id: '7', machine: { updates: false, current: false } },
-        },
+      RequestMachineUpdate: () => ({
+        requestMachineUpdate: { linkUpdates: { protocol: 1 } },
       }),
     })
 
@@ -735,8 +734,8 @@ describe('Resources', () => {
     )
 
     expect(
-      asked.find((ask) => ask.name === 'SetMachineUpdates')?.variables,
-    ).toEqual({ id: '7', automatic: false })
+      asked.find((ask) => ask.name === 'RequestMachineUpdate')?.variables,
+    ).toEqual({ id: '7', action: 'pause' })
   })
 
   test('a machine linked before updates is told to run the link-up command once, even at the same version', async () => {

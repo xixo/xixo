@@ -19,8 +19,8 @@ class LinkingTest < ActionDispatch::IntegrationTest
     }
   GQL
   UPDATES = <<~GQL.freeze
-    mutation($id: ID!, $automatic: Boolean!) {
-      setMachineUpdates(input: { id: $id, automatic: $automatic }) { resource { machine { updates } } }
+    mutation($id: ID, $action: String!) {
+      requestMachineUpdate(input: { id: $id, action: $action }) { linkUpdates { machines { key machine { updates updateState } } } }
     }
   GQL
   ASKED = { "hostname" => "Studio.local", "os" => "darwin", "arch" => "arm64",
@@ -384,14 +384,16 @@ class LinkingTest < ActionDispatch::IntegrationTest
   test "an administrator pauses updates of xixo link on a machine, and nobody else does" do
     machine = machine_on(@tenant, key: "box")
 
-    assert_match(/only an administrator turns updates of xixo link on or off/,
-                 graphql(Grant::SIGN_IN, UPDATES, id: machine.id, automatic: false).dig("errors", 0, "message"))
+    assert_match(/only an administrator steers updates of xixo link/,
+                 graphql(Grant::SIGN_IN, UPDATES, id: machine.id, action: "pause").dig("errors", 0, "message"))
 
-    held = graphql(Grant::SCOPES, UPDATES, id: machine.id, automatic: false)
-    assert_equal false, held.dig("data", "setMachineUpdates", "resource", "machine", "updates")
+    held = graphql(Grant::SCOPES, UPDATES, id: machine.id, action: "pause")
+    assert_equal({ "updates" => false, "updateState" => "manual" },
+                 held.dig("data", "requestMachineUpdate", "linkUpdates", "machines").find { |said| said["key"] == "box" }["machine"])
     Tenant.switch(@tenant) do
       assert_not Resource::Machine.find(machine.id).updates?
-      assert_equal "set_machine_updates", AuditEvent.where(channel: "graphql").last.action
+      assert_equal [ "request_machine_update", { "key" => "box", "action" => "pause" } ],
+                   AuditEvent.where(channel: "graphql").last.values_at(:action, :arguments)
     end
   end
 

@@ -51,6 +51,12 @@ func (f *Fetcher) Fetch(ctx context.Context) error {
 		return err
 	}
 
+	if asked.RollBack {
+		f.note(asked, nil)
+
+		return nil
+	}
+
 	err := f.fetch(ctx, asked)
 	f.note(asked, err)
 

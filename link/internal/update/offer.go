@@ -7,8 +7,11 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
+
+	"github.com/xixo/xixo/link/internal/release"
 )
 
 const (
@@ -20,6 +23,9 @@ type Self struct {
 	Version   string
 	SHA256    string
 	MacReader string
+	Release   string
+	Serial    int64
+	Protocol  int64
 }
 
 func Identify(version string) Self {
@@ -35,6 +41,14 @@ func Identify(version string) Self {
 	}
 
 	held.SHA256, _ = Digest(path)
+	held.Protocol = release.Protocol
+
+	if raw, err := os.ReadFile(filepath.Join(filepath.Dir(path), release.File)); err == nil {
+		if described, err := release.Parse(raw); err == nil {
+			held.Release = release.Sum(raw)
+			held.Serial = described.Serial
+		}
+	}
 
 	if reader := filepath.Join(filepath.Dir(path), MacReader); regular(reader) {
 		held.MacReader, _ = Digest(reader)
@@ -85,6 +99,10 @@ func (l *ledger) last() (Request, bool) {
 }
 
 func (l *ledger) claim(self Self, target Target) (bool, error) {
+	return l.ask(self, target, false)
+}
+
+func (l *ledger) ask(self Self, target Target, rollBack bool) (bool, error) {
 	if err := target.Check(); err != nil {
 		return false, err
 	}
@@ -98,7 +116,7 @@ func (l *ledger) claim(self Self, target Target) (bool, error) {
 		return false, nil
 	}
 
-	asked := Request{Target: target, From: self.Version, RequestedAt: l.now().UTC()}
+	asked := Request{Target: target, From: self.Version, RequestedAt: l.now().UTC(), RollBack: rollBack}
 
 	return true, Write(l.Path, asked, l.Mode)
 }
@@ -172,3 +190,68 @@ func missing(err error) bool {
 }
 
 func (r *Requester) Mode() string { return "systemd" }
+
+func (r *Requester) RollBack(_ context.Context, target Target) error {
+	book := r.book()
+	book.lock.Lock()
+	defer book.lock.Unlock()
+
+	_, err := book.ask(r.Self, target, true)
+
+	return err
+}
+
+func (r *Requester) Report() Report {
+	return Report{Result: lastResult(r.Results), Held: heldIn(Layout{}.Releases())}
+}
+
+func lastResult(dir string) *Result {
+	if dir == "" {
+		return nil
+	}
+
+	told := Result{}
+	if Read(filepath.Join(dir, ResultFile), &told) != nil || told.SHA256 == "" {
+		return nil
+	}
+
+	return &told
+}
+
+func heldIn(releases string) []Held {
+	entries, err := os.ReadDir(releases)
+	if err != nil {
+		return nil
+	}
+
+	held := []Held{}
+
+	for _, entry := range entries {
+		if !entry.IsDir() || !releaseName.MatchString(entry.Name()) {
+			continue
+		}
+
+		dir := filepath.Join(releases, entry.Name())
+
+		raw, err := os.ReadFile(filepath.Join(dir, release.File))
+		if err != nil {
+			continue
+		}
+
+		described, err := release.Parse(raw)
+		if err != nil {
+			continue
+		}
+
+		sha, err := Digest(filepath.Join(dir, Binary))
+		if err != nil {
+			continue
+		}
+
+		held = append(held, Held{Release: release.Sum(raw), Version: described.Version, Serial: described.Serial, Protocol: described.Protocol, SHA256: sha})
+	}
+
+	sort.Slice(held, func(i, j int) bool { return held[i].Serial > held[j].Serial })
+
+	return held
+}

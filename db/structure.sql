@@ -532,6 +532,48 @@ ALTER SEQUENCE public.link_requests_id_seq OWNED BY public.link_requests.id;
 
 
 --
+-- Name: link_rollouts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.link_rollouts (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    release character varying NOT NULL,
+    version character varying,
+    serial bigint,
+    protocol integer,
+    phase character varying DEFAULT 'waiting_for_server'::character varying NOT NULL,
+    first_machines jsonb DEFAULT '{}'::jsonb NOT NULL,
+    started_at timestamp(6) without time zone NOT NULL,
+    phase_at timestamp(6) without time zone NOT NULL,
+    held_reason text,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+ALTER TABLE ONLY public.link_rollouts FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: link_rollouts_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.link_rollouts_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: link_rollouts_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.link_rollouts_id_seq OWNED BY public.link_rollouts.id;
+
+
+--
 -- Name: moves; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -972,6 +1014,13 @@ ALTER TABLE ONLY public.link_requests ALTER COLUMN id SET DEFAULT nextval('publi
 
 
 --
+-- Name: link_rollouts id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.link_rollouts ALTER COLUMN id SET DEFAULT nextval('public.link_rollouts_id_seq'::regclass);
+
+
+--
 -- Name: moves id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1129,6 +1178,14 @@ ALTER TABLE ONLY public.link_exchanges
 
 ALTER TABLE ONLY public.link_requests
     ADD CONSTRAINT link_requests_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: link_rollouts link_rollouts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.link_rollouts
+    ADD CONSTRAINT link_rollouts_pkey PRIMARY KEY (id);
 
 
 --
@@ -1639,6 +1696,27 @@ CREATE UNIQUE INDEX index_link_requests_on_tenant_id_and_user_code ON public.lin
 
 
 --
+-- Name: index_link_rollouts_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_link_rollouts_on_tenant_id ON public.link_rollouts USING btree (tenant_id);
+
+
+--
+-- Name: index_link_rollouts_on_tenant_id_and_release; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_link_rollouts_on_tenant_id_and_release ON public.link_rollouts USING btree (tenant_id, release);
+
+
+--
+-- Name: index_link_rollouts_on_tenant_id_and_started_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_link_rollouts_on_tenant_id_and_started_at ON public.link_rollouts USING btree (tenant_id, started_at);
+
+
+--
 -- Name: index_moves_on_destination_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2059,6 +2137,14 @@ ALTER TABLE ONLY public.active_storage_blobs
 
 
 --
+-- Name: link_rollouts fk_rails_906eab746b; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.link_rollouts
+    ADD CONSTRAINT fk_rails_906eab746b FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: feed_edges fk_rails_90f851ca9c; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2323,6 +2409,12 @@ ALTER TABLE public.link_exchanges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.link_requests ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: link_rollouts; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.link_rollouts ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: moves; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -2449,6 +2541,13 @@ CREATE POLICY tenant_isolation ON public.link_requests USING ((tenant_id = (NULL
 
 
 --
+-- Name: link_rollouts tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.link_rollouts USING ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('xixo.tenant_id'::text, true), ''::text))::bigint));
+
+
+--
 -- Name: moves tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -2504,6 +2603,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261031220000'),
 ('20261031190000'),
 ('20261020100000'),
 ('20261014120000'),

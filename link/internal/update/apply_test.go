@@ -214,8 +214,8 @@ func TestTheUpdaterInstallsAStagedReleaseThatConnects(t *testing.T) {
 		t.Fatalf("floor %d", floor)
 	}
 
-	if _, err := os.Stat(held.layout.Release(held.old)); err == nil {
-		t.Fatal("the old release was kept")
+	if _, err := os.Stat(filepath.Join(held.layout.Release(held.old), Binary)); err != nil {
+		t.Fatal("the release before was not kept for a rollback")
 	}
 
 	for _, want := range []string{
@@ -360,5 +360,60 @@ func TestAFetchFailureReachesTheResultXixoLinkReads(t *testing.T) {
 	told := Result{}
 	if Read(filepath.Join(held.results, ResultFile), &told); told.OK || told.Error != "no attestation checks out" || !told.RequestedAt.Equal(asked.RequestedAt) {
 		t.Fatalf("result %+v", told)
+	}
+}
+
+func TestTheUpdaterGoesBackToAReleaseItHoldsWhenXixoAsks(t *testing.T) {
+	held := machine(t)
+	fresh := script("echo 0.3.0")
+	id := held.stage(t, fresh, "0.3.0", 20, nil, nil)
+	updater := held.updater(true)
+
+	if err := updater.Apply(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, _ := os.ReadFile(filepath.Join(held.layout.Release(held.old), release.File))
+	old, _ := Digest(filepath.Join(held.layout.Release(held.old), Binary))
+	asked := Request{Target: Target{Version: "0.2.0", SHA256: old, Release: release.Sum(raw)}, From: "0.3.0", RequestedAt: time.Now().UTC(), RollBack: true}
+	Write(filepath.Join(held.requests, RequestFile), asked, 0o644)
+	before := len(*held.ran)
+
+	if err := updater.Apply(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	if held.layout.Pointed(Current) != held.old || held.layout.Pointed(Good) != held.old {
+		t.Fatalf("current %q good %q", held.layout.Pointed(Current), held.layout.Pointed(Good))
+	}
+
+	if !held.ranLine("systemctl restart xixo-link") || len(*held.ran) == before {
+		t.Fatalf("xixo link was not restarted into the release before:\n%s", strings.Join((*held.ran)[before:], "\n"))
+	}
+
+	if floor, _ := Floor(held.layout.Floor()); floor != 20 {
+		t.Fatalf("going back lowered the floor to %d", floor)
+	}
+
+	if _, err := os.Stat(filepath.Join(held.layout.Release(id), Binary)); err != nil {
+		t.Fatal("the release xixo link left was not kept")
+	}
+
+	told := Result{}
+	if err := Read(filepath.Join(held.results, ResultFile), &told); err != nil || !told.OK || told.Version != "0.2.0" {
+		t.Fatalf("result %+v: %v", told, err)
+	}
+
+	again := len(*held.ran)
+	if err := updater.Apply(context.Background()); err != nil || len(*held.ran) != again {
+		t.Fatalf("the same request was taken twice: %v %v", err, (*held.ran)[again:])
+	}
+
+	asked.Release = strings.Repeat("e", 64)
+	asked.RequestedAt = time.Now().UTC()
+	Write(filepath.Join(held.requests, RequestFile), asked, 0o644)
+
+	if err := updater.Apply(context.Background()); err == nil || !strings.Contains(err.Error(), "does not hold") {
+		t.Fatalf("a release this machine lacks gave %v", err)
 	}
 }

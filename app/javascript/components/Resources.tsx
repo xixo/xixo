@@ -43,12 +43,12 @@ import {
   ArchiveResourceDocument,
   CheckResourceDocument,
   DeleteResourceDocument,
+  RequestMachineUpdateDocument,
   ResourcesDocument,
   SetDefaultInferenceDocument,
   SetDefaultStorageDocument,
   SetFolderForEveryoneDocument,
   SetMachinePlanDocument,
-  SetMachineUpdatesDocument,
   SetSyncIntervalDocument,
   SyncResourceDocument,
 } from 'xixo'
@@ -1130,7 +1130,7 @@ function Shares({
 }) {
   const plan = useAloud(SetMachinePlanDocument, 'That could not be changed.')
   const pause = useAloud(
-    SetMachineUpdatesDocument,
+    RequestMachineUpdateDocument,
     'That could not be changed.',
   )
   const [switching, setSwitching] = useState<string | null>(null)
@@ -1169,7 +1169,7 @@ function Shares({
               onChange={async (event) => {
                 const answered = await pause.execute({
                   id: resource.id,
-                  automatic: event.currentTarget.checked,
+                  action: event.currentTarget.checked ? 'resume' : 'pause',
                 })
                 if (answered) onChanged()
               }}

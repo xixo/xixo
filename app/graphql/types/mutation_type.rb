@@ -21,7 +21,7 @@ module Types
     field :deny_link_request, mutation: Mutations::DenyLinkRequest, grants: "xixo:resources:command"
     field :set_machine_plan, mutation: Mutations::SetMachinePlan, grants: "xixo:resources:command"
     field :set_folder_for_everyone, mutation: Mutations::SetFolderForEveryone, grants: "xixo:resources:command"
-    field :set_machine_updates, mutation: Mutations::SetMachineUpdates, grants: "xixo:resources:command"
+    field :request_machine_update, mutation: Mutations::RequestMachineUpdate, grants: "xixo:settings:write"
     field :update_resource, mutation: Mutations::UpdateResource, grants: "xixo:resources:command"
     field :archive_resource, mutation: Mutations::ArchiveResource, grants: "xixo:resources:command"
     field :delete_resource, mutation: Mutations::DeleteResource, grants: "xixo:resources:command"

@@ -33,6 +33,13 @@ module Types
       { status: ServerUpdates.status, events: ServerUpdates.events }
     end
 
+    field :link_updates, Types::LinkUpdatesType, grants: "xixo:settings:read",
+          description: "How xixo link on each machine is kept on the release this xixo ships. Empty for anyone but an administrator."
+
+    def link_updates
+      {} if context[:grant].administers?
+    end
+
     field :settings, [ Types::SettingType ], null: false, grants: "xixo:settings:read"
 
     def settings

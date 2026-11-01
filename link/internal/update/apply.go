@@ -44,6 +44,17 @@ func (u *Updater) Apply(ctx context.Context) error {
 		return err
 	}
 
+	if back, ok := u.askedBack(); ok {
+		if u.handled(back) {
+			return nil
+		}
+
+		err := u.rollBackTo(ctx, back)
+		u.record(back, err)
+
+		return err
+	}
+
 	staged, id := Staged(u.Staged())
 	if staged == "" {
 		return u.relay()
@@ -115,7 +126,7 @@ func (u *Updater) apply(ctx context.Context, staged, id string, asked Request) e
 	}
 
 	if u.connected(ctx, files[0].SHA256, since) {
-		if err := u.promote(ctx, held); err != nil {
+		if err := u.promote(ctx, held, from); err != nil {
 			u.log().Warn("xixo link updated and connected, and what follows an update did not all happen", "error", err)
 		}
 
@@ -152,7 +163,7 @@ func (u *Updater) switchTo(ctx context.Context, id string) error {
 	return nil
 }
 
-func (u *Updater) promote(ctx context.Context, held Verified) error {
+func (u *Updater) promote(ctx context.Context, held Verified, before string) error {
 	if err := u.Promote(held.ID); err != nil {
 		return err
 	}
@@ -167,7 +178,7 @@ func (u *Updater) promote(ctx context.Context, held Verified) error {
 		return err
 	}
 
-	Prune(u.Releases())
+	Prune(u.Releases(), before)
 
 	if (&Packages{Layout: u.Layout}).Changed() {
 		return u.run(ctx, "systemctl", "start", "--no-block", PackagesUnit)
@@ -231,7 +242,7 @@ func (u *Updater) recover(ctx context.Context) error {
 			return err
 		}
 
-		return u.promote(ctx, Verified{Release: held, ID: current})
+		return u.promote(ctx, Verified{Release: held, ID: current}, good)
 	}
 
 	pointed, err := os.Lstat(filepath.Join(u.Releases(), Current))
@@ -317,4 +328,58 @@ func (u *Updater) record(asked Request, err error) {
 	if werr := Write(filepath.Join(u.Results, ResultFile), told, 0o644); werr != nil && !errors.Is(werr, os.ErrNotExist) {
 		u.log().Warn("the update's result could not be kept", "error", werr)
 	}
+}
+
+func (u *Updater) askedBack() (Request, bool) {
+	asked := Request{}
+	if Read(filepath.Join(u.Requests, RequestFile), &asked) != nil || !asked.RollBack || asked.Check() != nil || asked.Release == "" {
+		return Request{}, false
+	}
+
+	return asked, true
+}
+
+func (u *Updater) rollBackTo(ctx context.Context, asked Request) error {
+	id := asked.Release[:16]
+
+	raw, err := os.ReadFile(filepath.Join(u.Release(id), release.File))
+	if err != nil || release.Sum(raw) != asked.Release {
+		return fmt.Errorf("this machine does not hold release %s", id)
+	}
+
+	sha, err := Digest(filepath.Join(u.Release(id), Binary))
+	if err != nil || sha != asked.SHA256 {
+		return fmt.Errorf("release %s on this machine is not the build xixo named", id)
+	}
+
+	left := u.Pointed(Current)
+	if left == id {
+		return nil
+	}
+
+	u.log().Info("going back to a release this machine holds", "version", asked.Version, "release", id)
+
+	if _, err := u.Render(id); err != nil {
+		return err
+	}
+
+	if err := u.Link(id); err != nil {
+		return err
+	}
+
+	if err := u.Reload(ctx); err != nil {
+		return err
+	}
+
+	if err := u.Restart(ctx); err != nil {
+		return err
+	}
+
+	if err := u.Promote(id); err != nil {
+		return err
+	}
+
+	Prune(u.Releases(), left)
+
+	return nil
 }

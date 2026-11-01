@@ -10,15 +10,23 @@ import (
 type Updater interface {
 	Mode() string
 	Offer(context.Context, update.Target) error
+	RollBack(context.Context, update.Target) error
+	Report() update.Report
 	Warnings() []string
 	Connected() error
 }
 
 func (a *Link) greeting(hello machine.Hello) greeting {
-	held := greeting{Hello: hello, SHA256: a.Identity.SHA256, MacReader: a.Identity.MacReader}
+	held := greeting{
+		Hello: hello, SHA256: a.Identity.SHA256, MacReader: a.Identity.MacReader,
+		Protocol: a.Identity.Protocol, Release: a.Identity.Release, Serial: a.Identity.Serial,
+	}
 
 	if a.Updates != nil {
 		held.Updates = a.Updates.Mode()
+		report := a.Updates.Report()
+		held.UpdateResult = report.Result
+		held.Releases = report.Held
 	}
 
 	return held
@@ -46,6 +54,22 @@ func (a *Link) updateTo(ctx context.Context, target update.Target) {
 
 		if err := a.Updates.Offer(ctx, target); err != nil {
 			a.Log.Warn("xixo link did not update", "version", target.Version, "error", err)
+		}
+	}()
+}
+
+func (a *Link) rollBackTo(ctx context.Context, target update.Target) {
+	if a.Updates == nil {
+		return
+	}
+
+	a.work.Add(1)
+
+	go func() {
+		defer a.work.Done()
+
+		if err := a.Updates.RollBack(ctx, target); err != nil {
+			a.Log.Warn("xixo link did not go back", "version", target.Version, "error", err)
 		}
 	}()
 }

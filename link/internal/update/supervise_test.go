@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -352,5 +353,53 @@ func TestStagingKeepsTheReleaseItRunsFrom(t *testing.T) {
 
 	if !regular(filepath.Join(releases, "ffffffffffffffff", Binary)) {
 		t.Fatal("staging removed the release xixo link runs from before the new one connected")
+	}
+}
+
+func TestStagingGoesBackToAReleaseItHoldsAndReportsWhatItHolds(t *testing.T) {
+	old, fresh := script("echo 0.2.0"), script("echo 0.3.0")
+	root := t.TempDir()
+	releases := filepath.Join(root, "releases")
+	restarted := 0
+
+	for serial, body := range map[int64][]byte{20: old, 30: fresh} {
+		files := map[string][]byte{}
+		raw := listedWithEpoch(t, files, "0."+strconv.FormatInt(serial/10, 10)+".0", serial, 0, entry("xixo-link-darwin-arm64", "darwin", "arm64", release.RoleBinary, body))
+		dir := filepath.Join(releases, ReleaseName(Target{SHA256: sum(body)}))
+		os.MkdirAll(dir, 0o700)
+		os.WriteFile(filepath.Join(dir, Binary), body, 0o755)
+		os.WriteFile(filepath.Join(dir, release.File), raw, 0o600)
+	}
+
+	Point(releases, Current, ReleaseName(Target{SHA256: sum(fresh)}))
+	Point(releases, Good, ReleaseName(Target{SHA256: sum(fresh)}))
+	Write(filepath.Join(root, ResultFile), Result{Version: "0.3.0", SHA256: sum(fresh), OK: true}, 0o600)
+
+	staging := &Stager{
+		Releases: releases, State: root, Self: Self{Version: "0.3.0", SHA256: sum(fresh)},
+		OS: "darwin", Arch: "arm64", Restart: func() { restarted++ },
+	}
+
+	report := staging.Report()
+	if report.Result == nil || !report.Result.OK || len(report.Held) != 2 || report.Held[0].Serial != 30 || report.Held[1].Version != "0.2.0" || report.Held[1].SHA256 != sum(old) {
+		t.Fatalf("report %+v %+v", report.Result, report.Held)
+	}
+
+	if err := staging.RollBack(context.Background(), Target{Version: "0.2.0", SHA256: sum(old)}); err != nil {
+		t.Fatal(err)
+	}
+
+	if Pointed(releases, Current) != ReleaseName(Target{SHA256: sum(old)}) || restarted != 1 {
+		t.Fatalf("current %q, restarted %d", Pointed(releases, Current), restarted)
+	}
+
+	if err := staging.RollBack(context.Background(), Target{Version: "0.2.0", SHA256: sum(old)}); err != nil || restarted != 1 {
+		t.Fatalf("the same request restarted again: %v %d", err, restarted)
+	}
+
+	staging.Self = Self{Version: "0.2.0", SHA256: sum(old)}
+	err := staging.RollBack(context.Background(), Target{Version: "0.1.0", SHA256: strings.Repeat("c", 64)})
+	if err == nil || !strings.Contains(err.Error(), "does not hold") {
+		t.Fatalf("a release this Mac lacks gave %v", err)
 	}
 }

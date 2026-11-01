@@ -327,8 +327,14 @@ Each machine checks that xixo's CI signed the release, and refuses one older tha
 the server cannot install anything else. When a new release does not connect within three minutes,
 xixo link goes back to the one before it, and tries again after six hours.
 
+A release reaches the machines in steps. The server runs it first. Once the server has been healthy
+for 15 minutes, one machine per platform updates, and the rest follow once that machine has stayed
+connected for 30 minutes. **Settings > Updates** shows where the rollout is and where each machine
+stands, and an administrator can update a machine now, choose the machine that goes first, pause
+one machine or all of them, and roll a machine back to the release it ran before.
+
 - To hold a machine at the release it runs, turn off **Update xixo link automatically** on its
-  card. Turn it on again to update at once.
+  card, or **Pause** it on **Settings > Updates**. Turn it on again to update at once.
 - A Linux machine linked up before xixo link installed releases as root takes the first release
   only through the [link-up command](#link-up-a-machine). Run it once more. It keeps the link, and
   every release after that arrives by itself.

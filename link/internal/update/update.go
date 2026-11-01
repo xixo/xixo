@@ -64,6 +64,20 @@ type Request struct {
 	Target
 	From        string    `json:"from"`
 	RequestedAt time.Time `json:"requested_at"`
+	RollBack    bool      `json:"roll_back,omitempty"`
+}
+
+type Held struct {
+	Release  string `json:"release"`
+	Version  string `json:"version"`
+	Serial   int64  `json:"serial"`
+	Protocol int64  `json:"protocol"`
+	SHA256   string `json:"sha256"`
+}
+
+type Report struct {
+	Result *Result
+	Held   []Held
 }
 
 type Running struct {

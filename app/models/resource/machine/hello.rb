@@ -3,6 +3,8 @@ class Resource
     module Hello
       UPDATES = %w[systemd self].freeze
       SHA256 = /\A[0-9a-f]{64}\z/
+      MOST_RELEASES = 16
+      MOST_PROTOCOL = 1_000_000
 
       module_function
 
@@ -24,8 +26,39 @@ class Resource
           "sha256" => digest(said["sha256"]),
           "mac_reader" => digest(said["mac_reader"]),
           "updates" => (said["updates"] if UPDATES.include?(said["updates"])),
-          "lend" => said["lend"] == true
+          "lend" => said["lend"] == true,
+          "protocol" => counted(said["protocol"]),
+          "release" => digest(said["release"]),
+          "serial" => counted(said["serial"]),
+          "update_result" => result(said["update_result"]),
+          "releases" => releases(said["releases"])
         }
+      end
+
+      def counted(value)
+        value if value.is_a?(Integer) && value.between?(0, MOST_PROTOCOL)
+      end
+
+      def stamp(value)
+        Time.iso8601(value.to_s).utc.iso8601 if value.is_a?(String)
+      rescue ArgumentError
+        nil
+      end
+
+      def result(value)
+        return nil unless value.is_a?(Hash) && digest(value["sha256"])
+
+        { "version" => text(value["version"]), "sha256" => digest(value["sha256"]), "ok" => value["ok"] == true,
+          "error" => text(value["error"]), "at" => stamp(value["at"]) }.compact
+      end
+
+      def releases(value)
+        listed(value).first(MOST_RELEASES).filter_map do |held|
+          next unless held.is_a?(Hash) && digest(held["release"]) && digest(held["sha256"])
+
+          { "release" => held["release"], "sha256" => held["sha256"], "version" => text(held["version"]),
+            "serial" => counted(held["serial"]), "protocol" => counted(held["protocol"]) }.compact
+        end
       end
 
       def digest(value)

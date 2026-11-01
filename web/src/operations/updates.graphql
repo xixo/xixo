@@ -39,3 +39,62 @@ mutation RequestServerUpdate($action: String!, $channel: String) {
     }
   }
 }
+
+query LinkUpdates {
+  administrator
+  linkUpdates {
+    release
+    protocol
+    rollout {
+      release
+      version
+      serial
+      phase
+      startedAt
+      phaseAt
+      heldReason
+      serverHealthyFor
+      firstHealthyFor
+      firstMachines {
+        os
+        arrivedAt
+        picked
+        resource {
+          id
+          key
+          name
+        }
+      }
+    }
+    machines {
+      id
+      key
+      name
+      machine {
+        hostname
+        os
+        version
+        release
+        serial
+        protocol
+        current
+        updates
+        updatesItself
+        connected
+        seenAt
+        updateState
+        lastUpdatedAt
+        lastRollback
+        lastRollbackAt
+      }
+    }
+  }
+}
+
+mutation RequestMachineUpdate($id: ID, $action: String!) {
+  requestMachineUpdate(input: { id: $id, action: $action }) {
+    linkUpdates {
+      protocol
+    }
+  }
+}

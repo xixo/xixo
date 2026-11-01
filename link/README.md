@@ -306,7 +306,7 @@ xixo link speaks the Action Cable protocol on `LinkChannel`. It sends:
 
 | Action | When |
 | --- | --- |
-| `hello` | Once connected: the version, system, folders, the description `up` sends, whether the configuration lends, and warnings. |
+| `hello` | Once connected: the version, system, folders, the description `up` sends, whether the configuration lends, and warnings. It also names the SHA-256 of its binary, the protocol it speaks, the release it runs with its serial, the releases it holds, and what came of its last update. |
 | `health` | After `hello`, and every minute: uptime, load, memory, and disk space. |
 | `reply` | When a request is answered, with `ok` and a `result` or an `error`. |
 | `chunk` | For each part of a file being read or made, base64 encoded, at most 256 KiB. |
@@ -320,9 +320,9 @@ xixo link watches every directory under a shared folder, up to 16,384 on Linux a
 so. Raise the Linux limit with `sysctl fs.inotify.max_user_watches`. The
 regular sync still finds anything a watch missed.
 
-xixo sends `update`, as in [updates](#updates), and `cancel`, as in [waiting
-and stopping](#waiting-and-stopping). It also sends requests, each naming a
-verb:
+xixo sends `update` and `roll_back`, as in [updates](#updates), and `cancel`,
+as in [waiting and stopping](#waiting-and-stopping). It also sends requests,
+each naming a verb:
 
 | Verbs | Do |
 | --- | --- |
@@ -441,6 +441,20 @@ machine install a file CI did not sign, or an older release than it has run.
 Each build carries its own serial, so a machine that has never updated still
 refuses anything older than what it was installed with.
 A failed update shows as a warning, and xixo link asks again six hours later.
+
+xixo rolls a release out in steps. The server runs it first, and once the
+server has been healthy for 15 minutes, one machine per platform updates. The
+rest are offered the release once that machine has stayed connected for 30
+minutes. When the first machine goes back to the release before, the rollout
+stops, and **Settings > Updates** says why. A machine that was offline through
+all of this is offered the current release when it connects.
+
+Each build also speaks a protocol number, and xixo accepts the protocol it
+speaks and the one before it. When the server itself rolls back to a build that
+no longer accepts a machine's protocol, xixo sends `roll_back`, naming a release
+the machine holds within the window, and the machine switches to it without a
+download. Every machine keeps the release before the one it runs for this. A
+machine that holds none within the window waits for xixo to catch up.
 
 The repository, workflows, and branch it trusts are compiled into xixo link,
 so a fork builds its own. A machine running a build from a fork, or from a dev

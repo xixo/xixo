@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/xixo/xixo/link/internal/release"
 )
 
 const (
@@ -88,6 +90,42 @@ func (s *Stager) Offer(ctx context.Context, target Target) error {
 
 func (s *Stager) Mode() string { return "self" }
 
+func (s *Stager) RollBack(_ context.Context, target Target) error {
+	if !s.busy.TryLock() {
+		return nil
+	}
+	defer s.busy.Unlock()
+
+	claimed, err := s.book().ask(s.Self, target, true)
+	if err != nil || !claimed {
+		return err
+	}
+
+	name := ReleaseName(target)
+
+	sha, err := Digest(filepath.Join(s.Releases, name, Binary))
+	if err != nil || sha != target.SHA256 {
+		err = fmt.Errorf("this machine does not hold version %s", target.Version)
+		Write(filepath.Join(s.State, ResultFile), Result{Version: target.Version, SHA256: target.SHA256, Error: err.Error(), At: time.Now().UTC()}, 0o600)
+
+		return err
+	}
+
+	if err := Point(s.Releases, Current, name); err != nil {
+		return err
+	}
+
+	if s.Restart != nil {
+		s.Restart()
+	}
+
+	return nil
+}
+
+func (s *Stager) Report() Report {
+	return Report{Result: lastResult(s.State), Held: heldIn(s.Releases)}
+}
+
 func (s *Stager) Warnings() []string {
 	return s.book().warnings(s.Self, s.State)
 }
@@ -127,6 +165,10 @@ func (s *Stager) stage(ctx context.Context, target Target) (bool, error) {
 
 	signed, err := s.Vouch.Release(ctx, target, goos, goarch)
 	if err != nil {
+		return false, err
+	}
+
+	if err := os.WriteFile(filepath.Join(part, release.File), signed.Raw, 0o600); err != nil {
 		return false, err
 	}
 

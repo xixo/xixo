@@ -401,6 +401,7 @@ class Resource
       merge_machine!(Hello.from(said).merge("session" => session, "connected" => true, "seen_at" => now_stamp))
       update_columns(offline_host: nil, offline_last_seen_at: nil, checked_at: Time.current, check_error: nil)
       reload
+      noted_update!
       offer_update!
       tell_parts!
       restate_folders!

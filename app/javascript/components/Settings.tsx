@@ -9,11 +9,7 @@ import {
 } from '@tabler/icons-react'
 import type { ReactNode } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import {
-  ServerUpdatesDocument,
-  SetSettingDocument,
-  SettingsDocument,
-} from 'xixo'
+import { LinkUpdatesDocument, SetSettingDocument, SettingsDocument } from 'xixo'
 import { useQuery } from 'xixo/react'
 import { useTitle } from '../hooks/useTitle'
 import { Face } from './Face'
@@ -30,8 +26,8 @@ const UPDATES = { to: '/settings/updates', label: 'Updates', icon: IconRefresh }
 
 export function Settings() {
   const { pathname } = useLocation()
-  const { data } = useQuery(ServerUpdatesDocument)
-  const tabs = data?.serverUpdates ? [...TABS, UPDATES] : TABS
+  const { data } = useQuery(LinkUpdatesDocument)
+  const tabs = data?.linkUpdates ? [...TABS, UPDATES] : TABS
 
   return (
     <div className="settings">

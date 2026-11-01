@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -342,6 +343,9 @@ func command(ctx context.Context, args []string, stdin io.Reader, stdout io.Writ
 		defer restart(nil)
 
 		running.Identity = update.Identify(version)
+		if built, _ := strconv.ParseInt(serial, 10, 64); built > 0 {
+			running.Identity.Serial = built
+		}
 		running.Updates = updater(ctx, *updates, *releases, *stateDir, config, running, func() { restart(errRestart) })
 		running.Parts = keeper(*updates == modeSystemd, *configPath, *stateDir, config)
 		defer running.Parts.Wait()

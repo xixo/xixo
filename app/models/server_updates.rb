@@ -4,6 +4,7 @@ class ServerUpdates
   MOST_STATUS = 1.megabyte
   MOST_EVENTS = 1.megabyte
   SHOWN_EVENTS = 10
+  MOST_LOOKED_BACK = 200
 
   class Refused < StandardError; end
 
@@ -21,6 +22,26 @@ class ServerUpdates
       held.is_a?(Hash) ? held : nil
     rescue Errno::ENOENT, Errno::EACCES, JSON::ParserError
       nil
+    end
+
+    def healthy?
+      held = status
+      return true if held.nil?
+
+      kinds = Array(held["kinds"]).select { |kind| kind.is_a?(Hash) && kind["name"] == "xixo" }
+      kinds.all? do |kind|
+        Array(kind["containers"]).select { |held| held.is_a?(Hash) }.all? do |container|
+          container["health"] == "healthy" || (container["health"].blank? && container["state"] == "running")
+        end
+      end
+    end
+
+    def rolled_back_since?(since)
+      events(MOST_LOOKED_BACK).any? do |event|
+        event["action"] == "rollback" && event["kind"] == "xixo" && event["error"].blank? && Time.iso8601(event["at"].to_s) > since
+      rescue ArgumentError
+        false
+      end
     end
 
     def events(limit = SHOWN_EVENTS)

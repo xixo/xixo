@@ -16,6 +16,7 @@ import (
 	"github.com/xixo/xixo/link/internal/extract"
 	"github.com/xixo/xixo/link/internal/folders"
 	"github.com/xixo/xixo/link/internal/machine"
+	"github.com/xixo/xixo/link/internal/update"
 )
 
 const (
@@ -46,9 +47,14 @@ var (
 
 type greeting struct {
 	machine.Hello
-	Updates   string `json:"updates,omitempty"`
-	SHA256    string `json:"sha256,omitempty"`
-	MacReader string `json:"mac_reader,omitempty"`
+	Updates      string         `json:"updates,omitempty"`
+	SHA256       string         `json:"sha256,omitempty"`
+	MacReader    string         `json:"mac_reader,omitempty"`
+	Protocol     int64          `json:"protocol"`
+	Release      string         `json:"release,omitempty"`
+	Serial       int64          `json:"serial,omitempty"`
+	UpdateResult *update.Result `json:"update_result,omitempty"`
+	Releases     []update.Held  `json:"releases,omitempty"`
 }
 
 func (a *Link) tool(ctx context.Context, asked *Request) {
