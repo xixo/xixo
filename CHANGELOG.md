@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.5.0](https://github.com/xixo/xixo/compare/server-v0.4.0...server-v0.5.0) (2026-11-01)
+
+
+### Features
+
+* **link:** a release carries the launch agent and a supervisor epoch, so a Mac takes a changed plist or supervisor through a helper that reloads the agent ([7da2111](https://github.com/xixo/xixo/commit/7da2111e4af348f64f3483dca4b8c1fea9ae0267))
+* **server:** a release of xixo link rolls out in steps, and Settings &gt; Updates steers each machine ([e38233a](https://github.com/xixo/xixo/commit/e38233af8191db0d5d29af6b6057359adabf7100))
+
+
+### Fixes
+
+* **server:** graphql and addressable move past their security advisories ([b906edd](https://github.com/xixo/xixo/commit/b906eddca76a6a5fedd1deb04f48c2ba1dc35095))
+* **web:** the Updates page compiles when only one of its two queries fails ([7650d64](https://github.com/xixo/xixo/commit/7650d64e290dde03c16d5ab85a732d641cb6b0c7))
+
+
+### Documentation
+
+* **guides:** a release reaches a Mac's launch agent too ([e3d448c](https://github.com/xixo/xixo/commit/e3d448ca9be27b1663bd444fba989d69864fcb38))
+* **guides:** the update paragraph wraps at the column the page uses ([a0f91d5](https://github.com/xixo/xixo/commit/a0f91d5d91952101f501a6979c8acb75f8d82b60))
+
 ## [0.4.0](https://github.com/xixo/xixo/compare/server-v0.3.0...server-v0.4.0) (2026-10-31)
 
 

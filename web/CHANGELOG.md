@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/xixo/xixo/compare/client-v0.7.0...client-v0.8.0) (2026-11-01)
+
+
+### Features
+
+* **server:** a release of xixo link rolls out in steps, and Settings &gt; Updates steers each machine ([e38233a](https://github.com/xixo/xixo/commit/e38233af8191db0d5d29af6b6057359adabf7100))
+
 ## [0.7.0](https://github.com/xixo/xixo/compare/client-v0.6.0...client-v0.7.0) (2026-10-31)
 
 
