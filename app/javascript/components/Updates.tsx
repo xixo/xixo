@@ -135,6 +135,7 @@ export function Updates() {
 
   const updates = data?.serverUpdates
   const linked = links.data?.linkUpdates
+  const failed = error ?? links.error
 
   const request = async (action: string, channel?: string) => {
     await ask.execute({ action, channel })
@@ -149,9 +150,9 @@ export function Updates() {
         lead="xixo keeps this server, and xixo link on every machine, on the builds xixo's CI built and signed."
       />
 
-      {(error || links.error) && (
+      {failed && (
         <Failed
-          error={error ?? links.error}
+          error={failed}
           retry={() => {
             refetch()
             links.refetch()
