@@ -43,11 +43,12 @@ type Image struct {
 }
 
 type Listed struct {
-	ID     string            `json:"Id"`
-	Names  []string          `json:"Names"`
-	Image  string            `json:"Image"`
-	State  string            `json:"State"`
-	Labels map[string]string `json:"Labels"`
+	ID      string            `json:"Id"`
+	Names   []string          `json:"Names"`
+	Image   string            `json:"Image"`
+	ImageID string            `json:"ImageID"`
+	State   string            `json:"State"`
+	Labels  map[string]string `json:"Labels"`
 }
 
 func Socket(path string) *Docker {

@@ -218,7 +218,11 @@ func (f *fakeDocker) mux() http.Handler {
 			if _, found := labels[Label]; !found {
 				continue
 			}
-			listed = append(listed, map[string]any{"Id": held.ID, "Names": []string{held.Name}, "Image": held.Image, "State": map[bool]string{true: "running", false: "exited"}[held.Running], "Labels": labels})
+			shown := held.Image
+			if configured, _ := held.Config["Image"].(string); f.tags[configured] == held.Image {
+				shown = configured
+			}
+			listed = append(listed, map[string]any{"Id": held.ID, "Names": []string{held.Name}, "Image": shown, "ImageID": held.Image, "State": map[bool]string{true: "running", false: "exited"}[held.Running], "Labels": labels})
 		}
 		reply(w, listed)
 	})

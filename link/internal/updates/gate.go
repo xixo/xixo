@@ -227,7 +227,7 @@ func (g *Gate) moved(ctx context.Context, kind Kind, to Image, back *Image) erro
 	done := []Listed{}
 
 	for _, container := range containers {
-		if container.Image == to.ID {
+		if container.ImageID == to.ID {
 			continue
 		}
 
@@ -469,7 +469,7 @@ func (g *Gate) Status(ctx context.Context) ([]Held, error) {
 		}
 
 		for _, container := range containers {
-			running := Running{Name: name(container), Service: container.Labels["com.docker.compose.service"], State: container.State, Stale: container.Image != currentID}
+			running := Running{Name: name(container), Service: container.Labels["com.docker.compose.service"], State: container.State, Stale: container.ImageID != currentID}
 			if inspected, err := g.Docker.Inspect(ctx, container.ID); err == nil {
 				running.Health, _ = object(object(inspected["State"])["Health"])["Status"].(string)
 			}

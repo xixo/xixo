@@ -316,3 +316,40 @@ func TestTheGateSaysWhenItIsBusy(t *testing.T) {
 		t.Fatal("a busy gate said it was idle")
 	}
 }
+
+func TestASwapToTheBuildAlreadyRunningLeavesEveryContainerAlone(t *testing.T) {
+	fake, gate := stack(t, "healthy")
+	ctx := context.Background()
+	gate.Pull(ctx, signed(t))
+
+	if err := gate.Swap(ctx, signed(t)); err != nil {
+		t.Fatal(err)
+	}
+
+	ids := []string{}
+	for _, container := range fake.containers {
+		ids = append(ids, container.ID)
+	}
+
+	if err := gate.Swap(ctx, signed(t)); err != nil {
+		t.Fatal(err)
+	}
+
+	again := []string{}
+	for _, container := range fake.containers {
+		again = append(again, container.ID)
+	}
+
+	if !slices.Equal(ids, again) {
+		t.Fatalf("the second swap recreated containers: %v then %v", ids, again)
+	}
+
+	status, _ := gate.Status(ctx)
+	for _, held := range status {
+		for _, container := range held.Containers {
+			if container.Stale {
+				t.Fatalf("status %+v", held)
+			}
+		}
+	}
+}
