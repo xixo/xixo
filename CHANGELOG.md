@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.1](https://github.com/xixo/xixo/compare/server-v0.6.0...server-v0.6.1) (2026-11-02)
+
+
+### Fixes
+
+* **server:** xixo names the masks client's errors Refused, InvalidToken, Forbidden, and Unavailable, as the masks gem does from its next release ([3ce1b80](https://github.com/xixo/xixo/commit/3ce1b802614caf0ab5225decb11b0a6baa97c2b2))
+* **updater:** the gate leaves a container alone when it already runs the current build ([e564184](https://github.com/xixo/xixo/commit/e564184d65255a441d0bc33a729be1cfd794443b))
+
 ## [0.6.0](https://github.com/xixo/xixo/compare/server-v0.5.0...server-v0.6.0) (2026-11-01)
 
 
