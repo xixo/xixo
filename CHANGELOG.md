@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.1](https://github.com/xixo/xixo/compare/server-v0.6.0...server-v0.6.1) (2026-11-07)
+
+
+### Fixes
+
+* **server:** rails 8.1.4.1 closes the Action Pack, Active Storage, Action View, and Active Support advisories bundler-audit stops CI on ([9cd15c8](https://github.com/xixo/xixo/commit/9cd15c8bc15dd64319a76a63feb10a9ada40ef16))
+* **server:** rails-html-sanitizer 1.7.2 closes an XSS advisory about shared scrubber state ([0308876](https://github.com/xixo/xixo/commit/0308876b0861f65f6f7aec1a877e52f0518ecd66))
+* **server:** the lockfile names masks 0.13.0, the release that carries the error names xixo already uses ([f6fc80a](https://github.com/xixo/xixo/commit/f6fc80a10797420216bd5dfa482a0ee56bbcf227))
+* **server:** xixo names the masks client's errors Refused, InvalidToken, Forbidden, and Unavailable, as the masks gem does from its next release ([3ce1b80](https://github.com/xixo/xixo/commit/3ce1b802614caf0ab5225decb11b0a6baa97c2b2))
+* **updater:** the gate leaves a container alone when it already runs the current build ([e564184](https://github.com/xixo/xixo/commit/e564184d65255a441d0bc33a729be1cfd794443b))
+
 ## [0.6.0](https://github.com/xixo/xixo/compare/server-v0.5.0...server-v0.6.0) (2026-11-01)
 
 
