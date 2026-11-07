@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/xixo/xixo/compare/server-v0.6.1...server-v0.7.0) (2026-11-07)
+
+
+### Features
+
+* **server:** Settings &gt; Updates says when CI has signed a newer xixo-updater than the one running ([2431449](https://github.com/xixo/xixo/commit/2431449ec022f81e6219a931b286ec29f8a24d41))
+
 ## [0.6.1](https://github.com/xixo/xixo/compare/server-v0.6.0...server-v0.6.1) (2026-11-07)
 
 
