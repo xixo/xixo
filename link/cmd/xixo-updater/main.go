@@ -162,6 +162,7 @@ func watch(ctx context.Context, log *slog.Logger, socket, mirror, cache string) 
 		Gate:     updates.Dial(socket),
 		Registry: &registry.Client{},
 		Channel:  channel,
+		Version:  version,
 		Book:     book,
 		Log:      log,
 		Checker: func() (*verify.Checker, error) {

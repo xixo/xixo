@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/xixo/xixo/link/internal/verify"
@@ -33,6 +34,7 @@ type Registry interface {
 	Digest(ctx context.Context, image, tag string) (string, error)
 	Tags(ctx context.Context, image string) ([]string, error)
 	Bundles(ctx context.Context, image, digest string) ([][]byte, error)
+	Labels(ctx context.Context, image, digest string) (map[string]string, error)
 }
 
 type Watcher struct {
@@ -40,6 +42,7 @@ type Watcher struct {
 	Registry Registry
 	Checker  func() (*verify.Checker, error)
 	Channel  string
+	Version  string
 	Book     *Book
 	Log      *slog.Logger
 	Every    time.Duration
@@ -127,6 +130,7 @@ func (w *Watcher) Once(ctx context.Context) error {
 		}
 	}
 
+	w.Book.Self(w.self(ctx, checker))
 	w.Book.Checked(w.channel(), held, targets)
 
 	pulled := []planned{}
@@ -189,7 +193,7 @@ func (w *Watcher) wanted(ctx context.Context, kind Kind, status Held, checker *v
 		return planned{}, err
 	}
 
-	digest, err := w.latest(ctx, kind)
+	digest, _, err := w.latest(ctx, kind)
 	if err != nil {
 		return planned{}, err
 	}
@@ -215,22 +219,110 @@ func (w *Watcher) wanted(ctx context.Context, kind Kind, status Held, checker *v
 	return planned{}, fmt.Errorf("%s@%s carries no attestation from %s %v: %w", kind.Image, digest, signer.Repository, signer.Workflows, verify.ErrUnsigned)
 }
 
-func (w *Watcher) latest(ctx context.Context, kind Kind) (string, error) {
-	if w.channel() == Main {
-		return w.Registry.Digest(ctx, kind.Image, Main)
+func (w *Watcher) latest(ctx context.Context, kind Kind) (string, string, error) {
+	reference := Main
+
+	if w.channel() != Main {
+		tags, err := w.Registry.Tags(ctx, kind.Image)
+		if err != nil {
+			return "", "", err
+		}
+
+		reference = Highest(tags)
+		if reference == "" {
+			return "", "", errors.New("no release is published yet")
+		}
 	}
 
-	tags, err := w.Registry.Tags(ctx, kind.Image)
+	digest, err := w.Registry.Digest(ctx, kind.Image, reference)
+
+	return digest, reference, err
+}
+
+func (w *Watcher) self(ctx context.Context, checker *verify.Checker) Updater {
+	held := Updater{Version: w.Version}
+
+	signer, err := Self.On(w.channel())
 	if err != nil {
-		return "", err
+		return held
 	}
 
-	highest := Highest(tags)
-	if highest == "" {
-		return "", errors.New("no release is published yet")
+	digest, reference, err := w.latest(ctx, Self)
+	if err != nil {
+		w.log().Warn("the newest updater build is unknown", "error", err)
+		return held
 	}
 
-	return w.Registry.Digest(ctx, kind.Image, highest)
+	bundles, err := w.Registry.Bundles(ctx, Self.Image, digest)
+	if err != nil {
+		w.log().Warn("the newest updater build is unknown", "error", err)
+		return held
+	}
+
+	signed := slices.ContainsFunc(bundles, func(bundle []byte) bool {
+		_, err := checker.Check(bundle, digest, signer)
+		return err == nil
+	})
+	if !signed {
+		w.log().Warn("the newest updater build carries no attestation, so it is not offered", "digest", digest, "repository", signer.Repository)
+		return held
+	}
+
+	labels, err := w.Registry.Labels(ctx, Self.Image, digest)
+	if err != nil {
+		w.log().Warn("the newest updater build names no commit", "error", err)
+		labels = map[string]string{}
+	}
+
+	held.NewestDigest = digest
+	held.NewestRevision = labels[Revision]
+	held.NewestCreated = labels[Created]
+
+	base, commit, _ := strings.Cut(w.Version, "+")
+	if w.channel() == Main {
+		held.Newest = shortened(held.NewestRevision)
+		held.Behind = commit != "" && held.NewestRevision != "" && !strings.HasPrefix(held.NewestRevision, commit)
+	} else {
+		held.Newest = reference
+		held.Behind = Newer(reference, base)
+	}
+
+	return held
+}
+
+func shortened(revision string) string {
+	if len(revision) > 7 {
+		return revision[:7]
+	}
+
+	return revision
+}
+
+func Newer(candidate, than string) bool {
+	parsed := func(tag string) []int {
+		found := release.FindStringSubmatch(tag)
+		if found == nil {
+			return nil
+		}
+
+		parts := []int{}
+		for _, part := range found[1:] {
+			number, err := strconv.Atoi(part)
+			if err != nil {
+				return nil
+			}
+			parts = append(parts, number)
+		}
+
+		return parts
+	}
+
+	first, second := parsed(candidate), parsed(than)
+	if first == nil || second == nil {
+		return false
+	}
+
+	return slices.Compare(first, second) > 0
 }
 
 func Highest(tags []string) string {

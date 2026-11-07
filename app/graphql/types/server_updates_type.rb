@@ -14,6 +14,7 @@ module Types
     field :events, [ Types::ServerUpdateEventType ], null: false, description: "The last ten things the updater did, newest first."
     field :migration_note, String, description: "A sentence when the database holds migrations this build does not have, as it does after a rollback."
     field :rollback_note, String, description: "A sentence on what a rollback to the build before does to the database, when that build has run on this server."
+    field :updater, Types::ServerUpdaterType, description: "The updater itself: what it runs, and the newest build of it CI signed."
 
     def manual = object[:status].nil?
     def channel = object[:status]&.dig("channel")
@@ -30,6 +31,11 @@ module Types
     end
 
     def events = object[:events]
+
+    def updater
+      held = object[:status]&.dig("updater")
+      held if held.is_a?(Hash)
+    end
     def migration_note = SchemaRelease.migration_note
 
     def rollback_note

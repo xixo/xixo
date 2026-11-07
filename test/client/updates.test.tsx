@@ -11,6 +11,7 @@ const reported = (overrides: Record<string, unknown> = {}) => ({
   checkedAt: new Date(Date.now() - 3 * 60_000).toISOString(),
   migrationNote: null,
   rollbackNote: null,
+  updater: null,
   images: [
     {
       name: 'xixo',
@@ -255,6 +256,45 @@ describe('server updates', () => {
         .getByRole('button', { name: 'Update now' })
         .hasAttribute('disabled'),
     ).toBe(true)
+  })
+
+  test('a newer signed updater is named, with how to take it', async () => {
+    updates(
+      reported({
+        updater: {
+          version: '0.6.1+ca2c19b',
+          newest: '0.6.2',
+          newestRevision: 'f6fc80a10797420216bd5dfa482a0ee56bbcf227',
+          newestCreated: new Date(Date.now() - 3600_000).toISOString(),
+          behind: true,
+        },
+      }),
+    )
+
+    expect(await screen.findByText('xixo-updater')).toBeTruthy()
+    expect(
+      screen.getByText(/0\.6\.1\+ca2c19b · 0\.6\.2 built 1h ago/),
+    ).toBeTruthy()
+    expect(screen.getByText('0.6.2 is newer')).toBeTruthy()
+    expect(screen.getByText(/The updater does not update itself/)).toBeTruthy()
+  })
+
+  test('an updater on the newest signed build is up to date', async () => {
+    updates(
+      reported({
+        updater: {
+          version: '0.6.2+1a2b3c4',
+          newest: '0.6.2',
+          newestRevision: null,
+          newestCreated: null,
+          behind: false,
+        },
+      }),
+    )
+
+    expect(await screen.findByText('xixo-updater')).toBeTruthy()
+    expect(screen.getAllByText('Up to date')).toHaveLength(2)
+    expect(screen.queryByText(/does not update itself/)).toBeNull()
   })
 
   test('a server with no updater says its updates are manual', async () => {

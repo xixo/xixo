@@ -48,6 +48,13 @@ var Kinds = []Kind{
 	},
 }
 
+var Self = Kind{
+	Name:     "xixo-updater",
+	Image:    "ghcr.io/xixo/xixo-updater",
+	Signer:   verify.Signer{Repository: "xixo/xixo", Workflows: []string{"ci.yml", "release.yml"}},
+	Channels: map[string][]string{Main: {"ci.yml"}, Releases: {"release.yml"}},
+}
+
 func Named(name string) (Kind, error) {
 	for _, kind := range Kinds {
 		if kind.Name == name {

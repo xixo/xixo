@@ -34,6 +34,16 @@ type Report struct {
 	CheckedAt time.Time         `json:"checked_at"`
 	Kinds     []Held            `json:"kinds"`
 	Targets   map[string]string `json:"targets"`
+	Updater   *Updater          `json:"updater,omitempty"`
+}
+
+type Updater struct {
+	Version        string `json:"version"`
+	Newest         string `json:"newest,omitempty"`
+	NewestDigest   string `json:"newest_digest,omitempty"`
+	NewestRevision string `json:"newest_revision,omitempty"`
+	NewestCreated  string `json:"newest_created,omitempty"`
+	Behind         bool   `json:"behind"`
 }
 
 type Book struct {
@@ -42,6 +52,7 @@ type Book struct {
 	lock     sync.Mutex
 	bad      map[string]time.Time
 	settings Settings
+	self     *Updater
 	asked    chan struct{}
 }
 
@@ -182,8 +193,18 @@ func (b *Book) Asked() <-chan struct{} {
 	return b.asked
 }
 
+func (b *Book) Self(held Updater) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	b.self = &held
+}
+
 func (b *Book) Checked(channel string, kinds []Held, targets map[string]string) {
-	report := Report{Channel: channel, Paused: b.Paused(), CheckedAt: time.Now().UTC(), Kinds: kinds, Targets: targets}
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	report := Report{Channel: channel, Paused: b.settings.Paused, CheckedAt: time.Now().UTC(), Kinds: kinds, Targets: targets, Updater: b.self}
 	if report.Kinds == nil {
 		report.Kinds = []Held{}
 	}
@@ -192,9 +213,6 @@ func (b *Book) Checked(channel string, kinds []Held, targets map[string]string) 
 	if err != nil {
 		return
 	}
-
-	b.lock.Lock()
-	defer b.lock.Unlock()
 
 	written(filepath.Join(b.Dir, "status.json"), raw)
 }

@@ -330,6 +330,33 @@ export function Updates() {
                   </div>
                 )
               })}
+
+              {updates.updater && (
+                <div className="setting">
+                  <div>
+                    <div className="setting-name">xixo-updater</div>
+                    <div className="setting-note">
+                      {updates.updater.version}
+                      {updates.updater.behind &&
+                        updates.updater.newestCreated &&
+                        ` · ${updates.updater.newest} built ${dated(updates.updater.newestCreated)}`}
+                    </div>
+                    {updates.updater.behind && (
+                      <div className="setting-note">
+                        The updater does not update itself. Change its image tag
+                        in the compose file and run docker compose up -d updater
+                        updater-gate.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="setting-note">
+                    {updates.updater.behind
+                      ? `${updates.updater.newest} is newer`
+                      : 'Up to date'}
+                  </div>
+                </div>
+              )}
             </div>
           </Stack>
 

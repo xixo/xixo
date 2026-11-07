@@ -1,7 +1,7 @@
 require "test_helper"
 
 class ServerUpdatesTest < ActionDispatch::IntegrationTest
-  UPDATES = "{ serverUpdates { manual channel paused migrationNote rollbackNote images { name current revision target containers { name stale } } events { action kind by } } }".freeze
+  UPDATES = "{ serverUpdates { manual channel paused migrationNote rollbackNote images { name current revision target containers { name stale } } events { action kind by } updater { version newest newestRevision behind } } }".freeze
 
   setup do
     @tenant = Tenant.create!(subdomain: "updates-#{SecureRandom.hex(4)}", name: "Updates")
@@ -36,6 +36,17 @@ class ServerUpdatesTest < ActionDispatch::IntegrationTest
     assert_equal [ "pause", "pull" ], updates["events"].map { |held| held["action"] }
     assert_nil updates["migrationNote"]
     assert_nil updates["rollbackNote"]
+    assert_equal [ "0.6.1+ca2c19b", "0.6.2", "f6fc80a10797420216bd5dfa482a0ee56bbcf227", true ],
+                 updates["updater"].values_at("version", "newest", "newestRevision", "behind")
+  end
+
+  test "a status from an updater that does not report itself leaves the updater unknown" do
+    report!(updater: nil)
+
+    updates = graphql(Grant::SCOPES, UPDATES).dig("data", "serverUpdates")
+
+    assert_equal false, updates["manual"]
+    assert_nil updates["updater"]
   end
 
   test "an administrator reads what rolling back to the build before does to the database" do
@@ -96,13 +107,14 @@ class ServerUpdatesTest < ActionDispatch::IntegrationTest
 
   private
 
-    def report!
+    def report!(updater: { version: "0.6.1+ca2c19b", newest: "0.6.2", newest_digest: "sha256:updater",
+                           newest_revision: "f6fc80a10797420216bd5dfa482a0ee56bbcf227", behind: true })
       File.write(File.join(@dir, "status.json"), {
         channel: "main", paused: false, checked_at: "2026-10-22T02:21:53Z",
         kinds: [ { name: "xixo", current: "sha256:old", revision: "c589ffe", previous: "sha256:older", previous_revision: "0ld0ld0ld0ld0ld0",
                    previous_version: "main", containers: [ { name: "xixo-xixo-1", state: "running" } ] } ],
-        targets: { xixo: "sha256:new" }
-      }.to_json)
+        targets: { xixo: "sha256:new" }, updater: updater
+      }.compact.to_json)
     end
 
     def graphql(scopes, query)

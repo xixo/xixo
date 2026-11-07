@@ -16,6 +16,7 @@ type fakeRegistry struct {
 	digests map[string]string
 	tags    map[string][]string
 	bundles map[string][][]byte
+	labels  map[string]map[string]string
 }
 
 func (r *fakeRegistry) Digest(_ context.Context, image, tag string) (string, error) {
@@ -32,6 +33,14 @@ func (r *fakeRegistry) Tags(_ context.Context, image string) ([]string, error) {
 
 func (r *fakeRegistry) Bundles(_ context.Context, image, digest string) ([][]byte, error) {
 	return r.bundles[image+"@"+digest], nil
+}
+
+func (r *fakeRegistry) Labels(_ context.Context, image, digest string) (map[string]string, error) {
+	if labels, found := r.labels[image+"@"+digest]; found {
+		return labels, nil
+	}
+
+	return nil, errors.New("no such image")
 }
 
 type fakeGate struct {
@@ -98,6 +107,7 @@ func watcher(t *testing.T, channel string) (*Watcher, *fakeGate) {
 		digests: map[string]string{"ghcr.io/xixo/xixo:main": built, "ghcr.io/masksrb/masks:main": running, "ghcr.io/xixo/xixo:0.2.0": built},
 		tags:    map[string][]string{"ghcr.io/xixo/xixo": {"main", "0.1.9", "0.2.0", "0.10.0-rc", "latest"}},
 		bundles: map[string][][]byte{"ghcr.io/xixo/xixo@" + built: {bundle(t)}},
+		labels:  map[string]map[string]string{},
 	}
 
 	return &Watcher{Gate: gate, Registry: registry, Checker: trusted(t), Channel: channel, Book: book, Watching: 50 * time.Millisecond, Polled: 10 * time.Millisecond}, gate
@@ -211,5 +221,78 @@ func TestTheEventLogKeepsTheLastThousandLines(t *testing.T) {
 
 	if held := events(t, book); len(held) != MostEvents {
 		t.Fatalf("%d events", len(held))
+	}
+}
+
+func reported(t *testing.T, book *Book) Report {
+	t.Helper()
+	report := Report{}
+	raw, _ := os.ReadFile(filepath.Join(book.Dir, "status.json"))
+	if err := json.Unmarshal(raw, &report); err != nil {
+		t.Fatal(err)
+	}
+
+	return report
+}
+
+func TestTheStatusSaysWhenCIHasSignedANewerUpdaterThanTheOneRunning(t *testing.T) {
+	watching, _ := watcher(t, Main)
+	watching.Version = "0.6.1+ca2c19b"
+	held := watching.Registry.(*fakeRegistry)
+	held.digests["ghcr.io/xixo/xixo-updater:main"] = built
+	held.bundles["ghcr.io/xixo/xixo-updater@"+built] = [][]byte{bundle(t)}
+	held.labels["ghcr.io/xixo/xixo-updater@"+built] = map[string]string{Revision: "deadbeefcafe0123456789", Created: "2026-11-07T20:00:00Z"}
+
+	if err := watching.Once(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	updater := reported(t, watching.Book).Updater
+	if updater == nil || updater.Version != "0.6.1+ca2c19b" || updater.Newest != "deadbee" || updater.NewestDigest != built ||
+		updater.NewestCreated != "2026-11-07T20:00:00Z" || !updater.Behind {
+		t.Fatalf("updater %+v", updater)
+	}
+
+	watching.Version = "0.6.1+deadbee"
+	if err := watching.Once(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	if updater = reported(t, watching.Book).Updater; updater == nil || updater.Behind || updater.Newest != "deadbee" {
+		t.Fatalf("the running commit counts as behind: %+v", updater)
+	}
+}
+
+func TestAnUpdaterBuildWithoutAnAttestationIsNotOffered(t *testing.T) {
+	watching, _ := watcher(t, Main)
+	watching.Version = "0.6.1+ca2c19b"
+	held := watching.Registry.(*fakeRegistry)
+	held.digests["ghcr.io/xixo/xixo-updater:main"] = running
+	held.labels["ghcr.io/xixo/xixo-updater@"+running] = map[string]string{Revision: "deadbeefcafe0123456789"}
+
+	if err := watching.Once(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	if updater := reported(t, watching.Book).Updater; updater == nil || updater.Version != "0.6.1+ca2c19b" || updater.Newest != "" || updater.Behind {
+		t.Fatalf("updater %+v", updater)
+	}
+}
+
+func TestOnReleasesTheNewestUpdaterIsTheHighestRelease(t *testing.T) {
+	for _, held := range []struct {
+		candidate, than string
+		newer           bool
+	}{
+		{"0.10.0", "0.9.9", true},
+		{"0.6.2", "0.6.1", true},
+		{"0.6.1", "0.6.1", false},
+		{"0.6.0", "0.6.1", false},
+		{"main", "0.6.1", false},
+		{"0.7.0", "dev", false},
+	} {
+		if Newer(held.candidate, held.than) != held.newer {
+			t.Errorf("Newer(%q, %q) is not %v", held.candidate, held.than, held.newer)
+		}
 	}
 }

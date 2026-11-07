@@ -6,6 +6,13 @@ query ServerUpdates {
     checkedAt
     migrationNote
     rollbackNote
+    updater {
+      version
+      newest
+      newestRevision
+      newestCreated
+      behind
+    }
     images {
       name
       current

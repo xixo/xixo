@@ -928,6 +928,18 @@ Something the updater did or refused: a check, pull, swap, rollback, refusal, or
 | `error` | `String` | What went wrong, when it failed or was refused. |
 | `kind` | `String` | The image it concerned: xixo, xixo-link, or masks. |
 
+### ServerUpdater
+
+The xixo-updater that runs beside this server, and the newest build of it CI signed. The updater does not update itself. Resolves only for a token carrying `xixo:settings:read`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `behind` | `Boolean!` | Whether the newest build is newer than the one running, so an operator moves the updater's image tag. |
+| `newest` | `String` | The newest signed build on the channel: a release on releases, or the commit on main. |
+| `newestCreated` | `String` | When CI built the newest build. |
+| `newestRevision` | `String` | The commit the newest build came from. |
+| `version` | `String` | The version the running updater names, such as 0.6.1+ca2c19b. |
+
 ### ServerUpdates
 
 How xixo-updater keeps this server on the builds CI signed. Manual when no updater runs beside it. Resolves only for a token carrying `xixo:settings:read`.
@@ -942,6 +954,7 @@ How xixo-updater keeps this server on the builds CI signed. Manual when no updat
 | `migrationNote` | `String` | A sentence when the database holds migrations this build does not have, as it does after a rollback. |
 | `paused` | `Boolean!` | Whether updates are paused. |
 | `rollbackNote` | `String` | A sentence on what a rollback to the build before does to the database, when that build has run on this server. |
+| `updater` | [`ServerUpdater`](#serverupdater) | The updater itself: what it runs, and the newest build of it CI signed. |
 
 ### SetDefaultInferencePayload
 

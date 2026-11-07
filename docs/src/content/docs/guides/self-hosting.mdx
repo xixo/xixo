@@ -557,7 +557,7 @@ refused, and the refusal is logged.
    ```yaml
    services:
      updater-gate:
-       image: ghcr.io/xixo/xixo-updater:0.2
+       image: ghcr.io/xixo/xixo-updater:0.6
        command: ["gate"]
        user: root
        network_mode: none
@@ -574,7 +574,7 @@ refused, and the refusal is logged.
          start_interval: 5s
 
      updater:
-       image: ghcr.io/xixo/xixo-updater:0.2
+       image: ghcr.io/xixo/xixo-updater:0.6
        command: ["watch"]
        restart: unless-stopped
        environment:
@@ -647,9 +647,15 @@ updates**, **Roll back**, and the channel. Administrators of the tenant in `XIXO
 of the single `XIXO_TENANT`, see it. A request goes to the updater through `request.json`, which the
 updater reads and never writes back to, and each one is in the audit log.
 
+The updater does not update itself. Each check also looks up the newest signed `xixo-updater`
+build on the channel, and **Settings > Updates** says when it is newer than the one running. To
+take it, change the image tag of `updater` and `updater-gate` in the compose file and run
+`docker compose up -d updater updater-gate`. The build the gate pinned stays where it is.
+
 `/var/lib/xixo-updates/state` in the `updater` container holds `status.json`, with each image's
-digest, commit, and containers, and `events.jsonl`, with the last 1,000 checks, pulls, swaps,
-rollbacks, and refusals. `docker compose logs updater updater-gate` shows the same events.
+digest, commit, and containers, the updater's own version and the newest signed one, and
+`events.jsonl`, with the last 1,000 checks, pulls, swaps, rollbacks, and refusals.
+`docker compose logs updater updater-gate` shows the same events.
 
 Every administrator sees the **Machines** section of **Settings > Updates**, which shows the rollout
 of xixo link to the linked machines and lets them steer it, as
